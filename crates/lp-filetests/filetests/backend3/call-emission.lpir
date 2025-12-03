@@ -1,0 +1,27 @@
+test compile
+
+function %callee(i32) -> i32 {
+block0(v0: i32):
+    v1 = iadd v0, v0
+    return v1
+}
+
+function %caller(i32) -> i32 {
+block0(v0: i32):
+    v1 = call %callee(v0)
+    return v1
+}
+
+; check: function %caller
+; check: addi sp, sp, -8
+; check: sw ra, 4(sp)
+; check: sw s0, 0(sp)
+; check: addi sp, sp, -8
+; check: sw s1, 8(sp)
+; check: auipc
+; check: addi
+; check: jalr ra,
+; check: addi s1, a0, 0
+; check: addi a0, s1, 0
+; check: lw s1, 8(sp)
+; check: jalr zero, 0(ra)

@@ -1,0 +1,13 @@
+[package]
+name = "lpc-filetests"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+lpc-codegen = { path = "../lpc-codegen", features = ["debug-codegen"] }
+lpc-lpir = { path = "../lpc-lpir" }
+lpc-toy-lang = { path = "../lpc-toy-lang" }
+filecheck = "0.4"
+embive = { path = "/Users/yona/dev/opensource/embive", default-features = false, features = ["interpreter", "transpiler"] }
+

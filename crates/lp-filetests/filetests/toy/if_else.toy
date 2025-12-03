@@ -1,0 +1,17 @@
+test toy
+
+fn max ( a , b ) -> ( result )
+{
+    if a > b {
+        result = a
+    } else {
+        result = b
+    }
+}
+
+args: 5, 3
+check: result: 5
+
+args: 2, 7
+check: result: 7
+

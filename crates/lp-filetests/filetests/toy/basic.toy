@@ -1,0 +1,10 @@
+test toy
+
+fn add ( a , b ) -> ( result )
+{
+    result = a + b
+}
+
+args: 5, 3
+check: result: 8
+

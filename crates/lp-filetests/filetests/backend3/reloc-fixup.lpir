@@ -1,0 +1,35 @@
+test compile
+
+function %callee(i32) -> i32 {
+block0(v0: i32):
+    v1 = iadd v0, v0
+    return v1
+}
+
+function %caller(i32) -> i32 {
+block0(v0: i32):
+    v1 = call %callee(v0)
+    return v1
+}
+
+; This test verifies that relocation fixup works correctly.
+; Function call addresses should be patched correctly.
+; Local symbol resolution should work.
+
+; check: function %caller
+; check: # Prologue
+; sameln: addi sp, sp, -8
+; sameln: sw ra, 4(sp)
+; sameln: sw s0, 0(sp)
+; check: # Call setup
+; sameln: mv a0, a0
+; check: # Function call (AUIPC + ADDI + JALR)
+; sameln: auipc
+; sameln: addi
+; sameln: jalr ra,
+; check: # Epilogue
+; sameln: lw s0, 0(sp)
+; sameln: lw ra, 4(sp)
+; sameln: addi sp, sp, 8
+; sameln: jalr zero, ra, 0
+
