@@ -5,6 +5,7 @@ authors = ["The Cranelift Project Developers"]
 description = "A JIT library backed by Cranelift"
 repository = "https://github.com/bytecodealliance/wasmtime"
 documentation = "https://docs.rs/cranelift-jit"
+categories = ["no-std"]
 license = "Apache-2.0 WITH LLVM-exception"
 readme = "README.md"
 edition.workspace = true
@@ -15,21 +16,23 @@ workspace = true
 
 [dependencies]
 cranelift-module = { workspace = true }
-cranelift-native = { workspace = true }
-cranelift-codegen = { workspace = true, features = ["std"] }
+cranelift-native = { workspace = true, optional = true }
+cranelift-codegen = { workspace = true }
 cranelift-entity = { workspace = true }
 cranelift-control = { workspace = true }
 wasmtime-unwinder = { workspace = true, optional = true, features = ["cranelift"] }
 anyhow = { workspace = true }
-region = "3.0.2"
-libc = { workspace = true }
+region = { version = "3.0.2", optional = true }
+libc = { workspace = true, optional = true }
 target-lexicon = { workspace = true }
 memmap2 = { version = "0.2.1", optional = true }
 log = { workspace = true }
 wasmtime-jit-icache-coherence = { workspace = true }
+hashbrown = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies.windows-sys]
 workspace = true
+optional = true
 features = [
     "Win32_Foundation",
     "Win32_System_LibraryLoader",
@@ -37,8 +40,24 @@ features = [
 ]
 
 [features]
-selinux-fix = ['memmap2']
-default = []
+default = ["std"]
+
+std = [
+    "cranelift-codegen/std",
+    "cranelift-module/std",
+    "anyhow/std",
+    "system-memory",
+]
+
+core = [
+    "cranelift-codegen/core",
+    "cranelift-module/core",
+    "hashbrown",
+]
+
+system-memory = ["std", "region", "libc", "cranelift-native"]
+
+selinux-fix = ["memmap2", "system-memory"]
 
 wasmtime-unwinder = ["dep:wasmtime-unwinder"]
 

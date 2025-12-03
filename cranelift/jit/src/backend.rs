@@ -2,8 +2,11 @@
 
 use crate::{
     compiled_blob::CompiledBlob,
-    memory::{BranchProtection, JITMemoryProvider, SystemMemoryProvider},
+    memory::{BranchProtection, JITMemoryProvider},
 };
+#[cfg(feature = "system-memory")]
+use crate::memory::SystemMemoryProvider;
+
 use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::isa::{OwnedTargetIsa, TargetIsa};
 use cranelift_codegen::settings::Configurable;
@@ -15,12 +18,20 @@ use cranelift_module::{
     ModuleReloc, ModuleRelocTarget, ModuleResult,
 };
 use log::info;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::ffi::CString;
-use std::io::Write;
-use std::ptr;
+use core::cell::RefCell;
+use core::ptr;
+use std::boxed::Box;
+use std::string::String;
+use std::vec::Vec;
 use target_lexicon::PointerWidth;
+
+#[cfg(not(feature = "std"))]
+use hashbrown::HashMap;
+#[cfg(feature = "std")]
+use std::collections::HashMap;
+
+#[cfg(feature = "system-memory")]
+use std::ffi::CString;
 
 const WRITABLE_DATA_ALIGNMENT: u64 = 0x8;
 const READONLY_DATA_ALIGNMENT: u64 = 0x1;
@@ -41,6 +52,11 @@ impl JITBuilder {
     /// enum to symbols. LibCalls are inserted in the IR as part of the legalization for certain
     /// floating point instructions, and for stack probes. If you don't know what to use for this
     /// argument, use `cranelift_module::default_libcall_names()`.
+    ///
+    /// # Availability
+    ///
+    /// This method requires the `system-memory` feature (enabled by default with `std`).
+    #[cfg(feature = "system-memory")]
     pub fn new(
         libcall_names: Box<dyn Fn(ir::LibCall) -> String + Send + Sync>,
     ) -> ModuleResult<Self> {
@@ -53,6 +69,11 @@ impl JITBuilder {
     /// enum to symbols. LibCalls are inserted in the IR as part of the legalization for certain
     /// floating point instructions, and for stack probes. If you don't know what to use for this
     /// argument, use `cranelift_module::default_libcall_names()`.
+    ///
+    /// # Availability
+    ///
+    /// This method requires the `system-memory` feature (enabled by default with `std`).
+    #[cfg(feature = "system-memory")]
     pub fn with_flags(
         flags: &[(&str, &str)],
         libcall_names: Box<dyn Fn(ir::LibCall) -> String + Send + Sync>,
@@ -78,18 +99,31 @@ impl JITBuilder {
     /// useful for testing.
     ///
     /// To create a `JITBuilder` for native use, use the `new` or `with_flags`
-    /// constructors instead.
+    /// constructors instead (available with the `system-memory` feature).
     ///
     /// The `libcall_names` function provides a way to translate `cranelift_codegen`'s `ir::LibCall`
     /// enum to symbols. LibCalls are inserted in the IR as part of the legalization for certain
     /// floating point instructions, and for stack probes. If you don't know what to use for this
     /// argument, use `cranelift_module::default_libcall_names()`.
+    ///
+    /// # no_std Usage
+    ///
+    /// In `no_std` mode, this is the primary way to create a `JITBuilder`. You must:
+    /// - Provide a custom ISA (since `cranelift_native` is not available)
+    /// - Register all external symbols via [`JITBuilder::symbol`]
+    /// - Provide a custom memory provider via [`JITBuilder::memory_provider`]
     pub fn with_isa(
         isa: OwnedTargetIsa,
         libcall_names: Box<dyn Fn(ir::LibCall) -> String + Send + Sync>,
     ) -> Self {
         let symbols = HashMap::new();
+        
+        #[cfg(feature = "system-memory")]
         let lookup_symbols = vec![Box::new(lookup_with_dlsym) as Box<_>];
+        
+        #[cfg(not(feature = "system-memory"))]
+        let lookup_symbols = vec![];
+        
         Self {
             isa,
             symbols,
@@ -195,9 +229,14 @@ impl JITModule {
     }
 
     fn lookup_symbol(&self, name: &str) -> Option<*const u8> {
+        #[cfg(feature = "std")]
+        use std::collections::hash_map::Entry;
+        #[cfg(not(feature = "std"))]
+        use hashbrown::hash_map::Entry;
+        
         match self.symbols.borrow_mut().entry(name.to_owned()) {
-            std::collections::hash_map::Entry::Occupied(occ) => Some(occ.get().0),
-            std::collections::hash_map::Entry::Vacant(vac) => {
+            Entry::Occupied(occ) => Some(occ.get().0),
+            Entry::Vacant(vac) => {
                 let ptr = self
                     .lookup_symbols
                     .iter()
@@ -292,19 +331,30 @@ impl JITModule {
     }
 
     fn record_function_for_perf(&self, ptr: *mut u8, size: usize, name: &str) {
-        // The Linux perf tool supports JIT code via a /tmp/perf-$PID.map file,
-        // which contains memory regions and their associated names.  If we
-        // are profiling with perf and saving binaries to PERF_BUILDID_DIR
-        // for post-profile analysis, write information about each function
-        // we define.
-        if cfg!(unix) && ::std::env::var_os("PERF_BUILDID_DIR").is_some() {
-            let mut map_file = ::std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(format!("/tmp/perf-{}.map", ::std::process::id()))
-                .unwrap();
+        #[cfg(all(unix, feature = "std"))]
+        {
+            use std::io::Write;
+            
+            // The Linux perf tool supports JIT code via a /tmp/perf-$PID.map file,
+            // which contains memory regions and their associated names.  If we
+            // are profiling with perf and saving binaries to PERF_BUILDID_DIR
+            // for post-profile analysis, write information about each function
+            // we define.
+            if ::std::env::var_os("PERF_BUILDID_DIR").is_some() {
+                let mut map_file = ::std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(format!("/tmp/perf-{}.map", ::std::process::id()))
+                    .unwrap();
 
-            let _ = writeln!(map_file, "{:x} {:x} {}", ptr as usize, size, name);
+                let _ = writeln!(map_file, "{:x} {:x} {}", ptr as usize, size, name);
+            }
+        }
+        
+        #[cfg(not(all(unix, feature = "std")))]
+        {
+            // Suppress unused variable warnings in no_std
+            let _ = (ptr, size, name);
         }
     }
 
@@ -317,7 +367,7 @@ impl JITModule {
     ///
     /// Returns ModuleError in case of allocation or syscall failure
     pub fn finalize_definitions(&mut self) -> ModuleResult<()> {
-        for func in std::mem::take(&mut self.functions_to_finalize) {
+        for func in core::mem::take(&mut self.functions_to_finalize) {
             let decl = self.declarations.get_function_decl(func);
             assert!(decl.linkage.is_definable());
             let func = self.compiled_functions[func]
@@ -326,7 +376,7 @@ impl JITModule {
             func.perform_relocations(|name| self.get_address(name));
         }
 
-        for data in std::mem::take(&mut self.data_objects_to_finalize) {
+        for data in core::mem::take(&mut self.data_objects_to_finalize) {
             let decl = self.declarations.get_data_decl(data);
             assert!(decl.linkage.is_definable());
             let data = self.compiled_data_objects[data]
@@ -350,15 +400,31 @@ impl JITModule {
     }
 
     /// Create a new `JITModule`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no memory provider was specified and the `system-memory` feature is not enabled.
     pub fn new(builder: JITBuilder) -> Self {
         assert!(
             !builder.isa.flags().is_pic(),
             "cranelift-jit needs is_pic=false"
         );
 
-        let memory = builder
-            .memory
-            .unwrap_or_else(|| Box::new(SystemMemoryProvider::new()));
+        let memory = builder.memory.unwrap_or_else(|| {
+            #[cfg(feature = "system-memory")]
+            {
+                Box::new(SystemMemoryProvider::new())
+            }
+            
+            #[cfg(not(feature = "system-memory"))]
+            {
+                panic!(
+                    "No memory provider specified. In no_std mode, you must provide a custom \
+                     JITMemoryProvider via JITBuilder::memory_provider()"
+                )
+            }
+        });
+        
         Self {
             isa: builder.isa,
             symbols: RefCell::new(builder.symbols),
@@ -498,7 +564,7 @@ impl Module for JITModule {
                 })?;
 
         {
-            let mem = unsafe { std::slice::from_raw_parts_mut(ptr, size) };
+            let mem = unsafe { core::slice::from_raw_parts_mut(ptr, size) };
             mem.copy_from_slice(compiled_code.code_buffer());
         }
 
@@ -624,7 +690,7 @@ impl Module for JITModule {
         // value was used, however as it turns out this will cause pc-relative relocations to
         // fail on architectures where pc-relative offsets are range restricted as the dummy
         // value is not close enough to the code that has the pc-relative relocation.
-        let alloc_size = std::cmp::max(init.size(), 1);
+        let alloc_size = core::cmp::max(init.size(), 1);
 
         let ptr = if decl.writable {
             self.memory
@@ -644,13 +710,17 @@ impl Module for JITModule {
 
         if ptr.is_null() {
             // FIXME pass a Layout to allocate and only compute the layout once.
-            std::alloc::handle_alloc_error(
-                std::alloc::Layout::from_size_align(
-                    alloc_size,
-                    align.unwrap_or(READONLY_DATA_ALIGNMENT).try_into().unwrap(),
-                )
-                .unwrap(),
-            );
+            let layout = core::alloc::Layout::from_size_align(
+                alloc_size,
+                align.unwrap_or(READONLY_DATA_ALIGNMENT).try_into().unwrap(),
+            )
+            .unwrap();
+            
+            #[cfg(feature = "std")]
+            std::alloc::handle_alloc_error(layout);
+            
+            #[cfg(not(feature = "std"))]
+            panic!("allocation failed: {:?}", layout);
         }
 
         match *init {
@@ -713,7 +783,7 @@ impl Module for JITModule {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(all(not(windows), feature = "system-memory"))]
 fn lookup_with_dlsym(name: &str) -> Option<*const u8> {
     let c_str = CString::new(name).unwrap();
     let c_str_ptr = c_str.as_ptr();
@@ -725,7 +795,7 @@ fn lookup_with_dlsym(name: &str) -> Option<*const u8> {
     }
 }
 
-#[cfg(windows)]
+#[cfg(all(windows, feature = "system-memory"))]
 fn lookup_with_dlsym(name: &str) -> Option<*const u8> {
     use std::os::windows::io::RawHandle;
     use windows_sys::Win32::Foundation::HMODULE;

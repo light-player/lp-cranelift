@@ -1,10 +1,13 @@
 use cranelift_module::{ModuleError, ModuleResult};
-use std::io;
 
+#[cfg(feature = "system-memory")]
 mod arena;
+#[cfg(feature = "system-memory")]
 mod system;
 
+#[cfg(feature = "system-memory")]
 pub use arena::ArenaMemoryProvider;
+#[cfg(feature = "system-memory")]
 pub use system::SystemMemoryProvider;
 
 /// Type of branch protection to apply to executable memory.
@@ -37,6 +40,7 @@ pub trait JITMemoryProvider {
 /// but *doesn't* flush the pipeline. Callers have to ensure that
 /// [`wasmtime_jit_icache_coherence::pipeline_flush_mt`] is called before the
 /// mappings are used.
+#[cfg(feature = "system-memory")]
 pub(crate) fn set_readable_and_executable(
     ptr: *mut u8,
     len: usize,
@@ -67,6 +71,7 @@ pub(crate) fn set_readable_and_executable(
 
             unsafe {
                 if libc::mprotect(ptr as *mut libc::c_void, len, prot) < 0 {
+                    use std::io;
                     return Err(ModuleError::Backend(
                         anyhow::Error::new(io::Error::last_os_error())
                             .context("unable to make memory readable+executable"),

@@ -1,6 +1,8 @@
 use cranelift_codegen::binemit::Reloc;
 use cranelift_module::ModuleReloc;
 use cranelift_module::ModuleRelocTarget;
+use core::ptr::write_unaligned;
+use std::vec::Vec;
 
 /// Reads a 32bit instruction at `iptr`, and writes it again after
 /// being altered by `modifier`
@@ -26,8 +28,6 @@ impl CompiledBlob {
         &self,
         get_address: impl Fn(&ModuleRelocTarget) -> *const u8,
     ) {
-        use std::ptr::write_unaligned;
-
         for (
             i,
             &ModuleReloc {
