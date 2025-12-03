@@ -1,4 +1,5 @@
 test interpret
+target riscv32
 target pulley32
 target pulley32be
 
