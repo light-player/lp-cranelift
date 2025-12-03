@@ -115,6 +115,14 @@ pub(crate) fn define() -> TargetIsa {
         false,
     );
     
+    // Conditional operations
+    let _has_zicond = setting.add_bool(
+        "has_zicond",
+        "has extension Zicond?",
+        "Zicond: Integer Conditional Operations",
+        false,
+    );
+    
     // Cryptography
     let _has_zbkb = setting.add_bool(
         "has_zbkb",
