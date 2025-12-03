@@ -1,15 +1,17 @@
-//! Lowering rules for Riscv64.
+//! Lowering rules for RISC-V32.
+
 use crate::ir::Inst as IRInst;
-use crate::isa::riscv64::Riscv64Backend;
-use crate::isa::riscv64::inst::*;
+use crate::isa::riscv32::Riscv32Backend;
+use crate::isa::riscv32::inst::*;
 use crate::machinst::lower::*;
 use crate::machinst::*;
+
 pub mod isle;
 
 //=============================================================================
 // Lowering-backend trait implementation.
 
-impl LowerBackend for Riscv64Backend {
+impl LowerBackend for Riscv32Backend {
     type MInst = Inst;
 
     fn lower(&self, ctx: &mut Lower<Inst>, ir_inst: IRInst) -> Option<InstOutput> {
@@ -26,8 +28,8 @@ impl LowerBackend for Riscv64Backend {
     }
 
     fn maybe_pinned_reg(&self) -> Option<Reg> {
-        // pinned register is a register that you want put anything in it.
-        // right now riscv64 not support this feature.
+        // Pinned register is a register that you don't want to put anything in.
+        // Right now riscv32 does not support this feature.
         None
     }
 
