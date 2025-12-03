@@ -147,14 +147,17 @@ This plan analyzes the effort to fork wasmtime, extract cranelift, gate unnecess
 - Replace `std::fmt::Write` → `alloc::string::String` or feature-gate (for `Display` implementations)
 - Make `souper_harvest` feature-gated (requires `std`, already behind `#[cfg(feature = "souper-harvest")]`)
 - Make `timing` feature-gated (requires `std`)
+- **ISLE codegen**: Update `cranelift/isle/isle/src/codegen.rs` line 169 to use `core::marker::PhantomData` instead of `std::marker::PhantomData`
+- **ISLE glue code**: Update all backend `lower/isle.rs` files to use `alloc::boxed::Box` and `alloc::vec::Vec` instead of `std::`
 
 **Dependencies**:
 
 - `hashbrown` - Already in workspace dependencies, used conditionally
 - `alloc` crate - Standard library, always available in no_std (via `extern crate alloc;`)
+- `core` crate - Standard library, always available in no_std
 - Ensure `#![no_std]` and `extern crate alloc;` are present in all modified files
 
-**Effort**: ~6-8 hours (systematic find/replace + testing)
+**Effort**: ~7-9 hours (systematic find/replace + ISLE codegen update + testing)
 
 ### 3. Backend Feature Gating
 
@@ -214,7 +217,10 @@ all-backends = ["test-x64", "test-arm64", "test-riscv64", "test-s390x"]
    - Already registered in `cranelift/codegen/src/isa/mod.rs`
    - Already added to `cranelift/codegen/meta/src/isa/mod.rs`
    - Update ISLE build script to include riscv32
-6. Reference lp-glsl-vm code as needed:
+6. Fix ISLE glue code for no_std:
+   - Update `cranelift/codegen/src/isa/riscv32/lower/isle.rs` to use `alloc::boxed::Box` and `alloc::vec::Vec`
+   - Ensure generated ISLE code is `no_std` compatible (handled by ISLE codegen update in Phase 2)
+7. Reference lp-glsl-vm code as needed:
    - Check instruction encoding patterns if needed
    - Verify ABI matches expectations
    - Use as reference for 32-bit specific behavior
@@ -481,13 +487,23 @@ crates/
 
 ### ISLE no_std Compatibility Details
 
-**Note**: This will be addressed in Plan 01 (ISLE migration)
+**Status**: ISLE will be updated to generate `no_std`-compatible code as part of Phase 2/4
 
-- **For Plan 00**: Manual lowering should already be no_std compatible (from `lp-glsl-vm`)
-- **For Plan 01**: ISLE no_std compatibility will be handled during ISLE migration
-  - ISLE compiler (`cranelift/isle/islec`) is build-time only (uses `std`, fine)
-  - Generated ISLE code (`lower/isle/generated_code.rs`) - needs verification
-  - ISLE integration glue needs fixes: replace `std::boxed::Box`/`std::vec::Vec` with `alloc::boxed::Box`/`alloc::vec::Vec`
+- **ISLE compiler** (`cranelift/isle/islec`): Build-time only (uses `std`, fine - no changes needed)
+- **ISLE codegen** (`cranelift/isle/isle/src/codegen.rs`): 
+  - **Change**: Modify to generate `use core::marker::PhantomData;` instead of `use std::marker::PhantomData;`
+  - **Location**: Line 169 in `generate_header()` function
+  - **Impact**: Makes all ISLE-generated code `no_std` compatible for all backends
+- **ISLE integration glue** (`cranelift/codegen/src/isa/*/lower/isle.rs`):
+  - **Change**: Replace `use std::boxed::Box;` and `use std::vec::Vec;` with `use alloc::boxed::Box;` and `use alloc::vec::Vec;`
+  - **Files**: All backend `lower/isle.rs` files (x64, aarch64, s390x, riscv64, riscv32)
+  - **Note**: This ensures generated code works in `no_std` environments
+
+**Rationale**: 
+- Modifying ISLE codegen benefits all backends (not just riscv32)
+- Ensures consistency across all ISLE-generated code
+- Minimal change (one line) with maximum benefit
+- ISLE glue code fixes are straightforward find/replace operations
 
 ### Feature Naming Conventions
 
@@ -550,10 +566,26 @@ crates/
 - Register riscv32 in `cranelift/codegen/src/isa/mod.rs`
 - Add riscv32 to `cranelift/codegen/meta/src/isa/mod.rs` (for settings, if needed)
 
+**ISLE Codegen Update (Phase 2)**:
+
+- **File**: `cranelift/isle/isle/src/codegen.rs`
+- **Change**: Line 169 - Replace `use std::marker::PhantomData;` with `use core::marker::PhantomData;`
+- **Impact**: All ISLE-generated code becomes `no_std` compatible
+- **Testing**: Verify all backends still compile after change
+
+**ISLE Glue Code Updates (Phase 2/4)**:
+
+- **Files**: All `cranelift/codegen/src/isa/*/lower/isle.rs` files
+- **Changes**: 
+  - Replace `use std::boxed::Box;` → `use alloc::boxed::Box;`
+  - Replace `use std::vec::Vec;` → `use alloc::vec::Vec;`
+- **Backends affected**: x64, aarch64, s390x, riscv64, riscv32
+- **Note**: Can be done incrementally per backend or all at once
+
 **For Plan 01 (ISLE Migration)**:
 
 - ISLE compilation happens in `cranelift/codegen/build.rs`
-- Need to add `riscv32` to ISLE compilation units in `cranelift/codegen/meta/src/isle.rs`
+- Need to add `riscv32` to ISLE compilation units in `cranelift/codegen/meta/src/isle.rs` ✅ (already done)
 - Need to register riscv32 in `cranelift/codegen/meta/src/isa/mod.rs` ISA definitions
 
 ### Current Work Status
