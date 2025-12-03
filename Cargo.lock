@@ -2383,6 +2383,8 @@ dependencies = [
 name = "lp-riscv-tools"
 version = "40.0.0"
 dependencies = [
+ "cranelift-codegen",
+ "cranelift-frontend",
  "hashbrown 0.15.2",
  "nom",
 ]

@@ -14,7 +14,14 @@ workspace = true
 hashbrown = { workspace = true }
 nom = { version = "7", default-features = false, features = ["alloc"] }
 
+# For examples only
+cranelift-codegen = { workspace = true, features = ["riscv32"], optional = true }
+cranelift-frontend = { workspace = true, optional = true }
+
 [features]
-default = []
-std = []
+std = ["dep:cranelift-codegen", "dep:cranelift-frontend"]
+
+[[example]]
+name = "simple_codegen"
+required-features = ["std"]
 

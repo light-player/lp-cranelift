@@ -265,27 +265,21 @@ fn isa_constructor(
 ) -> CodegenResult<OwnedTargetIsa> {
     let isa_flags = riscv_settings::Flags::new(&shared_flags, builder);
 
-    // The RISC-V backend does not work without at least the G extension enabled.
-    // The G extension is simply a combination of the following extensions:
-    // - I: Base Integer Instruction Set
-    // - M: Integer Multiplication and Division
-    // - A: Atomic Instructions
-    // - F: Single-Precision Floating-Point
-    // - D: Double-Precision Floating-Point
-    // - Zicsr: Control and Status Register Instructions
-    // - Zifencei: Instruction-Fetch Fence
+    // Unlike riscv64, we don't require the G extension (which includes F and D).
+    // For RV32, we support various configurations:
+    // - RV32I: Base integer instruction set (always required)
+    // - RV32M: Integer multiplication and division (typically enabled)
+    // - RV32A: Atomic instructions (optional)
+    // - RV32C: Compressed instructions (optional)
+    // - RV32F: Single-precision floating-point (optional)
+    // - RV32D: Double-precision floating-point (optional, requires F)
     //
-    // Ensure that those combination of features is enabled.
-    if !(isa_flags.has_m()
-        && isa_flags.has_a()
-        && isa_flags.has_f()
-        && isa_flags.has_d()
-        && isa_flags.has_zicsr()
-        && isa_flags.has_zifencei())
-    {
+    // This allows for configurations like RV32IMAC (no floating point).
+
+    // Verify D extension doesn't appear without F extension
+    if isa_flags.has_d() && !isa_flags.has_f() {
         return Err(CodegenError::Unsupported(
-            "The RISC-V Backend currently requires all the features in the G Extension enabled"
-                .into(),
+            "RISC-V D extension requires F extension to be enabled".into(),
         ));
     }
 
