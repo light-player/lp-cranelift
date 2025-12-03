@@ -1,4 +1,4 @@
-//! Riscv64 ISA definitions: immediate constants.
+//! Riscv32 ISA definitions: immediate constants.
 
 // Some variants are never constructed, but we still want them as options in the future.
 use super::Inst;

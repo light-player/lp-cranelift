@@ -1,4 +1,4 @@
-//! Implementation of a standard Riscv64 ABI.
+//! Implementation of a standard Riscv32 ABI.
 
 use crate::ir;
 use crate::ir::types::*;
@@ -6,13 +6,13 @@ use crate::ir::types::*;
 use crate::isa;
 
 use crate::isa::CallConv;
-use crate::isa::riscv64::inst::*;
+use crate::isa::riscv32::inst::*;
 use crate::machinst::*;
 
 use crate::CodegenResult;
 use crate::ir::LibCall;
 use crate::ir::Signature;
-use crate::isa::riscv64::settings::Flags as RiscvFlags;
+use crate::isa::riscv32::settings::Flags as RiscvFlags;
 use crate::isa::unwind::UnwindInst;
 use crate::settings;
 use alloc::boxed::Box;
@@ -23,12 +23,12 @@ use smallvec::{SmallVec, smallvec};
 use std::borrow::ToOwned;
 use std::sync::OnceLock;
 
-/// Support for the Riscv64 ABI from the callee side (within a function body).
-pub(crate) type Riscv64Callee = Callee<Riscv64MachineDeps>;
+/// Support for the Riscv32 ABI from the callee side (within a function body).
+pub(crate) type Riscv32Callee = Callee<Riscv32MachineDeps>;
 
-/// Riscv64-specific ABI behavior. This struct just serves as an implementation
+/// Riscv32-specific ABI behavior. This struct just serves as an implementation
 /// point for the trait; it is never actually instantiated.
-pub struct Riscv64MachineDeps;
+pub struct Riscv32MachineDeps;
 
 impl IsaFlags for RiscvFlags {}
 
@@ -66,7 +66,7 @@ impl RiscvFlags {
     }
 }
 
-impl ABIMachineSpec for Riscv64MachineDeps {
+impl ABIMachineSpec for Riscv32MachineDeps {
     type I = Inst;
     type F = RiscvFlags;
 
@@ -76,7 +76,7 @@ impl ABIMachineSpec for Riscv64MachineDeps {
     const STACK_ARG_RET_SIZE_LIMIT: u32 = 128 * 1024 * 1024;
 
     fn word_bits() -> u32 {
-        64
+        32
     }
 
     /// Return required stack alignment in bytes.
@@ -92,12 +92,12 @@ impl ABIMachineSpec for Riscv64MachineDeps {
         add_ret_area_ptr: bool,
         mut args: ArgsAccumulator,
     ) -> CodegenResult<(u32, Option<usize>)> {
-        // This implements the LP64D RISC-V ABI.
+        // This implements the ILP32 RISC-V ABI (or ILP32D/ILP32F with extensions).
 
         assert_ne!(
             call_conv,
             isa::CallConv::Winch,
-            "riscv64 does not support the 'winch' calling convention yet"
+            "riscv32 does not support the 'winch' calling convention yet"
         );
 
         // All registers that can be used as parameters or rets.
@@ -127,7 +127,7 @@ impl ABIMachineSpec for Riscv64MachineDeps {
         for param in params {
             if let ir::ArgumentPurpose::StructArgument(_) = param.purpose {
                 panic!(
-                    "StructArgument parameters are not supported on riscv64. \
+                    "StructArgument parameters are not supported on riscv32. \
                     Use regular pointer arguments instead."
                 );
             }
@@ -1006,7 +1006,7 @@ fn create_reg_environment() -> MachineEnv {
     }
 }
 
-impl Riscv64MachineDeps {
+impl Riscv32MachineDeps {
     fn gen_probestack_unroll(
         insts: &mut SmallInstVec<Inst>,
         tmp: Writable<Reg>,

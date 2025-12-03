@@ -1,8 +1,8 @@
-//! Riscv64 ISA: binary code emission.
+//! Riscv32 ISA: binary code emission.
 
 use crate::ir::{self, LibCall, TrapCode};
-use crate::isa::riscv64::inst::*;
-use crate::isa::riscv64::lower::isle::generated_code::{
+use crate::isa::riscv32::inst::*;
+use crate::isa::riscv32::lower::isle::generated_code::{
     CaOp, CbOp, CiOp, CiwOp, ClOp, CrOp, CsOp, CssOp, CsznOp, FpuOPWidth, ZcbMemOp,
 };
 use cranelift_control::ControlPlane;
@@ -73,7 +73,7 @@ impl EmitState {
 
 impl MachInstEmitState<Inst> for EmitState {
     fn new(
-        abi: &Callee<crate::isa::riscv64::abi::Riscv64MachineDeps>,
+        abi: &Callee<crate::isa::riscv32::abi::Riscv32MachineDeps>,
         ctrl_plane: ControlPlane,
     ) -> Self {
         EmitState {
@@ -1223,13 +1223,13 @@ impl Inst {
 
                 let callee_pop_size = i32::try_from(info.callee_pop_size).unwrap();
                 if callee_pop_size > 0 {
-                    for inst in Riscv64MachineDeps::gen_sp_reg_adjust(-callee_pop_size) {
+                    for inst in Riscv32MachineDeps::gen_sp_reg_adjust(-callee_pop_size) {
                         inst.emit(sink, emit_info, state);
                     }
                 }
 
                 // Load any stack-carried return values.
-                info.emit_retval_loads::<Riscv64MachineDeps, _, _>(
+                info.emit_retval_loads::<Riscv32MachineDeps, _, _>(
                     state.frame_layout().stackslots_size,
                     |inst| inst.emit(sink, emit_info, state),
                     |needed_space| Some(Inst::EmitIsland { needed_space }),
@@ -1270,13 +1270,13 @@ impl Inst {
 
                 let callee_pop_size = i32::try_from(info.callee_pop_size).unwrap();
                 if callee_pop_size > 0 {
-                    for inst in Riscv64MachineDeps::gen_sp_reg_adjust(-callee_pop_size) {
+                    for inst in Riscv32MachineDeps::gen_sp_reg_adjust(-callee_pop_size) {
                         inst.emit(sink, emit_info, state);
                     }
                 }
 
                 // Load any stack-carried return values.
-                info.emit_retval_loads::<Riscv64MachineDeps, _, _>(
+                info.emit_retval_loads::<Riscv32MachineDeps, _, _>(
                     state.frame_layout().stackslots_size,
                     |inst| inst.emit(sink, emit_info, state),
                     |needed_space| Some(Inst::EmitIsland { needed_space }),
@@ -2882,7 +2882,7 @@ fn return_call_emit_impl<T>(
     // Increment SP all at once
     let sp_increment = sp_to_fp_offset + setup_area_size + incoming_args_diff;
     if sp_increment > 0 {
-        for inst in Riscv64MachineDeps::gen_sp_reg_adjust(i32::try_from(sp_increment).unwrap()) {
+        for inst in Riscv32MachineDeps::gen_sp_reg_adjust(i32::try_from(sp_increment).unwrap()) {
             inst.emit(sink, emit_info, state);
         }
     }

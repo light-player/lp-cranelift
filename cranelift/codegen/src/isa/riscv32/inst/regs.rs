@@ -1,4 +1,4 @@
-//! Riscv64 ISA definitions: registers.
+//! Riscv32 ISA definitions: registers.
 //!
 
 use crate::machinst::{Reg, Writable};

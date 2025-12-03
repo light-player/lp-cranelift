@@ -1,5 +1,5 @@
-use crate::isa::riscv64::inst::*;
-use crate::isa::riscv64::lower::isle::generated_code::FpuOPWidth;
+use crate::isa::riscv32::inst::*;
+use crate::isa::riscv32::lower::isle::generated_code::FpuOPWidth;
 use std::borrow::Cow;
 
 fn fa7() -> Reg {
@@ -7,7 +7,7 @@ fn fa7() -> Reg {
 }
 
 #[test]
-fn test_riscv64_binemit() {
+fn test_riscv32_binemit() {
     struct TestUnit {
         inst: Inst,
         assembly: &'static str,
@@ -2174,7 +2174,7 @@ fn test_riscv64_binemit() {
     let emit_info = EmitInfo::new(flags, isa_flags);
 
     for unit in insns.iter() {
-        println!("Riscv64: {:?}, {}", unit.inst, unit.assembly);
+        println!("Riscv32: {:?}, {}", unit.inst, unit.assembly);
         // Check the printed text is as expected.
         let actual_printing = unit.inst.print_with_state(&mut EmitState::default());
         assert_eq!(unit.assembly, actual_printing);
@@ -2197,7 +2197,7 @@ fn make_test_flags() -> (settings::Flags, super::super::riscv_settings::Flags) {
 }
 
 #[test]
-fn riscv64_worst_case_instruction_size() {
+fn riscv32_worst_case_instruction_size() {
     let (flags, isa_flags) = make_test_flags();
     let emit_info = EmitInfo::new(flags, isa_flags);
 

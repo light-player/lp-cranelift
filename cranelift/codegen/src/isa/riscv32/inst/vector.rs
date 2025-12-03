@@ -1,6 +1,6 @@
 use crate::Reg;
-use crate::isa::riscv64::lower::isle::generated_code::VecAluOpRRRR;
-use crate::isa::riscv64::lower::isle::generated_code::{
+use crate::isa::riscv32::lower::isle::generated_code::VecAluOpRRRR;
+use crate::isa::riscv32::lower::isle::generated_code::{
     VecAMode, VecAluOpRImm5, VecAluOpRR, VecAluOpRRImm5, VecAluOpRRR, VecAluOpRRRImm5, VecAvl,
     VecElementWidth, VecLmul, VecMaskMode, VecOpCategory, VecOpMasking, VecTailMode,
 };

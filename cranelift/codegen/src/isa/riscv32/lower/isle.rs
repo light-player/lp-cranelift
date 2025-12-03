@@ -1,4 +1,4 @@
-//! ISLE integration glue code for riscv64 lowering.
+//! ISLE integration glue code for riscv32 lowering.
 
 // Pull in the ISLE generated code.
 pub mod generated_code;
@@ -6,8 +6,8 @@ use generated_code::MInst;
 
 // Types that the generated ISLE code uses via `use super::*`.
 use self::generated_code::{FpuOPWidth, VecAluOpRR, VecLmul};
-use crate::isa::riscv64::Riscv64Backend;
-use crate::isa::riscv64::lower::args::{
+use crate::isa::riscv32::Riscv32Backend;
+use crate::isa::riscv32::lower::args::{
     FReg, VReg, WritableFReg, WritableVReg, WritableXReg, XReg,
 };
 use crate::machinst::Reg;
@@ -18,7 +18,7 @@ use crate::{
         AtomicRmwOp, BlockCall, ExternalName, Inst, InstructionData, MemFlags, Opcode, TrapCode,
         Value, ValueList, immediates::*, types::*,
     },
-    isa::riscv64::inst::*,
+    isa::riscv32::inst::*,
     machinst::{ArgPair, CallArgList, CallRetList, InstOutput},
 };
 use regalloc2::PReg;
@@ -46,8 +46,8 @@ where
     min_vec_reg_size: u64,
 }
 
-impl<'a, 'b> RV64IsleContext<'a, 'b, MInst, Riscv64Backend> {
-    fn new(lower_ctx: &'a mut Lower<'b, MInst>, backend: &'a Riscv64Backend) -> Self {
+impl<'a, 'b> RV64IsleContext<'a, 'b, MInst, Riscv32Backend> {
+    fn new(lower_ctx: &'a mut Lower<'b, MInst>, backend: &'a Riscv32Backend) -> Self {
         Self {
             lower_ctx,
             backend,
@@ -60,7 +60,7 @@ impl<'a, 'b> RV64IsleContext<'a, 'b, MInst, Riscv64Backend> {
     }
 }
 
-impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv64Backend> {
+impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> {
     isle_lower_prelude_methods!();
 
     fn gen_call_info(
@@ -727,7 +727,7 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv64Backend> 
 /// The main entry point for lowering with ISLE.
 pub(crate) fn lower(
     lower_ctx: &mut Lower<MInst>,
-    backend: &Riscv64Backend,
+    backend: &Riscv32Backend,
     inst: Inst,
 ) -> Option<InstOutput> {
     // TODO: reuse the ISLE context across lowerings so we can reuse its
@@ -739,7 +739,7 @@ pub(crate) fn lower(
 /// The main entry point for branch lowering with ISLE.
 pub(crate) fn lower_branch(
     lower_ctx: &mut Lower<MInst>,
-    backend: &Riscv64Backend,
+    backend: &Riscv32Backend,
     branch: Inst,
     targets: &[MachLabel],
 ) -> Option<()> {
