@@ -1,13 +1,20 @@
 [package]
-name = "lpc-filetests"
+name = "lp-filetests"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 publish = false
 
 [dependencies]
-lpc-codegen = { path = "../lpc-codegen", features = ["debug-codegen"] }
-lpc-lpir = { path = "../lpc-lpir" }
-lpc-toy-lang = { path = "../lpc-toy-lang" }
-filecheck = "0.4"
-embive = { path = "/Users/yona/dev/opensource/embive", default-features = false, features = ["interpreter", "transpiler"] }
+# Cranelift dependencies for testing riscv32 backend
+cranelift-codegen = { workspace = true, features = ["riscv32", "std"] }
+cranelift-frontend = { workspace = true }
+cranelift-reader = { workspace = true }
+cranelift-filetests = { workspace = true }
 
+# LP-specific dependencies
+lp-riscv-tools = { path = "../lp-riscv-tools" }
+lp-toy-lang = { path = "../lp-toy-lang" }
+
+# Testing utilities
+filecheck = { workspace = true }
