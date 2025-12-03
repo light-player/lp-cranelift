@@ -240,67 +240,76 @@ all-backends = ["test-x64", "test-arm64", "test-riscv64", "test-s390x"]
 
 **Note**: Using ISLE directly - no manual lowering needed. This is cleaner and aligns with cranelift's architecture.
 
-### 5. Copy LP Infrastructure & Structural Files
+### 5. Copy RISC-V Testing Infrastructure
 
-**Structure**: Keep LP-specific code separate from cranelift, bring over project structure
+**Goal**: Bring over RISC-V emulator, toy language, and filetests to validate the riscv32 backend before integrating other components.
 
-**LP-Specific Code to Copy** (FROM `/Users/yona/dev/photomancer/lp-glsl-vm` TO `/Users/yona/dev/photomancer/lp-cranelift`):
+**Focus**: Validate riscv32 backend works correctly with minimal dependencies.
 
-- `lp-glsl-vm/crates/lpc-codegen/src/emu/` → `crates/lp-riscv-tools/src/emu/` (new crate)
+**Code to Copy** (FROM `/Users/yona/dev/photomancer/lp-glsl-vm` TO `/Users/yona/dev/photomancer/lp-cranelift`):
+
+- `lp-glsl-vm/crates/lpc-codegen/src/emu/` → `crates/lp-riscv-tools/src/emu/` (RISC-V emulator)
 - `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/asm_parser.rs` → `crates/lp-riscv-tools/src/asm_parser.rs`
 - `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/decode.rs` → `crates/lp-riscv-tools/src/decode.rs`
 - `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/disasm.rs` → `crates/lp-riscv-tools/src/disasm.rs`
 - `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/encode.rs` → `crates/lp-riscv-tools/src/encode.rs`
 - `lp-glsl-vm/crates/lpc-codegen/src/elf.rs` → `crates/lp-riscv-tools/src/elf.rs`
-- `lp-glsl-vm/crates/lpc-glsl/` → `crates/lp-glsl/` (GLSL frontend - keep for now, integration later)
-- `lp-glsl-vm/crates/lpc-filetests/` → `crates/lp-filetests/` (LP-specific filetests)
-- `lp-glsl-vm/crates/lpc-toy-lang/` → `crates/lp-toy-lang/` (Toy language for validation)
-- `lp-glsl-vm/apps/embive-program/` → `apps/embive-program/`
-- `lp-glsl-vm/apps/esp32c3-jit-test/` → `apps/esp32c3-jit-test/`
-- `lp-glsl-vm/crates/runtime-embive/` → `crates/lp-runtime-embive/`
+- `lp-glsl-vm/crates/lpc-filetests/` → `crates/lp-filetests/` (LP-specific filetests infrastructure)
+- `lp-glsl-vm/crates/lpc-toy-lang/` → `crates/lp-toy-lang/` (Toy language for backend validation)
 
-**Structural Files to Copy** (FROM `/Users/yona/dev/photomancer/lp-glsl-vm` TO `/Users/yona/dev/photomancer/lp-cranelift`):
+**Deferred** (will be brought over later after backend validation):
 
-- `lp-glsl-vm/justfile` → `justfile` (command runner for common tasks)
-- `lp-glsl-vm/.github/` → `.github/` (CI workflows, if any)
-- `lp-glsl-vm/scripts/` → `scripts/` (build/test scripts, if any)
-- `lp-glsl-vm/.editorconfig` → `.editorconfig` (if present)
-- `lp-glsl-vm/.clippy.toml` → `.clippy.toml` (if present)
-- Other project-level config files (`.gitignore` updates, etc.)
+- `lp-glsl-vm/crates/lpc-glsl/` → `crates/lp-glsl/` (GLSL frontend - defer until backend validated)
+- `lp-glsl-vm/apps/embive-program/` → `apps/embive-program/` (defer)
+- `lp-glsl-vm/apps/esp32c3-jit-test/` → `apps/esp32c3-jit-test/` (defer)
+- `lp-glsl-vm/crates/runtime-embive/` → `crates/lp-runtime-embive/` (defer)
+- Structural files (justfile, scripts, etc.) - defer
 
-**New Crate Structure**:
+**New Crate Structure** (minimal, focused on testing):
 
 ```
 crates/
-  lp-riscv-tools/     # RISC-V utilities (emulator, assembler, etc.)
-  lp-glsl/            # GLSL frontend (kept for now, integration deferred)
-  lp-filetests/       # LP-specific filetests (riscv, glsl, toy)
+  lp-riscv-tools/     # RISC-V utilities (emulator, assembler, decoder, disassembler, ELF)
+  lp-filetests/       # LP-specific filetests (riscv backend tests, toy language tests)
   lp-toy-lang/        # Toy language (for architecture validation)
-  lp-runtime-embive/  # Embedded runtime
-apps/
-  embive-program/     # Embedded program
-  esp32c3-jit-test/   # ESP32 test app
 ```
 
 **Tasks**:
 
-1. Copy LP-specific crates and apps
-2. Copy structural files (justfile, scripts, configs)
-3. Update paths and imports in copied code
-4. Create new crate structure (`lp-riscv-tools` from emulator/assembler pieces)
-5. Update justfile recipes to work with new structure
-6. Update `.gitignore` if needed
+1. Create `crates/lp-riscv-tools/` crate:
+   - Copy emulator code
+   - Copy RISC-V instruction utilities (asm_parser, decode, disasm, encode)
+   - Copy ELF utilities
+   - Update imports and paths
+   - Ensure no_std compatibility
+2. Copy `lp-filetests` infrastructure:
+   - Copy filetest framework
+   - Adapt to work with cranelift's CLIF format
+   - Set up riscv32-specific test cases
+3. Copy `lp-toy-lang`:
+   - Toy language compiler/frontend
+   - Adapt to generate CLIF (instead of LPIR)
+   - Use for backend validation
+4. Update workspace Cargo.toml:
+   - Add lp-riscv-tools, lp-filetests, lp-toy-lang to workspace
+   - Set up dependencies correctly
+5. Create initial riscv32 filetests:
+   - Basic instruction tests
+   - ABI tests
+   - Integration tests using toy language
 
-**Effort**: ~3-4 hours (copy + update paths + create crate structure + adapt structural files)
+**Effort**: ~4-5 hours (copy + adapt + integrate + create initial tests)
+
+**Rationale**: Validate riscv32 backend works correctly before bringing over GLSL frontend, runtime, and apps. This incremental approach reduces risk and makes debugging easier.
 
 ### 6. Update Build System
 
 **Changes Needed**:
 
-- Update root `Cargo.toml` workspace (add LP crates, gate wasmtime crates)
-- Update `cranelift/Cargo.toml` (umbrella crate)
-- Update ISLE build scripts (if needed)
-- Update CI (if keeping)
+- Update root `Cargo.toml` workspace (add LP testing crates: lp-riscv-tools, lp-filetests, lp-toy-lang)
+- Ensure ISLE build scripts include riscv32
+- Update `cranelift/Cargo.toml` if needed (umbrella crate)
+- Set up filetest infrastructure to work with cranelift
 
 **Effort**: ~2-3 hours
 
@@ -308,16 +317,26 @@ apps/
 
 **Tasks**:
 
-- Run existing cranelift filetests (test riscv32 backend)
-- Port LP filetests to new structure:
-  - RISC-V tools tests (emulator, assembler, etc.)
-  - Toy language tests (architecture validation)
-- Verify no_std builds work (LP crates)
-- Verify std builds work (for testing, cranelift with test features)
-- Test RISC-V32 backend compilation pipeline end-to-end
-- Verify justfile recipes work correctly
+- Run existing cranelift filetests with riscv32 backend
+- Set up lp-filetests infrastructure:
+  - RISC-V backend tests (instruction encoding, ABI, etc.)
+  - Toy language → CLIF → riscv32 compilation tests
+  - Emulator-based execution tests
+- Verify no_std builds work (riscv32 backend, lp-riscv-tools)
+- Verify std builds work (for testing, filetests)
+- Test RISC-V32 backend compilation pipeline end-to-end:
+  - CLIF → riscv32 codegen
+  - Binary emission
+  - Emulator execution
+- Validate riscv32 backend correctness before proceeding
 
 **Effort**: ~5-7 hours
+
+**Success Criteria**: 
+- riscv32 backend compiles CLIF correctly
+- Generated code executes correctly in emulator
+- Filetests pass
+- Ready to integrate GLSL frontend and other components
 
 ## Total Effort Estimate
 
@@ -368,19 +387,21 @@ apps/
 ## Recommendations
 
 1. **Gradual migration**:
-   - Phase 1: Gate components (task 1) - add feature flags, keep everything compiling
-   - Phase 2: Convert to no_std (task 2) - fix std imports
-   - Phase 3: Backend feature gating (task 3) - gate other backends
-   - Phase 4: Add RISC-V32 backend with manual lowering (task 4)
-   - Phase 5: Copy LP infrastructure & structural files (task 5)
-   - Phase 6: Update build system and test (tasks 6-7)
-   - Phase 7: Integrate GLSL frontend (deferred for now)
-   - Phase 8: Migrate to ISLE (Plan 01, optional but recommended)
-2. **Keep other backends** behind `test-*` features - useful for testing
+   - Phase 1: Gate components (task 1) - add feature flags, keep everything compiling ✅
+   - Phase 2: Convert to no_std (task 2) - fix std imports ✅
+   - Phase 3: Backend feature gating (task 3) - gate other backends ✅
+   - Phase 4: Add RISC-V32 backend with ISLE (task 4) ✅
+   - Phase 5: Copy RISC-V testing infrastructure (task 5) - emulator, toy lang, filetests
+   - Phase 6: Update build system (task 6) - integrate testing crates
+   - Phase 7: Testing & validation (task 7) - validate riscv32 backend works
+   - **Future phases** (after backend validation):
+     - Phase 8: Integrate GLSL frontend
+     - Phase 9: Bring over runtime and apps
+     - Phase 10: Structural files (justfile, scripts, CI)
+2. **Validation-first approach**: Validate riscv32 backend before integrating other components
 3. **Structure**: Clear separation between cranelift (upstream-ready), wasmtime (gated), and LP-specific code
-4. **ISLE Migration**: Can be done later after manual lowering is working - see Plan 01
-5. **Git History**: Skipping history rewrite for now - can be done later if needed
-6. **Feature Strategy**: Default to LP-focused features (`riscv32`), enable wasmtime features only when needed
+4. **Testing focus**: Use emulator and toy language to validate backend correctness
+5. **Feature Strategy**: Default to LP-focused features (`riscv32`), enable wasmtime features only when needed
 
 ## Questions to Resolve
 
