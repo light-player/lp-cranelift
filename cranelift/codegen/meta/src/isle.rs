@@ -75,7 +75,8 @@ pub fn get_isle_compilations(
     let src_isa_x64 = codegen_crate_dir.join("src").join("isa").join("x64");
     let src_isa_aarch64 = codegen_crate_dir.join("src").join("isa").join("aarch64");
     let src_isa_s390x = codegen_crate_dir.join("src").join("isa").join("s390x");
-    let src_isa_risc_v = codegen_crate_dir.join("src").join("isa").join("riscv64");
+    let src_isa_riscv32 = codegen_crate_dir.join("src").join("isa").join("riscv32");
+    let src_isa_riscv64 = codegen_crate_dir.join("src").join("isa").join("riscv64");
     #[cfg(feature = "pulley")]
     let src_isa_pulley_shared = codegen_crate_dir
         .join("src")
@@ -161,16 +162,29 @@ pub fn get_isle_compilations(
                 ],
                 untracked_inputs: vec![numerics_isle.clone(), clif_lower_isle.clone()],
             },
-            // The risc-v instruction selector.
+            // The RISC-V 32-bit instruction selector.
+            IsleCompilation {
+                name: "riscv32".to_string(),
+                output: gen_dir.join("isle_riscv32.rs"),
+                inputs: vec![
+                    prelude_isle.clone(),
+                    prelude_lower_isle.clone(),
+                    src_isa_riscv32.join("inst.isle"),
+                    src_isa_riscv32.join("inst_vector.isle"),
+                    src_isa_riscv32.join("lower.isle"),
+                ],
+                untracked_inputs: vec![numerics_isle.clone(), clif_lower_isle.clone()],
+            },
+            // The RISC-V 64-bit instruction selector.
             IsleCompilation {
                 name: "riscv64".to_string(),
                 output: gen_dir.join("isle_riscv64.rs"),
                 inputs: vec![
                     prelude_isle.clone(),
                     prelude_lower_isle.clone(),
-                    src_isa_risc_v.join("inst.isle"),
-                    src_isa_risc_v.join("inst_vector.isle"),
-                    src_isa_risc_v.join("lower.isle"),
+                    src_isa_riscv64.join("inst.isle"),
+                    src_isa_riscv64.join("inst_vector.isle"),
+                    src_isa_riscv64.join("lower.isle"),
                 ],
                 untracked_inputs: vec![numerics_isle.clone(), clif_lower_isle.clone()],
             },
