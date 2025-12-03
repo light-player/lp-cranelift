@@ -253,7 +253,7 @@ all-backends = ["test-x64", "test-arm64", "test-riscv64", "test-s390x"]
 - `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/decode.rs` → `crates/lp-riscv-tools/src/decode.rs`
 - `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/disasm.rs` → `crates/lp-riscv-tools/src/disasm.rs`
 - `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/encode.rs` → `crates/lp-riscv-tools/src/encode.rs`
-- `lp-glsl-vm/crates/lpc-codegen/src/elf.rs` → `crates/lp-riscv-tools/src/elf.rs`
+- **Note**: ELF generation not needed - emulator takes raw bytes. Use `cranelift-object` if object files needed.
 - `lp-glsl-vm/crates/lpc-filetests/` → `crates/lp-filetests/` (LP-specific filetests infrastructure)
 - `lp-glsl-vm/crates/lpc-toy-lang/` → `crates/lp-toy-lang/` (Toy language for backend validation)
 
@@ -269,19 +269,21 @@ all-backends = ["test-x64", "test-arm64", "test-riscv64", "test-s390x"]
 
 ```
 crates/
-  lp-riscv-tools/     # RISC-V utilities (emulator, assembler, decoder, disassembler, ELF)
+  lp-riscv-tools/     # RISC-V utilities (emulator, assembler, decoder, disassembler)
   lp-filetests/       # LP-specific filetests (riscv backend tests, toy language tests)
   lp-toy-lang/        # Toy language (for architecture validation)
 ```
+
+**Note on ELF**: The emulator takes raw bytes directly (`Vec<u8>`), so no ELF generation needed. If object files are required for linking, use `cranelift-object` (already in cranelift).
 
 **Tasks**:
 
 1. Create `crates/lp-riscv-tools/` crate:
    - Copy emulator code
    - Copy RISC-V instruction utilities (asm_parser, decode, disasm, encode)
-   - Copy ELF utilities
    - Update imports and paths
    - Ensure no_std compatibility
+   - **Skip ELF utilities** - emulator uses raw bytes, use `cranelift-object` if needed
 2. Copy `lp-filetests` infrastructure:
    - Copy filetest framework
    - Adapt to work with cranelift's CLIF format
@@ -332,7 +334,8 @@ crates/
 
 **Effort**: ~5-7 hours
 
-**Success Criteria**: 
+**Success Criteria**:
+
 - riscv32 backend compiles CLIF correctly
 - Generated code executes correctly in emulator
 - Filetests pass
