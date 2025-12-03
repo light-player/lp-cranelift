@@ -231,7 +231,7 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::isa::riscv32::{encode::auipc, inst::Inst};
+    use crate::{encode::auipc, inst::Inst};
 
     /// Test that encoding and decoding AUIPC produces consistent results
     fn test_auipc_round_trip(imm: i32, rd: Gpr) {
