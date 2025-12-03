@@ -235,5 +235,5 @@ pub(crate) fn define() -> TargetIsa {
         false,
     );
 
-    Target Isa::new("riscv32", setting.build())
+    TargetIsa::new("riscv32", setting.build())
 }
