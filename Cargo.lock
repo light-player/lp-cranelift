@@ -2371,12 +2371,10 @@ name = "lp-filetests"
 version = "40.0.0"
 dependencies = [
  "cranelift-codegen",
- "cranelift-filetests",
- "cranelift-frontend",
+ "cranelift-control",
  "cranelift-reader",
  "filecheck",
  "lp-riscv-tools",
- "lp-toy-lang",
 ]
 
 [[package]]
