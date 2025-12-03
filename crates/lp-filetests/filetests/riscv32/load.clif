@@ -1,0 +1,12 @@
+test compile
+target riscv32
+
+function %load_i32(i64) -> i32 {
+block0(v0: i64):
+    v1 = load.i32 v0
+    return v1
+}
+
+; Verify we use LW (load word) instruction
+; check: lw
+
