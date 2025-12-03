@@ -21,12 +21,14 @@ This plan analyzes the effort to fork wasmtime, extract cranelift, gate unnecess
 ## Working Rules
 
 **Commit Guidelines**:
+
 - All commits must start with `lpc: ` prefix (for Light Player Compiler)
 - Commit frequently - make small, incremental changes
 - Keep commit messages short - one line when possible
 - Strive to keep code compiling and tests passing between commits (when possible, exceptions for refactoring)
 
-**Rationale**: 
+**Rationale**:
+
 - `lpc: ` prefix keeps commits clearly separated from upstream wasmtime history
 - Frequent commits make it easier to track progress and revert if needed
 - Short messages keep git log clean and readable
@@ -181,52 +183,62 @@ all-backends = ["test-x64", "test-arm64", "test-riscv64", "test-s390x"]
 
 **Effort**: ~2-3 hours
 
-### 4. Add RISC-V32 Backend (Manual Lowering)
+### 4. Add RISC-V32 Backend (ISLE-based)
 
-**Current State**: Cranelift has `riscv64/` (ISLE-based), you need `riscv32/` with manual lowering initially
+**Current State**: Cranelift has `riscv64/` (ISLE-based), we'll port it to `riscv32/`
 
-**Approach**: Port your existing manual lowering backend from `lp-glsl-vm` to cranelift
+**Approach**: Port riscv64 ISLE backend to riscv32, removing RV64-specific instructions and adapting types
 
-**Note**: ISLE migration will be done later (see Plan 01). This task integrates your existing manual lowering approach.
+**Note**: Using ISLE directly (not manual lowering) - this aligns with cranelift's standard approach and Plan 01.
 
 **Integration Steps**:
 
-1. Copy RISC-V32 backend from `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/` → `cranelift/codegen/src/isa/riscv32/`
-2. Adapt to cranelift's `MachInst` trait:
-   - Implement `cranelift_codegen::isa::TargetIsa` trait
-   - Implement `cranelift_codegen::machinst::MachInst` trait
-   - Implement `cranelift_codegen::machinst::MachInstEmit` trait
-   - Adapt instruction encoding/decoding to match cranelift patterns
-3. Fix no_std compatibility:
-   - Replace any `std::*` imports with `alloc::*` or `core::*`
-   - Ensure `extern crate alloc;` is present where needed
-   - Verify all dependencies are no_std compatible
-4. Update ABI for 32-bit calling convention:
-   - Adapt calling convention to match cranelift's expectations
-   - Ensure register allocation works correctly
-5. Register in `cranelift/codegen/src/isa/mod.rs`:
-   - Add riscv32 module
-   - Add to ISA lookup function
-   - Add feature gate (`#[cfg(feature = "riscv32")]`)
-6. Update build system:
-   - Add riscv32 feature to `cranelift/codegen/Cargo.toml`
-   - Add riscv32 to `cranelift/codegen/meta/src/isa/mod.rs` ISA definitions (if needed for settings)
+1. Copy riscv64 backend structure to riscv32:
+   - Copy `cranelift/codegen/src/isa/riscv64/` → `cranelift/codegen/src/isa/riscv32/`
+   - Copy ISLE files: `lower.isle`, `inst.isle`, `inst_vector.isle`
+   - Copy Rust modules: `mod.rs`, `abi.rs`, `settings.rs`, `lower/`, `inst/`
+2. Remove RV64-specific code:
+   - Remove all `*w` instructions (addw, subw, mulw, divw, remw, sllw, srlw, sraw, addiw, slliw, srliw, sraiw)
+   - Remove `fits_in_32` type checks (not needed on RV32)
+   - Remove `ty_int_ref_scalar_64` checks
+3. Adapt types for 32-bit:
+   - Change `$I64` → `$I32` in lowering rules
+   - Change `u64_from_imm64` → `u32_from_imm32`
+   - Update immediate handling for 32-bit values
+   - Update ABI for 32-bit registers
+4. Update settings for imac variant:
+   - Default to I, M, A, C enabled
+   - F, D disabled by default (can be enabled if needed)
+   - Remove G-extension requirement (unlike riscv64)
+5. Register in build system:
+   - Already registered in `cranelift/codegen/src/isa/mod.rs`
+   - Already added to `cranelift/codegen/meta/src/isa/mod.rs`
+   - Update ISLE build script to include riscv32
+6. Reference lp-glsl-vm code as needed:
+   - Check instruction encoding patterns if needed
+   - Verify ABI matches expectations
+   - Use as reference for 32-bit specific behavior
 
 **Files to Create/Adapt**:
 
-- `cranelift/codegen/src/isa/riscv32/` - New directory (port from lp-glsl-vm)
-- `cranelift/codegen/src/isa/riscv32/mod.rs` - Main module, trait implementations
-- `cranelift/codegen/src/isa/riscv32/lower.rs` - Manual lowering implementation
-- `cranelift/codegen/src/isa/riscv32/inst/` - Instruction definitions (encoding, emitting)
-- `cranelift/codegen/src/isa/riscv32/abi.rs` - 32-bit ABI
-- `cranelift/codegen/src/isa/riscv32/settings.rs` - ISA-specific settings (if needed)
-- `cranelift/codegen/src/isa/mod.rs` - Register riscv32 backend
+- `cranelift/codegen/src/isa/riscv32/` - New directory (port from riscv64)
+- `cranelift/codegen/src/isa/riscv32/mod.rs` - Main module (port from riscv64/mod.rs)
+- `cranelift/codegen/src/isa/riscv32/lower.isle` - ISLE lowering rules (port from riscv64/lower.isle)
+- `cranelift/codegen/src/isa/riscv32/inst.isle` - ISLE instruction definitions (port from riscv64/inst.isle)
+- `cranelift/codegen/src/isa/riscv32/inst_vector.isle` - Vector instructions (if needed)
+- `cranelift/codegen/src/isa/riscv32/lower/` - ISLE lowering glue code
+- `cranelift/codegen/src/isa/riscv32/inst/` - Instruction encoding/emitting (port from riscv64/inst/)
+- `cranelift/codegen/src/isa/riscv32/abi.rs` - 32-bit ABI (port from riscv64/abi.rs)
+- `cranelift/codegen/src/isa/riscv32/settings.rs` - ISA-specific settings
 
-**Reference**: Use your `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/` as the source
+**Reference**:
 
-**Effort**: ~8-12 hours (porting, trait implementation, no_std fixes, testing)
+- Primary: `cranelift/codegen/src/isa/riscv64/` (port from this)
+- Secondary: `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/` (reference for 32-bit specifics)
 
-**Note**: ISLE migration will be handled separately in Plan 01 after this backend is working.
+**Effort**: ~6-8 hours (porting, removing RV64 code, adapting types, testing)
+
+**Note**: Using ISLE directly - no manual lowering needed. This is cleaner and aligns with cranelift's architecture.
 
 ### 5. Copy LP Infrastructure & Structural Files
 
@@ -309,18 +321,18 @@ apps/
 
 ## Total Effort Estimate
 
-| Task                          | Hours           | Complexity |
-| ----------------------------- | --------------- | ---------- |
-| Gate unnecessary components   | 4-6             | Medium     |
-| Convert to no_std             | 6-8             | Medium     |
-| Backend feature gating        | 2-3             | Low        |
-| Add RISC-V32 backend (manual) | 8-12            | High       |
-| Copy LP infrastructure        | 3-4             | Low        |
-| Update build system           | 2-3             | Low        |
-| Testing & verification        | 5-7             | Medium     |
-| **Total**                     | **30-43 hours** | **High**   |
+| Task                        | Hours           | Complexity |
+| --------------------------- | --------------- | ---------- |
+| Gate unnecessary components | 4-6             | Medium     |
+| Convert to no_std           | 6-8             | Medium     |
+| Backend feature gating      | 2-3             | Low        |
+| Add RISC-V32 backend (ISLE) | 6-8             | Medium     |
+| Copy LP infrastructure      | 3-4             | Low        |
+| Update build system         | 2-3             | Low        |
+| Testing & verification      | 5-7             | Medium     |
+| **Total**                   | **28-40 hours** | **High**   |
 
-**Note**: ISLE migration separated into Plan 01 (20-30 hours). This plan uses manual lowering initially.
+**Note**: Using ISLE directly for riscv32 - no manual lowering needed. Plan 01 can focus on optimizations rather than initial migration.
 
 ## File Change Estimates
 
@@ -378,16 +390,14 @@ apps/
 
 2. ✅ **Do you want to use ISLE for RISC-V32 lowering, or keep manual lowering?**
 
-   - **Decision**: Use manual lowering initially, migrate to ISLE later (Plan 01)
+   - **Decision**: Use ISLE directly (port from riscv64)
    - **Rationale**:
-     - Start with working manual lowering from `lp-glsl-vm` to get backend integrated quickly
-     - ISLE migration can be done incrementally after initial integration
-     - Separates concerns: get backend working first, then optimize/maintain with ISLE
-   - **ISLE Migration**: See Plan 01 for ISLE migration details
-   - **Action Items** (Plan 00):
-     - Port manual lowering backend from `lp-glsl-vm` to cranelift
-     - Adapt to cranelift's `MachInst` trait
-     - Ensure no_std compatibility
+     - Faster to port riscv64 ISLE code than adapt manual lowering from lp-glsl-vm
+     - Aligns with cranelift's standard architecture
+     - Better maintainability and easier to extend
+     - Settings system already gates float instructions correctly
+   - **Approach**: Port riscv64 → riscv32, remove RV64-specific code, adapt types
+   - **Reference**: Use lp-glsl-vm code as reference for 32-bit specifics, but base on riscv64
 
 3. ✅ **Should `cranelift-riscv32-emu` be separate crate or part of codegen?**
 
@@ -416,6 +426,7 @@ apps/
    - **Rationale**: Cranelift filetests test cranelift itself; LP filetests test LP-specific integrations
 
 5. ✅ **Should GLSL frontend be `cranelift-glsl` or separate `lp-glsl` crate?**
+
    - **Decision**: Separate `lp-glsl` crate in `crates/` directory
    - **Rationale**: Keep LP-specific code separate from cranelift for cleaner upstream merges
 
@@ -531,4 +542,3 @@ apps/
   - What changes were made to `machinst/mod.rs`?
   - Is `test_block_params.rs` related to this migration?
   - Should we incorporate existing work or start fresh?
-
