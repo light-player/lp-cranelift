@@ -1,0 +1,19 @@
+[package]
+name = "lp-riscv-tools"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0 WITH LLVM-exception"
+description = "RISC-V 32-bit emulator and instruction utilities for Light Player"
+
+[lints]
+workspace = true
+
+[dependencies]
+# Use hashbrown for no_std HashMap support
+hashbrown = { workspace = true }
+
+[features]
+default = []
+std = []
+
