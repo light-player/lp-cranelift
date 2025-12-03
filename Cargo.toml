@@ -1,12 +1,12 @@
 [package]
-name = "wasmtime-cli"
+name = "lp-cranelift-cli"
 version.workspace = true
 authors.workspace = true
-description = "Command-line interface for Wasmtime"
+description = "Light Player Cranelift - Command-line interface (gated behind features)"
 license = "Apache-2.0 WITH LLVM-exception"
-documentation = "https://bytecodealliance.github.io/wasmtime/cli.html"
-categories = ["wasm"]
-keywords = ["webassembly", "wasm"]
+documentation = "https://github.com/bytecodealliance/wasmtime/blob/main/cranelift/docs/index.md"
+categories = ["wasm", "no-std"]
+keywords = ["cranelift", "compiler", "lightplayer"]
 repository = "https://github.com/bytecodealliance/wasmtime"
 readme = "README.md"
 edition.workspace = true
@@ -442,7 +442,12 @@ regex = "1.9.1"
 # When adding or removing a feature, make sure to keep the C API in sync by
 # modifying locations marked WASMTIME_FEATURE_LIST
 [features]
-default = [
+# LP-focused defaults: no wasmtime, no std-dependent features by default
+# Enable wasmtime with --features wasmtime-full
+default = []
+
+# Full wasmtime feature set (original defaults)
+wasmtime-full = [
   # All subcommands are included by default.
   "run",
   "compile",

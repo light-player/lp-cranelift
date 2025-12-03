@@ -60,12 +60,13 @@ cranelift-codegen-meta = { path = "meta", version = "0.127.0" }
 cranelift-isle = { path = "../isle/isle", version = "=0.127.0" }
 
 [features]
-default = ["std", "unwind", "host-arch", "timing"]
+# LP-focused defaults: no_std compatible, riscv32 backend only
+default = ["riscv32"]
 
 # The "std" feature enables use of libstd. The "core" feature enables use
 # of some minimal std-like replacement libraries. At least one of these two
 # features need to be enabled.
-std = ["serde?/std"]
+std = ["serde?/std", "timing"]
 
 # The "core" feature used to enable a hashmap workaround, but is now
 # deprecated (we (i) always use hashbrown, and (ii) don't support a
@@ -75,16 +76,17 @@ core = []
 
 # Enable the `to_capstone` method on TargetIsa, for constructing a Capstone
 # context, and the `disassemble` method on `MachBufferFinalized`.
-disas = ["anyhow", "capstone"]
+disas = ["anyhow", "capstone", "std"]
 
 # Enables detailed logging which can be somewhat expensive.
 trace-log = ["regalloc2/trace-log"]
 
 # This enables unwind info generation functionality.
-unwind = ["gimli"]
+unwind = ["gimli", "std"]
 
 # ISA targets for which we should build.
 # If no ISA targets are explicitly enabled, the ISA target for the host machine is enabled.
+riscv32 = []
 x86 = []
 arm64 = []
 s390x = []
@@ -103,7 +105,7 @@ all-arch = ["all-native-arch", "pulley"]
 
 # Option to enable all architectures that correspond to an actual native target
 # (that is, exclude Pulley).
-all-native-arch = ["x86", "arm64", "s390x", "riscv64"]
+all-native-arch = ["x86", "arm64", "s390x", "riscv64", "riscv32"]
 
 # For dependent crates that want to serialize some parts of cranelift
 enable-serde = [
