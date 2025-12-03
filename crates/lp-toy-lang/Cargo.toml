@@ -1,0 +1,14 @@
+[package]
+name = "lpc-toy-lang"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lpc-lpir = { path = "../lpc-lpir" }
+lpc-codegen = { path = "../lpc-codegen" }
+nom = { version = "7", default-features = false, features = ["alloc"] }
+
+[[bin]]
+name = "toy"
+path = "src/bin/toy.rs"
+
