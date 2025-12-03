@@ -346,7 +346,7 @@ crates/
 | Convert to no_std           | 6-8             | Medium     |
 | Backend feature gating      | 2-3             | Low        |
 | Add RISC-V32 backend (ISLE) | 6-8             | Medium     |
-| Copy LP infrastructure      | 3-4             | Low        |
+| Copy RISC-V testing infra   | 4-5             | Medium     |
 | Update build system         | 2-3             | Low        |
 | Testing & verification      | 5-7             | Medium     |
 | **Total**                   | **28-40 hours** | **High**   |
@@ -441,10 +441,11 @@ crates/
    - **Structure**:
      - `cranelift/filetests/` - Keep in cranelift (for testing cranelift backends/components)
      - `crates/lp-filetests/` - LP-specific filetests for:
-       - RISC-V tools (emulator, assembler, decoder, disassembler)
-       - GLSL frontend (GLSL → CLIF compilation)
-       - Toy language (bring over for architecture validation)
-   - **Rationale**: Cranelift filetests test cranelift itself; LP filetests test LP-specific integrations
+       - RISC-V backend validation (riscv32 codegen, ABI, instruction encoding)
+       - Toy language → CLIF → riscv32 compilation tests
+       - Emulator-based execution tests
+   - **Rationale**: Cranelift filetests test cranelift itself; LP filetests validate riscv32 backend correctness
+   - **Deferred**: GLSL frontend filetests will be added after backend validation
 
 5. ✅ **Should GLSL frontend be `cranelift-glsl` or separate `lp-glsl` crate?**
 
