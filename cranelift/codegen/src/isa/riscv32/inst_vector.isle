@@ -56,7 +56,6 @@
 (type VType (primitive VType))
 (type VState (primitive VState))
 
-
 ;; Vector Opcode Category
 ;;
 ;; These categories are used to determine the type of operands that are allowed in the
@@ -147,7 +146,6 @@
   (VmnandMM)
   (VmnorMM)
 
-
   ;; Vector-Scalar Opcodes
   (VaddVX)
   (VsaddVX)
@@ -204,8 +202,6 @@
   (VmfgtVF)
   (VmfgeVF)
 ))
-
-
 
 ;; Register-Imm ALU Ops that modify the destination register
 (type VecAluOpRRRImm5 (enum
@@ -300,7 +296,6 @@
 (decl pure vec_alu_rr_dst_type (VecAluOpRR) Type)
 (extern constructor vec_alu_rr_dst_type vec_alu_rr_dst_type)
 
-
 ;; Vector Addressing Mode
 (type VecAMode (enum
   ;; Vector unit-stride operations access elements stored contiguously in memory
@@ -310,7 +305,6 @@
   ;; TODO: Constant Stride
   ;; TODO: Indexed Operations
 ))
-
 
 ;; Builds a static VState matching a SIMD type.
 ;; The VState is guaranteed to be static with AVL set to the number of lanes.
@@ -341,10 +335,10 @@
   (if-let $F32 (lane_type ty))
   (VecElementWidth.E32))
 (rule (element_width_from_type ty)
-  (if-let $I64 (lane_type ty))
+  (if-let $I32 (lane_type ty))
   (VecElementWidth.E64))
 (rule (element_width_from_type ty)
-  (if-let $F64 (lane_type ty))
+  (if-let $F32 (lane_type ty))
   (VecElementWidth.E64))
 
 (decl pure min_vec_reg_size () u64)
@@ -361,7 +355,6 @@
 ;; source register and rs1 is the second source register. This is the opposite
 ;; of the usual RISC-V register order.
 ;; See Section 10.1 of the RISC-V Vector Extension Specification.
-
 
 ;; Helper for emitting `MInst.VecAluRRRR` instructions.
 ;; These instructions modify the destination register.
@@ -1189,7 +1182,6 @@
 (rule (rv_vmerge_vim vs2 imm mask vstate)
   (vec_alu_rr_imm5 (VecAluOpRRImm5.VmergeVIM) vs2 imm (masked mask) vstate))
 
-
 ;; Helper for emitting the `vredminu.vs` instruction.
 ;;
 ;; vd[0] = minu( vs1[0] , vs2[*] )
@@ -1521,8 +1513,7 @@
 
 ;; Otherwise lower it into an X register.
 (rule 0 (gen_extractlane (ty_vec_fits_in_register ty) src idx)
-  (gen_extractlane ty (rv_vslidedown_vx src (imm $I64 idx) (unmasked) ty) 0))
-
+  (gen_extractlane ty (rv_vslidedown_vx src (imm $I32 idx) (unmasked) ty) 0))
 
 ;; Build a vector mask from a u64
 ;; TODO(#6571): We should merge this with the `vconst` rules, and take advantage of
@@ -1536,8 +1527,7 @@
 ;; Materialize the mask into an X register, and move it into the bottom of
 ;; the vector register.
 (rule 0 (gen_vec_mask mask)
-  (rv_vmv_sx (imm $I64 mask) (vstate_from_type $I64X2)))
-
+  (rv_vmv_sx (imm $I32 mask) (vstate_from_type $I64X2)))
 
 ;; Loads a `VCodeConstant` value into a vector register. For some special `VCodeConstant`s
 ;; we can use a dedicated instruction, otherwise we load the value from the pool.
@@ -1554,7 +1544,6 @@
     (unmasked)
     ty))
 
-
 ;; Emits a vslidedown instruction that moves half the lanes down.
 (decl gen_slidedown_half (Type VReg) VReg)
 
@@ -1566,8 +1555,7 @@
 ;; Otherwise lower it into an X register.
 (rule 0 (gen_slidedown_half (ty_vec_fits_in_register ty) src)
   (if-let amt (u64_checked_div (ty_lane_count ty) 2))
-  (rv_vslidedown_vx src (imm $I64 amt) (unmasked) ty))
-
+  (rv_vslidedown_vx src (imm $I32 amt) (unmasked) ty))
 
 ;; Expands a mask into SEW wide lanes. Enabled lanes are set to all ones, disabled
 ;; lanes are set to all zeros.
@@ -1576,7 +1564,6 @@
   (if-let zero (i8_to_imm5 0))
   (if-let neg1 (i8_to_imm5 -1))
   (rv_vmerge_vim (rv_vmv_vi zero ty) neg1 mask ty))
-
 
 ;; Builds a vector mask corresponding to the IntCC operation.
 ;; TODO: We are still missing some rules here for immediates. See #6623
@@ -1728,8 +1715,6 @@
   (if-let x_imm (replicated_imm5 x))
   (rv_vmsle_vi y x_imm (unmasked) ty))
 
-
-
 ;; Builds a vector mask corresponding to the FloatCC operation.
 (decl gen_fcmp_mask (Type FloatCC Value Value) VReg)
 
@@ -1852,7 +1837,6 @@
 (rule 0 (gen_fcmp_mask (ty_vec_fits_in_register ty) (FloatCC.UnorderedOrLessThanOrEqual) x y)
   (rv_vmnot_m (gen_fcmp_mask ty (FloatCC.GreaterThan) x y) ty))
 
-
 ;; Emits a `vfcvt.x.f.v` instruction with the given rounding mode.
 (decl gen_vfcvt_x_f (VReg FRM VState) VReg)
 
@@ -1870,11 +1854,10 @@
         (_ Unit (rv_fsrm saved_frm)))
     res))
 
-
 ;; Returns the maximum value integer value that can be represented by a float
 (decl float_int_max (Type) u64)
 (rule (float_int_max $F32) 0x4B000000)
-(rule (float_int_max $F64) 0x4330000000000000)
+(rule (float_int_max $F32) 0x4330000000000000)
 
 ;; Builds the instruction sequence to round a vector register to FRM
 (decl gen_vec_round (VReg FRM Type) VReg)
