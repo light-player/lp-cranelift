@@ -349,16 +349,16 @@ crates/
 
 ## Total Effort Estimate
 
-| Task                        | Hours           | Complexity |
-| --------------------------- | --------------- | ---------- |
-| Gate unnecessary components | 4-6             | Medium     |
-| Convert to no_std           | 6-8             | Medium     |
-| Backend feature gating      | 2-3             | Low        |
-| Add RISC-V32 backend (ISLE) | 6-8             | Medium     |
-| Copy RISC-V testing infra   | 4-5             | Medium     |
-| Update build system         | 2-3             | Low        |
-| Testing & verification      | 5-7             | Medium     |
-| **Total**                   | **28-40 hours** | **High**   |
+| Task                               | Hours           | Complexity |
+| ---------------------------------- | --------------- | ---------- |
+| Gate unnecessary components        | 4-6             | Medium     |
+| Convert to no_std (including ISLE) | 7-9             | Medium     |
+| Backend feature gating             | 2-3             | Low        |
+| Add RISC-V32 backend (ISLE)        | 6-8             | Medium     |
+| Copy RISC-V testing infra          | 4-5             | Medium     |
+| Update build system                | 2-3             | Low        |
+| Testing & verification             | 5-7             | Medium     |
+| **Total**                          | **28-40 hours** | **High**   |
 
 **Note**: Using ISLE directly for riscv32 - no manual lowering needed. Plan 01 can focus on optimizations rather than initial migration.
 
@@ -490,7 +490,7 @@ crates/
 **Status**: ISLE will be updated to generate `no_std`-compatible code as part of Phase 2/4
 
 - **ISLE compiler** (`cranelift/isle/islec`): Build-time only (uses `std`, fine - no changes needed)
-- **ISLE codegen** (`cranelift/isle/isle/src/codegen.rs`): 
+- **ISLE codegen** (`cranelift/isle/isle/src/codegen.rs`):
   - **Change**: Modify to generate `use core::marker::PhantomData;` instead of `use std::marker::PhantomData;`
   - **Location**: Line 169 in `generate_header()` function
   - **Impact**: Makes all ISLE-generated code `no_std` compatible for all backends
@@ -499,7 +499,8 @@ crates/
   - **Files**: All backend `lower/isle.rs` files (x64, aarch64, s390x, riscv64, riscv32)
   - **Note**: This ensures generated code works in `no_std` environments
 
-**Rationale**: 
+**Rationale**:
+
 - Modifying ISLE codegen benefits all backends (not just riscv32)
 - Ensures consistency across all ISLE-generated code
 - Minimal change (one line) with maximum benefit
@@ -576,7 +577,7 @@ crates/
 **ISLE Glue Code Updates (Phase 2/4)**:
 
 - **Files**: All `cranelift/codegen/src/isa/*/lower/isle.rs` files
-- **Changes**: 
+- **Changes**:
   - Replace `use std::boxed::Box;` → `use alloc::boxed::Box;`
   - Replace `use std::vec::Vec;` → `use alloc::vec::Vec;`
 - **Backends affected**: x64, aarch64, s390x, riscv64, riscv32
