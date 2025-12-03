@@ -1,4 +1,4 @@
-//! RISC-V 32-bit Instruction Set Architecture.
+//! risc-v 64-bit Instruction Set Architecture.
 
 use crate::dominator_tree::DominatorTree;
 use crate::ir::{Function, Type};
@@ -13,22 +13,21 @@ use crate::machinst::{
 use crate::result::CodegenResult;
 use crate::settings::{self as shared_settings, Flags};
 use crate::{CodegenError, ir};
-use alloc::{boxed::Box, string::String, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use core::fmt;
 use cranelift_control::ControlPlane;
+use std::string::String;
 use target_lexicon::{Architecture, Triple};
-
 mod abi;
 pub(crate) mod inst;
 mod lower;
 mod settings;
-
 #[cfg(feature = "unwind")]
 use crate::isa::unwind::systemv;
 
 use self::inst::EmitInfo;
 
-/// A RISC-V 32-bit backend.
+/// An riscv32 backend.
 pub struct Riscv32Backend {
     triple: Triple,
     flags: shared_settings::Flags,
@@ -95,7 +94,6 @@ impl TargetIsa for Riscv32Backend {
     fn name(&self) -> &'static str {
         "riscv32"
     }
-
     fn dynamic_vector_bytes(&self, _dynamic_ty: ir::Type) -> u32 {
         16
     }
@@ -166,35 +164,45 @@ impl TargetIsa for Riscv32Backend {
     #[cfg(feature = "disas")]
     fn to_capstone(&self) -> Result<capstone::Capstone, capstone::Error> {
         use capstone::prelude::*;
-        let mut cs_builder = Capstone::new().riscv().mode(arch::riscv::ArchMode::RiscV32);
+        let mut cs_builder = Capstone::new().riscv().mode(arch::riscv::ArchMode::RiscV64);
 
         // Enable C instruction decoding if we have compressed instructions enabled.
+        //
+        // We can't enable this unconditionally because it will cause Capstone to
+        // emit weird instructions and generally mess up when it encounters unknown
+        // instructions, such as any Zba,Zbb,Zbc or Vector instructions.
+        //
+        // This causes the default disassembly to be quite unreadable, so enable
+        // it only when we are actually going to be using them.
         let uses_compressed = self
             .isa_flags()
             .iter()
-            .filter(|f| ["has_c"].contains(&f.name))
+            .filter(|f| ["has_zca", "has_zcb", "has_zcd"].contains(&f.name))
             .any(|f| f.as_bool().unwrap_or(false));
         if uses_compressed {
             cs_builder = cs_builder.extra_mode([arch::riscv::ArchExtraMode::RiscVC].into_iter());
         }
 
         let mut cs = cs_builder.build()?;
+
+        // Similar to AArch64, RISC-V uses inline constants rather than a separate
+        // constant pool. We want to skip disassembly over inline constants instead
+        // of stopping on invalid bytes.
         cs.set_skipdata(true)?;
         Ok(cs)
     }
 
     fn pretty_print_reg(&self, reg: Reg, _size: u8) -> String {
+        // TODO-RISC-V: implement proper register pretty-printing.
         format!("{reg:?}")
     }
 
     fn has_native_fma(&self) -> bool {
-        // FMA available if F or D extension is enabled
-        self.isa_flags.has_f() || self.isa_flags.has_d()
+        true
     }
 
     fn has_round(&self) -> bool {
-        // Rounding available if F or D extension is enabled
-        self.isa_flags.has_f() || self.isa_flags.has_d()
+        true
     }
 
     fn has_x86_blendv_lowering(&self, _: Type) -> bool {
@@ -214,8 +222,16 @@ impl TargetIsa for Riscv32Backend {
     }
 
     fn default_argument_extension(&self) -> ir::ArgumentExtension {
-        // RV32 doesn't need argument extension (all values are 32-bit)
-        ir::ArgumentExtension::None
+        // According to https://riscv.org/wp-content/uploads/2024/12/riscv-calling.pdf
+        // it says:
+        //
+        // > In RV64, 32-bit types, such as int, are stored in integer
+        // > registers as proper sign extensions of their 32-bit values; that
+        // > is, bits 63..31 are all equal. This restriction holds even for
+        // > unsigned 32-bit types.
+        //
+        // leading to `sext` here.
+        ir::ArgumentExtension::Sext
     }
 }
 
@@ -249,21 +265,27 @@ fn isa_constructor(
 ) -> CodegenResult<OwnedTargetIsa> {
     let isa_flags = riscv_settings::Flags::new(&shared_flags, builder);
 
-    // Unlike riscv64, we don't require the G extension (which includes F and D).
-    // For RV32, we support various configurations:
-    // - RV32I: Base integer instruction set (always required)
-    // - RV32M: Integer multiplication and division (typically enabled)
-    // - RV32A: Atomic instructions (optional)
-    // - RV32C: Compressed instructions (optional)
-    // - RV32F: Single-precision floating-point (optional)
-    // - RV32D: Double-precision floating-point (optional, requires F)
+    // The RISC-V backend does not work without at least the G extension enabled.
+    // The G extension is simply a combination of the following extensions:
+    // - I: Base Integer Instruction Set
+    // - M: Integer Multiplication and Division
+    // - A: Atomic Instructions
+    // - F: Single-Precision Floating-Point
+    // - D: Double-Precision Floating-Point
+    // - Zicsr: Control and Status Register Instructions
+    // - Zifencei: Instruction-Fetch Fence
     //
-    // This allows for configurations like RV32IMAC (no floating point).
-
-    // Verify D extension doesn't appear without F extension
-    if isa_flags.has_d() && !isa_flags.has_f() {
+    // Ensure that those combination of features is enabled.
+    if !(isa_flags.has_m()
+        && isa_flags.has_a()
+        && isa_flags.has_f()
+        && isa_flags.has_d()
+        && isa_flags.has_zicsr()
+        && isa_flags.has_zifencei())
+    {
         return Err(CodegenError::Unsupported(
-            "RISC-V D extension requires F extension to be enabled".into(),
+            "The RISC-V Backend currently requires all the features in the G Extension enabled"
+                .into(),
         ));
     }
 

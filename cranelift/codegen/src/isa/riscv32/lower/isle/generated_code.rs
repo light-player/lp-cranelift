@@ -12,4 +12,4 @@
     reason = "generated code"
 )]
 
-include!(concat!(env!("ISLE_DIR"), "/isle_riscv64.rs"));
+include!(concat!(env!("ISLE_DIR"), "/isle_riscv32.rs"));

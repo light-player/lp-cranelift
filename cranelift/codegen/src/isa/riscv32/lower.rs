@@ -1,11 +1,9 @@
-//! Lowering rules for RISC-V32.
-
+//! Lowering rules for Riscv32.
 use crate::ir::Inst as IRInst;
 use crate::isa::riscv32::Riscv32Backend;
 use crate::isa::riscv32::inst::*;
 use crate::machinst::lower::*;
 use crate::machinst::*;
-
 pub mod isle;
 
 //=============================================================================
@@ -28,8 +26,8 @@ impl LowerBackend for Riscv32Backend {
     }
 
     fn maybe_pinned_reg(&self) -> Option<Reg> {
-        // Pinned register is a register that you don't want to put anything in.
-        // Right now riscv32 does not support this feature.
+        // pinned register is a register that you want put anything in it.
+        // right now riscv32 not support this feature.
         None
     }
 
