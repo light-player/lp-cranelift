@@ -5,6 +5,12 @@
 //! - Compile to RISC-V32 machine code using Cranelift
 //! - Disassemble the generated code
 //! - Verify output using filecheck patterns
+//!
+//! ## Error Handling
+//!
+//! This module uses two error types:
+//! - `CompileError` - Internal error type with detailed variants for different failure modes
+//! - `String` - External API error type for test functions, providing simple error messages
 
 use std::sync::Arc;
 
@@ -61,8 +67,8 @@ pub fn create_riscv32_isa() -> Result<Arc<dyn isa::TargetIsa>, CompileError> {
         .set("opt_level", "speed")
         .map_err(|e| CompileError::Isa(format!("Failed to set opt_level: {}", e)))?;
     
-    // Enable RISC-V extensions that are commonly available
-    // These can be adjusted based on what the backend supports
+    // Disable verifier for faster compilation in tests
+    // The verifier is useful for development but slows down test runs
     flag_builder
         .set("enable_verifier", "false")
         .map_err(|e| CompileError::Isa(format!("Failed to disable verifier: {}", e)))?;
@@ -233,7 +239,8 @@ where
         match emu.step() {
             Ok(StepResult::Continue) => {
                 let pc = emu.get_pc();
-                // If we've seen this PC before, we're in a loop (returned to start)
+                // If we've seen this PC before, we're likely in an infinite loop
+                // This typically happens when the function returns and PC goes back to ra (0)
                 if !seen_pcs.insert(pc) {
                     break;
                 }

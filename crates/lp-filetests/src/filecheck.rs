@@ -14,12 +14,14 @@ pub fn build_filechecker(expected_text: &str) -> Result<Checker, String> {
             continue;
         }
 
-        // Skip check: directives that start with '#' - these are comment/section markers
-        // that don't need to match actual output (e.g., "check: # Prologue")
+        // Skip check: directives that start with '#' - these are section markers
+        // used for organizing tests, not actual patterns to match against output.
+        // Example: "check: # Prologue" is just a comment, not a pattern to verify.
+        // This allows test files to have organizational comments without filecheck errors.
         if trimmed.starts_with("check:") {
             let pattern = trimmed[6..].trim();
             if pattern.starts_with('#') {
-                // This is a comment marker - skip it
+                // This is a comment/section marker - skip it
                 continue;
             }
         }
@@ -52,27 +54,3 @@ pub fn match_filecheck(actual: &str, expected_text: &str) -> Result<(), String> 
     }
 }
 
-/// Parse filecheck directives from expected text
-///
-/// This function is kept for backward compatibility but now just returns
-/// whether the text contains filecheck directives (non-empty after trimming).
-/// The actual parsing is done by the filecheck crate.
-pub fn parse_filecheck_directives(expected_text: &str) -> Vec<()> {
-    // Check if there are any non-empty lines that look like directives
-    let has_directives = expected_text.lines().any(|line| {
-        let trimmed = line.trim();
-        !trimmed.is_empty()
-            && (trimmed.starts_with("check:")
-                || trimmed.starts_with("nextln:")
-                || trimmed.starts_with("sameln:")
-                || trimmed.starts_with("CHECK:")
-                || trimmed.starts_with("CHECK-NEXT:")
-                || trimmed.starts_with("CHECK-SAME:"))
-    });
-
-    if has_directives {
-        vec![()]
-    } else {
-        vec![]
-    }
-}

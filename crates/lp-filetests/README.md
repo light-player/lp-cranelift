@@ -148,7 +148,7 @@ Key modules:
 - `src/filecheck.rs` - Pattern matching utilities
 - `filetests/riscv32/` - Test files
 
-Current test count: **29 tests** (19 compilation + 10 execution)
+Current test count: **26 tests** (16 compilation + 10 execution)
 
 ## Dependencies
 
