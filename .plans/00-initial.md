@@ -1,0 +1,534 @@
+# Fork Cranelift Analysis Plan
+
+## Overview
+
+This plan analyzes the effort to fork wasmtime, extract cranelift, gate unnecessary components behind features, convert to no_std, and integrate your existing GLSL frontend and RISC-V32 backend.
+
+**Note**: This plan uses manual lowering for the RISC-V32 backend (from `lp-glsl-vm`). ISLE migration is handled separately in **Plan 01** (`01-riscv32-isle.md`).
+
+## Plan Status & Review
+
+**Last Updated**: Plan updated for Option 1 approach (keep wasmtime, gate behind features)
+**Current Workspace**: `/Users/yona/dev/photomancer/lp-cranelift`
+**Status**: Plan ready for implementation
+
+### Key Observations
+
+- ✅ **Repository confirmed**: This is the correct fork (`lp-cranelift`, renamed from `wasmtime`)
+- ✅ **Approach**: Keep wasmtime structure, gate behind features (minimal changes)
+- **ISLE migration**: Separated into Plan 01 - will use manual lowering initially (from `lp-glsl-vm`)
+
+## Working Rules
+
+**Commit Guidelines**:
+- All commits must start with `lpc: ` prefix (for Light Player Compiler)
+- Commit frequently - make small, incremental changes
+- Keep commit messages short - one line when possible
+- Strive to keep code compiling and tests passing between commits (when possible, exceptions for refactoring)
+
+**Rationale**: 
+- `lpc: ` prefix keeps commits clearly separated from upstream wasmtime history
+- Frequent commits make it easier to track progress and revert if needed
+- Short messages keep git log clean and readable
+- Compiling/passing tests between commits reduces debugging complexity
+
+## Repository References
+
+**Source Repository** (existing code to copy from):
+
+- Path: `/Users/yona/dev/photomancer/lp-glsl-vm`
+- Contains: GLSL frontend, RISC-V32 backend, emulator, filetests, toy language, runtime
+
+**Target Repository** (wasmtime fork - work happens here):
+
+- Path: `/Users/yona/dev/photomancer/lp-cranelift` (current workspace)
+- **Note**: Plan originally referenced `/Users/yona/dev/photomancer/wasmtime`, but current workspace is `lp-cranelift`
+- Will contain: Forked cranelift + LP-specific crates/apps + wasmtime (gated)
+
+**Note**: When implementing, copy files FROM `lp-glsl-vm` TO `lp-cranelift` as specified in each task.
+
+## Current State
+
+### Your Codebase (`lp-glsl-vm` - Source: `/Users/yona/dev/photomancer/lp-glsl-vm`)
+
+- **GLSL Frontend**: `crates/lpc-glsl/` - GLSL parser → LPIR compiler
+- **IR**: `crates/lpc-lpir/` - SSA IR (similar to CLIF)
+- **Codegen**: `crates/lpc-codegen/` - RISC-V32 backend with emulator, assembler
+- **Runtime**: `crates/runtime-embive/`, `apps/embive-program/` - no_std runtime
+- **Filetests**: `crates/lpc-filetests/` - test infrastructure
+
+### Cranelift Structure (`/Users/yona/dev/photomancer/lp-cranelift/cranelift/`)
+
+- **Core crates**: `codegen/`, `frontend/`, `entity/`, `control/`, `bitset/`, `bforest/`, `module/`
+- **Backends**: `x64/`, `aarch64/`, `riscv64/`, `s390x/`, `pulley32/`, `pulley64/`
+- **Tools**: `filetests/`, `reader/`, `interpreter/`, `jit/`, `object/`, `native/`
+- **Build system**: ISLE codegen, meta crates
+- **~419 Rust files** in cranelift directory
+- **Current State**: Repository appears to already be a fork (workspace is `lp-cranelift`), some modifications detected (e.g., `cranelift/codegen/src/machinst/mod.rs` modified, `test_block_params.rs` untracked)
+
+## Effort Analysis
+
+### 1. Gate Unnecessary Components Behind Features
+
+**Approach**: Keep all wasmtime components but gate them behind features to exclude from LP builds.
+
+**Gate Behind Features** (not needed for GLSL → CLIF → RISC-V32 no_std builds):
+
+- `crates/wasmtime/` - Wasmtime runtime (gate behind `feature = "wasmtime"`, requires std)
+- `crates/wasi*/` - WASI implementations (gate behind `feature = "wasi"`, requires std)
+- `crates/c-api/` - C API (gate behind `feature = "c-api"`, requires std)
+- `crates/winch/` - Winch compiler (gate behind `feature = "winch"`, requires std)
+- `crates/wizer/` - Wizer tool (gate behind `feature = "wizer"`, requires std)
+- `cranelift/jit/` - JIT compilation (gate behind `feature = "jit"`, requires std)
+- `cranelift/native/` - Native codegen helpers (gate behind `feature = "native"`, requires std)
+- `cranelift/object/` - Object file generation (gate behind `feature = "object"`, requires std)
+- `cranelift/interpreter/` - Interpreter (gate behind `feature = "interpreter"`, requires std)
+- `cranelift/assembler-x64/` - x64 assembler (gate behind `feature = "assembler-x64"`, requires std)
+- `cranelift/src/` - CLI tools (`clif-util`, etc.) (gate behind `feature = "cli"`, requires std)
+- `cranelift/tests/` - Integration tests (gate behind `feature = "test-integration"`, requires std)
+- `pulley/` - Pulley interpreter (gate behind `feature = "pulley"`, requires std)
+
+**Gate Backends** (for testing only, require std):
+
+- `cranelift/codegen/src/isa/x64/` - x64 backend (gate behind `feature = "x86"` or `test-x64`)
+- `cranelift/codegen/src/isa/aarch64/` - ARM64 backend (gate behind `feature = "arm64"` or `test-arm64`)
+- `cranelift/codegen/src/isa/s390x/` - s390x backend (gate behind `feature = "s390x"` or `test-s390x`)
+- `cranelift/codegen/src/isa/riscv64/` - riscv64 backend (gate behind `feature = "riscv64"` or `test-riscv64`)
+- `cranelift/codegen/src/isa/pulley*/` - Pulley backends (gate behind `feature = "pulley"`)
+
+**Keep Always** (core functionality, no_std compatible):
+
+- `cranelift/codegen/` - Core codegen (already `#![no_std]`)
+- `cranelift/frontend/` - Frontend builder (already `#![no_std]`)
+- `cranelift/entity/`, `control/`, `bitset/`, `bforest/` - Core data structures
+- `cranelift/module/` - Module management
+- `cranelift/filetests/` - Test infrastructure (can be gated if needed)
+- `cranelift/reader/` - CLIF parser
+- `cranelift/isle/` - ISLE DSL compiler
+- `cranelift/serde/` - Serialization (optional, gate behind feature)
+
+**Default Features**:
+
+- `default = ["riscv32"]` - LP-focused defaults (no wasmtime, no std)
+- `std` - Enables std-dependent features
+- `riscv32` - Your RISC-V32 backend (always available)
+- `wasmtime` - Enables wasmtime runtime and related crates
+- `pulley` - Enables pulley interpreter (for filetests)
+- `test-all-backends` - Enables all backends for testing (requires std)
+
+**Effort**: ~4-6 hours (update Cargo.toml files, add feature gates, minimal code changes)
+
+### 2. Convert to no_std
+
+**Current State**: Most cranelift crates already have `#![no_std]`:
+
+- `cranelift-codegen`: `#![no_std]` with conditional `std` feature
+- `cranelift-frontend`: `#![no_std]`
+- `cranelift-entity`: `#![no_std]`
+- `cranelift-control`: `#![no_std]`
+- `cranelift-module`: `#![no_std]`
+
+**Files Requiring Changes** (~15-20 files):
+
+- `cranelift/codegen/src/machinst/mod.rs` - Uses `std::string::String`, `std::fmt::Write`
+- `cranelift/codegen/src/timing.rs` - Uses `std::time::*`, `std::any::*`
+- `cranelift/codegen/src/souper_harvest.rs` - Uses `std::collections::*`, `std::sync::mpsc`
+- `cranelift/codegen/src/result.rs` - Uses `std::string::String`
+- `cranelift/codegen/src/isa/mod.rs` - Uses `std::string::String`
+- Various test files (can be `#[cfg(feature = "std")]`)
+
+**Changes Needed**:
+
+- Replace `std::string::String` → `alloc::string::String` (requires `extern crate alloc;`)
+- Replace `std::collections::*` → `hashbrown::*` (already used conditionally via `#[cfg(not(feature = "std"))]`)
+- Replace `std::time::*` → feature-gated or remove timing
+- Replace `std::fmt::Write` → `alloc::string::String` or feature-gate (for `Display` implementations)
+- Make `souper_harvest` feature-gated (requires `std`, already behind `#[cfg(feature = "souper-harvest")]`)
+- Make `timing` feature-gated (requires `std`)
+
+**Dependencies**:
+
+- `hashbrown` - Already in workspace dependencies, used conditionally
+- `alloc` crate - Standard library, always available in no_std (via `extern crate alloc;`)
+- Ensure `#![no_std]` and `extern crate alloc;` are present in all modified files
+
+**Effort**: ~6-8 hours (systematic find/replace + testing)
+
+### 3. Backend Feature Gating
+
+**Strategy**: Use Cargo features to exclude other backends from no_std builds:
+
+```toml
+# In cranelift/codegen/Cargo.toml
+[features]
+default = ["riscv32"]  # LP-focused defaults
+riscv32 = []  # Your backend
+std = ["serde?/std"]
+
+# Testing-only features (require std)
+test-x64 = ["x86"]
+test-arm64 = ["arm64"]
+test-riscv64 = ["riscv64"]
+test-s390x = ["s390x"]
+all-backends = ["test-x64", "test-arm64", "test-riscv64", "test-s390x"]
+```
+
+**Files to Modify**:
+
+- `cranelift/codegen/Cargo.toml` - Feature definitions
+- `cranelift/codegen/src/isa/mod.rs` - Conditional compilation
+- Each backend's `mod.rs` - Add `#[cfg(feature = "...")]`
+
+**Effort**: ~2-3 hours
+
+### 4. Add RISC-V32 Backend (Manual Lowering)
+
+**Current State**: Cranelift has `riscv64/` (ISLE-based), you need `riscv32/` with manual lowering initially
+
+**Approach**: Port your existing manual lowering backend from `lp-glsl-vm` to cranelift
+
+**Note**: ISLE migration will be done later (see Plan 01). This task integrates your existing manual lowering approach.
+
+**Integration Steps**:
+
+1. Copy RISC-V32 backend from `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/` → `cranelift/codegen/src/isa/riscv32/`
+2. Adapt to cranelift's `MachInst` trait:
+   - Implement `cranelift_codegen::isa::TargetIsa` trait
+   - Implement `cranelift_codegen::machinst::MachInst` trait
+   - Implement `cranelift_codegen::machinst::MachInstEmit` trait
+   - Adapt instruction encoding/decoding to match cranelift patterns
+3. Fix no_std compatibility:
+   - Replace any `std::*` imports with `alloc::*` or `core::*`
+   - Ensure `extern crate alloc;` is present where needed
+   - Verify all dependencies are no_std compatible
+4. Update ABI for 32-bit calling convention:
+   - Adapt calling convention to match cranelift's expectations
+   - Ensure register allocation works correctly
+5. Register in `cranelift/codegen/src/isa/mod.rs`:
+   - Add riscv32 module
+   - Add to ISA lookup function
+   - Add feature gate (`#[cfg(feature = "riscv32")]`)
+6. Update build system:
+   - Add riscv32 feature to `cranelift/codegen/Cargo.toml`
+   - Add riscv32 to `cranelift/codegen/meta/src/isa/mod.rs` ISA definitions (if needed for settings)
+
+**Files to Create/Adapt**:
+
+- `cranelift/codegen/src/isa/riscv32/` - New directory (port from lp-glsl-vm)
+- `cranelift/codegen/src/isa/riscv32/mod.rs` - Main module, trait implementations
+- `cranelift/codegen/src/isa/riscv32/lower.rs` - Manual lowering implementation
+- `cranelift/codegen/src/isa/riscv32/inst/` - Instruction definitions (encoding, emitting)
+- `cranelift/codegen/src/isa/riscv32/abi.rs` - 32-bit ABI
+- `cranelift/codegen/src/isa/riscv32/settings.rs` - ISA-specific settings (if needed)
+- `cranelift/codegen/src/isa/mod.rs` - Register riscv32 backend
+
+**Reference**: Use your `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/` as the source
+
+**Effort**: ~8-12 hours (porting, trait implementation, no_std fixes, testing)
+
+**Note**: ISLE migration will be handled separately in Plan 01 after this backend is working.
+
+### 5. Copy LP Infrastructure & Structural Files
+
+**Structure**: Keep LP-specific code separate from cranelift, bring over project structure
+
+**LP-Specific Code to Copy** (FROM `/Users/yona/dev/photomancer/lp-glsl-vm` TO `/Users/yona/dev/photomancer/lp-cranelift`):
+
+- `lp-glsl-vm/crates/lpc-codegen/src/emu/` → `crates/lp-riscv-tools/src/emu/` (new crate)
+- `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/asm_parser.rs` → `crates/lp-riscv-tools/src/asm_parser.rs`
+- `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/decode.rs` → `crates/lp-riscv-tools/src/decode.rs`
+- `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/disasm.rs` → `crates/lp-riscv-tools/src/disasm.rs`
+- `lp-glsl-vm/crates/lpc-codegen/src/isa/riscv32/encode.rs` → `crates/lp-riscv-tools/src/encode.rs`
+- `lp-glsl-vm/crates/lpc-codegen/src/elf.rs` → `crates/lp-riscv-tools/src/elf.rs`
+- `lp-glsl-vm/crates/lpc-glsl/` → `crates/lp-glsl/` (GLSL frontend - keep for now, integration later)
+- `lp-glsl-vm/crates/lpc-filetests/` → `crates/lp-filetests/` (LP-specific filetests)
+- `lp-glsl-vm/crates/lpc-toy-lang/` → `crates/lp-toy-lang/` (Toy language for validation)
+- `lp-glsl-vm/apps/embive-program/` → `apps/embive-program/`
+- `lp-glsl-vm/apps/esp32c3-jit-test/` → `apps/esp32c3-jit-test/`
+- `lp-glsl-vm/crates/runtime-embive/` → `crates/lp-runtime-embive/`
+
+**Structural Files to Copy** (FROM `/Users/yona/dev/photomancer/lp-glsl-vm` TO `/Users/yona/dev/photomancer/lp-cranelift`):
+
+- `lp-glsl-vm/justfile` → `justfile` (command runner for common tasks)
+- `lp-glsl-vm/.github/` → `.github/` (CI workflows, if any)
+- `lp-glsl-vm/scripts/` → `scripts/` (build/test scripts, if any)
+- `lp-glsl-vm/.editorconfig` → `.editorconfig` (if present)
+- `lp-glsl-vm/.clippy.toml` → `.clippy.toml` (if present)
+- Other project-level config files (`.gitignore` updates, etc.)
+
+**New Crate Structure**:
+
+```
+crates/
+  lp-riscv-tools/     # RISC-V utilities (emulator, assembler, etc.)
+  lp-glsl/            # GLSL frontend (kept for now, integration deferred)
+  lp-filetests/       # LP-specific filetests (riscv, glsl, toy)
+  lp-toy-lang/        # Toy language (for architecture validation)
+  lp-runtime-embive/  # Embedded runtime
+apps/
+  embive-program/     # Embedded program
+  esp32c3-jit-test/   # ESP32 test app
+```
+
+**Tasks**:
+
+1. Copy LP-specific crates and apps
+2. Copy structural files (justfile, scripts, configs)
+3. Update paths and imports in copied code
+4. Create new crate structure (`lp-riscv-tools` from emulator/assembler pieces)
+5. Update justfile recipes to work with new structure
+6. Update `.gitignore` if needed
+
+**Effort**: ~3-4 hours (copy + update paths + create crate structure + adapt structural files)
+
+### 6. Update Build System
+
+**Changes Needed**:
+
+- Update root `Cargo.toml` workspace (add LP crates, gate wasmtime crates)
+- Update `cranelift/Cargo.toml` (umbrella crate)
+- Update ISLE build scripts (if needed)
+- Update CI (if keeping)
+
+**Effort**: ~2-3 hours
+
+### 7. Testing & Verification
+
+**Tasks**:
+
+- Run existing cranelift filetests (test riscv32 backend)
+- Port LP filetests to new structure:
+  - RISC-V tools tests (emulator, assembler, etc.)
+  - Toy language tests (architecture validation)
+- Verify no_std builds work (LP crates)
+- Verify std builds work (for testing, cranelift with test features)
+- Test RISC-V32 backend compilation pipeline end-to-end
+- Verify justfile recipes work correctly
+
+**Effort**: ~5-7 hours
+
+## Total Effort Estimate
+
+| Task                          | Hours           | Complexity |
+| ----------------------------- | --------------- | ---------- |
+| Gate unnecessary components   | 4-6             | Medium     |
+| Convert to no_std             | 6-8             | Medium     |
+| Backend feature gating        | 2-3             | Low        |
+| Add RISC-V32 backend (manual) | 8-12            | High       |
+| Copy LP infrastructure        | 3-4             | Low        |
+| Update build system           | 2-3             | Low        |
+| Testing & verification        | 5-7             | Medium     |
+| **Total**                     | **30-43 hours** | **High**   |
+
+**Note**: ISLE migration separated into Plan 01 (20-30 hours). This plan uses manual lowering initially.
+
+## File Change Estimates
+
+- **Files to modify**: ~40-60 (no_std conversion, feature gating)
+- **Files to add**: ~50-70 (RISC-V32 backend with manual lowering, GLSL frontend, LP crates)
+- **Cargo.toml changes**: ~25-30 files (cranelift + LP crates + root workspace)
+
+**Note**: ISLE migration (Plan 01) will add/modify additional files later.
+
+## Risks & Considerations
+
+1. **API Compatibility**: Cranelift's `MachInst` trait may differ from your `LowerBackend` trait. Need to adapt manual lowering to match.
+2. **Upstream Merges**: Keeping wasmtime structure makes merges easier, but feature gating adds complexity.
+3. **Testing**: Other backends useful for regression testing, but add complexity.
+4. **Size**: Even with feature gating, unused backend code increases compile time.
+5. **ISLE Migration**: Manual lowering will need to be migrated to ISLE later (Plan 01) for better maintainability.
+6. **Feature Management**: Need to carefully manage feature flags to ensure LP builds work without wasmtime.
+
+## Decisions Summary
+
+1. ✅ **Git history**: Skip history rewrite for now - just delete unneeded files directly
+2. ✅ **Cranelift components**: Keep most, gate behind features (not remove)
+3. ✅ **Wasmtime components**: Keep all, gate behind features (Option 1 approach)
+4. ✅ **Pulley**: Keep and gate behind feature (for filetests)
+5. ✅ **Lowering approach**: Use manual lowering initially (from `lp-glsl-vm`), migrate to ISLE later (Plan 01)
+6. ✅ **Code organization**: Keep LP-specific code separate in `crates/lp-*` and `apps/lp-*`
+7. ✅ **Filetests**: Keep both cranelift-filetests (in cranelift) and LP-filetests (in crates/)
+8. ✅ **GLSL frontend**: Separate `lp-glsl` crate (not integrated into cranelift)
+9. ✅ **RISC-V tools**: Separate `lp-riscv-tools` crate (emulator, assembler, etc.)
+10. ✅ **Toy language**: Bring over for architecture validation
+11. ✅ **Repository**: Confirmed - `lp-cranelift` is the correct fork (renamed from `wasmtime`)
+
+## Recommendations
+
+1. **Gradual migration**:
+   - Phase 1: Gate components (task 1) - add feature flags, keep everything compiling
+   - Phase 2: Convert to no_std (task 2) - fix std imports
+   - Phase 3: Backend feature gating (task 3) - gate other backends
+   - Phase 4: Add RISC-V32 backend with manual lowering (task 4)
+   - Phase 5: Copy LP infrastructure & structural files (task 5)
+   - Phase 6: Update build system and test (tasks 6-7)
+   - Phase 7: Integrate GLSL frontend (deferred for now)
+   - Phase 8: Migrate to ISLE (Plan 01, optional but recommended)
+2. **Keep other backends** behind `test-*` features - useful for testing
+3. **Structure**: Clear separation between cranelift (upstream-ready), wasmtime (gated), and LP-specific code
+4. **ISLE Migration**: Can be done later after manual lowering is working - see Plan 01
+5. **Git History**: Skipping history rewrite for now - can be done later if needed
+6. **Feature Strategy**: Default to LP-focused features (`riscv32`), enable wasmtime features only when needed
+
+## Questions to Resolve
+
+1. ✅ **What to keep/remove from cranelift?**
+
+   - **Answer**: Keep most of it, gate behind features (updated in section 1)
+
+2. ✅ **Do you want to use ISLE for RISC-V32 lowering, or keep manual lowering?**
+
+   - **Decision**: Use manual lowering initially, migrate to ISLE later (Plan 01)
+   - **Rationale**:
+     - Start with working manual lowering from `lp-glsl-vm` to get backend integrated quickly
+     - ISLE migration can be done incrementally after initial integration
+     - Separates concerns: get backend working first, then optimize/maintain with ISLE
+   - **ISLE Migration**: See Plan 01 for ISLE migration details
+   - **Action Items** (Plan 00):
+     - Port manual lowering backend from `lp-glsl-vm` to cranelift
+     - Adapt to cranelift's `MachInst` trait
+     - Ensure no_std compatibility
+
+3. ✅ **Should `cranelift-riscv32-emu` be separate crate or part of codegen?**
+
+   - **Decision**: Keep LP-specific code separate from cranelift
+   - **Structure**:
+     - `cranelift/` - Pure cranelift fork (keep clean for upstream merges)
+     - `crates/` - LP-specific crates:
+       - `lp-glsl/` - GLSL frontend (generates CLIF)
+       - `lp-riscv-tools/` or `lp-riscv-util/` - RISC-V utilities (emulator, assembler, disassembler, decoder)
+       - Other LP-specific crates as needed
+     - `apps/` - LP-specific applications:
+       - `embive-program/` - Embedded program
+       - `esp32c3-jit-test/` - ESP32 test app
+       - Other LP apps
+   - **Rationale**: Keeps cranelift clean for upstream merges, LP code clearly separated
+
+4. ✅ **Do you want to keep `cranelift-filetests` or port to your test system?**
+
+   - **Decision**: Keep both
+   - **Structure**:
+     - `cranelift/filetests/` - Keep in cranelift (for testing cranelift backends/components)
+     - `crates/lp-filetests/` - LP-specific filetests for:
+       - RISC-V tools (emulator, assembler, decoder, disassembler)
+       - GLSL frontend (GLSL → CLIF compilation)
+       - Toy language (bring over for architecture validation)
+   - **Rationale**: Cranelift filetests test cranelift itself; LP filetests test LP-specific integrations
+
+5. ✅ **Should GLSL frontend be `cranelift-glsl` or separate `lp-glsl` crate?**
+   - **Decision**: Separate `lp-glsl` crate in `crates/` directory
+   - **Rationale**: Keep LP-specific code separate from cranelift for cleaner upstream merges
+
+6. ✅ **Should we keep wasmtime structure or delete it?**
+   - **Decision**: Keep wasmtime structure, gate behind features (Option 1)
+   - **Rationale**: Minimal changes, easier upstream merges, everything compiles
+   - **Approach**: Gate wasmtime crates behind `wasmtime` feature, keep pulley for filetests
+
+## Clarifications & Open Questions
+
+### Repository Status
+
+✅ **Confirmed**: `/Users/yona/dev/photomancer/lp-cranelift` is the correct repository (renamed from `wasmtime`)
+
+- **Current observation**: Workspace is `lp-cranelift`, git status shows modifications to `cranelift/codegen/src/machinst/mod.rs` and untracked `test_block_params.rs`
+- **Status**: This is the correct fork to work in
+
+### RISC-V32 Backend Approach
+
+✅ **Decision**: Use manual lowering from `lp-glsl-vm` initially, migrate to ISLE later (Plan 01)
+
+- **Approach**: Port your existing `riscv32` manual lowering backend from `lp-glsl-vm` to cranelift
+  - Pros: Leverages your existing working code, faster initial integration
+  - Cons: Will need ISLE migration later for maintainability
+- **ISLE Migration**: Separated into Plan 01 - can be done after initial integration is working
+- **Rationale**: Get backend working first with known-good code, then optimize/maintain with ISLE
+
+### ISLE no_std Compatibility Details
+
+**Note**: This will be addressed in Plan 01 (ISLE migration)
+
+- **For Plan 00**: Manual lowering should already be no_std compatible (from `lp-glsl-vm`)
+- **For Plan 01**: ISLE no_std compatibility will be handled during ISLE migration
+  - ISLE compiler (`cranelift/isle/islec`) is build-time only (uses `std`, fine)
+  - Generated ISLE code (`lower/isle/generated_code.rs`) - needs verification
+  - ISLE integration glue needs fixes: replace `std::boxed::Box`/`std::vec::Vec` with `alloc::boxed::Box`/`alloc::vec::Vec`
+
+### Feature Naming Conventions
+
+**Question**: Should feature names match cranelift's existing conventions?
+
+- **Current cranelift features**: `x86`, `arm64`, `riscv64`, `s390x`, `pulley`
+- **Proposed**: `riscv32` (matches pattern), `test-x64`, `test-arm64`, etc.
+- **Clarification needed**: Confirm feature naming strategy - should `riscv32` be the primary feature or should it be gated behind `test-riscv32` for consistency?
+
+### Dependencies for no_std
+
+**Question**: What dependencies are required for no_std builds?
+
+- **Known dependencies**:
+  - `hashbrown` (already used conditionally in cranelift-codegen)
+  - `alloc` crate (standard library, always available)
+  - `core` crate (standard library, always available)
+- **Clarification needed**:
+  - Are there any other dependencies needed?
+  - Should we document minimum `alloc` crate requirements?
+  - Are there any optional dependencies that should be feature-gated?
+
+### Testing Strategy
+
+**Question**: How will no_std builds be tested?
+
+- **Proposed approach**:
+  - Separate test suites: `#[cfg(feature = "std")]` for std tests, `#[cfg(not(feature = "std"))]` for no_std tests
+  - Use `cargo test --no-default-features --features riscv32` for no_std testing
+  - Keep std tests for comprehensive coverage
+- **Clarification needed**:
+  - Should we have separate CI jobs for no_std builds?
+  - How to test LP-specific crates in no_std mode?
+
+### Migration Timeline
+
+**Question**: Is this a phased migration or all-at-once?
+
+- **Current plan**: Phased approach (8 phases recommended)
+- **Clarification needed**:
+  - Timeline expectations?
+  - Can phases be done incrementally with working checkpoints?
+  - Should each phase be independently testable?
+
+### Upstream Synchronization
+
+**Question**: How will upstream changes be handled after forking?
+
+- **Current plan**: Keep wasmtime structure to enable merges
+- **Clarification needed**:
+  - How often should upstream be synced?
+  - What's the strategy for handling conflicts in modified files?
+  - Should we maintain a separate branch for upstream tracking?
+
+### Build System Details
+
+**For Plan 00 (Manual Lowering)**:
+
+- Add riscv32 feature to `cranelift/codegen/Cargo.toml`
+- Register riscv32 in `cranelift/codegen/src/isa/mod.rs`
+- Add riscv32 to `cranelift/codegen/meta/src/isa/mod.rs` (for settings, if needed)
+
+**For Plan 01 (ISLE Migration)**:
+
+- ISLE compilation happens in `cranelift/codegen/build.rs`
+- Need to add `riscv32` to ISLE compilation units in `cranelift/codegen/meta/src/isle.rs`
+- Need to register riscv32 in `cranelift/codegen/meta/src/isa/mod.rs` ISA definitions
+
+### Current Work Status
+
+**Question**: What work has already been started?
+
+- **Observed**:
+  - Modified: `cranelift/codegen/src/machinst/mod.rs`
+  - Untracked: `cranelift/codegen/src/machinst/test_block_params.rs`
+- **Clarification needed**:
+  - What changes were made to `machinst/mod.rs`?
+  - Is `test_block_params.rs` related to this migration?
+  - Should we incorporate existing work or start fresh?
+
