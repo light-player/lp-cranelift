@@ -24,15 +24,18 @@ pub mod disasm;
 pub mod encode;
 pub mod format;
 pub mod inst;
-pub mod inst_buffer;
+// pub mod inst_buffer;  // TODO: Adapt to use cranelift types or remove
 pub mod register_role;
 pub mod regs;
 
-// Re-exports
+// Re-exports for convenience
 pub use emu::{
     Riscv32Emulator, StepResult, SyscallInfo,
     EmulatorError, MemoryAccessKind,
     InstLog, LogLevel,
 };
 pub use regs::Gpr;
-
+pub use inst::Inst;
+pub use decode::decode_instruction;
+pub use disasm::disassemble_instruction;
+pub use asm_parser::assemble_code;

@@ -11,7 +11,7 @@ use super::{
     logging::{InstLog, LogLevel},
     memory::Memory,
 };
-use crate::{isa::riscv32::disasm::disassemble_instruction_with_labels, Gpr};
+use crate::{disasm::disassemble_instruction_with_labels, Gpr};
 
 /// Result of a single step.
 #[derive(Debug, Clone)]
