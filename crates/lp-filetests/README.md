@@ -49,9 +49,9 @@ cargo test --package lp-filetests -- --nocapture
 ## Test Categories
 
 ### Arithmetic Operations
-- `iadd.clif` - Integer addition
-- `isub.clif` - Integer subtraction
-- `imul.clif` - Integer multiplication
+- `iadd.clif` - Integer addition ✓ Execution test
+- `isub.clif` - Integer subtraction ✓ Execution test
+- `imul.clif` - Integer multiplication ✓ Execution test
 
 ### Division and Remainder
 - `udiv.clif` - Unsigned division
@@ -60,17 +60,17 @@ cargo test --package lp-filetests -- --nocapture
 - `srem.clif` - Signed remainder
 
 ### Shift Operations
-- `ishl.clif` - Shift left logical
-- `ushr.clif` - Shift right logical (unsigned)
+- `ishl.clif` - Shift left logical ✓ Execution test
+- `ushr.clif` - Shift right logical (unsigned) ✓ Execution test
 - `sshr.clif` - Shift right arithmetic (signed)
 
 ### Bitwise Operations
-- `band.clif` - Bitwise AND
-- `bor.clif` - Bitwise OR
-- `bxor.clif` - Bitwise XOR
+- `band.clif` - Bitwise AND ✓ Execution test
+- `bor.clif` - Bitwise OR ✓ Execution test
+- `bxor.clif` - Bitwise XOR ✓ Execution test
 
 ### Constants and Memory
-- `iconst.clif` - Integer constants
+- `iconst.clif` - Integer constants ✓ Execution test
 - `load.clif` - Load from memory
 - `store.clif` - Store to memory
 
@@ -127,17 +127,28 @@ Example:
 
 ## Implementation Details
 
-The test framework:
+The test framework provides two types of tests:
 
-1. **Parses CLIF** using `cranelift-reader`
-2. **Compiles** to RISC-V32 using `cranelift-codegen`
-3. **Disassembles** using `lp-riscv-tools`
-4. **Verifies** output using `filecheck` patterns
+### Compilation Tests
+1. **Parse CLIF** using `cranelift-reader`
+2. **Compile** to RISC-V32 using `cranelift-codegen`
+3. **Disassemble** using `lp-riscv-tools`
+4. **Verify** output using `filecheck` patterns
+
+### Execution Tests  
+1. **Compile** CLIF to RISC-V32 machine code
+2. **Load** code into `lp-riscv-tools` emulator
+3. **Execute** the code with test inputs
+4. **Verify** results match expected outputs
+
+Execution tests provide end-to-end verification that the generated code actually works correctly, catching bugs that static assembly checks might miss.
 
 Key modules:
 - `src/compile.rs` - Compilation and test infrastructure
 - `src/filecheck.rs` - Pattern matching utilities
 - `filetests/riscv32/` - Test files
+
+Current test count: **29 tests** (19 compilation + 10 execution)
 
 ## Dependencies
 
@@ -165,11 +176,12 @@ Some instructions may show as `unknown_r_type` in disassembly if the disassemble
 ## Future Enhancements
 
 Potential improvements:
-- [ ] Add emulator execution verification
+- [x] Add emulator execution verification (9 execution tests)
 - [ ] Test branch and call instructions
 - [ ] Test floating-point operations (if supported)
 - [ ] Test RISC-V extensions (Zba, Zbb, Zbs, Zbc)
 - [ ] Performance benchmarks
+- [ ] Add more execution tests for division, memory ops, etc.
 
 ## Related Documentation
 

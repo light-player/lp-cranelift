@@ -183,6 +183,79 @@ pub fn run_compile_test(clif_text: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Run an execution test that compiles CLIF and runs it in the emulator
+///
+/// # Arguments
+/// * `clif_text` - CLIF source code
+/// * `setup_fn` - Function to set up emulator state (registers, memory) before execution
+/// * `verify_fn` - Function to verify emulator state after execution
+pub fn run_execution_test<S, V>(
+    clif_text: &str,
+    setup_fn: S,
+    verify_fn: V,
+) -> Result<(), String>
+where
+    S: FnOnce(&mut lp_riscv_tools::emu::emulator::Riscv32Emulator),
+    V: FnOnce(&lp_riscv_tools::emu::emulator::Riscv32Emulator) -> Result<(), String>,
+{
+    use lp_riscv_tools::emu::emulator::Riscv32Emulator;
+    
+    // Compile
+    let compiled = compile_clif(clif_text).map_err(|e| e.to_string())?;
+    
+    if compiled.is_empty() {
+        return Err("No functions compiled".to_string());
+    }
+    
+    // Use first compiled function
+    let compiled_code = &compiled[0];
+    
+    // Create emulator with code and some RAM
+    let mut emu = Riscv32Emulator::new(
+        compiled_code.code.clone(),
+        vec![0; 4096], // 4KB RAM
+    );
+    
+    // PC starts at 0 (where code is loaded)
+    emu.set_pc(0);
+    
+    // Run setup function
+    setup_fn(&mut emu);
+    
+    // Execute until return or halt
+    let max_steps = 1000;
+    let mut seen_pcs = std::collections::HashSet::new();
+    seen_pcs.insert(emu.get_pc());
+    
+    for _ in 0..max_steps {
+        use lp_riscv_tools::emu::emulator::StepResult;
+        
+        match emu.step() {
+            Ok(StepResult::Continue) => {
+                let pc = emu.get_pc();
+                // If we've seen this PC before, we're in a loop (returned to start)
+                if !seen_pcs.insert(pc) {
+                    break;
+                }
+            }
+            Ok(StepResult::Halted) => {
+                // Hit an EBREAK or similar, stop execution
+                break;
+            }
+            Ok(StepResult::Syscall(_)) => {
+                // Syscall encountered, for simple tests we can stop here
+                break;
+            }
+            Err(e) => {
+                return Err(format!("Emulator error: {:?}", e));
+            }
+        }
+    }
+    
+    // Run verification
+    verify_fn(&emu)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -330,6 +403,225 @@ block0(v0: i32, v1: i32):
     fn test_store() {
         let content = include_str!("../filetests/riscv32/store.clif");
         run_compile_test(content).unwrap();
+    }
+    
+    // Execution tests - verify code actually runs correctly
+    
+    #[test]
+    fn test_iadd_disasm() {
+        // Debug test to see what code is generated
+        let clif = include_str!("../filetests/riscv32/iadd.clif");
+        let compiled = compile_clif(clif).unwrap();
+        println!("Generated code for iadd:");
+        println!("{}", compiled[0].disassembly);
+        println!("Code bytes: {:02x?}", &compiled[0].code);
+    }
+    
+    #[test]
+    fn test_iadd_execution() {
+        use lp_riscv_tools::Gpr;
+        let clif = include_str!("../filetests/riscv32/iadd.clif");
+        
+        run_execution_test(
+            clif,
+            |emu| {
+                // Set up arguments: a0 = 10, a1 = 32
+                emu.set_register(Gpr::A0, 10);
+                emu.set_register(Gpr::A1, 32);
+                emu.set_register(Gpr::Ra, 0);  // Return to 0 will halt
+            },
+            |emu| {
+                // Verify result: a0 should be 10 + 32 = 42
+                let result = emu.get_register(Gpr::A0);
+                if result == 42 {
+                    Ok(())
+                } else {
+                    Err(format!("Expected a0 = 42, got {}", result))
+                }
+            }
+        ).unwrap();
+    }
+    
+    #[test]
+    fn test_isub_execution() {
+        use lp_riscv_tools::Gpr;
+        let clif = include_str!("../filetests/riscv32/isub.clif");
+        
+        run_execution_test(
+            clif,
+            |emu| {
+                emu.set_register(Gpr::A0, 100);
+                emu.set_register(Gpr::A1, 42);
+                emu.set_register(Gpr::Ra, 0);
+            },
+            |emu| {
+                let result = emu.get_register(Gpr::A0);
+                if result == 58 {
+                    Ok(())
+                } else {
+                    Err(format!("Expected a0 = 58, got {}", result))
+                }
+            }
+        ).unwrap();
+    }
+    
+    #[test]
+    fn test_imul_execution() {
+        use lp_riscv_tools::Gpr;
+        let clif = include_str!("../filetests/riscv32/imul.clif");
+        
+        run_execution_test(
+            clif,
+            |emu| {
+                emu.set_register(Gpr::A0, 6);
+                emu.set_register(Gpr::A1, 7);
+                emu.set_register(Gpr::Ra, 0);
+            },
+            |emu| {
+                let result = emu.get_register(Gpr::A0);
+                if result == 42 {
+                    Ok(())
+                } else {
+                    Err(format!("Expected a0 = 42, got {}", result))
+                }
+            }
+        ).unwrap();
+    }
+    
+    #[test]
+    fn test_band_execution() {
+        use lp_riscv_tools::Gpr;
+        let clif = include_str!("../filetests/riscv32/band.clif");
+        
+        run_execution_test(
+            clif,
+            |emu| {
+                emu.set_register(Gpr::A0, 0b1111);  // 15
+                emu.set_register(Gpr::A1, 0b1010);  // 10
+                emu.set_register(Gpr::Ra, 0);
+            },
+            |emu| {
+                let result = emu.get_register(Gpr::A0);
+                if result == 10 {
+                    Ok(())
+                } else {
+                    Err(format!("Expected a0 = 10, got {}", result))
+                }
+            }
+        ).unwrap();
+    }
+    
+    #[test]
+    fn test_bor_execution() {
+        use lp_riscv_tools::Gpr;
+        let clif = include_str!("../filetests/riscv32/bor.clif");
+        
+        run_execution_test(
+            clif,
+            |emu| {
+                emu.set_register(Gpr::A0, 0b1100);  // 12
+                emu.set_register(Gpr::A1, 0b0011);  // 3
+                emu.set_register(Gpr::Ra, 0);
+            },
+            |emu| {
+                let result = emu.get_register(Gpr::A0);
+                if result == 15 {
+                    Ok(())
+                } else {
+                    Err(format!("Expected a0 = 15, got {}", result))
+                }
+            }
+        ).unwrap();
+    }
+    
+    #[test]
+    fn test_bxor_execution() {
+        use lp_riscv_tools::Gpr;
+        let clif = include_str!("../filetests/riscv32/bxor.clif");
+        
+        run_execution_test(
+            clif,
+            |emu| {
+                emu.set_register(Gpr::A0, 0b1111);  // 15
+                emu.set_register(Gpr::A1, 0b1010);  // 10
+                emu.set_register(Gpr::Ra, 0);
+            },
+            |emu| {
+                let result = emu.get_register(Gpr::A0);
+                if result == 5 {
+                    Ok(())
+                } else {
+                    Err(format!("Expected a0 = 5, got {}", result))
+                }
+            }
+        ).unwrap();
+    }
+    
+    #[test]
+    fn test_ishl_execution() {
+        use lp_riscv_tools::Gpr;
+        let clif = include_str!("../filetests/riscv32/ishl.clif");
+        
+        run_execution_test(
+            clif,
+            |emu| {
+                emu.set_register(Gpr::A0, 3);
+                emu.set_register(Gpr::A1, 4);
+                emu.set_register(Gpr::Ra, 0);
+            },
+            |emu| {
+                let result = emu.get_register(Gpr::A0);
+                if result == 48 {
+                    Ok(())
+                } else {
+                    Err(format!("Expected a0 = 48, got {}", result))
+                }
+            }
+        ).unwrap();
+    }
+    
+    #[test]
+    fn test_ushr_execution() {
+        use lp_riscv_tools::Gpr;
+        let clif = include_str!("../filetests/riscv32/ushr.clif");
+        
+        run_execution_test(
+            clif,
+            |emu| {
+                emu.set_register(Gpr::A0, 64);
+                emu.set_register(Gpr::A1, 2);
+                emu.set_register(Gpr::Ra, 0);
+            },
+            |emu| {
+                let result = emu.get_register(Gpr::A0);
+                if result == 16 {
+                    Ok(())
+                } else {
+                    Err(format!("Expected a0 = 16, got {}", result))
+                }
+            }
+        ).unwrap();
+    }
+    
+    #[test]
+    fn test_iconst_execution() {
+        use lp_riscv_tools::Gpr;
+        let clif = include_str!("../filetests/riscv32/iconst.clif");
+        
+        run_execution_test(
+            clif,
+            |emu| {
+                emu.set_register(Gpr::Ra, 0);
+            },
+            |emu| {
+                let result = emu.get_register(Gpr::A0);
+                if result == 42 {
+                    Ok(())
+                } else {
+                    Err(format!("Expected a0 = 42, got {}", result))
+                }
+            }
+        ).unwrap();
     }
 }
 
