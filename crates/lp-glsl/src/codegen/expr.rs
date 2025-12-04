@@ -57,7 +57,8 @@ impl<'a> CodegenContext<'a> {
             Expr::Variable(ident) => {
                 let vars = self
                     .lookup_variables(&ident.0)
-                    .ok_or_else(|| format!("Variable '{}' not found", ident.0))?;
+                    .ok_or_else(|| format!("Variable '{}' not found", ident.0))?
+                    .to_vec(); // Clone to avoid borrow issues
                 let ty = self
                     .lookup_variable_type(&ident.0)
                     .ok_or_else(|| format!("Variable type not found for '{}'", ident.0))?
@@ -72,11 +73,17 @@ impl<'a> CodegenContext<'a> {
 
             // Function calls - check if it's a type constructor
             Expr::FunCall(func_ident, args) => {
-                if is_vector_type_name(&func_ident.0) {
-                    self.translate_vector_constructor(&func_ident.0, args)
+                // Extract identifier name from FunIdentifier enum
+                let func_name = match func_ident {
+                    glsl::syntax::FunIdentifier::Identifier(ident) => &ident.0,
+                    _ => return Err("Complex function identifiers not yet supported".to_string()),
+                };
+                
+                if is_vector_type_name(func_name) {
+                    self.translate_vector_constructor(func_name, args)
                 } else {
                     // Regular function call (not implemented yet)
-                    Err(format!("Function calls not yet supported: {}", func_ident.0))
+                    Err(format!("Function calls not yet supported: {}", func_name))
                 }
             }
 
@@ -267,7 +274,7 @@ impl<'a> CodegenContext<'a> {
                     lhs_ty, rhs_ty
                 ));
             }
-            (*lhs_ty, VectorOpMode::ComponentWise)
+            (lhs_ty.clone(), VectorOpMode::ComponentWise)
         } else if lhs_ty.is_vector() && rhs_ty.is_scalar() {
             // vec + scalar: scalar applied to each component
             let vec_base = lhs_ty.vector_base_type().unwrap();
@@ -278,7 +285,7 @@ impl<'a> CodegenContext<'a> {
                     rhs_ty, lhs_ty
                 ));
             }
-            (*lhs_ty, VectorOpMode::VectorScalar)
+            (lhs_ty.clone(), VectorOpMode::VectorScalar)
         } else if lhs_ty.is_scalar() && rhs_ty.is_vector() {
             // scalar + vec: scalar applied to each component
             let vec_base = rhs_ty.vector_base_type().unwrap();
@@ -288,7 +295,7 @@ impl<'a> CodegenContext<'a> {
                     lhs_ty, rhs_ty
                 ));
             }
-            (*rhs_ty, VectorOpMode::ScalarVector)
+            (rhs_ty.clone(), VectorOpMode::ScalarVector)
         } else {
             unreachable!("translate_vector_binary_op called with non-vector types");
         };

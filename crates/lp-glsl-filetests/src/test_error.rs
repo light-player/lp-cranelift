@@ -2,11 +2,6 @@
 
 use anyhow::{bail, Result};
 
-#[cfg(feature = "std")]
-use std::string::String;
-#[cfg(not(feature = "std"))]
-use alloc::string::String;
-
 pub fn run_test(full_source: &str, glsl_source: &str) -> Result<()> {
     // Extract expected error pattern
     let error_pattern = extract_error_pattern(full_source)?;

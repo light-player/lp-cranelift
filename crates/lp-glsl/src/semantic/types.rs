@@ -5,7 +5,7 @@ use alloc::boxed::Box;
 
 /// GLSL type system
 /// Phase 1: Only Int and Bool are fully supported
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     Void,
     Bool,

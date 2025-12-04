@@ -10,6 +10,11 @@ use alloc::format;
 #[cfg(feature = "std")]
 use std::format;
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use std::vec::Vec;
+
 use crate::codegen::context::CodegenContext;
 use cranelift_codegen::ir::InstBuilder;
 
@@ -278,10 +283,11 @@ impl<'a> CodegenContext<'a> {
     ) -> Result<cranelift_codegen::ir::Value, String> {
         match condition {
             glsl::syntax::Condition::Expr(expr) => {
-                let (val, ty) = self.translate_expr_typed(expr)?;
+                let (vals, ty) = self.translate_expr_typed(expr)?;
                 // Validate that condition is bool type (GLSL spec requirement)
                 crate::semantic::type_check::check_condition(&ty)?;
-                Ok(val)
+                // Condition must be scalar, so we take the first (and only) value
+                Ok(vals.into_iter().next().ok_or_else(|| "Condition expression produced no value".to_string())?)
             }
             _ => Err("Only expression conditions supported".to_string()),
         }
@@ -454,7 +460,7 @@ impl<'a> CodegenContext<'a> {
     fn translate_initializer(
         &mut self,
         init: &glsl::syntax::Initializer,
-    ) -> Result<(alloc::vec::Vec<cranelift_codegen::ir::Value>, crate::semantic::types::Type), String> {
+    ) -> Result<(Vec<cranelift_codegen::ir::Value>, crate::semantic::types::Type), String> {
         use glsl::syntax::Initializer;
 
         match init {

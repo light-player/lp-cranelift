@@ -28,7 +28,7 @@ target-lexicon = { workspace = true }
 memmap2 = { version = "0.2.1", optional = true }
 log = { workspace = true }
 wasmtime-jit-icache-coherence = { workspace = true }
-hashbrown = { workspace = true, optional = true }
+hashbrown = { workspace = true }
 
 [target.'cfg(windows)'.dependencies.windows-sys]
 workspace = true
@@ -52,7 +52,6 @@ std = [
 core = [
     "cranelift-codegen/core",
     "cranelift-module/core",
-    "hashbrown",
 ]
 
 system-memory = ["std", "region", "libc", "cranelift-native"]
