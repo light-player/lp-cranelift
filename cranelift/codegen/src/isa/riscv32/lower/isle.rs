@@ -594,8 +594,9 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
     }
 
     fn lower_br_table(&mut self, index: Reg, targets: &[MachLabel]) -> Unit {
-        let tmp1 = self.temp_writable_reg(I64);
-        let tmp2 = self.temp_writable_reg(I64);
+        // On RV32, use I32 for temporary registers (addresses are 32-bit)
+        let tmp1 = self.temp_writable_reg(I32);
+        let tmp2 = self.temp_writable_reg(I32);
         self.emit(&MInst::BrTable {
             index,
             tmp1,
