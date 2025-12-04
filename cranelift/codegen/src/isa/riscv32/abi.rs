@@ -621,10 +621,22 @@ impl ABIMachineSpec for Riscv32MachineDeps {
 
     #[cfg(not(feature = "std"))]
     fn get_machine_env(_flags: &settings::Flags, _call_conv: isa::CallConv) -> &MachineEnv {
-        // For no_std, we leak a Box to get a 'static reference.
-        // This is a workaround for the lack of OnceLock in no_std.
-        // The leaked memory is acceptable since this is called once per compilation context.
-        Box::leak(Box::new(create_reg_environment()))
+        use core::sync::atomic::{AtomicBool, Ordering};
+        use core::ptr::addr_of_mut;
+        
+        // For no_std, we use a static with atomic initialization guard
+        static INIT: AtomicBool = AtomicBool::new(false);
+        static mut MACHINE_ENV: core::mem::MaybeUninit<MachineEnv> = core::mem::MaybeUninit::uninit();
+        
+        // Simple once-initialization pattern for no_std
+        if !INIT.load(Ordering::Acquire) {
+            unsafe {
+                addr_of_mut!(MACHINE_ENV).write(core::mem::MaybeUninit::new(create_reg_environment()));
+            }
+            INIT.store(true, Ordering::Release);
+        }
+        
+        unsafe { (*addr_of_mut!(MACHINE_ENV)).assume_init_ref() }
     }
 
     fn get_regs_clobbered_by_call(

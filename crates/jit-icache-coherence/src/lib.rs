@@ -74,7 +74,12 @@
 //!
 //! [ARM Community - Caches and Self-Modifying Code]: https://community.arm.com/arm-community-blogs/b/architectures-and-processors-blog/posts/caches-and-self-modifying-code
 
-use std::ffi::c_void;
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
+
+use core::ffi::c_void;
 
 cfg_if::cfg_if! {
     if #[cfg(target_os = "windows")] {

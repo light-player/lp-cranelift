@@ -1,10 +1,16 @@
-use std::ffi::c_void;
+use core::ffi::c_void;
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(all(feature = "std", any(target_os = "linux", target_os = "android")))]
 pub use std::io::Result;
 
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
+#[cfg(all(not(feature = "std"), any(target_os = "linux", target_os = "android")))]
+pub type Result<T> = core::result::Result<T, core::ffi::c_int>;
+
+#[cfg(all(feature = "std", not(any(target_os = "linux", target_os = "android"))))]
 pub use anyhow::Result;
+
+#[cfg(all(not(feature = "std"), not(any(target_os = "linux", target_os = "android"))))]
+pub type Result<T> = core::result::Result<T, ()>;
 
 #[cfg(all(
     target_arch = "aarch64",
@@ -14,7 +20,14 @@ mod details {
 
     use super::*;
     use libc::{EINVAL, EPERM, syscall};
+    
+    #[cfg(feature = "std")]
     use std::io::Error;
+    
+    #[cfg(not(feature = "std"))]
+    fn os_error(code: core::ffi::c_int) -> Result<()> {
+        Err(code)
+    }
 
     const MEMBARRIER_CMD_GLOBAL: libc::c_int = 1;
     const MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE: libc::c_int = 32;
@@ -83,7 +96,14 @@ mod details {
         if res == 0 {
             Ok(())
         } else {
-            Err(Error::last_os_error())
+            #[cfg(feature = "std")]
+            {
+                Err(Error::last_os_error())
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                Err(res as core::ffi::c_int)
+            }
         }
     }
 }
@@ -104,7 +124,7 @@ mod details {
 fn riscv_flush_icache(start: u64, end: u64) -> Result<()> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "one-core")] {
-            use std::arch::asm;
+            use core::arch::asm;
             let _ = (start, end);
             unsafe {
                 asm!("fence.i");
@@ -133,7 +153,16 @@ fn riscv_flush_icache(start: u64, end: u64) -> Result<()> {
                 )
             } {
                 0 => { Ok(()) }
-                _ => Err(std::io::Error::last_os_error()),
+                _ => {
+                    #[cfg(feature = "std")]
+                    {
+                        Err(std::io::Error::last_os_error())
+                    }
+                    #[cfg(not(feature = "std"))]
+                    {
+                        Err(-1)
+                    }
+                }
             }
         }
     }

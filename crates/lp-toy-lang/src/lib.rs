@@ -12,13 +12,16 @@ extern crate std;
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
-#[cfg(feature = "std")]
-pub mod executor;
 pub mod frontend;
-#[cfg(feature = "std")]
+
+#[cfg(any(feature = "std", feature = "cranelift"))]
+pub mod executor;
+
+#[cfg(any(feature = "std", feature = "cranelift"))]
 pub mod jit;
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", feature = "cranelift"))]
 pub use executor::{execute_function, execute_function_0args, execute_function_1arg, execute_function_2args};
-#[cfg(feature = "std")]
+
+#[cfg(any(feature = "std", feature = "cranelift"))]
 pub use jit::JIT;

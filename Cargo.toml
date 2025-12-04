@@ -184,7 +184,8 @@ members = [
   "crates/lp-glsl-filetests",
   "crates/runtime-embive",
   # LP-specific applications
-  "apps/embive-program",
+    "apps/embive-program",
+    "apps/esp32c3-jit-test",
 ]
 exclude = [
   'docs/rust_wasi_markdown_parser',

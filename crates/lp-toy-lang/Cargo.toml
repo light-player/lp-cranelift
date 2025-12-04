@@ -37,16 +37,24 @@ std = [
     "cranelift-native",
 ]
 
+# For testing specific ISAs
+riscv32 = ["cranelift-codegen/riscv32"]
+
 # Core no_std support - only frontend parsing, no JIT
 core = [
     "hashbrown",
 ]
 
-# For apps that need cranelift but no JIT (like embive-program which uses cranelift directly)
+# For apps that need cranelift with JIT in no_std (like embive-program)
 cranelift = [
     "cranelift-codegen",
     "cranelift-frontend",
+    "cranelift-jit",
+    "cranelift-module",
     "cranelift-frontend/core",
+    "cranelift-jit/core",
+    "cranelift-module/core",
+    "hashbrown",
 ]
 
 # RISC-V emulator support (optional)
@@ -56,3 +64,7 @@ riscv-emu = ["lp-riscv-tools"]
 name = "toy"
 path = "src/bin/toy.rs"
 required-features = ["std"]
+
+[dev-dependencies]
+target-lexicon = { version = "0.13.0", default-features = false }
+hashbrown = { workspace = true }

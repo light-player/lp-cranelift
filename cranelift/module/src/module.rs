@@ -290,6 +290,7 @@ pub enum ModuleError {
     Compilation(CodegenError),
 
     /// Memory allocation failure from a backend
+    #[cfg(feature = "std")]
     Allocation {
         /// Tell where the allocation came from
         message: &'static str,
@@ -312,24 +313,25 @@ impl<'a> From<CompileError<'a>> for ModuleError {
 
 // This is manually implementing Error and Display instead of using thiserror to reduce the amount
 // of dependencies used by Cranelift.
-impl std::error::Error for ModuleError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl core::error::Error for ModuleError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             Self::Undeclared { .. }
             | Self::IncompatibleDeclaration { .. }
             | Self::IncompatibleSignature { .. }
             | Self::DuplicateDefinition { .. }
-            | Self::InvalidImportDefinition { .. } => None,
-            Self::Compilation(source) => Some(source),
+            | Self::InvalidImportDefinition { .. }
+            | Self::Compilation { .. }
+            | Self::Flag { .. } => None,
+            #[cfg(feature = "std")]
             Self::Allocation { err: source, .. } => Some(source),
             Self::Backend(source) => Some(&**source),
-            Self::Flag(source) => Some(source),
         }
     }
 }
 
-impl std::fmt::Display for ModuleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for ModuleError {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
             Self::Undeclared(name) => {
                 write!(f, "Undeclared identifier: {name}")
@@ -355,6 +357,7 @@ impl std::fmt::Display for ModuleError {
             Self::Compilation(err) => {
                 write!(f, "Compilation error: {err}")
             }
+            #[cfg(feature = "std")]
             Self::Allocation { message, err } => {
                 write!(f, "Allocation error: {message}: {err}")
             }
@@ -364,13 +367,13 @@ impl std::fmt::Display for ModuleError {
     }
 }
 
-impl std::convert::From<CodegenError> for ModuleError {
+impl core::convert::From<CodegenError> for ModuleError {
     fn from(source: CodegenError) -> Self {
         Self::Compilation { 0: source }
     }
 }
 
-impl std::convert::From<SetError> for ModuleError {
+impl core::convert::From<SetError> for ModuleError {
     fn from(source: SetError) -> Self {
         Self::Flag { 0: source }
     }
@@ -481,7 +484,7 @@ mod serialize {
 
     use serde::de::{Deserialize, Deserializer, Error, MapAccess, SeqAccess, Unexpected, Visitor};
     use serde::ser::{Serialize, SerializeStruct, Serializer};
-    use std::fmt;
+    use core::fmt;
 
     fn get_names<E: Error>(
         functions: &PrimaryMap<FuncId, FunctionDeclaration>,

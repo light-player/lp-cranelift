@@ -15,7 +15,7 @@ use critical_section::{set_impl, Impl, RawRestoreState};
 mod alloc;
 mod print;
 
-pub use alloc::init_allocator;
+pub use alloc::{init_allocator, get_memory_usage, reset_memory_stats};
 
 pub use print::_print;
 

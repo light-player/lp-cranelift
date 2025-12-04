@@ -1,10 +1,11 @@
 ENTRY(_entry)
 
-STACK_SIZE = 0x10000;
+/* Emulator provides 512KB RAM - balance for Cranelift */
+STACK_SIZE = 0x30000;  /* 192KB stack */
 
 MEMORY {
     ROM (rx)  : ORIGIN = 0x00000000, LENGTH = 0x80000000 /* Set to maximum possible length */
-    RAM (wrx) : ORIGIN = 0x80000000, LENGTH = 0x80000000 /* Set to maximum possible length */
+    RAM (wrx) : ORIGIN = 0x80000000, LENGTH = 0x00080000 /* 512KB RAM to match emulator */
 }
 
 SECTIONS {
@@ -44,9 +45,6 @@ SECTIONS {
     } > ROM
 
     .bss (NOLOAD) : ALIGN(4) {
-        . += STACK_SIZE;
-        . = ALIGN(16);
-        __stack_start = . ;
         __bss_target_start = .;
         _bss = .;
         *(.bss*);
@@ -77,13 +75,20 @@ SECTIONS {
     __data_source_start = LOADADDR(.data);
 
     /* Heap section - reserve space for dynamic allocation */
-    /* We reserve 2MB for the heap to support Cranelift compilation */
     /* NOLOAD means this section won't be loaded from the ELF, but space is reserved */
     .heap (NOLOAD) : ALIGN(16) {
         __heap_start = .;
-        . += 2 * 1024 * 1024; /* 2MB heap for Cranelift JIT */
+        . += 256 * 1024; /* 256KB heap */
         . = ALIGN(16);
         __heap_end = .;
+    } > RAM
+    
+    /* Stack section - comes AFTER heap, grows downward */
+    /* Stack pointer will be set to __stack_start (top of stack) */
+    .stack (NOLOAD) : ALIGN(16) {
+        . += STACK_SIZE;
+        . = ALIGN(16);
+        __stack_start = . ;
     } > RAM
 
     _ram  = ORIGIN(RAM);

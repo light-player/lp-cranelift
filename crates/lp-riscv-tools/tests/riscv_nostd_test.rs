@@ -99,7 +99,7 @@ fn run_nostd_test() -> Result<(), String> {
     // Create emulator
     println!("[3/4] Running in RISC-V emulator...");
     let mut emu =
-        Riscv32Emulator::new(elf_info.code, elf_info.ram).with_max_instructions(100_000_000); // Increased for Cranelift compilation
+        Riscv32Emulator::new(elf_info.code, elf_info.ram).with_max_instructions(10_000_000_000); // 10 billion - Cranelift JIT needs lots of instructions
 
     let mut output_lines = Vec::new();
     let mut result_value = None;
@@ -215,19 +215,19 @@ fn run_nostd_test() -> Result<(), String> {
     }
     println!("   ✓ Program executed successfully");
 
-    // Verify the syscall result (should be 42 from placeholder)
+    // Verify the syscall result
     match result_value {
-        Some(42) => {
-            println!("   ✓ Correct result received: 42");
+        Some(15) => {
+            println!("   ✓ Correct result received: 15 (expected for 5 * 3)");
         }
         Some(other) => {
             return Err(format!(
-                "Incorrect result: expected 42, got {}",
+                "Incorrect result: expected 15, got {}",
                 other
             ));
         }
         None => {
-            return Err("No result received from program (expected 42)".to_string());
+            return Err("No result received from program".to_string());
         }
     }
 
