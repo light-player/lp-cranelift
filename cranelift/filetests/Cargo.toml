@@ -14,18 +14,18 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
-cranelift-codegen = { workspace = true, features = ["disas", "timing"] }
+cranelift-codegen = { workspace = true, features = ["disas", "timing", "unwind"] }
 cranelift-frontend = { workspace = true }
 cranelift-interpreter = { workspace = true }
 cranelift-native = { workspace = true }
 cranelift-reader = { workspace = true }
-cranelift-jit = { workspace = true, features = ["selinux-fix", "wasmtime-unwinder"] }
+cranelift-jit = { workspace = true, features = ["std", "selinux-fix", "wasmtime-unwinder"] }
 cranelift-module = { workspace = true }
 cranelift-control = { workspace = true }
 wasmtime-unwinder = { workspace = true, features = ["cranelift"] }
 file-per-thread-logger = { workspace = true }
 filecheck = { workspace = true }
-gimli = { workspace = true, features = ['std'] }
+gimli = { workspace = true, features = ['std', 'write'] }
 log = { workspace = true }
 num_cpus = "1.8.0"
 target-lexicon = { workspace = true }
