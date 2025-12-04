@@ -1,5 +1,5 @@
-test compile
-test run
+// test compile
+// test run
 
 int main() {
     int a = 5;
@@ -8,8 +8,7 @@ int main() {
     return (a + b) * c - 4;
 }
 
-; CHECK: iadd
-; CHECK: imul
-; CHECK: isub
-; run: == 12
-
+// CHECK: iadd
+// CHECK: imul
+// CHECK: isub
+// run: == 12

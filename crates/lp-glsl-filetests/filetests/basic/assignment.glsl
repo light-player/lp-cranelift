@@ -1,5 +1,5 @@
-test compile
-test run
+// test compile
+// test run
 
 int main() {
     int x = 5;
@@ -8,8 +8,7 @@ int main() {
     return z;
 }
 
-; CHECK: iconst.i32 5
-; CHECK: iconst.i32 10
-; CHECK: iadd
-; run: == 30
-
+// CHECK: iconst.i32 5
+// CHECK: iconst.i32 10
+// CHECK: iadd
+// run: == 30
