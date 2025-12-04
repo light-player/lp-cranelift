@@ -2292,8 +2292,8 @@
 ;; These are the normal rules for generating an AMode.
 (decl amode_inner (Value i32) AMode)
 
-;; In the simplest case we just lower into a Reg+Offset
-(rule 0 (amode_inner r @ (value_type (ty_addr64 _)) offset)
+;; On RV32, addresses are i32
+(rule 0 (amode_inner r @ (value_type $I32) offset)
   (gen_reg_offset_amode r offset))
 
 ;; If the value is a `get_frame_pointer`, we can just use the offset from that.
