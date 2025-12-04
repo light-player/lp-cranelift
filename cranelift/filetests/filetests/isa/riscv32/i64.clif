@@ -1,0 +1,126 @@
+test compile precise-output
+set opt_level=speed
+target riscv32 has_m
+
+function %mul_uextend_i32(i32, i32) -> i64 {
+block0(v0: i32, v1: i32):
+    v2 = uextend.i64 v0
+    v3 = uextend.i64 v1
+    v4 = imul v2, v3
+    return v4
+}
+
+; VCode:
+; block0:
+;   mul a3,a0,a1
+;   mulhu a1,a0,a1
+;   mv a0,a3
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   mul a3, a0, a1
+;   mulhu a1, a0, a1
+;   mv a0, a3
+;   ret
+
+function %mul_sextend_i32(i32, i32) -> i64 {
+block0(v0: i32, v1: i32):
+    v2 = sextend.i64 v0
+    v3 = sextend.i64 v1
+    v4 = imul v2, v3
+    return v4
+}
+
+; VCode:
+; block0:
+;   mul a3,a0,a1
+;   mulh a1,a0,a1
+;   mv a0,a3
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   mul a3, a0, a1
+;   mulh a1, a0, a1
+;   mv a0, a3
+;   ret
+
+function %smul_high_i32_pattern(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = sextend.i64 v0
+    v3 = sextend.i64 v1
+    v4 = imul v2, v3
+    v5 = sshr_imm v4, 32
+    v6 = ireduce.i32 v5
+    return v6
+}
+
+; VCode:
+; block0:
+;   mulh a0,a0,a1
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   mulh a0, a0, a1
+;   ret
+
+function %smul_high_i32_isplit(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = sextend.i64 v0
+    v3 = sextend.i64 v1
+    v4 = imul v2, v3
+    v5, v6 = isplit v4
+    return v6
+}
+
+; VCode:
+; block0:
+;   mulh a0,a0,a1
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   mulh a0, a0, a1
+;   ret
+
+function %umul_high_i32_pattern(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = uextend.i64 v0
+    v3 = uextend.i64 v1
+    v4 = imul v2, v3
+    v5 = ushr_imm v4, 32
+    v6 = ireduce.i32 v5
+    return v6
+}
+
+; VCode:
+; block0:
+;   mulhu a0,a0,a1
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   mulhu a0, a0, a1
+;   ret
+
+function %umul_high_i32_isplit(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = uextend.i64 v0
+    v3 = uextend.i64 v1
+    v4 = imul v2, v3
+    v5, v6 = isplit v4
+    return v6
+}
+
+; VCode:
+; block0:
+;   mulhu a0,a0,a1
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   mulhu a0, a0, a1
+;   ret
+

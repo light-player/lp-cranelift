@@ -1,0 +1,145 @@
+test interpret
+test run
+set enable_llvm_abi_extensions=true
+target riscv32 has_m
+
+function %add_i64(i64, i64) -> i64 {
+block0(v0: i64,v1: i64):
+    v2 = iadd v0, v1
+    return v2
+}
+; run: %add_i64(0, 0) == 0
+; run: %add_i64(1, 0) == 1
+; run: %add_i64(1, 1) == 2
+; run: %add_i64(1, -1) == 0
+; run: %add_i64(0xFFFFFFFF_00000000, 0x00000000_FFFFFFFF) == -1
+; run: %add_i64(0x00000000_FFFFFFFF, 1) == 0x00000001_00000000
+
+; run: %add_i64(0x01234567_89ABCDEF, 0xFEDCBA98_76543210) == -1
+; run: %add_i64(0xA00A00A0_0A00A00A, 0x0BB0BB0B_B0BB0BB0) == 0xABBABBAB_BABBABBA
+; run: %add_i64(0xC0FFEEEE_C0FFEEEE, 0x1DCB1111_1DCB1111) == 0xDECAFFFF_DECAFFFF
+
+function %sub_i64(i64, i64) -> i64 {
+block0(v0: i64,v1: i64):
+    v2 = isub v0, v1
+    return v2
+}
+; run: %sub_i64(0, 0) == 0
+; run: %sub_i64(1, 1) == 0
+; run: %sub_i64(1, 0) == 1
+; run: %sub_i64(0, 1) == -1
+; run: %sub_i64(0, -1) == 1
+
+; run: %sub_i64(-1, 0xFEDCBA98_76543210) == 0x01234567_89ABCDEF
+; run: %sub_i64(0xABBABBAB_BABBABBA, 0x0BB0BB0B_B0BB0BB0) == 0xA00A00A0_0A00A00A
+; run: %sub_i64(0xDECAFFFF_DECAFFFF, 0x1DCB1111_1DCB1111) == 0xC0FFEEEE_C0FFEEEE
+
+function %mul_i64(i64, i64) -> i64 {
+block0(v0: i64,v1: i64):
+    v2 = imul v0, v1
+    return v2
+}
+; run: %mul_i64(0, 0) == 0
+; run: %mul_i64(1, 0) == 0
+; run: %mul_i64(1, 1) == 1
+; run: %mul_i64(2, 2) == 4
+; run: %mul_i64(0x00000000_FFFFFFFF, 0x00000000_FFFFFFFF) == 0xFFFFFFFE_00000001
+; run: %mul_i64(0x12345678, 0x9ABCDEF0) == 0xb00ea3e5_3fa26280
+
+function %and_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+    v2 = band v0, v1
+    return v2
+}
+; run: %and_i64(0, 0) == 0
+; run: %and_i64(0xFFFFFFFF_FFFFFFFF, 0) == 0
+; run: %and_i64(0xFFFFFFFF_FFFFFFFF, 0xFFFFFFFF_FFFFFFFF) == 0xFFFFFFFF_FFFFFFFF
+; run: %and_i64(0xF0F0F0F0_F0F0F0F0, 0x0F0F0F0F_0F0F0F0F) == 0
+
+function %or_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+    v2 = bor v0, v1
+    return v2
+}
+; run: %or_i64(0, 0) == 0
+; run: %or_i64(0xFFFFFFFF_FFFFFFFF, 0) == 0xFFFFFFFF_FFFFFFFF
+; run: %or_i64(0xF0F0F0F0_F0F0F0F0, 0x0F0F0F0F_0F0F0F0F) == 0xFFFFFFFF_FFFFFFFF
+
+function %xor_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+    v2 = bxor v0, v1
+    return v2
+}
+; run: %xor_i64(0, 0) == 0
+; run: %xor_i64(0xFFFFFFFF_FFFFFFFF, 0xFFFFFFFF_FFFFFFFF) == 0
+; run: %xor_i64(0xF0F0F0F0_F0F0F0F0, 0x0F0F0F0F_0F0F0F0F) == 0xFFFFFFFF_FFFFFFFF
+
+function %icmp_eq_i64(i64, i64) -> i8 {
+block0(v0: i64, v1: i64):
+    v2 = icmp eq v0, v1
+    return v2
+}
+; run: %icmp_eq_i64(0, 0) == 1
+; run: %icmp_eq_i64(0, 1) == 0
+; run: %icmp_eq_i64(0xFFFFFFFF_FFFFFFFF, 0xFFFFFFFF_FFFFFFFF) == 1
+; run: %icmp_eq_i64(0x00000001_00000000, 0x00000000_00000001) == 0
+
+function %icmp_ne_i64(i64, i64) -> i8 {
+block0(v0: i64, v1: i64):
+    v2 = icmp ne v0, v1
+    return v2
+}
+; run: %icmp_ne_i64(0, 0) == 0
+; run: %icmp_ne_i64(0, 1) == 1
+; run: %icmp_ne_i64(0xFFFFFFFF_FFFFFFFF, 0xFFFFFFFF_FFFFFFFF) == 0
+
+function %icmp_ult_i64(i64, i64) -> i8 {
+block0(v0: i64, v1: i64):
+    v2 = icmp ult v0, v1
+    return v2
+}
+; run: %icmp_ult_i64(0, 0) == 0
+; run: %icmp_ult_i64(0, 1) == 1
+; run: %icmp_ult_i64(1, 0) == 0
+; run: %icmp_ult_i64(0xFFFFFFFF_FFFFFFFF, 0) == 0
+; run: %icmp_ult_i64(0, 0xFFFFFFFF_FFFFFFFF) == 1
+
+function %shl_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+    v2 = ishl v0, v1
+    return v2
+}
+; run: %shl_i64(1, 0) == 1
+; run: %shl_i64(1, 1) == 2
+; run: %shl_i64(1, 32) == 0x00000001_00000000
+; run: %shl_i64(1, 63) == 0x80000000_00000000
+
+function %shr_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+    v2 = ushr v0, v1
+    return v2
+}
+; run: %shr_i64(0x80000000_00000000, 0) == 0x80000000_00000000
+; run: %shr_i64(0x80000000_00000000, 1) == 0x40000000_00000000
+; run: %shr_i64(0x80000000_00000000, 32) == 0x00000000_80000000
+; run: %shr_i64(0x80000000_00000000, 63) == 1
+
+function %uextend_i32_to_i64(i32) -> i64 {
+block0(v0: i32):
+    v1 = uextend.i64 v0
+    return v1
+}
+; run: %uextend_i32_to_i64(0) == 0
+; run: %uextend_i32_to_i64(0xFFFFFFFF) == 0x00000000_FFFFFFFF
+; run: %uextend_i32_to_i64(0x12345678) == 0x00000000_12345678
+
+function %sextend_i32_to_i64(i32) -> i64 {
+block0(v0: i32):
+    v1 = sextend.i64 v0
+    return v1
+}
+; run: %sextend_i32_to_i64(0) == 0
+; run: %sextend_i32_to_i64(0x7FFFFFFF) == 0x00000000_7FFFFFFF
+; run: %sextend_i32_to_i64(0x80000000) == 0xFFFFFFFF_80000000
+; run: %sextend_i32_to_i64(0xFFFFFFFF) == -1
+
