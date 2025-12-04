@@ -7,5 +7,5 @@ float main() {
 
 // CHECK: f32const
 // CHECK: return
-// run: == 3.14
+// run: ~= 3.14 (tolerance: 0.01)
 

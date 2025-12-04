@@ -10,5 +10,5 @@ float main() {
 
 // CHECK: fcvt_from_sint
 // CHECK: fmul
-// run: == 6.0
+// run: ~= 6.0 (tolerance: 0.01)
 

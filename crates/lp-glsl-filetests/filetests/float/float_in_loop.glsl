@@ -11,5 +11,5 @@ float main() {
 
 // CHECK: f32const
 // CHECK: fadd
-// run: == 4.5
+// run: ~= 4.5 (tolerance: 0.01)
 

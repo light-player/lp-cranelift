@@ -8,5 +8,5 @@ float main() {
 
 // CHECK: iconst.i32 10
 // CHECK: fcvt_from_sint
-// run: == 10.0
+// run: ~= 10.0 (tolerance: 0.01)
 

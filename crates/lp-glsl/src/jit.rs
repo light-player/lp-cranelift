@@ -1,25 +1,25 @@
-#[cfg(feature = "std")]
-use std::string::{String, ToString};
 #[cfg(not(feature = "std"))]
 use alloc::string::{String, ToString};
-
 #[cfg(feature = "std")]
-use std::format;
+use std::string::{String, ToString};
+
 #[cfg(not(feature = "std"))]
 use alloc::format;
+#[cfg(feature = "std")]
+use std::format;
 
+use cranelift_codegen::Context as CodegenContext;
 use cranelift_codegen::ir::{AbiParam, InstBuilder};
 use cranelift_codegen::settings::Configurable;
-use cranelift_codegen::Context as CodegenContext;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{DataDescription, FuncId, Linkage, Module};
 use hashbrown::HashMap;
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use std::vec::Vec;
 
 pub struct JIT {
     builder_context: FunctionBuilderContext,
@@ -74,8 +74,8 @@ impl JIT {
         self.ctx.clear();
 
         // 1. Parse GLSL
-        let shader = glsl::parser::Parse::parse(glsl_source)
-            .map_err(|e| format!("Parse error: {:?}", e))?;
+        let shader =
+            glsl::parser::Parse::parse(glsl_source).map_err(|e| format!("Parse error: {:?}", e))?;
 
         // 2. Semantic analysis
         let typed_ast = crate::semantic::analyze(&shader)?;
@@ -122,8 +122,8 @@ impl JIT {
         self.ctx.clear();
 
         // 1. Parse GLSL
-        let shader = glsl::parser::Parse::parse(glsl_source)
-            .map_err(|e| format!("Parse error: {:?}", e))?;
+        let shader =
+            glsl::parser::Parse::parse(glsl_source).map_err(|e| format!("Parse error: {:?}", e))?;
 
         // 2. Semantic analysis
         let typed_ast = crate::semantic::analyze(&shader)?;
@@ -144,9 +144,13 @@ impl JIT {
     fn translate(&mut self, typed_ast: crate::semantic::TypedShader) -> Result<(), String> {
         // Step 1: Declare all user functions and get their FuncIds
         let mut func_ids: HashMap<String, FuncId> = HashMap::new();
-        
+
         for user_func in &typed_ast.user_functions {
-            let func_id = self.declare_function_signature(&user_func.name, &user_func.return_type, &user_func.parameters)?;
+            let func_id = self.declare_function_signature(
+                &user_func.name,
+                &user_func.return_type,
+                &user_func.parameters,
+            )?;
             func_ids.insert(user_func.name.clone(), func_id);
         }
 
@@ -157,7 +161,11 @@ impl JIT {
         }
 
         // Step 3: Compile main function
-        self.compile_main_function(&typed_ast.main_function, &func_ids, &typed_ast.function_registry)?;
+        self.compile_main_function(
+            &typed_ast.main_function,
+            &func_ids,
+            &typed_ast.function_registry,
+        )?;
 
         Ok(())
     }
@@ -274,7 +282,10 @@ impl JIT {
             ctx.builder.ins().return_(&[]);
         } else {
             // If we're here, there was no explicit return - emit default
-            let return_val = ctx.builder.ins().iconst(func.return_type.to_cranelift_type(), 0);
+            let return_val = ctx
+                .builder
+                .ins()
+                .iconst(func.return_type.to_cranelift_type(), 0);
             ctx.builder.ins().return_(&[return_val]);
         }
 
@@ -305,11 +316,19 @@ impl JIT {
                 let cranelift_ty = base_ty.to_cranelift_type();
                 let count = main_func.return_type.component_count().unwrap();
                 for _ in 0..count {
-                    self.ctx.func.signature.returns.push(AbiParam::new(cranelift_ty));
+                    self.ctx
+                        .func
+                        .signature
+                        .returns
+                        .push(AbiParam::new(cranelift_ty));
                 }
             } else {
                 let return_type = main_func.return_type.to_cranelift_type();
-                self.ctx.func.signature.returns.push(AbiParam::new(return_type));
+                self.ctx
+                    .func
+                    .signature
+                    .returns
+                    .push(AbiParam::new(return_type));
             }
         }
 
@@ -377,4 +396,3 @@ pub fn execute_bool(code_ptr: *const u8) -> bool {
     let func: fn() -> i8 = unsafe { std::mem::transmute(code_ptr) };
     func() != 0
 }
-

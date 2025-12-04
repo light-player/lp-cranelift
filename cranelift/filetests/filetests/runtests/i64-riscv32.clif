@@ -142,4 +142,3 @@ block0(v0: i32):
 ; run: %sextend_i32_to_i64(0x7FFFFFFF) == 0x00000000_7FFFFFFF
 ; run: %sextend_i32_to_i64(0x80000000) == 0xFFFFFFFF_80000000
 ; run: %sextend_i32_to_i64(0xFFFFFFFF) == -1
-

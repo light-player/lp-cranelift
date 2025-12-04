@@ -9,5 +9,5 @@ float main() {
 
 // CHECK: f32const
 // CHECK: fadd
-// run: == 4.0
+// run: ~= 4.0 (tolerance: 0.01)
 

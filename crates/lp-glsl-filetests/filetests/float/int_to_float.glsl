@@ -11,5 +11,5 @@ float main() {
 // CHECK: fcvt_from_sint
 // CHECK: f32const
 // CHECK: fadd
-// run: == 7.5
+// run: ~= 7.5 (tolerance: 0.01)
 

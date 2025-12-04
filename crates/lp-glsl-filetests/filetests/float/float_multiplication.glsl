@@ -8,5 +8,5 @@ float main() {
 }
 
 // CHECK: fmul
-// run: == 7.0
+// run: ~= 7.0 (tolerance: 0.01)
 

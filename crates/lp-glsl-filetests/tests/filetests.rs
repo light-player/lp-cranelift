@@ -6,7 +6,7 @@ fn test_file(path: &str) {
     let mut full_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     full_path.push("filetests");
     full_path.push(path);
-    
+
     lp_glsl_filetests::run_filetest(&full_path).unwrap();
 }
 
@@ -172,7 +172,446 @@ fn test_sign_int() {
     test_file("builtins/sign_int.glsl");
 }
 
+// Fixed-point transformation tests - SSA level
+#[test]
+fn test_fixed_const_16x16() {
+    test_file("fixed_point/const_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_add_16x16() {
+    test_file("fixed_point/add_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_sub_16x16() {
+    test_file("fixed_point/sub_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_mul_16x16() {
+    test_file("fixed_point/mul_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_div_16x16() {
+    test_file("fixed_point/div_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_cmp_eq_16x16() {
+    test_file("fixed_point/cmp_eq_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_cmp_lt_16x16() {
+    test_file("fixed_point/cmp_lt_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_expr_complex_16x16() {
+    test_file("fixed_point/expr_complex_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_expr_nested_16x16() {
+    test_file("fixed_point/expr_nested_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_negative_values_16x16() {
+    test_file("fixed_point/negative_values_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_small_fractions_16x16() {
+    test_file("fixed_point/small_fractions_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_range_limits_16x16() {
+    test_file("fixed_point/range_limits_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_const_32x32() {
+    test_file("fixed_point/const_32x32.glsl");
+}
+
+#[test]
+fn test_fixed_mul_32x32() {
+    test_file("fixed_point/mul_32x32.glsl");
+}
+
+#[test]
+fn test_fixed_div_32x32() {
+    test_file("fixed_point/div_32x32.glsl");
+}
+
+// Fixed-point transformation tests - Runtime
+#[test]
+fn test_fixed_run_add_16x16() {
+    test_file("fixed_point/run_add_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_run_mul_16x16() {
+    test_file("fixed_point/run_mul_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_run_div_16x16() {
+    test_file("fixed_point/run_div_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_run_precision_add_16x16() {
+    test_file("fixed_point/run_precision_add_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_run_precision_mul_chain_16x16() {
+    test_file("fixed_point/run_precision_mul_chain_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_run_add_32x32() {
+    test_file("fixed_point/run_add_32x32.glsl");
+}
+
+#[test]
+fn test_fixed_run_mul_32x32() {
+    test_file("fixed_point/run_mul_32x32.glsl");
+}
+
+#[test]
+fn test_fixed_run_negative_16x16() {
+    test_file("fixed_point/run_negative_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_run_near_zero_16x16() {
+    test_file("fixed_point/run_near_zero_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_run_cmp_eq_16x16() {
+    test_file("fixed_point/run_cmp_eq_16x16.glsl");
+}
+
+#[test]
+fn test_fixed_run_cmp_lt_16x16() {
+    test_file("fixed_point/run_cmp_lt_16x16.glsl");
+}
+
+// Float tests
+#[test]
+fn test_float_literal() {
+    test_file("float/float_literal.glsl");
+}
+
+#[test]
+fn test_float_arithmetic() {
+    test_file("float/float_arithmetic.glsl");
+}
+
+#[test]
+fn test_float_multiplication() {
+    test_file("float/float_multiplication.glsl");
+}
+
+#[test]
+fn test_float_comparison() {
+    test_file("float/float_comparison.glsl");
+}
+
+#[test]
+fn test_int_to_float() {
+    test_file("float/int_to_float.glsl");
+}
+
+#[test]
+fn test_float_assignment() {
+    test_file("float/float_assignment.glsl");
+}
+
+#[test]
+fn test_mixed_arithmetic() {
+    test_file("float/mixed_arithmetic.glsl");
+}
+
+#[test]
+fn test_float_in_loop() {
+    test_file("float/float_in_loop.glsl");
+}
+
+// Vector construction tests
+#[test]
+fn test_vec3_construct() {
+    test_file("vectors/vec3_construct.glsl");
+}
+
+#[test]
+fn test_vec3_broadcast() {
+    test_file("vectors/vec3_broadcast.glsl");
+}
+
+#[test]
+fn test_ivec2_construct() {
+    test_file("vectors/ivec2_construct.glsl");
+}
+
+#[test]
+fn test_vec3_from_ivec3() {
+    test_file("vectors/vec3_from_ivec3.glsl");
+}
+
+#[test]
+fn test_vec4_concat() {
+    test_file("vectors/vec4_concat.glsl");
+}
+
+#[test]
+fn test_vec3_int_to_float() {
+    test_file("vectors/vec3_int_to_float.glsl");
+}
+
+// Vector arithmetic tests
+#[test]
+fn test_vec3_add() {
+    test_file("vectors/vec3_add.glsl");
+}
+
+#[test]
+fn test_vec3_multiply_scalar() {
+    test_file("vectors/vec3_multiply_scalar.glsl");
+}
+
+#[test]
+fn test_scalar_multiply_vec3() {
+    test_file("vectors/scalar_multiply_vec3.glsl");
+}
+
+#[test]
+fn test_ivec2_subtract() {
+    test_file("vectors/ivec2_subtract.glsl");
+}
+
+#[test]
+fn test_vec4_divide_scalar() {
+    test_file("vectors/vec4_divide_scalar.glsl");
+}
+
+#[test]
+fn test_vec3_mixed_ops() {
+    test_file("vectors/vec3_mixed_ops.glsl");
+}
+
+// Component access tests
+#[test]
+fn test_component_access_x() {
+    test_file("vectors/component_access_x.glsl");
+}
+
+#[test]
+fn test_component_access_rgba() {
+    test_file("vectors/component_access_rgba.glsl");
+}
+
+#[test]
+fn test_component_assign() {
+    test_file("vectors/component_assign.glsl");
+}
+
+#[test]
+fn test_ivec2_component() {
+    test_file("vectors/ivec2_component.glsl");
+}
+
+// Built-in function tests  
+#[test]
+fn test_dot_vec3() {
+    test_file("builtins/dot_vec3.glsl");
+}
+
+#[test]
+fn test_cross_vec3() {
+    test_file("builtins/cross_vec3.glsl");
+}
+
+#[test]
+fn test_length_vec2() {
+    test_file("builtins/length_vec2.glsl");
+}
+
+#[test]
+fn test_normalize_vec3() {
+    test_file("builtins/normalize_vec3.glsl");
+}
+
+#[test]
+fn test_distance_vec3() {
+    test_file("builtins/distance_vec3.glsl");
+}
+
+#[test]
+fn test_min_scalars() {
+    test_file("builtins/min_scalars.glsl");
+}
+
+#[test]
+fn test_min_vec3_scalar() {
+    test_file("builtins/min_vec3_scalar.glsl");
+}
+
+#[test]
+fn test_max_vec2() {
+    test_file("builtins/max_vec2.glsl");
+}
+
+#[test]
+fn test_clamp_scalar() {
+    test_file("builtins/clamp_scalar.glsl");
+}
+
+#[test]
+fn test_clamp_vec3() {
+    test_file("builtins/clamp_vec3.glsl");
+}
+
+#[test]
+fn test_abs_float() {
+    test_file("builtins/abs_float.glsl");
+}
+
+#[test]
+fn test_sqrt_scalar() {
+    test_file("builtins/sqrt_scalar.glsl");
+}
+
+// User function tests
+#[test]
+fn test_simple_function() {
+    test_file("functions/simple_function.glsl");
+}
+
+#[test]
+fn test_vec3_function() {
+    test_file("functions/vec3_function.glsl");
+}
+
+#[test]
+fn test_multiple_params() {
+    test_file("functions/multiple_params.glsl");
+}
+
+#[test]
+fn test_function_composition() {
+    test_file("functions/function_composition.glsl");
+}
+
+#[test]
+fn test_implicit_conversion_func() {
+    test_file("functions/implicit_conversion.glsl");
+}
+
 // Type error tests
+#[test]
+fn test_bool_plus_int_error() {
+    test_file("type_errors/bool_plus_int.glsl");
+}
+
+#[test]
+fn test_float_to_int_assign_error() {
+    test_file("type_errors/float_to_int_assign.glsl");
+}
+
+#[test]
+fn test_int_condition_error() {
+    test_file("type_errors/int_condition.glsl");
+}
+
+#[test]
+fn test_bool_arithmetic_error() {
+    test_file("type_errors/bool_arithmetic.glsl");
+}
+
+#[test]
+fn test_type_mismatch_assign_error() {
+    test_file("type_errors/type_mismatch_assign.glsl");
+}
+
+#[test]
+fn test_incompatible_comparison_error() {
+    test_file("type_errors/incompatible_comparison.glsl");
+}
+
+#[test]
+fn test_vec_wrong_component_count_error() {
+    test_file("type_errors/vec_wrong_component_count.glsl");
+}
+
+#[test]
+fn test_vec_wrong_vector_size_error() {
+    test_file("type_errors/vec_wrong_vector_size.glsl");
+}
+
+#[test]
+fn test_vec_bool_construct_error() {
+    test_file("type_errors/vec_bool_construct.glsl");
+}
+
+#[test]
+fn test_vec_add_wrong_size_error() {
+    test_file("type_errors/vec_add_wrong_size.glsl");
+}
+
+#[test]
+fn test_vec_component_out_of_range_error() {
+    test_file("type_errors/vec_component_out_of_range.glsl");
+}
+
+#[test]
+fn test_scalar_component_access_error() {
+    test_file("type_errors/scalar_component_access.glsl");
+}
+
+#[test]
+fn test_component_assign_vector_error() {
+    test_file("type_errors/component_assign_vector.glsl");
+}
+
+#[test]
+fn test_dot_size_mismatch_error() {
+    test_file("type_errors/dot_size_mismatch.glsl");
+}
+
+#[test]
+fn test_cross_not_vec3_error() {
+    test_file("type_errors/cross_not_vec3.glsl");
+}
+
+#[test]
+fn test_builtin_wrong_arg_count_error() {
+    test_file("type_errors/builtin_wrong_arg_count.glsl");
+}
+
+#[test]
+fn test_function_return_type_mismatch_error() {
+    test_file("type_errors/function_return_type_mismatch.glsl");
+}
+
+#[test]
+fn test_function_wrong_arg_count_error() {
+    test_file("type_errors/function_wrong_arg_count.glsl");
+}
+
+#[test]
+fn test_function_wrong_arg_type_error() {
+    test_file("type_errors/function_wrong_arg_type.glsl");
+}
+
+// Type error tests (previously commented out)
 // TODO: Fix error test infrastructure to properly validate error messages
 // #[test]
 // fn test_mix_wrong_arg_count() {
@@ -208,4 +647,3 @@ fn test_sign_int() {
 // fn test_sign_wrong_arg_count() {
 //     test_file("type_errors/sign_wrong_arg_count.glsl");
 // }
-
