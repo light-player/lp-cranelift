@@ -210,7 +210,7 @@ fn convert_f32const(
 fn convert_fadd(
     func: &mut Function,
     inst: Inst,
-    format: FixedPointFormat,
+    _format: FixedPointFormat,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::InstructionData;
     
@@ -218,7 +218,6 @@ fn convert_fadd(
     if let InstructionData::Binary { opcode: _, args } = inst_data {
         let arg1 = args[0];
         let arg2 = args[1];
-        let target_type = format.cranelift_type();
         
         // Replace Fadd with Iadd
         func.dfg.replace(inst).iadd(arg1, arg2);
@@ -235,7 +234,7 @@ fn convert_fadd(
 fn convert_fsub(
     func: &mut Function,
     inst: Inst,
-    format: FixedPointFormat,
+    _format: FixedPointFormat,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::InstructionData;
     
@@ -286,7 +285,6 @@ fn convert_fmul(
                 
                 // Actually, simpler: Just do 64-bit math
                 // Extend to 64-bit, multiply, shift, truncate
-                let shift_const = cursor.ins().iconst(cranelift_codegen::ir::types::I32, shift_amount);
                 let a_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, arg1);
                 let b_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, arg2);
                 let mul_64 = cursor.ins().imul(a_ext, b_ext);
@@ -382,7 +380,7 @@ fn convert_fdiv(
 fn convert_fcmp(
     func: &mut Function,
     inst: Inst,
-    format: FixedPointFormat,
+    _format: FixedPointFormat,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::InstructionData;
     
@@ -434,8 +432,8 @@ fn convert_load(
         return Ok(()); // Not an F32 load, skip
     }
     
-    if let InstructionData::Load { opcode: _, flags, offset, args } = inst_data {
-        let addr = args[0];
+    if let InstructionData::Load { opcode: _, flags, offset, arg } = inst_data {
+        let addr = *arg;
         let flags = *flags;
         let offset = *offset;
         let target_type = format.cranelift_type();
@@ -451,7 +449,7 @@ fn convert_load(
 fn convert_store(
     func: &mut Function,
     inst: Inst,
-    format: FixedPointFormat,
+    _format: FixedPointFormat,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::InstructionData;
     
