@@ -10,8 +10,15 @@
 use super::{format::*, inst::Inst, regs::Gpr};
 
 /// Decode a 32-bit instruction word into a structured representation.
+/// This function handles both 32-bit and 16-bit compressed instructions.
 pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
     use alloc::format;
+
+    // Check if this is a compressed instruction (bits [1:0] != 0b11)
+    if (inst & 0x3) != 0x3 {
+        // It's a 16-bit compressed instruction
+        return crate::decode_rvc::decode_compressed(inst as u16);
+    }
 
     let opcode = (inst & 0x7f) as u8;
 
@@ -131,7 +138,27 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
             let rd = Gpr::new(i.rd);
             let rs1 = Gpr::new(i.rs1);
             match i.func {
+                0x0 => Ok(Inst::Lb {
+                    rd,
+                    rs1,
+                    imm: i.imm,
+                }),
+                0x1 => Ok(Inst::Lh {
+                    rd,
+                    rs1,
+                    imm: i.imm,
+                }),
                 0x2 => Ok(Inst::Lw {
+                    rd,
+                    rs1,
+                    imm: i.imm,
+                }),
+                0x4 => Ok(Inst::Lbu {
+                    rd,
+                    rs1,
+                    imm: i.imm,
+                }),
+                0x5 => Ok(Inst::Lhu {
                     rd,
                     rs1,
                     imm: i.imm,
@@ -145,6 +172,16 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
             let rs1 = Gpr::new(s.rs1);
             let rs2 = Gpr::new(s.rs2);
             match s.func {
+                0x0 => Ok(Inst::Sb {
+                    rs1,
+                    rs2,
+                    imm: s.imm,
+                }),
+                0x1 => Ok(Inst::Sh {
+                    rs1,
+                    rs2,
+                    imm: s.imm,
+                }),
                 0x2 => Ok(Inst::Sw {
                     rs1,
                     rs2,
@@ -211,8 +248,22 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
                     rs2,
                     imm: b.imm,
                 }),
+                0x6 => Ok(Inst::Bltu {
+                    rs1,
+                    rs2,
+                    imm: b.imm,
+                }),
+                0x7 => Ok(Inst::Bgeu {
+                    rs1,
+                    rs2,
+                    imm: b.imm,
+                }),
                 _ => Err(format!("Unknown branch instruction: funct3=0x{:x}", b.func)),
             }
+        }
+        0x0f => {
+            // FENCE instruction (memory ordering - no-op in single-threaded)
+            Ok(Inst::Fence)
         }
         0x73 => {
             // System instructions
@@ -222,6 +273,30 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
                 Ok(Inst::Ebreak)
             } else {
                 Err(format!("Unknown system instruction: 0x{:08x}", inst))
+            }
+        }
+        0x2f => {
+            // Atomic instructions (A extension)
+            let r = TypeR::from_riscv(inst);
+            let rd = Gpr::new(r.rd);
+            let rs1 = Gpr::new(r.rs1);
+            let rs2 = Gpr::new(r.rs2);
+            let funct3 = (r.func & 0x7) as u8;
+            let funct5 = ((inst >> 27) & 0x1f) as u8;
+
+            if funct3 != 0x2 {
+                return Err(format!("Unsupported atomic width: funct3=0x{:x}", funct3));
+            }
+
+            match funct5 {
+                0x02 => Ok(Inst::LrW { rd, rs1 }),
+                0x03 => Ok(Inst::ScW { rd, rs1, rs2 }),
+                0x01 => Ok(Inst::AmoswapW { rd, rs1, rs2 }),
+                0x00 => Ok(Inst::AmoaddW { rd, rs1, rs2 }),
+                0x04 => Ok(Inst::AmoxorW { rd, rs1, rs2 }),
+                0x0c => Ok(Inst::AmoandW { rd, rs1, rs2 }),
+                0x08 => Ok(Inst::AmoorW { rd, rs1, rs2 }),
+                _ => Err(format!("Unknown atomic instruction: funct5=0x{:x}", funct5)),
             }
         }
         _ => Err(format!("Unknown opcode: 0x{:02x}", opcode)),

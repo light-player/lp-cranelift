@@ -1,11 +1,20 @@
-//! Toy language compiler using automatic SSA construction.
+//! Toy language compiler using Cranelift JIT.
 //!
-//! This crate ports the cranelift-jit-demo to use our LPIR and SSABuilder API.
-//! It serves as validation that the new SSABuilder API works correctly.
+//! This crate provides a simple toy language that compiles to native machine code
+//! using Cranelift's JIT compiler. It supports both `std` and `no_std` environments.
+
+#![no_std]
+
+#[cfg(feature = "std")]
+#[macro_use]
+extern crate std;
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
 
 pub mod executor;
 pub mod frontend;
-pub mod translator;
+pub mod jit;
 
-pub use executor::execute_function;
-pub use translator::Translator;
+pub use executor::{execute_function, execute_function_0args, execute_function_1arg, execute_function_2args};
+pub use jit::JIT;

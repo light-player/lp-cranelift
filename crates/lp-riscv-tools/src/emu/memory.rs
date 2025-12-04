@@ -138,38 +138,236 @@ impl Memory {
         Ok(())
     }
 
-    /// Read a 32-bit instruction from the code region.
-    ///
-    /// Returns an error if the address is out of bounds or unaligned.
-    pub fn fetch_instruction(&self, address: u32) -> Result<u32, EmulatorError> {
+    /// Read a byte from memory.
+    pub fn read_byte(&self, address: u32) -> Result<i8, EmulatorError> {
+        // Determine which region
+        if address >= self.ram_start {
+            // RAM region
+            let offset = (address - self.ram_start) as usize;
+            if offset >= self.ram.len() {
+                return Err(EmulatorError::InvalidMemoryAccess {
+                    address,
+                    size: 1,
+                    kind: MemoryAccessKind::Read,
+                    pc: 0,
+                    regs: [0; 32],
+                });
+            }
+            Ok(self.ram[offset] as i8)
+        } else {
+            // Code region
+            let offset = (address - self.code_start) as usize;
+            if offset >= self.code.len() {
+                return Err(EmulatorError::InvalidMemoryAccess {
+                    address,
+                    size: 1,
+                    kind: MemoryAccessKind::Read,
+                    pc: 0,
+                    regs: [0; 32],
+                });
+            }
+            Ok(self.code[offset] as i8)
+        }
+    }
+
+    /// Read a halfword (16-bit) from memory.
+    pub fn read_halfword(&self, address: u32) -> Result<i16, EmulatorError> {
         // Check alignment
-        if address % 4 != 0 {
+        if address % 2 != 0 {
             return Err(EmulatorError::UnalignedAccess {
                 address,
-                alignment: 4,
+                alignment: 2,
+                pc: 0,
+                regs: [0; 32],
+            });
+        }
+
+        // Determine which region
+        if address >= self.ram_start {
+            // RAM region
+            let offset = (address - self.ram_start) as usize;
+            if offset + 2 > self.ram.len() {
+                return Err(EmulatorError::InvalidMemoryAccess {
+                    address,
+                    size: 2,
+                    kind: MemoryAccessKind::Read,
+                    pc: 0,
+                    regs: [0; 32],
+                });
+            }
+            let bytes = [self.ram[offset], self.ram[offset + 1]];
+            Ok(i16::from_le_bytes(bytes))
+        } else {
+            // Code region
+            let offset = (address - self.code_start) as usize;
+            if offset + 2 > self.code.len() {
+                return Err(EmulatorError::InvalidMemoryAccess {
+                    address,
+                    size: 2,
+                    kind: MemoryAccessKind::Read,
+                    pc: 0,
+                    regs: [0; 32],
+                });
+            }
+            let bytes = [self.code[offset], self.code[offset + 1]];
+            Ok(i16::from_le_bytes(bytes))
+        }
+    }
+
+    /// Write a byte to memory.
+    pub fn write_byte(&mut self, address: u32, value: i8) -> Result<(), EmulatorError> {
+        // Only allow writes to RAM region
+        if address < self.ram_start {
+            return Err(EmulatorError::InvalidMemoryAccess {
+                address,
+                size: 1,
+                kind: MemoryAccessKind::Write,
+                pc: 0,
+                regs: [0; 32],
+            });
+        }
+
+        let offset = (address - self.ram_start) as usize;
+        if offset >= self.ram.len() {
+            return Err(EmulatorError::InvalidMemoryAccess {
+                address,
+                size: 1,
+                kind: MemoryAccessKind::Write,
+                pc: 0,
+                regs: [0; 32],
+            });
+        }
+
+        self.ram[offset] = value as u8;
+        Ok(())
+    }
+
+    /// Write a halfword (16-bit) to memory.
+    pub fn write_halfword(&mut self, address: u32, value: i16) -> Result<(), EmulatorError> {
+        // Check alignment
+        if address % 2 != 0 {
+            return Err(EmulatorError::UnalignedAccess {
+                address,
+                alignment: 2,
+                pc: 0,
+                regs: [0; 32],
+            });
+        }
+
+        // Only allow writes to RAM region
+        if address < self.ram_start {
+            return Err(EmulatorError::InvalidMemoryAccess {
+                address,
+                size: 2,
+                kind: MemoryAccessKind::Write,
+                pc: 0,
+                regs: [0; 32],
+            });
+        }
+
+        let offset = (address - self.ram_start) as usize;
+        if offset + 2 > self.ram.len() {
+            return Err(EmulatorError::InvalidMemoryAccess {
+                address,
+                size: 2,
+                kind: MemoryAccessKind::Write,
+                pc: 0,
+                regs: [0; 32],
+            });
+        }
+
+        let bytes = value.to_le_bytes();
+        self.ram[offset] = bytes[0];
+        self.ram[offset + 1] = bytes[1];
+        Ok(())
+    }
+
+    /// Read a 32-bit instruction from the code region.
+    ///
+    /// For compressed instructions (RVC), this may return a 16-bit value in the lower 16 bits.
+    /// Returns an error if the address is out of bounds or not 2-byte aligned.
+    pub fn fetch_instruction(&self, address: u32) -> Result<u32, EmulatorError> {
+        // Check 2-byte alignment (required for compressed instructions)
+        if address % 2 != 0 {
+            return Err(EmulatorError::UnalignedAccess {
+                address,
+                alignment: 2,
                 pc: 0, // Will be filled in by caller
                 regs: [0; 32],
             });
         }
 
         let offset = (address - self.code_start) as usize;
-        if offset + 4 > self.code.len() {
+        
+        // First, read at least 2 bytes to check if it's compressed
+        if offset + 2 > self.code.len() {
             return Err(EmulatorError::InvalidMemoryAccess {
                 address,
-                size: 4,
+                size: 2,
                 kind: MemoryAccessKind::InstructionFetch,
                 pc: 0, // Will be filled in by caller
                 regs: [0; 32],
             });
         }
 
-        let bytes = [
-            self.code[offset],
-            self.code[offset + 1],
-            self.code[offset + 2],
-            self.code[offset + 3],
-        ];
-        Ok(u32::from_le_bytes(bytes))
+        // Read first 2 bytes
+        let first_half = u16::from_le_bytes([self.code[offset], self.code[offset + 1]]);
+
+        // Check if it's a compressed instruction (bits [1:0] != 0b11)
+        if (first_half & 0x3) != 0x3 {
+            // It's a compressed instruction, return 16-bit value as u32
+            Ok(first_half as u32)
+        } else {
+            // It's a 32-bit instruction, read all 4 bytes
+            if offset + 4 > self.code.len() {
+                return Err(EmulatorError::InvalidMemoryAccess {
+                    address,
+                    size: 4,
+                    kind: MemoryAccessKind::InstructionFetch,
+                    pc: 0, // Will be filled in by caller
+                    regs: [0; 32],
+                });
+            }
+
+            let bytes = [
+                self.code[offset],
+                self.code[offset + 1],
+                self.code[offset + 2],
+                self.code[offset + 3],
+            ];
+            Ok(u32::from_le_bytes(bytes))
+        }
+    }
+
+    /// Read a single byte from memory.
+    pub fn read_u8(&self, address: u32) -> Result<u8, EmulatorError> {
+        if address >= self.ram_start {
+            // RAM region
+            let offset = (address - self.ram_start) as usize;
+            if offset >= self.ram.len() {
+                return Err(EmulatorError::InvalidMemoryAccess {
+                    address,
+                    size: 1,
+                    kind: MemoryAccessKind::Read,
+                    pc: 0,
+                    regs: [0; 32],
+                });
+            }
+            Ok(self.ram[offset])
+        } else {
+            // Code region
+            let offset = (address - self.code_start) as usize;
+            if offset >= self.code.len() {
+                return Err(EmulatorError::InvalidMemoryAccess {
+                    address,
+                    size: 1,
+                    kind: MemoryAccessKind::Read,
+                    pc: 0,
+                    regs: [0; 32],
+                });
+            }
+            Ok(self.code[offset])
+        }
     }
 
     /// Get a reference to the RAM region (for inspection).

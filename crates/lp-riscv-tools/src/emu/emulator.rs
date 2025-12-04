@@ -113,6 +113,9 @@ impl Riscv32Emulator {
             e
         })?;
 
+        // Check if compressed instruction (bits [1:0] != 0b11)
+        let is_compressed = (inst_word & 0x3) != 0x3;
+
         // Decode instruction
         let decoded =
             decode_instruction(inst_word).map_err(|reason| EmulatorError::InvalidInstruction {
@@ -128,8 +131,9 @@ impl Riscv32Emulator {
         // Execute instruction
         let exec_result = execute_instruction(decoded, self.pc, &mut self.regs, &mut self.memory)?;
 
-        // Update PC
-        self.pc = exec_result.new_pc.unwrap_or(self.pc.wrapping_add(4));
+        // Update PC (2 bytes for compressed, 4 for standard)
+        let pc_increment = if is_compressed { 2 } else { 4 };
+        self.pc = exec_result.new_pc.unwrap_or(self.pc.wrapping_add(pc_increment));
 
         // Log instruction with cycle count
         let log_with_cycle = exec_result.log.set_cycle(self.instruction_count);

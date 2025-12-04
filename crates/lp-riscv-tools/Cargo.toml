@@ -20,8 +20,13 @@ cranelift-codegen = { workspace = true, features = ["riscv32"] }
 # For examples only
 cranelift-frontend = { workspace = true, optional = true }
 
+# For ELF loading (std only)
+elf = { version = "0.7", optional = true }
+
 [features]
-std = ["dep:cranelift-frontend"]
+std = ["dep:cranelift-frontend", "dep:elf"]
+
+[dev-dependencies]
 
 [[example]]
 name = "simple_codegen"

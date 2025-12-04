@@ -4,13 +4,48 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
-# Will adapt to use cranelift-frontend instead of lpc-lpir
 cranelift-frontend = { workspace = true }
-cranelift-codegen = { workspace = true, features = ["riscv32"] }
-lp-riscv-tools = { path = "../lp-riscv-tools" }
+cranelift-codegen = { workspace = true }
+cranelift-jit = { workspace = true }
+cranelift-module = { workspace = true }
+cranelift-native = { workspace = true, optional = true }
 nom = { version = "7", default-features = false, features = ["alloc"] }
+
+# For no_std HashMap support
+hashbrown = { workspace = true, optional = true }
+
+# Optional: keep for potential RISC-V target use
+lp-riscv-tools = { path = "../lp-riscv-tools", optional = true }
+
+[features]
+default = ["std"]
+
+# Full std support with native ISA detection
+std = [
+    "cranelift-codegen/std",
+    "cranelift-frontend/std",
+    "cranelift-jit/std",
+    "cranelift-module/std",
+    "cranelift-native",
+]
+
+# Core no_std support (requires custom memory provider and ISA)
+core = [
+    "cranelift-codegen/core",
+    "cranelift-frontend/core",
+    "cranelift-jit/core",
+    "cranelift-module/core",
+    "hashbrown",
+]
+
+# RISC-V emulator support (optional)
+riscv-emu = ["lp-riscv-tools"]
 
 [[bin]]
 name = "toy"
 path = "src/bin/toy.rs"
+required-features = ["std"]

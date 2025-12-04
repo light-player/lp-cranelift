@@ -18,9 +18,14 @@ extern crate std;
 // Emulator modules
 pub mod emu;
 
+// ELF loading utility
+#[cfg(feature = "std")]
+pub mod elf_loader;
+
 // Instruction utilities
 pub mod auipc_imm;
 pub mod decode;
+pub mod decode_rvc;
 pub mod encode;
 pub mod format;
 pub mod inst;
@@ -35,3 +40,6 @@ pub use emu::{
 };
 pub use inst::Inst;
 pub use regs::Gpr;
+
+#[cfg(feature = "std")]
+pub use elf_loader::{load_elf, ElfLoadInfo};

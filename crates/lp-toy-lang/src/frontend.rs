@@ -1,8 +1,12 @@
 //! AST and parser for the toy language.
 
+#[cfg(not(feature = "std"))]
 extern crate alloc;
 
-use alloc::{string::String, vec::Vec};
+#[cfg(feature = "std")]
+use std::{boxed::Box, format, string::String, string::ToString, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, format, string::String, string::ToString, vec::Vec};
 
 use nom::{
     branch::alt,
@@ -66,9 +70,19 @@ fn parse_literal(input: &str) -> IResult<&str, String> {
     })(input)
 }
 
+/// Parse a global data address: &identifier
+fn parse_global_data_addr(input: &str) -> IResult<&str, Expr> {
+    map(
+        tuple((terminated(char('&'), blank), parse_identifier)),
+        |(_, name)| Expr::GlobalDataAddr(name),
+    )(input)
+}
+
 /// Parse a primary expression (identifiers, literals, calls, parenthesized expressions)
 fn parse_primary(input: &str) -> IResult<&str, Expr> {
     alt((
+        // Global data address: &identifier
+        parse_global_data_addr,
         // Function call: identifier(args)
         map(
             tuple((

@@ -121,9 +121,39 @@ pub fn addi(rd: Gpr, rs1: Gpr, imm: i32) -> u32 {
 
 // Load/Store instructions
 
+/// LB: rd = sign_extend(mem[rs1 + imm][7:0])
+pub fn lb(rd: Gpr, rs1: Gpr, imm: i32) -> u32 {
+    encode_i(0x03, rd, rs1, imm, 0x0)
+}
+
+/// LH: rd = sign_extend(mem[rs1 + imm][15:0])
+pub fn lh(rd: Gpr, rs1: Gpr, imm: i32) -> u32 {
+    encode_i(0x03, rd, rs1, imm, 0x1)
+}
+
 /// LW: rd = mem[rs1 + imm]
 pub fn lw(rd: Gpr, rs1: Gpr, imm: i32) -> u32 {
     encode_i(0x03, rd, rs1, imm, 0x2)
+}
+
+/// LBU: rd = zero_extend(mem[rs1 + imm][7:0])
+pub fn lbu(rd: Gpr, rs1: Gpr, imm: i32) -> u32 {
+    encode_i(0x03, rd, rs1, imm, 0x4)
+}
+
+/// LHU: rd = zero_extend(mem[rs1 + imm][15:0])
+pub fn lhu(rd: Gpr, rs1: Gpr, imm: i32) -> u32 {
+    encode_i(0x03, rd, rs1, imm, 0x5)
+}
+
+/// SB: mem[rs1 + imm][7:0] = rs2[7:0]
+pub fn sb(rs1: Gpr, rs2: Gpr, imm: i32) -> u32 {
+    encode_s(0x23, rs1, rs2, imm, 0x0)
+}
+
+/// SH: mem[rs1 + imm][15:0] = rs2[15:0]
+pub fn sh(rs1: Gpr, rs2: Gpr, imm: i32) -> u32 {
+    encode_s(0x23, rs1, rs2, imm, 0x1)
 }
 
 /// SW: mem[rs1 + imm] = rs2
@@ -161,6 +191,16 @@ pub fn blt(rs1: Gpr, rs2: Gpr, imm: i32) -> u32 {
 /// BGE: if rs1 >= rs2 (signed), pc = pc + imm
 pub fn bge(rs1: Gpr, rs2: Gpr, imm: i32) -> u32 {
     encode_b(0x63, rs1, rs2, imm, 0x5)
+}
+
+/// BLTU: if rs1 < rs2 (unsigned), pc = pc + imm
+pub fn bltu(rs1: Gpr, rs2: Gpr, imm: i32) -> u32 {
+    encode_b(0x63, rs1, rs2, imm, 0x6)
+}
+
+/// BGEU: if rs1 >= rs2 (unsigned), pc = pc + imm
+pub fn bgeu(rs1: Gpr, rs2: Gpr, imm: i32) -> u32 {
+    encode_b(0x63, rs1, rs2, imm, 0x7)
 }
 
 // Comparison instructions

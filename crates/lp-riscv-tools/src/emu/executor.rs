@@ -195,6 +195,90 @@ pub fn execute_instruction(
                 rd_new: result,
             }
         }
+        Inst::Lb { rd, rs1, imm } => {
+            let base = read_reg(regs, rs1);
+            let address = base.wrapping_add(imm) as u32;
+
+            let error_regs = *regs;
+            let byte_val = memory.read_byte(address).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+            let value = byte_val as i32; // Sign extend
+
+            let rd_old = read_reg(regs, rd);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = value;
+            }
+
+            InstLog::Load {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: base,
+                addr: address,
+                mem_val: value,
+                rd_old,
+                rd_new: value,
+            }
+        }
+        Inst::Lh { rd, rs1, imm } => {
+            let base = read_reg(regs, rs1);
+            let address = base.wrapping_add(imm) as u32;
+
+            let error_regs = *regs;
+            let half_val = memory.read_halfword(address).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+            let value = half_val as i32; // Sign extend
+
+            let rd_old = read_reg(regs, rd);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = value;
+            }
+
+            InstLog::Load {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: base,
+                addr: address,
+                mem_val: value,
+                rd_old,
+                rd_new: value,
+            }
+        }
         Inst::Lw { rd, rs1, imm } => {
             let base = read_reg(regs, rs1);
             let address = base.wrapping_add(imm) as u32;
@@ -239,6 +323,168 @@ pub fn execute_instruction(
                 mem_val: value,
                 rd_old,
                 rd_new: value,
+            }
+        }
+        Inst::Lbu { rd, rs1, imm } => {
+            let base = read_reg(regs, rs1);
+            let address = base.wrapping_add(imm) as u32;
+
+            let error_regs = *regs;
+            let byte_val = memory.read_byte(address).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+            let value = (byte_val as u8) as i32; // Zero extend
+
+            let rd_old = read_reg(regs, rd);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = value;
+            }
+
+            InstLog::Load {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: base,
+                addr: address,
+                mem_val: value,
+                rd_old,
+                rd_new: value,
+            }
+        }
+        Inst::Lhu { rd, rs1, imm } => {
+            let base = read_reg(regs, rs1);
+            let address = base.wrapping_add(imm) as u32;
+
+            let error_regs = *regs;
+            let half_val = memory.read_halfword(address).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+            let value = (half_val as u16) as i32; // Zero extend
+
+            let rd_old = read_reg(regs, rd);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = value;
+            }
+
+            InstLog::Load {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: base,
+                addr: address,
+                mem_val: value,
+                rd_old,
+                rd_new: value,
+            }
+        }
+        Inst::Sb { rs1, rs2, imm } => {
+            let base = read_reg(regs, rs1);
+            let value = read_reg(regs, rs2);
+            let address = base.wrapping_add(imm) as u32;
+
+            let old_byte = memory.read_byte(address).unwrap_or(0);
+            let old_value = old_byte as i32;
+
+            let error_regs = *regs;
+            memory.write_byte(address, value as i8).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            InstLog::Store {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rs1_val: base,
+                rs2_val: value,
+                addr: address,
+                mem_old: old_value,
+                mem_new: (value as i8) as i32,
+            }
+        }
+        Inst::Sh { rs1, rs2, imm } => {
+            let base = read_reg(regs, rs1);
+            let value = read_reg(regs, rs2);
+            let address = base.wrapping_add(imm) as u32;
+
+            let old_half = memory.read_halfword(address).unwrap_or(0);
+            let old_value = old_half as i32;
+
+            let error_regs = *regs;
+            memory.write_halfword(address, value as i16).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            InstLog::Store {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rs1_val: base,
+                rs2_val: value,
+                addr: address,
+                mem_old: old_value,
+                mem_new: (value as i16) as i32,
             }
         }
         Inst::Sw { rs1, rs2, imm } => {
@@ -288,7 +534,7 @@ pub fn execute_instruction(
         Inst::Jal { rd, imm } => {
             let next_pc = pc.wrapping_add(4);
             let rd_old = read_reg(regs, rd);
-            let target = (pc.wrapping_add(imm as u32)) & !3; // Ensure 4-byte alignment
+            let target = (pc.wrapping_add(imm as u32)) & !1; // Ensure 2-byte alignment (RVC support)
             if rd.num() != 0 {
                 regs[rd.num() as usize] = next_pc as i32;
             }
@@ -311,7 +557,7 @@ pub fn execute_instruction(
             let base = read_reg(regs, rs1);
             let next_pc = pc.wrapping_add(4);
             let rd_old = read_reg(regs, rd);
-            let target = (base.wrapping_add(imm) as u32) & !3; // Clear bottom 2 bits for 4-byte alignment
+            let target = (base.wrapping_add(imm) as u32) & !1; // Clear bottom bit for 2-byte alignment (RVC support)
             if rd.num() != 0 {
                 regs[rd.num() as usize] = next_pc as i32;
             }
@@ -414,6 +660,50 @@ pub fn execute_instruction(
                 instruction: instruction_word,
                 rs1_val: val1,
                 rs2_val: val2,
+                taken,
+                target_pc,
+            }
+        }
+        Inst::Bltu { rs1, rs2, imm } => {
+            let val1 = read_reg(regs, rs1) as u32;
+            let val2 = read_reg(regs, rs2) as u32;
+            let taken = val1 < val2;
+            let target_pc = if taken {
+                let target = pc.wrapping_add(imm as u32);
+                new_pc = Some(target);
+                Some(target)
+            } else {
+                None
+            };
+
+            InstLog::Branch {
+                cycle: 0, // Will be set by emu
+                pc,
+                instruction: instruction_word,
+                rs1_val: val1 as i32,
+                rs2_val: val2 as i32,
+                taken,
+                target_pc,
+            }
+        }
+        Inst::Bgeu { rs1, rs2, imm } => {
+            let val1 = read_reg(regs, rs1) as u32;
+            let val2 = read_reg(regs, rs2) as u32;
+            let taken = val1 >= val2;
+            let target_pc = if taken {
+                let target = pc.wrapping_add(imm as u32);
+                new_pc = Some(target);
+                Some(target)
+            } else {
+                None
+            };
+
+            InstLog::Branch {
+                cycle: 0, // Will be set by emu
+                pc,
+                instruction: instruction_word,
+                rs1_val: val1 as i32,
+                rs2_val: val2 as i32,
                 taken,
                 target_pc,
             }
@@ -778,6 +1068,1091 @@ pub fn execute_instruction(
                 pc,
                 instruction: instruction_word,
                 kind: SystemKind::Ebreak,
+            }
+        }
+        Inst::Fence => {
+            // FENCE: Memory ordering (no-op in single-threaded emulator)
+            InstLog::System {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                kind: SystemKind::Ebreak, // Use existing kind (doesn't matter for logging)
+            }
+        }
+
+        // ====================================================================
+        // Compressed instructions
+        // ====================================================================
+
+        Inst::CAddi { rd, imm } => {
+            // c.addi: rd = rd + imm
+            let val1 = read_reg(regs, rd);
+            let rd_old = val1;
+            let result = val1.wrapping_add(imm);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::CLi { rd, imm } => {
+            // c.li: rd = imm (expands to addi rd, x0, imm)
+            let rd_old = read_reg(regs, rd);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = imm;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: 0,
+                rs2_val: None,
+                rd_old,
+                rd_new: imm,
+            }
+        }
+
+        Inst::CLui { rd, imm } => {
+            // c.lui: rd = imm (imm is already shifted)
+            let rd_old = read_reg(regs, rd);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = imm;
+            }
+            InstLog::Immediate {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rd_old,
+                rd_new: imm,
+            }
+        }
+
+        Inst::CMv { rd, rs } => {
+            // c.mv: rd = rs (expands to add rd, x0, rs)
+            let val = read_reg(regs, rs);
+            let rd_old = read_reg(regs, rd);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = val;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: 0,
+                rs2_val: Some(val),
+                rd_old,
+                rd_new: val,
+            }
+        }
+
+        Inst::CAdd { rd, rs } => {
+            // c.add: rd = rd + rs
+            let val1 = read_reg(regs, rd);
+            let val2 = read_reg(regs, rs);
+            let rd_old = val1;
+            let result = val1.wrapping_add(val2);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::CSub { rd, rs } => {
+            // c.sub: rd = rd - rs
+            let val1 = read_reg(regs, rd);
+            let val2 = read_reg(regs, rs);
+            let rd_old = val1;
+            let result = val1.wrapping_sub(val2);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::CAnd { rd, rs } => {
+            // c.and: rd = rd & rs
+            let val1 = read_reg(regs, rd);
+            let val2 = read_reg(regs, rs);
+            let rd_old = val1;
+            let result = val1 & val2;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::COr { rd, rs } => {
+            // c.or: rd = rd | rs
+            let val1 = read_reg(regs, rd);
+            let val2 = read_reg(regs, rs);
+            let rd_old = val1;
+            let result = val1 | val2;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::CXor { rd, rs } => {
+            // c.xor: rd = rd ^ rs
+            let val1 = read_reg(regs, rd);
+            let val2 = read_reg(regs, rs);
+            let rd_old = val1;
+            let result = val1 ^ val2;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::CLw { rd, rs, offset } => {
+            // c.lw: rd = mem[rs + offset]
+            let base = read_reg(regs, rs);
+            let address = base.wrapping_add(offset) as u32;
+
+            let error_regs = *regs;
+            let value = memory.read_word(address).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            let rd_old = read_reg(regs, rd);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = value;
+            }
+
+            InstLog::Load {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: base,
+                addr: address,
+                mem_val: value,
+                rd_old,
+                rd_new: value,
+            }
+        }
+
+        Inst::CSw { rs1, rs2, offset } => {
+            // c.sw: mem[rs1 + offset] = rs2
+            let base = read_reg(regs, rs1);
+            let value = read_reg(regs, rs2);
+            let address = base.wrapping_add(offset) as u32;
+
+            let old_value = memory.read_word(address).unwrap_or(0);
+
+            let error_regs = *regs;
+            memory.write_word(address, value).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            InstLog::Store {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rs1_val: base,
+                rs2_val: value,
+                addr: address,
+                mem_old: old_value,
+                mem_new: value,
+            }
+        }
+
+        Inst::CJ { offset } => {
+            // c.j: pc = pc + offset
+            let target = pc.wrapping_add(offset as u32);
+            new_pc = Some(target);
+
+            InstLog::Jump {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd_old: 0,
+                rd_new: None,
+                target_pc: target,
+            }
+        }
+
+        Inst::CJr { rs } => {
+            // c.jr: pc = rs
+            let base = read_reg(regs, rs);
+            let target = (base as u32) & !1; // Clear bottom bit for alignment
+            new_pc = Some(target);
+
+            InstLog::Jump {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd_old: 0,
+                rd_new: None,
+                target_pc: target,
+            }
+        }
+
+        Inst::CJalr { rs } => {
+            // c.jalr: ra = pc + 2; pc = rs
+            let base = read_reg(regs, rs);
+            let next_pc = pc.wrapping_add(2);
+            let target = (base as u32) & !1; // Clear bottom bit for alignment
+            regs[Gpr::Ra.num() as usize] = next_pc as i32;
+            new_pc = Some(target);
+
+            InstLog::Jump {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd_old: read_reg(regs, Gpr::Ra),
+                rd_new: Some(next_pc as i32),
+                target_pc: target,
+            }
+        }
+
+        Inst::CBeqz { rs, offset } => {
+            // c.beqz: if rs == 0, pc = pc + offset
+            let val = read_reg(regs, rs);
+            let taken = val == 0;
+            let target_pc = if taken {
+                let target = pc.wrapping_add(offset as u32);
+                new_pc = Some(target);
+                Some(target)
+            } else {
+                None
+            };
+
+            InstLog::Branch {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rs1_val: val,
+                rs2_val: 0,
+                taken,
+                target_pc,
+            }
+        }
+
+        Inst::CBnez { rs, offset } => {
+            // c.bnez: if rs != 0, pc = pc + offset
+            let val = read_reg(regs, rs);
+            let taken = val != 0;
+            let target_pc = if taken {
+                let target = pc.wrapping_add(offset as u32);
+                new_pc = Some(target);
+                Some(target)
+            } else {
+                None
+            };
+
+            InstLog::Branch {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rs1_val: val,
+                rs2_val: 0,
+                taken,
+                target_pc,
+            }
+        }
+
+        Inst::CSlli { rd, imm } => {
+            // c.slli: rd = rd << imm
+            let val1 = read_reg(regs, rd);
+            let rd_old = val1;
+            let shift_amount = (imm & 0x1f) as u32;
+            let result = (val1 as u32).wrapping_shl(shift_amount) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::CSrli { rd, imm } => {
+            // c.srli: rd = rd >> imm (logical)
+            let val1 = read_reg(regs, rd);
+            let rd_old = val1;
+            let shift_amount = (imm & 0x1f) as u32;
+            let result = ((val1 as u32).wrapping_shr(shift_amount)) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::CSrai { rd, imm } => {
+            // c.srai: rd = rd >> imm (arithmetic)
+            let val1 = read_reg(regs, rd);
+            let rd_old = val1;
+            let shift_amount = (imm & 0x1f) as u32;
+            let result = val1.wrapping_shr(shift_amount);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::CAndi { rd, imm } => {
+            // c.andi: rd = rd & imm
+            let val1 = read_reg(regs, rd);
+            let rd_old = val1;
+            let result = val1 & imm;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::CAddi16sp { imm } => {
+            // c.addi16sp: sp = sp + imm
+            let val1 = read_reg(regs, Gpr::Sp);
+            let result = val1.wrapping_add(imm);
+            regs[Gpr::Sp.num() as usize] = result;
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd: Gpr::Sp,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old: val1,
+                rd_new: result,
+            }
+        }
+
+        Inst::CAddi4spn { rd, imm } => {
+            // c.addi4spn: rd = sp + imm
+            let sp_val = read_reg(regs, Gpr::Sp);
+            let rd_old = read_reg(regs, rd);
+            let result = sp_val.wrapping_add(imm);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: sp_val,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::CLwsp { rd, offset } => {
+            // c.lwsp: rd = mem[sp + offset]
+            let sp_val = read_reg(regs, Gpr::Sp);
+            let address = sp_val.wrapping_add(offset) as u32;
+
+            let error_regs = *regs;
+            let value = memory.read_word(address).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            let rd_old = read_reg(regs, rd);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = value;
+            }
+
+            InstLog::Load {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: sp_val,
+                addr: address,
+                mem_val: value,
+                rd_old,
+                rd_new: value,
+            }
+        }
+
+        Inst::CSwsp { rs, offset } => {
+            // c.swsp: mem[sp + offset] = rs
+            let sp_val = read_reg(regs, Gpr::Sp);
+            let value = read_reg(regs, rs);
+            let address = sp_val.wrapping_add(offset) as u32;
+
+            let old_value = memory.read_word(address).unwrap_or(0);
+
+            let error_regs = *regs;
+            memory.write_word(address, value).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            InstLog::Store {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rs1_val: sp_val,
+                rs2_val: value,
+                addr: address,
+                mem_old: old_value,
+                mem_new: value,
+            }
+        }
+
+        Inst::CJal { offset } => {
+            // c.jal: ra = pc + 2; pc = pc + offset (RV32 only)
+            let next_pc = pc.wrapping_add(2);
+            let target = pc.wrapping_add(offset as u32);
+            regs[Gpr::Ra.num() as usize] = next_pc as i32;
+            new_pc = Some(target);
+
+            InstLog::Jump {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd_old: read_reg(regs, Gpr::Ra),
+                rd_new: Some(next_pc as i32),
+                target_pc: target,
+            }
+        }
+
+        Inst::CNop => {
+            // c.nop: no operation
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd: Gpr::Zero,
+                rs1_val: 0,
+                rs2_val: None,
+                rd_old: 0,
+                rd_new: 0,
+            }
+        }
+
+        Inst::CEbreak => {
+            // c.ebreak: same as ebreak
+            should_halt = true;
+            InstLog::System {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                kind: SystemKind::Ebreak,
+            }
+        }
+
+        // ====================================================================
+        // Atomic instructions (A extension)
+        // For single-threaded emulator, these are just read-modify-write
+        // ====================================================================
+
+        Inst::LrW { rd, rs1 } => {
+            // lr.w: Load reserved word (just a regular load in single-threaded)
+            let base = read_reg(regs, rs1);
+            let address = base as u32;
+
+            let error_regs = *regs;
+            let value = memory.read_word(address).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            let rd_old = read_reg(regs, rd);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = value;
+            }
+
+            InstLog::Load {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: base,
+                addr: address,
+                mem_val: value,
+                rd_old,
+                rd_new: value,
+            }
+        }
+
+        Inst::ScW { rd, rs1, rs2 } => {
+            // sc.w: Store conditional word (always succeeds in single-threaded)
+            let base = read_reg(regs, rs1);
+            let value = read_reg(regs, rs2);
+            let address = base as u32;
+
+            let old_value = memory.read_word(address).unwrap_or(0);
+
+            let error_regs = *regs;
+            memory.write_word(address, value).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            // Return 0 in rd to indicate success
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = 0;
+            }
+
+            InstLog::Store {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rs1_val: base,
+                rs2_val: value,
+                addr: address,
+                mem_old: old_value,
+                mem_new: value,
+            }
+        }
+
+        Inst::AmoswapW { rd, rs1, rs2 } => {
+            // amoswap.w: Atomically swap word
+            let base = read_reg(regs, rs1);
+            let new_value = read_reg(regs, rs2);
+            let address = base as u32;
+
+            let error_regs = *regs;
+            let old_value = memory.read_word(address).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            memory.write_word(address, new_value).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            // Return old value in rd
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = old_value;
+            }
+
+            InstLog::Store {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rs1_val: base,
+                rs2_val: new_value,
+                addr: address,
+                mem_old: old_value,
+                mem_new: new_value,
+            }
+        }
+
+        Inst::AmoaddW { rd, rs1, rs2 } => {
+            // amoadd.w: Atomically add word
+            let base = read_reg(regs, rs1);
+            let addend = read_reg(regs, rs2);
+            let address = base as u32;
+
+            let error_regs = *regs;
+            let old_value = memory.read_word(address).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            let new_value = old_value.wrapping_add(addend);
+            memory.write_word(address, new_value).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            // Return old value in rd
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = old_value;
+            }
+
+            InstLog::Store {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rs1_val: base,
+                rs2_val: addend,
+                addr: address,
+                mem_old: old_value,
+                mem_new: new_value,
+            }
+        }
+
+        Inst::AmoxorW { rd, rs1, rs2 } => {
+            // amoxor.w: Atomically XOR word
+            let base = read_reg(regs, rs1);
+            let xor_val = read_reg(regs, rs2);
+            let address = base as u32;
+
+            let error_regs = *regs;
+            let old_value = memory.read_word(address).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            let new_value = old_value ^ xor_val;
+            memory.write_word(address, new_value).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            // Return old value in rd
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = old_value;
+            }
+
+            InstLog::Store {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rs1_val: base,
+                rs2_val: xor_val,
+                addr: address,
+                mem_old: old_value,
+                mem_new: new_value,
+            }
+        }
+
+        Inst::AmoandW { rd, rs1, rs2 } => {
+            // amoand.w: Atomically AND word
+            let base = read_reg(regs, rs1);
+            let and_val = read_reg(regs, rs2);
+            let address = base as u32;
+
+            let error_regs = *regs;
+            let old_value = memory.read_word(address).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            let new_value = old_value & and_val;
+            memory.write_word(address, new_value).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            // Return old value in rd
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = old_value;
+            }
+
+            InstLog::Store {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rs1_val: base,
+                rs2_val: and_val,
+                addr: address,
+                mem_old: old_value,
+                mem_new: new_value,
+            }
+        }
+
+        Inst::AmoorW { rd, rs1, rs2 } => {
+            // amoor.w: Atomically OR word
+            let base = read_reg(regs, rs1);
+            let or_val = read_reg(regs, rs2);
+            let address = base as u32;
+
+            let error_regs = *regs;
+            let old_value = memory.read_word(address).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            let new_value = old_value | or_val;
+            memory.write_word(address, new_value).map_err(|mut e| {
+                match &mut e {
+                    EmulatorError::InvalidMemoryAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    EmulatorError::UnalignedAccess {
+                        regs: err_regs,
+                        pc: err_pc,
+                        ..
+                    } => {
+                        *err_regs = error_regs;
+                        *err_pc = pc;
+                    }
+                    _ => {}
+                }
+                e
+            })?;
+
+            // Return old value in rd
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = old_value;
+            }
+
+            InstLog::Store {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rs1_val: base,
+                rs2_val: or_val,
+                addr: address,
+                mem_old: old_value,
+                mem_new: new_value,
             }
         }
     };
