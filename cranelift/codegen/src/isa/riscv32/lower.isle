@@ -1232,18 +1232,18 @@
         (low XReg (gen_select_xreg (cmp_eqz x_hi) low (zero_reg))))
     (value_regs (rv_add high low) (imm $I64 0))))
 
-(rule 2 (lower (has_type (fits_in_16 ty) (clz x)))
+(rule 3 (lower (has_type (fits_in_16 ty) (clz x)))
   (if-let true (has_zbb))
   (let ((tmp XReg (zext x))
         (count XReg (rv_clz tmp)))
     ;; We always do the operation on the full 64-bit register, so subtract 64 from the result.
     (rv_addi count (imm12_const_add (ty_bits ty) -64))))
 
-(rule 3 (lower (has_type $I32 (clz x)))
+(rule 4 (lower (has_type $I32 (clz x)))
   (if-let true (has_zbb))
   (rv_clz x))
 
-(rule 3 (lower (has_type $I64 (clz x)))
+(rule 5 (lower (has_type $I64 (clz x)))
   (if-let true (has_zbb))
   (rv_clz x))
 
