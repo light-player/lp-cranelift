@@ -13,6 +13,17 @@ pub fn run_filetest(path: &Path) -> Result<()> {
     let test_compile = source.contains("test compile");
     let test_run = source.contains("test run");
     let test_error = source.contains("test error");
+    let test_fixed16 = source.contains("test fixed16");
+    let test_fixed32 = source.contains("test fixed32");
+    
+    // Determine fixed-point format
+    let fixed_point_format = if test_fixed16 {
+        Some(lp_glsl::FixedPointFormat::Fixed16x16)
+    } else if test_fixed32 {
+        Some(lp_glsl::FixedPointFormat::Fixed32x32)
+    } else {
+        None
+    };
     
     // Extract just the GLSL code (lines that don't start with ; or test directives)
     let glsl_source = extract_glsl_source(&source);
@@ -22,11 +33,11 @@ pub fn run_filetest(path: &Path) -> Result<()> {
     }
     
     if test_compile {
-        crate::test_compile::run_test(&source, &glsl_source)?;
+        crate::test_compile::run_test(&source, &glsl_source, fixed_point_format)?;
     }
     
     if test_run {
-        crate::test_run::run_test(&source, &glsl_source)?;
+        crate::test_run::run_test(&source, &glsl_source, fixed_point_format)?;
     }
     
     if !test_compile && !test_run && !test_error {

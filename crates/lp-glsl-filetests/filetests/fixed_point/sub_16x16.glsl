@@ -1,4 +1,5 @@
 // test compile
+// test fixed16
 
 float main() {
     float a = 5.5;
@@ -8,4 +9,5 @@ float main() {
 
 // CHECK: iconst
 // CHECK: isub
+// CHECK-NOT: fsub
 

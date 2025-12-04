@@ -1,4 +1,4 @@
-// test compile
+// test run
 // test fixed16
 
 float main() {
@@ -7,7 +7,5 @@ float main() {
     return a + b;
 }
 
-// CHECK: iconst
-// CHECK: iadd
-// CHECK-NOT: fadd
+// run: ~= 4.0 (tolerance: 0.0001)
 

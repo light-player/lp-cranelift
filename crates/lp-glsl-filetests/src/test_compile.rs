@@ -4,9 +4,10 @@
 use anyhow::Result;
 use filecheck::{CheckerBuilder, NO_VARIABLES};
 
-pub fn run_test(full_source: &str, glsl_source: &str) -> Result<()> {
+pub fn run_test(full_source: &str, glsl_source: &str, fixed_point_format: Option<lp_glsl::FixedPointFormat>) -> Result<()> {
     // Compile GLSL to CLIF
     let mut jit = lp_glsl::JIT::new();
+    jit.fixed_point_format = fixed_point_format;
     let clif = jit.compile_to_clif(glsl_source)
         .map_err(|e| anyhow::anyhow!("Compilation failed: {}", e))?;
     

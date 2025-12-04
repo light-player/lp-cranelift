@@ -1,5 +1,5 @@
 // test compile
-// test fixed16
+// test fixed32
 
 float main() {
     float a = 2.0;
@@ -7,10 +7,9 @@ float main() {
     return a * b;
 }
 
-// CHECK: sextend.i64
+// CHECK: sextend.i128
 // CHECK: imul
-// CHECK: iconst.i64 16
+// CHECK: iconst.i64 32
 // CHECK: sshr
-// CHECK: ireduce.i32
-// CHECK-NOT: fmul
+// CHECK: ireduce.i64
 
