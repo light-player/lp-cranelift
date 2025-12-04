@@ -2417,16 +2417,23 @@ dependencies = [
 name = "lp-glsl"
 version = "40.0.0"
 dependencies = [
- "anyhow",
  "cranelift-codegen",
  "cranelift-frontend",
  "cranelift-jit",
  "cranelift-module",
  "cranelift-native",
  "cranelift-reader",
- "filecheck",
  "glsl",
  "hashbrown 0.15.2",
+]
+
+[[package]]
+name = "lp-glsl-filetests"
+version = "40.0.0"
+dependencies = [
+ "anyhow",
+ "filecheck",
+ "lp-glsl",
 ]
 
 [[package]]

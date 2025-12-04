@@ -18,10 +18,6 @@ pub mod codegen;
 pub mod jit;
 pub mod compiler;
 
-// Testing module available for dev-dependencies (integration tests)
-#[cfg(any(test, feature = "std"))]
-pub mod testing;
-
 pub use compiler::Compiler;
 #[cfg(feature = "std")]
 pub use jit::JIT;

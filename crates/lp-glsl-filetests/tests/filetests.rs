@@ -7,7 +7,7 @@ fn test_file(path: &str) {
     full_path.push("filetests");
     full_path.push(path);
     
-    lp_glsl::testing::run_filetest(&full_path).unwrap();
+    lp_glsl_filetests::run_filetest(&full_path).unwrap();
 }
 
 #[test]

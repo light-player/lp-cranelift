@@ -13,6 +13,7 @@ test = false
 runtime-embive = { path = "../../crates/runtime-embive" }
 
 [build-dependencies]
+lp-riscv-shared = { path = "../../crates/lp-riscv-shared" }
 
 [target.riscv32imac-unknown-none-elf]
 

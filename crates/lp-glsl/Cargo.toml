@@ -28,6 +28,4 @@ core = ["cranelift-codegen/core"]
 
 [dev-dependencies]
 cranelift-reader = { workspace = true }
-filecheck = { workspace = true }
-anyhow = { workspace = true }
 

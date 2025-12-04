@@ -181,6 +181,7 @@ members = [
   "crates/lp-toy-lang",
   "crates/lp-riscv-shared",
   "crates/lp-glsl",
+  "crates/lp-glsl-filetests",
   "crates/runtime-embive",
   # LP-specific applications
   "apps/embive-program",
