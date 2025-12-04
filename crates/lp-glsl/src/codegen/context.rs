@@ -1,9 +1,10 @@
 use cranelift_codegen::ir::Block;
 use cranelift_frontend::{FunctionBuilder, Variable};
-use cranelift_module::Module;
+use cranelift_module::{Module, FuncId};
 use hashbrown::HashMap;
 
 use crate::semantic::types::Type as GlslType;
+use crate::semantic::functions::FunctionRegistry;
 
 #[cfg(feature = "std")]
 use std::string::String;
@@ -27,6 +28,10 @@ pub struct CodegenContext<'a> {
     
     // Control flow tracking for break/continue
     pub loop_stack: Vec<LoopContext>,
+    
+    // User-defined function support
+    pub function_ids: Option<HashMap<String, FuncId>>,
+    pub function_registry: Option<&'a FunctionRegistry>,
 }
 
 pub struct LoopContext {
@@ -41,7 +46,17 @@ impl<'a> CodegenContext<'a> {
             module,
             variables: HashMap::new(),
             loop_stack: Vec::new(),
+            function_ids: None,
+            function_registry: None,
         }
+    }
+
+    pub fn set_function_ids(&mut self, func_ids: &HashMap<String, FuncId>) {
+        self.function_ids = Some(func_ids.clone());
+    }
+
+    pub fn set_function_registry(&mut self, registry: &'a FunctionRegistry) {
+        self.function_registry = Some(registry);
     }
 
     pub fn declare_variable(&mut self, name: String, glsl_ty: GlslType) -> Vec<Variable> {

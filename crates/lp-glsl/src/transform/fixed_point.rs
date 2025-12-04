@@ -507,10 +507,10 @@ fn convert_instruction(
 fn update_all_value_types(func: &mut Function, format: FixedPointFormat) {
     let target_type = format.cranelift_type();
     
-    // Get all values that need updating
+    // Collect all values that need updating
     let mut values_to_update = Vec::new();
     
-    // Check all instruction results and arguments
+    // Check all instruction results
     for block in func.layout.blocks() {
         for inst in func.layout.block_insts(block) {
             let results = func.dfg.inst_results(inst).to_vec();
@@ -530,11 +530,11 @@ fn update_all_value_types(func: &mut Function, format: FixedPointFormat) {
         }
     }
     
-    // Update all collected values
-    for value in values_to_update {
-        func.dfg.change_to_alias(value, value);
-        // Note: We'll need to handle this differently in Cranelift
-        // This is a placeholder - the actual implementation will depend on Cranelift's API
+    // Update types by replacing each value with a new one of the target type
+    for old_value in values_to_update {
+        let new_value = func.dfg.replace_result(old_value, target_type);
+        // Use the new value wherever the old one was used
+        func.dfg.change_to_alias(old_value, new_value);
     }
 }
 

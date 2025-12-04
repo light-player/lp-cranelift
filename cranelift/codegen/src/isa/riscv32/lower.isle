@@ -1350,23 +1350,30 @@
 (rule 1 (lower (has_type $I32 (ishl x y)))
   (rv_sll x (value_regs_get y 0)))
 
-;; Similarly, the 64bit version does the right thing.
-(rule 1 (lower (has_type $I64 (ishl x y)))
-  (rv_sll x (value_regs_get y 0)))
-
 ;; If the shift amount is known. We can mask it and encode it in the instruction.
 (rule 2 (lower (has_type (int_fits_in_32 ty) (ishl x (maybe_uextend (imm12_from_value y)))))
   (rv_slli x (imm12_and y (ty_shift_mask ty))))
 
-;; We technically don't need to mask the shift amount here. The instruction
-;; does the right thing. But it's neater when pretty printing it.
-(rule 3 (lower (has_type ty @ $I64 (ishl x (maybe_uextend (imm12_from_value y)))))
-  (rv_slli x (imm12_and y (ty_shift_mask ty))))
-
-;; With `Zba` we have a shift that zero extends the LHS argument.
-(rule 4 (lower (has_type $I64 (ishl (uextend x @ (value_type $I32)) (maybe_uextend (imm12_from_value y)))))
-  (if-let true (has_zba))
-  (rv_slliuw x y))
+;; I64 cases (2-register pattern on RV32)
+(rule 3 (lower (has_type $I64 (ishl x y)))
+  (let ((tmp ValueRegs (gen_shamt $I64 (value_regs_get y 0)))
+        (shamt XReg (value_regs_get tmp 0))
+        (len_sub_shamt XReg (value_regs_get tmp 1))
+        ;;
+        (low XReg (rv_sll (value_regs_get x 0) shamt))
+        ;; high part.
+        (high_part1 XReg (rv_srl (value_regs_get x 0) len_sub_shamt))
+        (high_part2 XReg (gen_select_xreg (cmp_eqz shamt) (zero_reg) high_part1))
+        ;;
+        (high_part3 XReg (rv_sll (value_regs_get x 1) shamt))
+        (high XReg (rv_or high_part2 high_part3))
+        ;;
+        (const32 XReg (imm $I32 32))
+        (shamt_64 XReg (rv_andi (value_regs_get y 0) (imm12_const 63))))
+    (gen_select_regs
+      (cmp_geu shamt_64 const32)
+      (value_regs (zero_reg) low)
+      (value_regs low high))))
 
 ;; I128 cases
 (rule 4 (lower (has_type $I128 (ishl x y)))
@@ -1410,10 +1417,6 @@
 (rule 1 (lower (has_type $I32 (ushr x y)))
   (rv_srl x (value_regs_get y 0)))
 
-;; Similarly, the 64bit version does the right thing.
-(rule 1 (lower (has_type $I64 (ushr x y)))
-  (rv_srl x (value_regs_get y 0)))
-
 ;; When the RHS is known we can just encode it in the instruction.
 (rule 2 (lower (has_type (ty_int (fits_in_16 ty)) (ushr x (maybe_uextend (imm12_from_value y)))))
   (rv_srli (zext x) (imm12_and y (ty_shift_mask ty))))
@@ -1421,10 +1424,28 @@
 (rule 3 (lower (has_type $I32 (ushr x (maybe_uextend (imm12_from_value y)))))
   (rv_srli x y))
 
-(rule 3 (lower (has_type $I64 (ushr x (maybe_uextend (imm12_from_value y)))))
-  (rv_srli x y))
+;; I64 cases (2-register pattern on RV32)
+(rule 3 (lower (has_type $I64 (ushr x y)))
+  (let ((tmp ValueRegs (gen_shamt $I64 (value_regs_get y 0)))
+        (shamt XReg (value_regs_get tmp 0))
+        (len_sub_shamt XReg (value_regs_get tmp 1))
+        ;; low part.
+        (low_part1 XReg (rv_sll (value_regs_get x 1) len_sub_shamt))
+        (low_part2 XReg (gen_select_xreg (cmp_eqz shamt) (zero_reg) low_part1))
+        ;;
+        (low_part3 XReg (rv_srl (value_regs_get x 0) shamt))
+        (low XReg (rv_or low_part2 low_part3))
+        ;;
+        (const32 XReg (imm $I32 32))
+        ;;
+        (high XReg (rv_srl (value_regs_get x 1) shamt))
+        (shamt_64 XReg (rv_andi (value_regs_get y 0) (imm12_const 63))))
+    (gen_select_regs
+      (cmp_geu shamt_64 const32)
+      (value_regs high (zero_reg))
+      (value_regs low high))))
 
-(rule 3 (lower (has_type $I128 (ushr x y)))
+(rule 4 (lower (has_type $I128 (ushr x y)))
   (let ((tmp ValueRegs (gen_shamt $I128 (value_regs_get y 0)))
         (shamt XReg (value_regs_get tmp 0))
         (len_sub_shamt XReg (value_regs_get tmp 1))
@@ -1465,10 +1486,6 @@
 (rule 1 (lower (has_type $I32 (sshr x y)))
   (rv_sra x (value_regs_get y 0)))
 
-;; Similarly, the 64bit version does the right thing.
-(rule 1 (lower (has_type $I64 (sshr x y)))
-  (rv_sra x (value_regs_get y 0)))
-
 ;; When the RHS is known we can just encode it in the instruction.
 (rule 2 (lower (has_type (ty_int (fits_in_16 ty)) (sshr x (maybe_uextend (imm12_from_value y)))))
   (rv_srai (sext x) (imm12_and y (ty_shift_mask ty))))
@@ -1476,10 +1493,30 @@
 (rule 3 (lower (has_type $I32 (sshr x (maybe_uextend (imm12_from_value y)))))
   (rv_srai x y))
 
-(rule 3 (lower (has_type $I64 (sshr x (maybe_uextend (imm12_from_value y)))))
-  (rv_srai x y))
+;; I64 cases (2-register pattern on RV32)
+(rule 3 (lower (has_type $I64 (sshr x y)))
+  (let ((tmp ValueRegs (gen_shamt $I64 (value_regs_get y 0)))
+        (shamt XReg (value_regs_get tmp 0))
+        (len_sub_shamt XReg (value_regs_get tmp 1))
+        ;; low part.
+        (low_part1 XReg (rv_sll (value_regs_get x 1) len_sub_shamt))
+        (low_part2 XReg (gen_select_xreg (cmp_eqz shamt) (zero_reg) low_part1))
+        ;;
+        (low_part3 XReg (rv_srl (value_regs_get x 0) shamt))
+        (low XReg (rv_or low_part2 low_part3))
+        ;;
+        (const32 XReg (imm $I32 32))
+        ;;
+        (high XReg (rv_sra (value_regs_get x 1) shamt))
+        (shamt_64 XReg (rv_andi (value_regs_get y 0) (imm12_const 63)))
+        ;;
+        (high_sext_shift XReg (rv_srai (value_regs_get x 1) (imm12_const 31))))
+    (gen_select_regs
+      (cmp_geu shamt_64 const32)
+      (value_regs high high_sext_shift)
+      (value_regs low high))))
 
-(rule 3 (lower (has_type $I128 (sshr x y)))
+(rule 4 (lower (has_type $I128 (sshr x y)))
   (let ((tmp ValueRegs (gen_shamt $I128 (value_regs_get y 0)))
         (shamt XReg (value_regs_get tmp 0))
         (len_sub_shamt XReg (value_regs_get tmp 1))
@@ -1537,16 +1574,24 @@
   (if-let (imm12_from_u64 imm) (u64_wrapping_sub 32 (u64_and n 31)))
   (rv_rori rs imm))
 
-(rule 1 (lower (has_type $I64 (rotl rs amount)))
-  (if-let true (has_zbb))
-  (rv_rol rs (value_regs_get amount 0)))
+;; I64 cases (2-register pattern on RV32)
+(rule 1 (lower (has_type $I64 (rotl x y)))
+  (let
+    ((tmp ValueRegs (gen_shamt $I64 (value_regs_get y 0)))
+      (shamt XReg (value_regs_get tmp 0))
+      (len_sub_shamt XReg (value_regs_get tmp 1))
+      (low_part1 XReg (rv_sll (value_regs_get x 0) shamt))
+      (low_part2 XReg (rv_srl (value_regs_get x 1) len_sub_shamt))
+      ;;; if shamt == 0 low_part2 will overflow we should zero instead.
+      (low_part3 XReg (gen_select_xreg (cmp_eqz shamt) (zero_reg) low_part2))
+      (low XReg (rv_or low_part1 low_part3))
+      (high_part1 XReg (rv_sll (value_regs_get x 1) shamt))
+      (high_part2 XReg (rv_srl (value_regs_get x 0) len_sub_shamt))
+      (high_part3 XReg (gen_select_xreg (cmp_eqz shamt) (zero_reg) high_part2))
+      (high XReg (rv_or high_part1 high_part3)))
+    (value_regs low high)))
 
-(rule 2 (lower (has_type $I64 (rotl rs (u64_from_iconst n))))
-  (if-let true (has_zbb))
-  (if-let (imm12_from_u64 imm) (u64_wrapping_sub 64 (u64_and n 63)))
-  (rv_rori rs imm))
-
-(rule 1 (lower (has_type $I128 (rotl x y)))
+(rule 2 (lower (has_type $I128 (rotl x y)))
   (let
     ((tmp ValueRegs (gen_shamt $I128 (value_regs_get y 0)))
       (shamt XReg (value_regs_get tmp 0))
@@ -1592,15 +1637,24 @@
   (if-let true (has_zbb))
   (rv_rori rs n))
 
-(rule 1 (lower (has_type $I64 (rotr rs amount)))
-  (if-let true (has_zbb))
-  (rv_ror rs (value_regs_get amount 0)))
+;; I64 cases (2-register pattern on RV32)
+(rule 1 (lower (has_type $I64 (rotr x y)))
+  (let
+    ((tmp ValueRegs (gen_shamt $I64 (value_regs_get y 0)))
+      (shamt XReg (value_regs_get tmp 0))
+      (len_sub_shamt XReg (value_regs_get tmp 1))
+      (low_part1 XReg (rv_srl (value_regs_get x 0) shamt))
+      (low_part2 XReg (rv_sll (value_regs_get x 1) len_sub_shamt))
+      ;;; if shamt == 0 low_part2 will overflow we should zero instead.
+      (low_part3 XReg (gen_select_xreg (cmp_eqz shamt) (zero_reg) low_part2))
+      (low XReg (rv_or low_part1 low_part3))
+      (high_part1 XReg (rv_srl (value_regs_get x 1) shamt))
+      (high_part2 XReg (rv_sll (value_regs_get x 0) len_sub_shamt))
+      (high_part3 XReg (gen_select_xreg (cmp_eqz shamt) (zero_reg) high_part2))
+      (high XReg (rv_or high_part1 high_part3)))
+    (value_regs low high)))
 
-(rule 2 (lower (has_type $I64 (rotr rs (imm12_from_value n))))
-  (if-let true (has_zbb))
-  (rv_rori rs n))
-
-(rule 1 (lower (has_type $I128 (rotr x y)))
+(rule 2 (lower (has_type $I128 (rotr x y)))
   (let
     ((tmp ValueRegs (gen_shamt $I128 (value_regs_get y 0)))
       (shamt XReg (value_regs_get tmp 0))

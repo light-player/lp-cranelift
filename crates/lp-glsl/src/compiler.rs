@@ -18,6 +18,11 @@ impl Compiler {
         Self { jit: JIT::new() }
     }
 
+    /// Set the fixed-point format for float-to-fixed transformation
+    pub fn set_fixed_point_format(&mut self, format: Option<crate::transform::FixedPointFormat>) {
+        self.jit.fixed_point_format = format;
+    }
+
     /// Compile GLSL shader that returns i32
     pub fn compile_int(&mut self, source: &str) -> Result<fn() -> i32, String> {
         let code_ptr = self.jit.compile(source)?;
@@ -45,12 +50,17 @@ impl Default for Compiler {
 
 // no_std compiler - compiles GLSL to machine code bytes without JIT module
 #[cfg(not(feature = "std"))]
-pub struct Compiler;
+pub struct Compiler {
+    /// Optional fixed-point format for float-to-fixed transformation
+    pub fixed_point_format: Option<crate::transform::FixedPointFormat>,
+}
 
 #[cfg(not(feature = "std"))]
 impl Compiler {
     pub fn new() -> Self {
-        Self
+        Self {
+            fixed_point_format: None,
+        }
     }
     
     /// Compile GLSL source to machine code bytes for a specific ISA
@@ -169,6 +179,12 @@ impl Compiler {
         let return_val = codegen_ctx.builder.ins().iconst(return_type, 0);
         codegen_ctx.builder.ins().return_(&[return_val]);
         codegen_ctx.builder.finalize();
+
+        // 5.5. Apply fixed-point transformation if enabled
+        if let Some(format) = self.fixed_point_format {
+            crate::transform::fixed_point::convert_floats_to_fixed(&mut ctx.func, format)
+                .map_err(|e| alloc::format!("Fixed-point transformation error: {}", e))?;
+        }
 
         // 6. Compile to machine code
         let mut ctrl_plane = ControlPlane::default();

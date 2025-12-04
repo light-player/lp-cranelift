@@ -89,8 +89,8 @@ impl<'a> CodegenContext<'a> {
                     return self.translate_builtin_call_expr(func_name, args);
                 }
                 
-                // User-defined function (not yet supported)
-                Err(format!("Function not found: {}", func_name))
+                // User-defined function
+                self.translate_user_function_call(func_name, args)
             }
 
             // Binary operators - both scalars and vectors

@@ -28,6 +28,8 @@ pub struct JIT {
     data_description: DataDescription,
     module: JITModule,
     function_counter: usize,
+    /// Optional fixed-point format for float-to-fixed transformation
+    pub fixed_point_format: Option<crate::transform::FixedPointFormat>,
 }
 
 impl Default for JIT {
@@ -62,6 +64,7 @@ impl JIT {
             data_description: DataDescription::new(),
             module,
             function_counter: 0,
+            fixed_point_format: None,
         }
     }
 
@@ -79,6 +82,12 @@ impl JIT {
 
         // 3. Generate Cranelift IR
         self.translate(typed_ast)?;
+
+        // 3.5. Apply fixed-point transformation if enabled
+        if let Some(format) = self.fixed_point_format {
+            crate::transform::fixed_point::convert_floats_to_fixed(&mut self.ctx.func, format)
+                .map_err(|e| format!("Fixed-point transformation error: {}", e))?;
+        }
 
         // 4. Verify the function
         if let Err(e) = cranelift_codegen::verify_function(&self.ctx.func, self.module.isa()) {
@@ -121,6 +130,12 @@ impl JIT {
 
         // 3. Generate Cranelift IR
         self.translate(typed_ast)?;
+
+        // 3.5. Apply fixed-point transformation if enabled
+        if let Some(format) = self.fixed_point_format {
+            crate::transform::fixed_point::convert_floats_to_fixed(&mut self.ctx.func, format)
+                .map_err(|e| format!("Fixed-point transformation error: {}", e))?;
+        }
 
         // 4. Return as string
         Ok(format!("{}", self.ctx.func))
@@ -203,6 +218,7 @@ impl JIT {
         func: &crate::semantic::TypedFunction,
         func_id: FuncId,
         func_ids: &HashMap<String, FuncId>,
+        func_registry: &crate::semantic::functions::FunctionRegistry,
     ) -> Result<(), String> {
         self.ctx.clear();
 
@@ -221,21 +237,24 @@ impl JIT {
         // Create codegen context with function IDs
         let mut ctx = crate::codegen::context::CodegenContext::new(builder, &mut self.module);
         ctx.set_function_ids(func_ids);
-        ctx.set_function_registry(&typed_ast.function_registry);
+        ctx.set_function_registry(func_registry);
 
         // Declare parameters as variables in the function
+        let block_params = ctx.builder.block_params(entry_block).to_vec();
         let mut param_idx = 0;
         for param in &func.parameters {
             let param_vals: Vec<cranelift_codegen::ir::Value> = if param.ty.is_vector() {
                 let count = param.ty.component_count().unwrap();
-                (0..count).map(|_| {
-                    let val = builder.block_params(entry_block)[param_idx];
+                let mut vals = Vec::new();
+                for _ in 0..count {
+                    vals.push(block_params[param_idx]);
                     param_idx += 1;
-                    val
-                }).collect()
+                }
+                vals
             } else {
-                vec![builder.block_params(entry_block)[param_idx]]
+                let val = vec![block_params[param_idx]];
                 param_idx += 1;
+                val
             };
 
             // Declare parameter as variable and initialize
@@ -275,6 +294,7 @@ impl JIT {
         &mut self,
         main_func: &crate::semantic::TypedFunction,
         func_ids: &HashMap<String, FuncId>,
+        func_registry: &crate::semantic::functions::FunctionRegistry,
     ) -> Result<(), String> {
         self.ctx.clear();
 
@@ -305,6 +325,7 @@ impl JIT {
         // Create codegen context with function IDs
         let mut ctx = crate::codegen::context::CodegenContext::new(builder, &mut self.module);
         ctx.set_function_ids(func_ids);
+        ctx.set_function_registry(func_registry);
 
         // Translate main function body
         for stmt in &main_func.body {
