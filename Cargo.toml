@@ -179,6 +179,11 @@ members = [
   # LP-specific crates for riscv32 backend testing
   "crates/lp-riscv-tools",
   "crates/lp-toy-lang",
+  "crates/lp-riscv-shared",
+  "crates/lp-glsl",
+  "crates/runtime-embive",
+  # LP-specific applications
+  "apps/embive-program",
 ]
 exclude = [
   'docs/rust_wasi_markdown_parser',
