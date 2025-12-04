@@ -202,35 +202,30 @@ block0(v0: i32, v1: i32, v2: i32):
 
 ;;;; i64 tests (2-register pattern on RV32)
 
-function %select_icmp_i64_i64(i64, i64, i64) -> i64 {
-block0(v0: i64, v1: i64, v2: i64):
-  v3 = iconst.i64 42
-  v4 = icmp eq v0, v3
-  v5 = select.i64 v4, v1, v2
+function %select_i64_i8_cond(i8, i64, i64) -> i64 {
+block0(v0: i8, v1: i64, v2: i64):
+  v3 = select.i64 v0, v1, v2
+  return v3
+}
+
+function %select_i64_icmp_eq(i64, i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64, v3: i64):
+  v4 = icmp eq v0, v1
+  v5 = select.i64 v4, v2, v3
   return v5
 }
 
-function %select_ne_i64(i64, i64, i64) -> i64 {
-block0(v0: i64, v1: i64, v2: i64):
-  v3 = iconst.i64 42
-  v4 = icmp ne v0, v3
-  v5 = select.i64 v4, v1, v2
+function %select_i64_icmp_ne(i64, i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64, v3: i64):
+  v4 = icmp ne v0, v1
+  v5 = select.i64 v4, v2, v3
   return v5
 }
 
-function %select_slt_i64(i64, i64, i64) -> i64 {
-block0(v0: i64, v1: i64, v2: i64):
-  v3 = iconst.i64 42
-  v4 = icmp slt v0, v3
-  v5 = select.i64 v4, v1, v2
-  return v5
-}
-
-function %select_ult_i64(i64, i64, i64) -> i64 {
-block0(v0: i64, v1: i64, v2: i64):
-  v3 = iconst.i64 42
-  v4 = icmp ult v0, v3
-  v5 = select.i64 v4, v1, v2
+function %select_i64_icmp_ult(i64, i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64, v3: i64):
+  v4 = icmp ult v0, v1
+  v5 = select.i64 v4, v2, v3
   return v5
 }
 

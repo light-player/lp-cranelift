@@ -2800,6 +2800,11 @@
 ;; Additionally the base 64-bit ISA has a single instruction for sign-extending
 ;; from 32 to 64-bits which makes that a bit cheaper if used.
 ;; of registers sign-extend the results.
+
+;; Special case for I64 on RV32 - it's a 2-register value
+(rule 3 (is_nonzero_cmp val @ (value_type $I64))
+  (cmp_nez (rv_or (value_regs_get val 0) (value_regs_get val 1))))
+
 (rule 0 (is_nonzero_cmp val @ (value_type (fits_in_64 _)))
   (cmp_nez (sext val)))
 (rule 1 (is_nonzero_cmp val @ (value_type $I8))
