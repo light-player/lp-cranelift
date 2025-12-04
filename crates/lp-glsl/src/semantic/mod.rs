@@ -6,9 +6,9 @@ use std::vec::Vec;
 use alloc::vec::Vec;
 
 #[cfg(feature = "std")]
-use std::string::{String, ToString};
+use std::string::String;
 #[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString};
+use alloc::string::String;
 
 
 pub mod scope;
@@ -88,10 +88,8 @@ fn extract_parameter(param_decl: &glsl::syntax::FunctionParameterDeclaration) ->
 
     match param_decl {
         FunctionParameterDeclaration::Named(qualifier, decl) => {
-            let ty = parse_type(&decl.ty)?;
-            let name = decl.name.as_ref()
-                .ok_or("Parameter must have a name")?
-                .0.clone();
+            let ty = parse_type_specifier(&decl.ty)?;
+            let name = decl.ident.ident.0.clone();
             
             let param_qualifier = extract_param_qualifier(qualifier);
             
@@ -103,7 +101,7 @@ fn extract_parameter(param_decl: &glsl::syntax::FunctionParameterDeclaration) ->
         }
         FunctionParameterDeclaration::Unnamed(qualifier, ty) => {
             // Unnamed parameters (allowed in prototypes)
-            let param_ty = parse_type(ty)?;
+            let param_ty = parse_type_specifier(ty)?;
             let param_qualifier = extract_param_qualifier(qualifier);
             
             Ok(functions::Parameter {
@@ -147,10 +145,10 @@ fn extract_function_body(func: &glsl::syntax::FunctionDefinition) -> Result<Type
     })
 }
 
-fn parse_type(ty: &glsl::syntax::FullySpecifiedType) -> Result<types::Type, String> {
+fn parse_type_specifier(ty: &glsl::syntax::TypeSpecifier) -> Result<types::Type, String> {
     use glsl::syntax::TypeSpecifierNonArray;
 
-    match &ty.ty.ty {
+    match &ty.ty {
         TypeSpecifierNonArray::Void => Ok(types::Type::Void),
         TypeSpecifierNonArray::Bool => Ok(types::Type::Bool),
         TypeSpecifierNonArray::Int => Ok(types::Type::Int),
@@ -164,11 +162,11 @@ fn parse_type(ty: &glsl::syntax::FullySpecifiedType) -> Result<types::Type, Stri
         TypeSpecifierNonArray::BVec2 => Ok(types::Type::BVec2),
         TypeSpecifierNonArray::BVec3 => Ok(types::Type::BVec3),
         TypeSpecifierNonArray::BVec4 => Ok(types::Type::BVec4),
-        _ => Err(format!("Type not supported yet: {:?}", ty.ty.ty)),
+        _ => Err(format!("Type not supported yet: {:?}", ty.ty)),
     }
 }
 
 fn parse_return_type(ty: &glsl::syntax::FullySpecifiedType) -> Result<types::Type, String> {
-    parse_type(ty)
+    parse_type_specifier(&ty.ty)
 }
 

@@ -184,6 +184,77 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
             return_type: BuiltinReturnType::SameAsParam(0),
         }]),
         
+        "mix" => Some(vec![
+            BuiltinSignature {
+                name: "mix",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "mix",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType, BuiltinParamType::Float],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
+        
+        "step" => Some(vec![
+            BuiltinSignature {
+                name: "step",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "step",
+                param_types: vec![BuiltinParamType::Float, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(1),
+            },
+        ]),
+        
+        "smoothstep" => Some(vec![
+            BuiltinSignature {
+                name: "smoothstep",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "smoothstep",
+                param_types: vec![BuiltinParamType::Float, BuiltinParamType::Float, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(2),
+            },
+        ]),
+        
+        "fract" => Some(vec![BuiltinSignature {
+            name: "fract",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "mod" => Some(vec![
+            BuiltinSignature {
+                name: "mod",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "mod",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::Float],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
+        
+        "sign" => Some(vec![
+            BuiltinSignature {
+                name: "sign",
+                param_types: vec![BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "sign",
+                param_types: vec![BuiltinParamType::GenIType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
+        
         _ => None,
     }
 }

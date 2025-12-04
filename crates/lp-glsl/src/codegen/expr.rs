@@ -609,13 +609,7 @@ impl<'a> CodegenContext<'a> {
         name: &str,
         args: &[glsl::syntax::Expr],
     ) -> Result<(Vec<Value>, GlslType), String> {
-        // Get function IDs and registry
-        let func_ids = self.function_ids.as_ref()
-            .ok_or("Function IDs not set (internal error)")?;
-        let func_registry = self.function_registry
-            .ok_or("Function registry not set (internal error)")?;
-
-        // Translate arguments and collect types
+        // Translate arguments and collect types first (requires mutable borrow)
         let mut arg_vals_flat = Vec::new();
         let mut arg_types = Vec::new();
         
@@ -625,10 +619,19 @@ impl<'a> CodegenContext<'a> {
             arg_types.push(ty);
         }
 
+        // Now get function IDs and registry (immutable borrow)
+        let func_ids = self.function_ids.as_ref()
+            .ok_or("Function IDs not set (internal error)")?;
+        let func_registry = self.function_registry
+            .ok_or("Function registry not set (internal error)")?;
+
         // Lookup function signature
         let func_id = func_ids.get(name)
             .ok_or_else(|| format!("Function '{}' not defined", name))?;
         let func_sig = func_registry.lookup_function(name, &arg_types)?;
+
+        // Import the function into the current function to get a FuncRef
+        let func_ref = self.module.declare_func_in_func(*func_id, self.builder.func);
 
         // Type check and prepare arguments (with implicit conversions)
         let mut call_args = Vec::new();
@@ -638,12 +641,12 @@ impl<'a> CodegenContext<'a> {
             let arg_base = if arg_ty.is_vector() {
                 arg_ty.vector_base_type().unwrap()
             } else {
-                *arg_ty
+                arg_ty.clone()
             };
             let param_base = if param.ty.is_vector() {
                 param.ty.vector_base_type().unwrap()
             } else {
-                param.ty
+                param.ty.clone()
             };
             
             let component_count = if arg_ty.is_vector() {
@@ -661,7 +664,7 @@ impl<'a> CodegenContext<'a> {
         }
 
         // Make the function call
-        let call_inst = self.builder.ins().call(*func_id, &call_args);
+        let call_inst = self.builder.ins().call(func_ref, &call_args);
         
         // Get return values
         let return_vals = self.builder.inst_results(call_inst).to_vec();
@@ -671,9 +674,9 @@ impl<'a> CodegenContext<'a> {
             Ok((vec![], GlslType::Void))
         } else if func_sig.return_type.is_vector() {
             let count = func_sig.return_type.component_count().unwrap();
-            Ok((return_vals[0..count].to_vec(), func_sig.return_type))
+            Ok((return_vals[0..count].to_vec(), func_sig.return_type.clone()))
         } else {
-            Ok((vec![return_vals[0]], func_sig.return_type))
+            Ok((vec![return_vals[0]], func_sig.return_type.clone()))
         }
     }
 

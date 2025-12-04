@@ -39,6 +39,12 @@ impl<'a> CodegenContext<'a> {
             "floor" => self.builtin_floor(args),
             "ceil" => self.builtin_ceil(args),
             "pow" => self.builtin_pow(args),
+            "mix" => self.builtin_mix(args),
+            "step" => self.builtin_step(args),
+            "smoothstep" => self.builtin_smoothstep(args),
+            "fract" => self.builtin_fract(args),
+            "mod" => self.builtin_mod(args),
+            "sign" => self.builtin_sign(args),
             _ => Err(format!("Built-in function not implemented: {}", name)),
         }
     }
@@ -361,7 +367,7 @@ impl<'a> CodegenContext<'a> {
 
     /// pow(x, y) = x^y (component-wise)
     fn builtin_pow(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), String> {
-        let (x_vals, x_ty) = &args[0];
+        let (x_vals, _x_ty) = &args[0];
         let (y_vals, _) = &args[1];
 
         if x_vals.len() != y_vals.len() {
@@ -371,5 +377,268 @@ impl<'a> CodegenContext<'a> {
         // TODO: Cranelift doesn't have fpow instruction - need to implement via exp/log
         // For now, return error
         Err("pow() builtin not yet implemented (needs exp/log)".to_string())
+    }
+
+    /// mix(x, y, a) = x * (1-a) + y * a (linear interpolation)
+    fn builtin_mix(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), String> {
+        let (x_vals, x_ty) = &args[0];
+        let (y_vals, _) = &args[1];
+        let (a_vals, _) = &args[2];
+
+        let mut result_vals = Vec::new();
+
+        // Handle scalar broadcast (mix(vec3, vec3, float))
+        if x_vals.len() > 1 && a_vals.len() == 1 {
+            let a_scalar = a_vals[0];
+            // Compute (1 - a)
+            let one = self.builder.ins().f32const(1.0);
+            let one_minus_a = self.builder.ins().fsub(one, a_scalar);
+
+            for i in 0..x_vals.len() {
+                // x * (1-a)
+                let x_part = self.builder.ins().fmul(x_vals[i], one_minus_a);
+                // y * a
+                let y_part = self.builder.ins().fmul(y_vals[i], a_scalar);
+                // x * (1-a) + y * a
+                result_vals.push(self.builder.ins().fadd(x_part, y_part));
+            }
+        } else {
+            // Component-wise mix
+            for i in 0..x_vals.len() {
+                // (1 - a)
+                let one = self.builder.ins().f32const(1.0);
+                let one_minus_a = self.builder.ins().fsub(one, a_vals[i]);
+                // x * (1-a)
+                let x_part = self.builder.ins().fmul(x_vals[i], one_minus_a);
+                // y * a
+                let y_part = self.builder.ins().fmul(y_vals[i], a_vals[i]);
+                // x * (1-a) + y * a
+                result_vals.push(self.builder.ins().fadd(x_part, y_part));
+            }
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// step(edge, x) = x < edge ? 0.0 : 1.0
+    fn builtin_step(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), String> {
+        let (edge_vals, _) = &args[0];
+        let (x_vals, x_ty) = &args[1];
+
+        let mut result_vals = Vec::new();
+        let zero = self.builder.ins().f32const(0.0);
+        let one = self.builder.ins().f32const(1.0);
+
+        // Handle scalar broadcast (step(float, vec3))
+        if edge_vals.len() == 1 && x_vals.len() > 1 {
+            let edge_scalar = edge_vals[0];
+            for &x in x_vals {
+                // x < edge ? 0.0 : 1.0
+                let cmp = self.builder.ins().fcmp(
+                    cranelift_codegen::ir::condcodes::FloatCC::LessThan,
+                    x,
+                    edge_scalar,
+                );
+                result_vals.push(self.builder.ins().select(cmp, zero, one));
+            }
+        } else {
+            // Component-wise step
+            for i in 0..x_vals.len() {
+                let cmp = self.builder.ins().fcmp(
+                    cranelift_codegen::ir::condcodes::FloatCC::LessThan,
+                    x_vals[i],
+                    edge_vals[i],
+                );
+                result_vals.push(self.builder.ins().select(cmp, zero, one));
+            }
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// smoothstep(edge0, edge1, x) - Smooth Hermite interpolation
+    /// Formula: t = clamp((x - edge0) / (edge1 - edge0), 0, 1); return t * t * (3 - 2 * t);
+    fn builtin_smoothstep(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), String> {
+        let (edge0_vals, _) = &args[0];
+        let (edge1_vals, _) = &args[1];
+        let (x_vals, x_ty) = &args[2];
+
+        let mut result_vals = Vec::new();
+        let zero = self.builder.ins().f32const(0.0);
+        let one = self.builder.ins().f32const(1.0);
+        let two = self.builder.ins().f32const(2.0);
+        let three = self.builder.ins().f32const(3.0);
+
+        // Handle scalar broadcast (smoothstep(float, float, vec3))
+        if edge0_vals.len() == 1 && x_vals.len() > 1 {
+            let edge0_scalar = edge0_vals[0];
+            let edge1_scalar = edge1_vals[0];
+
+            for &x in x_vals {
+                // t = (x - edge0) / (edge1 - edge0)
+                let numerator = self.builder.ins().fsub(x, edge0_scalar);
+                let denominator = self.builder.ins().fsub(edge1_scalar, edge0_scalar);
+                let t_raw = self.builder.ins().fdiv(numerator, denominator);
+
+                // t = clamp(t, 0, 1)
+                let t_max = self.builder.ins().fmax(t_raw, zero);
+                let t_clamped = self.builder.ins().fmin(t_max, one);
+
+                // result = t * t * (3 - 2 * t)
+                let t_squared = self.builder.ins().fmul(t_clamped, t_clamped);
+                let two_t = self.builder.ins().fmul(two, t_clamped);
+                let three_minus_two_t = self.builder.ins().fsub(three, two_t);
+                let result = self.builder.ins().fmul(t_squared, three_minus_two_t);
+
+                result_vals.push(result);
+            }
+        } else {
+            // Component-wise smoothstep
+            for i in 0..x_vals.len() {
+                // t = (x - edge0) / (edge1 - edge0)
+                let numerator = self.builder.ins().fsub(x_vals[i], edge0_vals[i]);
+                let denominator = self.builder.ins().fsub(edge1_vals[i], edge0_vals[i]);
+                let t_raw = self.builder.ins().fdiv(numerator, denominator);
+
+                // t = clamp(t, 0, 1)
+                let t_max = self.builder.ins().fmax(t_raw, zero);
+                let t_clamped = self.builder.ins().fmin(t_max, one);
+
+                // result = t * t * (3 - 2 * t)
+                let t_squared = self.builder.ins().fmul(t_clamped, t_clamped);
+                let two_t = self.builder.ins().fmul(two, t_clamped);
+                let three_minus_two_t = self.builder.ins().fsub(three, two_t);
+                let result = self.builder.ins().fmul(t_squared, three_minus_two_t);
+
+                result_vals.push(result);
+            }
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// fract(x) = x - floor(x) (fractional part)
+    fn builtin_fract(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), String> {
+        let (x_vals, x_ty) = &args[0];
+
+        let mut result_vals = Vec::new();
+        for &val in x_vals {
+            let floored = self.builder.ins().floor(val);
+            result_vals.push(self.builder.ins().fsub(val, floored));
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// mod(x, y) = x - y * floor(x/y)
+    fn builtin_mod(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), String> {
+        let (x_vals, x_ty) = &args[0];
+        let (y_vals, _) = &args[1];
+
+        let mut result_vals = Vec::new();
+
+        // Handle scalar broadcast (mod(vec3, float))
+        if x_vals.len() > 1 && y_vals.len() == 1 {
+            let y_scalar = y_vals[0];
+            for &x in x_vals {
+                // floor(x / y)
+                let div = self.builder.ins().fdiv(x, y_scalar);
+                let floored = self.builder.ins().floor(div);
+                // y * floor(x / y)
+                let y_times_floor = self.builder.ins().fmul(y_scalar, floored);
+                // x - y * floor(x / y)
+                result_vals.push(self.builder.ins().fsub(x, y_times_floor));
+            }
+        } else {
+            // Component-wise mod
+            for i in 0..x_vals.len() {
+                // floor(x / y)
+                let div = self.builder.ins().fdiv(x_vals[i], y_vals[i]);
+                let floored = self.builder.ins().floor(div);
+                // y * floor(x / y)
+                let y_times_floor = self.builder.ins().fmul(y_vals[i], floored);
+                // x - y * floor(x / y)
+                result_vals.push(self.builder.ins().fsub(x_vals[i], y_times_floor));
+            }
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// sign(x) - returns -1.0, 0.0, or 1.0 based on sign of x
+    fn builtin_sign(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), String> {
+        let (x_vals, x_ty) = &args[0];
+
+        let base_ty = if x_ty.is_vector() {
+            x_ty.vector_base_type().unwrap()
+        } else {
+            x_ty.clone()
+        };
+
+        let mut result_vals = Vec::new();
+
+        match base_ty {
+            Type::Float => {
+                let zero = self.builder.ins().f32const(0.0);
+                let one = self.builder.ins().f32const(1.0);
+                let minus_one = self.builder.ins().f32const(-1.0);
+
+                for &val in x_vals {
+                    // Check if x > 0
+                    let gt_zero = self.builder.ins().fcmp(
+                        cranelift_codegen::ir::condcodes::FloatCC::GreaterThan,
+                        val,
+                        zero,
+                    );
+                    // Check if x < 0
+                    let lt_zero = self.builder.ins().fcmp(
+                        cranelift_codegen::ir::condcodes::FloatCC::LessThan,
+                        val,
+                        zero,
+                    );
+
+                    // If x > 0, return 1.0, else continue
+                    let temp = self.builder.ins().select(gt_zero, one, zero);
+                    // If x < 0, return -1.0, else use previous result
+                    let result = self.builder.ins().select(lt_zero, minus_one, temp);
+
+                    result_vals.push(result);
+                }
+            }
+            Type::Int => {
+                let zero = self.builder.ins().iconst(types::I32, 0);
+                let one = self.builder.ins().iconst(types::I32, 1);
+                let minus_one = self.builder.ins().iconst(types::I32, -1);
+
+                for &val in x_vals {
+                    // Check if x > 0
+                    let gt_zero = self.builder.ins().icmp(IntCC::SignedGreaterThan, val, zero);
+                    // Check if x < 0
+                    let lt_zero = self.builder.ins().icmp(IntCC::SignedLessThan, val, zero);
+
+                    // If x > 0, return 1, else continue
+                    let temp = self.builder.ins().select(gt_zero, one, zero);
+                    // If x < 0, return -1, else use previous result
+                    let result = self.builder.ins().select(lt_zero, minus_one, temp);
+
+                    result_vals.push(result);
+                }
+            }
+            _ => return Err("sign() not supported for this type".to_string()),
+        }
+
+        Ok((result_vals, x_ty.clone()))
     }
 }

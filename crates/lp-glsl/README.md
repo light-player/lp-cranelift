@@ -11,26 +11,30 @@ This phase establishes the complete architecture and implements basic functional
 ### Implemented Features
 
 - ✅ Full module structure and architecture
-- ✅ Type system (int/bool only in Phase 1)
+- ✅ Type system: int, bool, float, vec2/3/4, ivec2/3/4, bvec2/3/4
 - ✅ Symbol table and scope management
 - ✅ Semantic analysis infrastructure
 - ✅ Cranelift codegen infrastructure
 - ✅ Basic operations: arithmetic (+, -, \*, /), comparisons (==, !=, <, >, <=, >=)
 - ✅ Variable declarations and assignments
-- ✅ Integer and boolean types
-- ✅ Function with return value (int main() or bool main())
+- ✅ Control flow: if/else, for loops, while loops, break, continue, early return
+- ✅ Vector operations: component access, swizzling, construction
+- ✅ User-defined functions with parameters and return values
+- ✅ Built-in functions:
+  - Geometric: dot, cross, length, normalize, distance
+  - Common math: min, max, clamp, abs, sqrt, floor, ceil
+  - Common functions: mix, step, smoothstep, fract, mod, sign
 - ✅ JIT compilation and execution
-- ✅ Runtime tests (16 tests, all passing)
+- ✅ Comprehensive file-based test suite
 
 ### Not Yet Implemented (Future Phases)
 
-- ❌ Control flow (if/else, loops)
-- ❌ Floating-point operations
-- ❌ Vectors, matrices
+- ❌ Matrices (mat2, mat3, mat4)
 - ❌ Structs
-- ❌ Function calls (user-defined or built-ins)
 - ❌ Arrays
-- ❌ Fixed-point transformation
+- ❌ Texture sampling functions
+- ❌ Additional math functions (sin, cos, tan, exp, log, pow)
+- ❌ Fixed-point transformation (in progress)
 
 ## Usage
 
@@ -74,22 +78,27 @@ cargo run -p lp-glsl --example simple
 
 ## Testing
 
-Phase 1 includes comprehensive runtime tests:
+The compiler includes a comprehensive test suite:
 
 ```bash
 # Run all tests
 cargo test -p lp-glsl
+cargo test -p lp-glsl-filetests
 
-# Run integer tests only
-cargo test -p lp-glsl --test runtime_int
-
-# Run boolean tests only
-cargo test -p lp-glsl --test runtime_bool
+# Run file-based tests
+cd crates/lp-glsl-filetests
+cargo test
 ```
 
-All 16 tests pass:
-- 8 integer tests (literals, arithmetic, assignments)
-- 8 boolean tests (literals, comparisons, NOT operator)
+Test coverage includes:
+- Basic arithmetic and comparisons
+- Control flow (if/else, loops, break, continue)
+- Floating-point operations
+- Vector operations (construction, swizzling, component access)
+- User-defined functions
+- Built-in functions (geometric, common math, interpolation)
+- Fixed-point arithmetic
+- Type error detection
 
 ## Architecture
 
@@ -105,8 +114,11 @@ All 16 tests pass:
   - `context.rs` - Code generation context
   - `expr.rs` - Expression handlers
   - `stmt.rs` - Statement handlers
+  - `builtins.rs` - Built-in function implementations
 - `jit.rs` - JIT compilation interface
 - `compiler.rs` - Main compiler orchestration
+- `transform/` - AST transformations
+  - `fixed_point.rs` - Fixed-point arithmetic transformation
 
 ### Compilation Pipeline
 

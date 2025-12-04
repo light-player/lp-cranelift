@@ -258,7 +258,7 @@ impl JIT {
             };
 
             // Declare parameter as variable and initialize
-            let vars = ctx.declare_variable(param.name.clone(), param.ty);
+            let vars = ctx.declare_variable(param.name.clone(), param.ty.clone());
             for (var, val) in vars.iter().zip(param_vals) {
                 ctx.builder.def_var(*var, val);
             }
