@@ -43,7 +43,7 @@ pub fn infer_expr_type(
             infer_unary_result_type(op, &expr_ty)
         }
 
-        Expr::Assignment(lhs, _op, rhs) => {
+        Expr::Assignment(lhs, _op, _rhs) => {
             // Assignment result has same type as LHS
             infer_expr_type(lhs, symbols)
         }

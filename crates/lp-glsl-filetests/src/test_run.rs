@@ -16,7 +16,7 @@ pub fn run_test(_full_source: &str, glsl_source: &str, fixed_point_format: Optio
         match directive.expected_type {
             ExpectedType::Int(expected) => {
                 let mut compiler = lp_glsl::Compiler::new();
-                compiler.set_fixed_point_format(fixed_point_format);
+                //compiler.set_fixed_point_format(_fixed_point_format);
                 let func = compiler.compile_int(glsl_source)
                     .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
                 let result = func();

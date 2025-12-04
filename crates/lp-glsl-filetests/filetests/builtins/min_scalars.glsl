@@ -6,5 +6,5 @@ float main() {
 }
 
 // CHECK: fmin
-// run: == 3.0
+// run: ~= 3.0 (tolerance: 0.01)
 

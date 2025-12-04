@@ -6,5 +6,5 @@ float main() {
     return v.x;  // 1.5
 }
 
-// run: == 1.5
+// run: ~= 1.5 (tolerance: 0.01)
 

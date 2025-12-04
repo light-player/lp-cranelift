@@ -428,7 +428,7 @@ fn test_ivec2_component() {
     test_file("vectors/ivec2_component.glsl");
 }
 
-// Built-in function tests  
+// Built-in function tests
 #[test]
 fn test_dot_vec3() {
     test_file("builtins/dot_vec3.glsl");

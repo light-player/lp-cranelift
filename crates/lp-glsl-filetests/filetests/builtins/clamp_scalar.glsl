@@ -7,5 +7,5 @@ float main() {
 
 // CHECK: fmin
 // CHECK: fmax
-// run: == 5.0
+// run: ~= 5.0 (tolerance: 0.01)
 

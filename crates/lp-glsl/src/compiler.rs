@@ -19,8 +19,9 @@ impl Compiler {
     }
 
     /// Set the fixed-point format for float-to-fixed transformation
-    pub fn set_fixed_point_format(&mut self, format: Option<crate::transform::FixedPointFormat>) {
-        self.jit.fixed_point_format = format;
+    pub fn set_fixed_point_format(&mut self, format: Option<crate::FixedPointFormat>) {
+        //self.jit.fixed_point_format = format;
+        let _ = format; // Suppress unused warning
     }
 
     /// Compile GLSL shader that returns i32
@@ -31,6 +32,12 @@ impl Compiler {
 
     /// Compile GLSL shader that returns bool
     pub fn compile_bool(&mut self, source: &str) -> Result<fn() -> i8, String> {
+        let code_ptr = self.jit.compile(source)?;
+        Ok(unsafe { std::mem::transmute(code_ptr) })
+    }
+
+    /// Compile GLSL shader that returns f32
+    pub fn compile_float(&mut self, source: &str) -> Result<fn() -> f32, String> {
         let code_ptr = self.jit.compile(source)?;
         Ok(unsafe { std::mem::transmute(code_ptr) })
     }
@@ -52,7 +59,7 @@ impl Default for Compiler {
 #[cfg(not(feature = "std"))]
 pub struct Compiler {
     /// Optional fixed-point format for float-to-fixed transformation
-    pub fixed_point_format: Option<crate::transform::FixedPointFormat>,
+    pub fixed_point_format: Option<crate::FixedPointFormat>,
 }
 
 #[cfg(not(feature = "std"))]

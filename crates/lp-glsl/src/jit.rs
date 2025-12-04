@@ -28,8 +28,7 @@ pub struct JIT {
     data_description: DataDescription,
     module: JITModule,
     function_counter: usize,
-    /// Optional fixed-point format for float-to-fixed transformation
-    pub fixed_point_format: Option<crate::transform::FixedPointFormat>,
+    pub fixed_point_format: Option<crate::FixedPointFormat>,
 }
 
 impl Default for JIT {

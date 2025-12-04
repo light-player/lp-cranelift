@@ -9,4 +9,5 @@ int main() {
 }
 
 // CHECK: fadd
+// run: == 1
 

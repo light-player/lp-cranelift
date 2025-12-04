@@ -11,6 +11,11 @@ use alloc::{format, string::String, vec::Vec};
 #[cfg(feature = "std")]
 use std::{format, string::String, vec::Vec};
 
+#[cfg(feature = "std")]
+use std::collections::HashMap as ValueMap;
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeMap as ValueMap;
+
 use cranelift_codegen::ir::{
     Function, Inst, Block, Value, Type, InstBuilder, condcodes::{FloatCC, IntCC},
 };
@@ -128,13 +133,11 @@ pub fn convert_floats_to_fixed(
     func: &mut Function,
     format: FixedPointFormat,
 ) -> Result<(), TransformError> {
-    use cranelift_codegen::entity::SecondaryMap;
-    
     // 1. Convert signature
     convert_signature(func, format);
 
     // 2. Build a value replacement map (old F32 value -> new I32/I64 value)
-    let mut value_map: SecondaryMap<Value, Value> = SecondaryMap::new();
+    let mut value_map: ValueMap<Value, Value> = ValueMap::new();
     
     // 3. Walk all blocks and instructions to convert them
     // Collect instructions first to avoid borrow issues
@@ -151,10 +154,18 @@ pub fn convert_floats_to_fixed(
     }
 
     // 5. Apply the value map to all instructions
-    for block in func.layout.blocks() {
-        for inst in func.layout.block_insts(block) {
+    // Collect blocks and instructions first to avoid borrow checker issues
+    let blocks_and_insts: Vec<(Block, Vec<Inst>)> = func.layout.blocks()
+        .map(|block| {
+            let insts = func.layout.block_insts(block).collect();
+            (block, insts)
+        })
+        .collect();
+    
+    for (_block, insts) in blocks_and_insts {
+        for inst in insts {
             func.dfg.map_inst_values(inst, |val| {
-                *value_map.get(val).unwrap_or(&val)
+                *value_map.get(&val).unwrap_or(&val)
             });
         }
     }
@@ -194,6 +205,7 @@ fn convert_f32const(
     func: &mut Function,
     inst: Inst,
     format: FixedPointFormat,
+    value_map: &mut ValueMap<Value, Value>,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
@@ -215,11 +227,11 @@ fn convert_f32const(
         let mut cursor = FuncCursor::new(func).at_inst(inst);
         let new_result = cursor.ins().iconst(target_type, fixed_value);
         
-        // Detach old result and replace uses with new result
-        cursor.func.dfg.detach_inst_results(inst);
-        cursor.func.dfg.change_to_alias(old_result, new_result);
+        // Add to value map
+        value_map.insert(old_result, new_result);
         
-        // Remove the old instruction
+        // Detach old result and remove the old instruction
+        cursor.func.dfg.detach_inst_results(inst);
         cursor.goto_inst(inst);
         cursor.remove_inst();
     }
@@ -232,25 +244,26 @@ fn convert_fadd(
     func: &mut Function,
     inst: Inst,
     _format: FixedPointFormat,
+    value_map: &mut ValueMap<Value, Value>,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
     let inst_data = &func.dfg.insts[inst];
     if let InstructionData::Binary { opcode: _, args } = inst_data {
-        let arg1 = args[0];
-        let arg2 = args[1];
+        let arg1 = *value_map.get(&args[0]).unwrap_or(&args[0]);
+        let arg2 = *value_map.get(&args[1]).unwrap_or(&args[1]);
         let old_result = func.dfg.first_result(inst);
         
         // Create new iadd instruction
         let mut cursor = FuncCursor::new(func).at_inst(inst);
         let new_result = cursor.ins().iadd(arg1, arg2);
         
-        // Detach and replace uses
-        cursor.func.dfg.detach_inst_results(inst);
-        cursor.func.dfg.change_to_alias(old_result, new_result);
+        // Add to value map
+        value_map.insert(old_result, new_result);
         
-        // Remove old instruction
+        // Detach and remove old instruction
+        cursor.func.dfg.detach_inst_results(inst);
         cursor.goto_inst(inst);
         cursor.remove_inst();
     }
@@ -263,25 +276,26 @@ fn convert_fsub(
     func: &mut Function,
     inst: Inst,
     _format: FixedPointFormat,
+    value_map: &mut ValueMap<Value, Value>,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
     let inst_data = &func.dfg.insts[inst];
     if let InstructionData::Binary { opcode: _, args } = inst_data {
-        let arg1 = args[0];
-        let arg2 = args[1];
+        let arg1 = *value_map.get(&args[0]).unwrap_or(&args[0]);
+        let arg2 = *value_map.get(&args[1]).unwrap_or(&args[1]);
         let old_result = func.dfg.first_result(inst);
         
         // Create new isub instruction
         let mut cursor = FuncCursor::new(func).at_inst(inst);
         let new_result = cursor.ins().isub(arg1, arg2);
         
-        // Detach and replace uses
-        cursor.func.dfg.detach_inst_results(inst);
-        cursor.func.dfg.change_to_alias(old_result, new_result);
+        // Add to value map
+        value_map.insert(old_result, new_result);
         
-        // Remove old instruction
+        // Detach and remove old instruction
+        cursor.func.dfg.detach_inst_results(inst);
         cursor.goto_inst(inst);
         cursor.remove_inst();
     }
@@ -295,17 +309,17 @@ fn convert_fmul(
     func: &mut Function,
     inst: Inst,
     format: FixedPointFormat,
+    value_map: &mut ValueMap<Value, Value>,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
     let inst_data = &func.dfg.insts[inst];
     if let InstructionData::Binary { opcode: _, args } = inst_data {
-        let arg1 = args[0];
-        let arg2 = args[1];
+        let arg1 = *value_map.get(&args[0]).unwrap_or(&args[0]);
+        let arg2 = *value_map.get(&args[1]).unwrap_or(&args[1]);
         let result = func.dfg.first_result(inst);
         let shift_amount = format.shift_amount();
-        let _target_type = format.cranelift_type();
         
         // Create a cursor positioned at this instruction
         let mut cursor = FuncCursor::new(func).at_inst(inst);
@@ -313,12 +327,6 @@ fn convert_fmul(
         match format {
             FixedPointFormat::Fixed16x16 => {
                 // For 16.16: result = (a * b) >> 16
-                // We can use a simpler approach: 
-                // hi = (a * b) >> 32 (using smulhi for signed multiplication high)
-                // lo = (a * b) & 0xFFFFFFFF (using regular mul)
-                // result = (hi << 16) | (lo >> 16)
-                
-                // Actually, simpler: Just do 64-bit math
                 // Extend to 64-bit, multiply, shift, truncate
                 let a_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, arg1);
                 let b_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, arg2);
@@ -327,11 +335,11 @@ fn convert_fmul(
                 let shifted = cursor.ins().sshr(mul_64, shift_const_64);
                 let result_32 = cursor.ins().ireduce(cranelift_codegen::ir::types::I32, shifted);
                 
-                // Detach and replace original instruction's result
-                cursor.func.dfg.detach_inst_results(inst);
-                cursor.func.dfg.change_to_alias(result, result_32);
+                // Add to value map
+                value_map.insert(result, result_32);
                 
-                // Remove the original instruction
+                // Detach and remove the original instruction
+                cursor.func.dfg.detach_inst_results(inst);
                 cursor.goto_inst(inst);
                 cursor.remove_inst();
             }
@@ -345,11 +353,11 @@ fn convert_fmul(
                 let shifted = cursor.ins().sshr(mul_128, shift_const_128);
                 let result_64 = cursor.ins().ireduce(cranelift_codegen::ir::types::I64, shifted);
                 
-                // Detach and replace original instruction's result
-                cursor.func.dfg.detach_inst_results(inst);
-                cursor.func.dfg.change_to_alias(result, result_64);
+                // Add to value map
+                value_map.insert(result, result_64);
                 
-                // Remove the original instruction
+                // Detach and remove the original instruction
+                cursor.func.dfg.detach_inst_results(inst);
                 cursor.goto_inst(inst);
                 cursor.remove_inst();
             }
@@ -365,14 +373,15 @@ fn convert_fdiv(
     func: &mut Function,
     inst: Inst,
     format: FixedPointFormat,
+    value_map: &mut ValueMap<Value, Value>,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
     let inst_data = &func.dfg.insts[inst];
     if let InstructionData::Binary { opcode: _, args } = inst_data {
-        let arg1 = args[0];
-        let arg2 = args[1];
+        let arg1 = *value_map.get(&args[0]).unwrap_or(&args[0]);
+        let arg2 = *value_map.get(&args[1]).unwrap_or(&args[1]);
         let result = func.dfg.first_result(inst);
         let shift_amount = format.shift_amount();
         
@@ -389,8 +398,10 @@ fn convert_fdiv(
                 let div_result = cursor.ins().sdiv(a_shifted, b_ext);
                 let result_32 = cursor.ins().ireduce(cranelift_codegen::ir::types::I32, div_result);
                 
+                // Add to value map
+                value_map.insert(result, result_32);
+                
                 cursor.func.dfg.detach_inst_results(inst);
-                cursor.func.dfg.change_to_alias(result, result_32);
                 cursor.goto_inst(inst);
                 cursor.remove_inst();
             }
@@ -404,8 +415,10 @@ fn convert_fdiv(
                 let div_result = cursor.ins().sdiv(a_shifted, b_ext);
                 let result_64 = cursor.ins().ireduce(cranelift_codegen::ir::types::I64, div_result);
                 
+                // Add to value map
+                value_map.insert(result, result_64);
+                
                 cursor.func.dfg.detach_inst_results(inst);
-                cursor.func.dfg.change_to_alias(result, result_64);
                 cursor.goto_inst(inst);
                 cursor.remove_inst();
             }
@@ -420,6 +433,7 @@ fn convert_fcmp(
     func: &mut Function,
     inst: Inst,
     _format: FixedPointFormat,
+    value_map: &mut ValueMap<Value, Value>,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
@@ -454,11 +468,11 @@ fn convert_fcmp(
         let mut cursor = FuncCursor::new(func).at_inst(inst);
         let new_result = cursor.ins().icmp(int_cond, arg1, arg2);
         
-        // Detach and replace uses
-        cursor.func.dfg.detach_inst_results(inst);
-        cursor.func.dfg.change_to_alias(old_result, new_result);
+        // Add to value map
+        value_map.insert(old_result, new_result);
         
-        // Remove old instruction
+        // Detach and remove old instruction
+        cursor.func.dfg.detach_inst_results(inst);
         cursor.goto_inst(inst);
         cursor.remove_inst();
     }
@@ -471,6 +485,7 @@ fn convert_load(
     func: &mut Function,
     inst: Inst,
     format: FixedPointFormat,
+    value_map: &mut ValueMap<Value, Value>,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
@@ -493,11 +508,11 @@ fn convert_load(
         let mut cursor = FuncCursor::new(func).at_inst(inst);
         let new_result = cursor.ins().load(target_type, flags, addr, offset);
         
-        // Detach and replace uses
-        cursor.func.dfg.detach_inst_results(inst);
-        cursor.func.dfg.change_to_alias(old_result, new_result);
+        // Add to value map
+        value_map.insert(old_result, new_result);
         
-        // Remove old instruction
+        // Detach and remove old instruction
+        cursor.func.dfg.detach_inst_results(inst);
         cursor.goto_inst(inst);
         cursor.remove_inst();
     }
@@ -510,6 +525,7 @@ fn convert_store(
     func: &mut Function,
     inst: Inst,
     _format: FixedPointFormat,
+    _value_map: &mut ValueMap<Value, Value>,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
@@ -545,20 +561,21 @@ fn convert_instruction(
     func: &mut Function,
     inst: Inst,
     format: FixedPointFormat,
+    value_map: &mut ValueMap<Value, Value>,
 ) -> Result<(), TransformError> {
     use cranelift_codegen::ir::Opcode;
     
     let opcode = func.dfg.insts[inst].opcode();
     
     match opcode {
-        Opcode::F32const => convert_f32const(func, inst, format)?,
-        Opcode::Fadd => convert_fadd(func, inst, format)?,
-        Opcode::Fsub => convert_fsub(func, inst, format)?,
-        Opcode::Fmul => convert_fmul(func, inst, format)?,
-        Opcode::Fdiv => convert_fdiv(func, inst, format)?,
-        Opcode::Fcmp => convert_fcmp(func, inst, format)?,
-        Opcode::Load => convert_load(func, inst, format)?,
-        Opcode::Store => convert_store(func, inst, format)?,
+        Opcode::F32const => convert_f32const(func, inst, format, value_map)?,
+        Opcode::Fadd => convert_fadd(func, inst, format, value_map)?,
+        Opcode::Fsub => convert_fsub(func, inst, format, value_map)?,
+        Opcode::Fmul => convert_fmul(func, inst, format, value_map)?,
+        Opcode::Fdiv => convert_fdiv(func, inst, format, value_map)?,
+        Opcode::Fcmp => convert_fcmp(func, inst, format, value_map)?,
+        Opcode::Load => convert_load(func, inst, format, value_map)?,
+        Opcode::Store => convert_store(func, inst, format, value_map)?,
         _ => {
             // Other instructions don't need conversion
         }

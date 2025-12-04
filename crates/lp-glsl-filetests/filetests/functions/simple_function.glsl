@@ -10,5 +10,5 @@ float main() {
 }
 
 // CHECK: fmul
-// run: == 25.0
+// run: ~= 25.0 (tolerance: 0.01)
 

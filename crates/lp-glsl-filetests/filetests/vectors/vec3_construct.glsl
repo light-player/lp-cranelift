@@ -7,4 +7,5 @@ int main() {
 }
 
 // CHECK: f32const
+// run: == 1
 

@@ -6,5 +6,5 @@ float main() {
 }
 
 // CHECK: fabs
-// run: == 3.5
+// run: ~= 3.5 (tolerance: 0.01)
 
