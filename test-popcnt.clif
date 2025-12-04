@@ -1,0 +1,9 @@
+test compile
+target riscv32 has_m
+
+function %popcnt_i64(i64) -> i64 {
+block0(v0: i64):
+    v1 = popcnt v0
+    return v1
+}
+
