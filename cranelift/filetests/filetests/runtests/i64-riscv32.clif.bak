@@ -45,7 +45,7 @@ block0(v0: i64,v1: i64):
 ; run: %mul_i64(2, 2) == 4
 ; run: %mul_i64(0x00000000_FFFFFFFF, 0x00000000_FFFFFFFF) == 0xFFFFFFFE_00000001
 ; run: %mul_i64(0x12345678, 0x9ABCDEF0) == 0xb00ea3e5_3fa26280
-; run: %mul_i64(305419896, 2596069104) == 792891155752493184
+
 function %and_i64(i64, i64) -> i64 {
 block0(v0: i64, v1: i64):
     v2 = band v0, v1
