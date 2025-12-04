@@ -190,7 +190,7 @@ fn convert_f32const(
     let inst_data = &func.dfg.insts[inst];
     if let InstructionData::UnaryIeee32 { opcode: _, imm } = inst_data {
         let f32_value = f32::from_bits(imm.bits());
-        let result = func.dfg.first_result(inst);
+        let _result = func.dfg.first_result(inst);
         
         // Convert to fixed-point
         let fixed_value = match format {
@@ -270,7 +270,7 @@ fn convert_fmul(
         let arg2 = args[1];
         let result = func.dfg.first_result(inst);
         let shift_amount = format.shift_amount();
-        let target_type = format.cranelift_type();
+        let _target_type = format.cranelift_type();
         
         // Create a cursor positioned at this instruction
         let mut cursor = FuncCursor::new(func).at_inst(inst);
