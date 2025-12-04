@@ -2,35 +2,6 @@ mod common;
 
 use lp_glsl::{Compiler, FixedPointFormat};
 
-#[test]
-fn debug_fixed_add() {
-    let source = r#"
-    float main() {
-        float a = 2.5;
-        float b = 1.5;
-        return a + b;
-    }
-    "#;
-    
-    let mut compiler = Compiler::new();
-    compiler.set_fixed_point_format(Some(FixedPointFormat::Fixed16x16));
-    
-    // Compile to CLIF first to see what's generated
-    let clif = compiler.compile_to_clif(source).unwrap();
-    println!("CLIF:\n{}", clif);
-    
-    // Now try to execute
-    let func = compiler.compile_int(source).unwrap();
-    let result = func();
-    
-    println!("Result (raw i32): {}", result);
-    println!("Result (as fixed16): {} / 65536 = {}", result, result as f32 / 65536.0);
-    
-    // Expected: 2.5 + 1.5 = 4.0 in fixed16 = 262144
-    let expected = 262144;
-    assert_eq!(result, expected);
-}
-
 /// Compile and execute GLSL with fixed-point transformation that returns i32
 fn run_fixed16_test(source: &str) -> i32 {
     let mut compiler = Compiler::new();
