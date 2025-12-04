@@ -120,19 +120,24 @@ impl core::fmt::Display for TransformError {
 ///
 /// This pass:
 /// 1. Converts function signature (F32 → I32/I64)
-/// 2. Converts all F32 values to I32/I64 (fixed-point representation)
-/// 3. Converts all float operations to fixed-point operations
-/// 4. Updates all value types
+/// 2. Walks through all instructions and replaces float ops with fixed-point ops
+/// 3. Builds a value replacement map as we go
+/// 4. Updates all value uses with the map
 /// 5. Verifies the function is still valid
 pub fn convert_floats_to_fixed(
     func: &mut Function,
     format: FixedPointFormat,
 ) -> Result<(), TransformError> {
+    use cranelift_codegen::entity::SecondaryMap;
+    
     // 1. Convert signature
     convert_signature(func, format);
 
-    // 2. Walk all blocks and instructions to convert them
-    // We need to collect instructions first to avoid borrow issues
+    // 2. Build a value replacement map (old F32 value -> new I32/I64 value)
+    let mut value_map: SecondaryMap<Value, Value> = SecondaryMap::new();
+    
+    // 3. Walk all blocks and instructions to convert them
+    // Collect instructions first to avoid borrow issues
     let mut insts_to_convert: Vec<(Block, Inst)> = Vec::new();
     for block in func.layout.blocks() {
         for inst in func.layout.block_insts(block) {
@@ -140,12 +145,21 @@ pub fn convert_floats_to_fixed(
         }
     }
 
-    // 3. Convert each instruction
+    // 4. Convert each instruction, building the value map
     for (_block, inst) in insts_to_convert {
-        convert_instruction(func, inst, format)?;
+        convert_instruction(func, inst, format, &mut value_map)?;
     }
 
-    // 4. Verify function is still valid
+    // 5. Apply the value map to all instructions
+    for block in func.layout.blocks() {
+        for inst in func.layout.block_insts(block) {
+            func.dfg.map_inst_values(inst, |val| {
+                *value_map.get(val).unwrap_or(&val)
+            });
+        }
+    }
+
+    // 6. Verify function is still valid
     if let Err(errors) = cranelift_codegen::verify_function(func, &cranelift_codegen::settings::Flags::new(cranelift_codegen::settings::builder())) {
         return Err(TransformError::new(format!(
             "Verification failed after transformation: {}",

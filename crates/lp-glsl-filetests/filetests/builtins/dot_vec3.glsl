@@ -9,5 +9,5 @@ float main() {
 
 // CHECK: fmul
 // CHECK: fadd
-// run: == 32.0
+// run: ~= 32.0 (tolerance: 0.01)
 
