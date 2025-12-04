@@ -7,8 +7,8 @@ Cranelift-style filetest infrastructure for validating GLSL compilation.
 - `test compile` - Validates Cranelift IR generation against expected output
 - `test run` - Executes JIT-compiled code and verifies results
 - `test error` - Validates that compilation fails with expected error
-- `test fixed16` - Use 16.16 fixed-point format
-- `test fixed32` - Use 32.32 fixed-point format
+- `test fixed32` - Use 16.16 fixed-point format (32-bit)
+- `test fixed64` - Use 32.32 fixed-point format (64-bit)
 
 ## Test File Format
 

@@ -1,5 +1,5 @@
 // test compile
-// test fixed16
+// test fixed32
 
 int main() {
     float a = 3.5;

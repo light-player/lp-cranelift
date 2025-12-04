@@ -13,13 +13,13 @@ pub fn run_filetest(path: &Path) -> Result<()> {
     let test_compile = source.contains("test compile");
     let test_run = source.contains("test run");
     let test_error = source.contains("test error");
-    let test_fixed16 = source.contains("test fixed16");
     let test_fixed32 = source.contains("test fixed32");
+    let test_fixed64 = source.contains("test fixed64");
     
     // Determine fixed-point format
-    let fixed_point_format = if test_fixed16 {
+    let fixed_point_format = if test_fixed32 {
         Some(lp_glsl::FixedPointFormat::Fixed16x16)
-    } else if test_fixed32 {
+    } else if test_fixed64 {
         Some(lp_glsl::FixedPointFormat::Fixed32x32)
     } else {
         None

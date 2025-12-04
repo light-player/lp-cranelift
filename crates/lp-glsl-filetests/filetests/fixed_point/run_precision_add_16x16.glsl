@@ -1,5 +1,5 @@
 // test run
-// test fixed16
+// test fixed32
 
 float main() {
     float sum = 0.0;

@@ -1,5 +1,5 @@
 // test compile
-// test fixed16
+// test fixed32
 
 float main() {
     return 3.14159;
