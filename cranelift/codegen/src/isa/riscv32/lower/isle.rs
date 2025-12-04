@@ -453,10 +453,11 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
 
     //
     fn gen_shamt(&mut self, ty: Type, shamt: XReg) -> ValueRegs {
-        let ty_bits = if ty.bits() > 64 { 64 } else { ty.bits() };
+        // On RV32, use I32 for shift amount calculations
+        let ty_bits = if ty.bits() > 32 { 32 } else { ty.bits() };
         let ty_bits = i16::try_from(ty_bits).unwrap();
         let shamt = {
-            let tmp = self.temp_writable_reg(I64);
+            let tmp = self.temp_writable_reg(I32);
             self.emit(&MInst::AluRRImm12 {
                 alu_op: AluOPRRI::Andi,
                 rd: tmp,
@@ -466,9 +467,9 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
             tmp.to_reg()
         };
         let len_sub_shamt = {
-            let tmp = self.temp_writable_reg(I64);
+            let tmp = self.temp_writable_reg(I32);
             self.emit(&MInst::load_imm12(tmp, Imm12::from_i16(ty_bits)));
-            let len_sub_shamt = self.temp_writable_reg(I64);
+            let len_sub_shamt = self.temp_writable_reg(I32);
             self.emit(&MInst::AluRRR {
                 alu_op: AluOPRRR::Sub,
                 rd: len_sub_shamt,
