@@ -8,6 +8,7 @@ use std::alloc;
 use std::io;
 use std::mem;
 use std::ptr;
+use std::vec::Vec;
 
 use super::BranchProtection;
 use super::JITMemoryProvider;
@@ -205,10 +206,10 @@ impl Memory {
         let iter = self.allocations[self.already_protected..].iter();
 
         #[cfg(all(not(target_os = "windows"), feature = "selinux-fix"))]
-        return iter.filter(|&PtrLen { map, len, .. }| *len != 0 && map.is_some());
+        return iter.filter(|ptrl| ptrl.len != 0 && ptrl.map.is_some());
 
         #[cfg(any(target_os = "windows", not(feature = "selinux-fix")))]
-        return iter.filter(|&PtrLen { len, .. }| *len != 0);
+        return iter.filter(|ptrl| ptrl.len != 0);
     }
 
     /// Frees all allocated memory regions that would be leaked otherwise.

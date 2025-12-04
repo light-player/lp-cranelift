@@ -33,5 +33,9 @@ pub use crate::memory::{BranchProtection, JITMemoryProvider};
 #[cfg(feature = "system-memory")]
 pub use crate::memory::{ArenaMemoryProvider, SystemMemoryProvider};
 
+// Re-export io types for users implementing JITMemoryProvider in no_std
+#[cfg(not(feature = "std"))]
+pub use crate::memory::io;
+
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

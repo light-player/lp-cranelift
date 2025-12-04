@@ -9,9 +9,11 @@ use crate::memory::SystemMemoryProvider;
 
 use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::isa::{OwnedTargetIsa, TargetIsa};
-use cranelift_codegen::settings::Configurable;
 use cranelift_codegen::{ir, settings};
 use cranelift_control::ControlPlane;
+
+#[cfg(feature = "system-memory")]
+use cranelift_codegen::settings::Configurable;
 use cranelift_entity::SecondaryMap;
 use cranelift_module::{
     DataDescription, DataId, FuncId, Init, Linkage, Module, ModuleDeclarations, ModuleError,
@@ -20,6 +22,7 @@ use cranelift_module::{
 use log::info;
 use core::cell::RefCell;
 use core::ptr;
+use std::borrow::ToOwned;
 use std::boxed::Box;
 use std::string::String;
 use std::vec::Vec;
@@ -555,13 +558,20 @@ impl Module for JITModule {
         let align = alignment
             .max(self.isa.function_alignment().minimum as u64)
             .max(self.isa.symbol_alignment());
-        let ptr =
-            self.memory
-                .allocate_readexec(size, align)
-                .map_err(|e| ModuleError::Allocation {
+        let ptr = self.memory.allocate_readexec(size, align).map_err(|e| {
+            #[cfg(feature = "std")]
+            {
+                ModuleError::Allocation {
                     message: "unable to alloc function",
                     err: e,
-                })?;
+                }
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                let _ = e; // Suppress unused warning
+                ModuleError::Backend(anyhow::Error::msg("unable to alloc function"))
+            }
+        })?;
 
         {
             let mem = unsafe { core::slice::from_raw_parts_mut(ptr, size) };
@@ -633,13 +643,20 @@ impl Module for JITModule {
         let align = alignment
             .max(self.isa.function_alignment().minimum as u64)
             .max(self.isa.symbol_alignment());
-        let ptr =
-            self.memory
-                .allocate_readexec(size, align)
-                .map_err(|e| ModuleError::Allocation {
+        let ptr = self.memory.allocate_readexec(size, align).map_err(|e| {
+            #[cfg(feature = "std")]
+            {
+                ModuleError::Allocation {
                     message: "unable to alloc function bytes",
                     err: e,
-                })?;
+                }
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                let _ = e; // Suppress unused warning
+                ModuleError::Backend(anyhow::Error::msg("unable to alloc function bytes"))
+            }
+        })?;
 
         unsafe {
             ptr::copy_nonoverlapping(bytes.as_ptr(), ptr, size);
@@ -695,16 +712,36 @@ impl Module for JITModule {
         let ptr = if decl.writable {
             self.memory
                 .allocate_readwrite(alloc_size, align.unwrap_or(WRITABLE_DATA_ALIGNMENT))
-                .map_err(|e| ModuleError::Allocation {
-                    message: "unable to alloc writable data",
-                    err: e,
+                .map_err(|e| {
+                    #[cfg(feature = "std")]
+                    {
+                        ModuleError::Allocation {
+                            message: "unable to alloc writable data",
+                            err: e,
+                        }
+                    }
+                    #[cfg(not(feature = "std"))]
+                    {
+                        let _ = e; // Suppress unused warning
+                        ModuleError::Backend(anyhow::Error::msg("unable to alloc writable data"))
+                    }
                 })?
         } else {
             self.memory
                 .allocate_readonly(alloc_size, align.unwrap_or(READONLY_DATA_ALIGNMENT))
-                .map_err(|e| ModuleError::Allocation {
-                    message: "unable to alloc readonly data",
-                    err: e,
+                .map_err(|e| {
+                    #[cfg(feature = "std")]
+                    {
+                        ModuleError::Allocation {
+                            message: "unable to alloc readonly data",
+                            err: e,
+                        }
+                    }
+                    #[cfg(not(feature = "std"))]
+                    {
+                        let _ = e; // Suppress unused warning
+                        ModuleError::Backend(anyhow::Error::msg("unable to alloc readonly data"))
+                    }
                 })?
         };
 

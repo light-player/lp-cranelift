@@ -1,6 +1,7 @@
 use std::io;
 use std::mem::ManuallyDrop;
 use std::ptr;
+use std::vec::Vec;
 
 use cranelift_module::ModuleResult;
 
