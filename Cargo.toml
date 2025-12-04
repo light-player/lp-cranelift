@@ -186,6 +186,7 @@ members = [
   # LP-specific applications
     "apps/embive-program",
     "apps/esp32c3-jit-test",
+    "apps/esp32c6-glsl-jit",
 ]
 exclude = [
   'docs/rust_wasi_markdown_parser',

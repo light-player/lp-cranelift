@@ -1984,6 +1984,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "esp32c6-glsl-jit"
+version = "0.1.0"
+dependencies = [
+ "cranelift-codegen",
+ "cranelift-control",
+ "cranelift-frontend",
+ "cranelift-module",
+ "critical-section",
+ "defmt 1.0.1",
+ "embassy-executor",
+ "embassy-time",
+ "esp-alloc",
+ "esp-bootloader-esp-idf",
+ "esp-hal",
+ "esp-hal-embassy",
+ "glsl",
+ "hashbrown 0.15.2",
+ "lp-glsl",
+ "panic-rtt-target",
+ "portable-atomic",
+ "rtt-target",
+ "target-lexicon",
+]
+
+[[package]]
 name = "esp32h2"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
