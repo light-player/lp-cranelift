@@ -138,11 +138,11 @@ impl JIT {
         // Step 2: Compile all user functions
         for user_func in &typed_ast.user_functions {
             let func_id = func_ids[&user_func.name];
-            self.compile_function(user_func, func_id, &func_ids)?;
+            self.compile_function(user_func, func_id, &func_ids, &typed_ast.function_registry)?;
         }
 
         // Step 3: Compile main function
-        self.compile_main_function(&typed_ast.main_function, &func_ids)?;
+        self.compile_main_function(&typed_ast.main_function, &func_ids, &typed_ast.function_registry)?;
 
         Ok(())
     }

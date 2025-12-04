@@ -178,6 +178,304 @@ fn convert_signature(func: &mut Function, format: FixedPointFormat) {
     }
 }
 
+/// Convert F32const to iconst with fixed-point value
+fn convert_f32const(
+    func: &mut Function,
+    inst: Inst,
+    format: FixedPointFormat,
+) -> Result<(), TransformError> {
+    use cranelift_codegen::ir::InstructionData;
+    
+    // Get the float constant value
+    let inst_data = &func.dfg.insts[inst];
+    if let InstructionData::UnaryIeee32 { opcode: _, imm } = inst_data {
+        let f32_value = f32::from_bits(imm.bits());
+        let result = func.dfg.first_result(inst);
+        
+        // Convert to fixed-point
+        let fixed_value = match format {
+            FixedPointFormat::Fixed16x16 => float_to_fixed16x16(f32_value) as i64,
+            FixedPointFormat::Fixed32x32 => float_to_fixed32x32(f32_value),
+        };
+        
+        // Replace with iconst
+        let target_type = format.cranelift_type();
+        func.dfg.replace(inst).iconst(target_type, fixed_value);
+    }
+    
+    Ok(())
+}
+
+/// Convert Fadd to Iadd (fixed-point addition is direct integer addition)
+fn convert_fadd(
+    func: &mut Function,
+    inst: Inst,
+    format: FixedPointFormat,
+) -> Result<(), TransformError> {
+    use cranelift_codegen::ir::InstructionData;
+    
+    let inst_data = &func.dfg.insts[inst];
+    if let InstructionData::Binary { opcode: _, args } = inst_data {
+        let arg1 = args[0];
+        let arg2 = args[1];
+        let target_type = format.cranelift_type();
+        
+        // Replace Fadd with Iadd
+        func.dfg.replace(inst).iadd(arg1, arg2);
+        
+        // Update result type
+        let result = func.dfg.first_result(inst);
+        func.dfg.change_to_alias(result, result);
+    }
+    
+    Ok(())
+}
+
+/// Convert Fsub to Isub (fixed-point subtraction is direct integer subtraction)
+fn convert_fsub(
+    func: &mut Function,
+    inst: Inst,
+    format: FixedPointFormat,
+) -> Result<(), TransformError> {
+    use cranelift_codegen::ir::InstructionData;
+    
+    let inst_data = &func.dfg.insts[inst];
+    if let InstructionData::Binary { opcode: _, args } = inst_data {
+        let arg1 = args[0];
+        let arg2 = args[1];
+        
+        // Replace Fsub with Isub
+        func.dfg.replace(inst).isub(arg1, arg2);
+        
+        // Update result type
+        let result = func.dfg.first_result(inst);
+        func.dfg.change_to_alias(result, result);
+    }
+    
+    Ok(())
+}
+
+/// Convert Fmul to fixed-point multiplication sequence
+/// For fixed-point multiply: result = (a * b) >> shift_amount
+fn convert_fmul(
+    func: &mut Function,
+    inst: Inst,
+    format: FixedPointFormat,
+) -> Result<(), TransformError> {
+    use cranelift_codegen::ir::InstructionData;
+    use cranelift_codegen::cursor::{Cursor, FuncCursor};
+    
+    let inst_data = &func.dfg.insts[inst];
+    if let InstructionData::Binary { opcode: _, args } = inst_data {
+        let arg1 = args[0];
+        let arg2 = args[1];
+        let result = func.dfg.first_result(inst);
+        let shift_amount = format.shift_amount();
+        let target_type = format.cranelift_type();
+        
+        // Create a cursor positioned at this instruction
+        let mut cursor = FuncCursor::new(func).at_inst(inst);
+        
+        match format {
+            FixedPointFormat::Fixed16x16 => {
+                // For 16.16: result = (a * b) >> 16
+                // We can use a simpler approach: 
+                // hi = (a * b) >> 32 (using smulhi for signed multiplication high)
+                // lo = (a * b) & 0xFFFFFFFF (using regular mul)
+                // result = (hi << 16) | (lo >> 16)
+                
+                // Actually, simpler: Just do 64-bit math
+                // Extend to 64-bit, multiply, shift, truncate
+                let shift_const = cursor.ins().iconst(cranelift_codegen::ir::types::I32, shift_amount);
+                let a_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, arg1);
+                let b_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, arg2);
+                let mul_64 = cursor.ins().imul(a_ext, b_ext);
+                let shift_const_64 = cursor.ins().iconst(cranelift_codegen::ir::types::I64, shift_amount);
+                let shifted = cursor.ins().sshr(mul_64, shift_const_64);
+                let result_32 = cursor.ins().ireduce(cranelift_codegen::ir::types::I32, shifted);
+                
+                // Replace original instruction's result with our final value
+                cursor.func.dfg.change_to_alias(result, result_32);
+                
+                // Remove the original instruction
+                cursor.goto_inst(inst);
+                cursor.remove_inst();
+            }
+            FixedPointFormat::Fixed32x32 => {
+                // For 32.32: result = (a * b) >> 32
+                // Use i128 arithmetic
+                let a_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I128, arg1);
+                let b_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I128, arg2);
+                let mul_128 = cursor.ins().imul(a_ext, b_ext);
+                let shift_const_128 = cursor.ins().iconst(cranelift_codegen::ir::types::I64, shift_amount);
+                let shifted = cursor.ins().sshr(mul_128, shift_const_128);
+                let result_64 = cursor.ins().ireduce(cranelift_codegen::ir::types::I64, shifted);
+                
+                // Replace original instruction's result
+                cursor.func.dfg.change_to_alias(result, result_64);
+                
+                // Remove the original instruction
+                cursor.goto_inst(inst);
+                cursor.remove_inst();
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+/// Convert Fdiv to fixed-point division sequence
+/// For fixed-point divide: result = (a << shift_amount) / b
+fn convert_fdiv(
+    func: &mut Function,
+    inst: Inst,
+    format: FixedPointFormat,
+) -> Result<(), TransformError> {
+    use cranelift_codegen::ir::InstructionData;
+    use cranelift_codegen::cursor::{Cursor, FuncCursor};
+    
+    let inst_data = &func.dfg.insts[inst];
+    if let InstructionData::Binary { opcode: _, args } = inst_data {
+        let arg1 = args[0];
+        let arg2 = args[1];
+        let result = func.dfg.first_result(inst);
+        let shift_amount = format.shift_amount();
+        
+        let mut cursor = FuncCursor::new(func).at_inst(inst);
+        
+        match format {
+            FixedPointFormat::Fixed16x16 => {
+                // For 16.16: result = (a << 16) / b
+                // Extend to 64-bit to avoid overflow
+                let a_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, arg1);
+                let shift_const = cursor.ins().iconst(cranelift_codegen::ir::types::I64, shift_amount);
+                let a_shifted = cursor.ins().ishl(a_ext, shift_const);
+                let b_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, arg2);
+                let div_result = cursor.ins().sdiv(a_shifted, b_ext);
+                let result_32 = cursor.ins().ireduce(cranelift_codegen::ir::types::I32, div_result);
+                
+                cursor.func.dfg.change_to_alias(result, result_32);
+                cursor.goto_inst(inst);
+                cursor.remove_inst();
+            }
+            FixedPointFormat::Fixed32x32 => {
+                // For 32.32: result = (a << 32) / b
+                // Extend to 128-bit
+                let a_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I128, arg1);
+                let shift_const = cursor.ins().iconst(cranelift_codegen::ir::types::I64, shift_amount);
+                let a_shifted = cursor.ins().ishl(a_ext, shift_const);
+                let b_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I128, arg2);
+                let div_result = cursor.ins().sdiv(a_shifted, b_ext);
+                let result_64 = cursor.ins().ireduce(cranelift_codegen::ir::types::I64, div_result);
+                
+                cursor.func.dfg.change_to_alias(result, result_64);
+                cursor.goto_inst(inst);
+                cursor.remove_inst();
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+/// Convert Fcmp to Icmp with appropriate condition code
+fn convert_fcmp(
+    func: &mut Function,
+    inst: Inst,
+    format: FixedPointFormat,
+) -> Result<(), TransformError> {
+    use cranelift_codegen::ir::InstructionData;
+    
+    let inst_data = &func.dfg.insts[inst];
+    if let InstructionData::FloatCompare { opcode: _, cond, args } = inst_data {
+        let arg1 = args[0];
+        let arg2 = args[1];
+        let cond = *cond;
+        
+        // Convert FloatCC to IntCC
+        let int_cond = match cond {
+            FloatCC::Equal => IntCC::Equal,
+            FloatCC::NotEqual => IntCC::NotEqual,
+            FloatCC::LessThan => IntCC::SignedLessThan,
+            FloatCC::LessThanOrEqual => IntCC::SignedLessThanOrEqual,
+            FloatCC::GreaterThan => IntCC::SignedGreaterThan,
+            FloatCC::GreaterThanOrEqual => IntCC::SignedGreaterThanOrEqual,
+            // For unordered/ordered: no NaN in fixed-point
+            FloatCC::Ordered => IntCC::Equal, // Always true, use a == a
+            FloatCC::Unordered => IntCC::NotEqual, // Always false, use a != a
+            FloatCC::OrderedNotEqual => IntCC::NotEqual,
+            FloatCC::UnorderedOrEqual => IntCC::Equal,
+            FloatCC::UnorderedOrLessThan => IntCC::SignedLessThan,
+            FloatCC::UnorderedOrLessThanOrEqual => IntCC::SignedLessThanOrEqual,
+            FloatCC::UnorderedOrGreaterThan => IntCC::SignedGreaterThan,
+            FloatCC::UnorderedOrGreaterThanOrEqual => IntCC::SignedGreaterThanOrEqual,
+        };
+        
+        // Replace Fcmp with Icmp
+        func.dfg.replace(inst).icmp(int_cond, arg1, arg2);
+    }
+    
+    Ok(())
+}
+
+/// Convert Load with F32 type to Load with I32/I64 type
+fn convert_load(
+    func: &mut Function,
+    inst: Inst,
+    format: FixedPointFormat,
+) -> Result<(), TransformError> {
+    use cranelift_codegen::ir::InstructionData;
+    
+    let inst_data = &func.dfg.insts[inst];
+    
+    // Check if this is a load of F32 type
+    let result = func.dfg.first_result(inst);
+    if func.dfg.value_type(result) != cranelift_codegen::ir::types::F32 {
+        return Ok(()); // Not an F32 load, skip
+    }
+    
+    if let InstructionData::Load { opcode: _, flags, offset, args } = inst_data {
+        let addr = args[0];
+        let flags = *flags;
+        let offset = *offset;
+        let target_type = format.cranelift_type();
+        
+        // Replace with load of target type
+        func.dfg.replace(inst).load(target_type, flags, addr, offset);
+    }
+    
+    Ok(())
+}
+
+/// Convert Store with F32 type to Store with I32/I64 type
+fn convert_store(
+    func: &mut Function,
+    inst: Inst,
+    format: FixedPointFormat,
+) -> Result<(), TransformError> {
+    use cranelift_codegen::ir::InstructionData;
+    
+    let inst_data = &func.dfg.insts[inst];
+    
+    if let InstructionData::Store { opcode: _, flags, offset, args } = inst_data {
+        let addr = args[0];
+        let value = args[1];
+        
+        // Check if we're storing an F32 value
+        if func.dfg.value_type(value) != cranelift_codegen::ir::types::F32 {
+            return Ok(()); // Not an F32 store, skip
+        }
+        
+        let flags = *flags;
+        let offset = *offset;
+        
+        // Replace with store of target type
+        func.dfg.replace(inst).store(flags, value, addr, offset);
+    }
+    
+    Ok(())
+}
+
 /// Convert a single instruction
 fn convert_instruction(
     func: &mut Function,
