@@ -177,16 +177,16 @@ block0(v0: i8):
 ; VCode:
 ; block0:
 ;   andi a2,a0,255
-;   popcnt a0,a2##ty=i64 tmp=a4 step=a5
+;   popcnt a0,a2##ty=i32 tmp=a4 step=a5
 ;   ret
 ;
 ; Disassembled:
 ; block0: ; offset 0x0
 ;   andi a2, a0, 0xff
 ;   mv a0, zero
-;   addi a5, zero, 0x40
+;   addi a5, zero, 0x20
 ;   addi a4, zero, 1
-;   slli a4, a4, 0x3f
+;   slli a4, a4, 0x1f
 ;   blez a5, 0x1c
 ;   and t5, a4, a2
 ;   beq zero, t5, 8
@@ -206,7 +206,7 @@ block0(v0: i16):
 ; block0:
 ;   slli a2,a0,48
 ;   srli a4,a2,48
-;   popcnt a0,a4##ty=i64 tmp=a2 step=a1
+;   popcnt a0,a4##ty=i32 tmp=a2 step=a1
 ;   ret
 ;
 ; Disassembled:
@@ -214,9 +214,9 @@ block0(v0: i16):
 ;   slli a2, a0, 0x30
 ;   srli a4, a2, 0x30
 ;   mv a0, zero
-;   addi a1, zero, 0x40
+;   addi a1, zero, 0x20
 ;   addi a2, zero, 1
-;   slli a2, a2, 0x3f
+;   slli a2, a2, 0x1f
 ;   blez a1, 0x1c
 ;   and t5, a2, a4
 ;   beq zero, t5, 8
@@ -236,7 +236,7 @@ block0(v0: i32):
 ; block0:
 ;   slli a2,a0,32
 ;   srli a4,a2,32
-;   popcnt a0,a4##ty=i64 tmp=a2 step=a1
+;   popcnt a0,a4##ty=i32 tmp=a2 step=a1
 ;   ret
 ;
 ; Disassembled:
@@ -244,9 +244,9 @@ block0(v0: i32):
 ;   slli a2, a0, 0x20
 ;   srli a4, a2, 0x20
 ;   mv a0, zero
-;   addi a1, zero, 0x40
+;   addi a1, zero, 0x20
 ;   addi a2, zero, 1
-;   slli a2, a2, 0x3f
+;   slli a2, a2, 0x1f
 ;   blez a1, 0x1c
 ;   and t5, a2, a4
 ;   beq zero, t5, 8
