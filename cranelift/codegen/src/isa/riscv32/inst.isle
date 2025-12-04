@@ -865,8 +865,9 @@
 (convert WritableXReg ValueRegs writable_xreg_to_value_regs)
 
 ;; Allocates a new `WritableXReg`.
+;; NOTE: On RV32, XRegs are 32-bit, so we allocate I32 temporaries
 (decl temp_writable_xreg () WritableXReg)
-(rule (temp_writable_xreg) (temp_writable_reg $I64))
+(rule (temp_writable_xreg) (temp_writable_reg $I32))
 
 
 ;; Construct a new `FReg` from a `Reg`.
@@ -2327,12 +2328,12 @@
               (load (little_or_native_endian flags) addr offset)
               (sinkable_inst (has_type ty inst))))
 
-;; Returns a canonical type for a LoadOP. We only return I64 or F64.
+;; Returns a canonical type for a LoadOP. On RV32, we use I32 or F64.
 (decl load_op_reg_type (LoadOP) Type)
 (rule 1 (load_op_reg_type (LoadOP.Fld)) $F64)
 (rule 1 (load_op_reg_type (LoadOP.Flw)) $F64)
 (rule 1 (load_op_reg_type (LoadOP.Flh)) $F64)
-(rule 0 (load_op_reg_type _) $I64)
+(rule 0 (load_op_reg_type _) $I32)
 
 ;; Helper constructor to build a load instruction.
 (decl gen_load (AMode LoadOP MemFlags) Reg)
@@ -2648,29 +2649,33 @@
 (extern constructor is_pic is_pic)
 
 ;; Helper for emitting `MInst.LoadExtNameGot` instructions.
+;; On RV32, addresses are 32-bit
 (decl load_ext_name_got (BoxExternalName) Reg)
 (rule (load_ext_name_got extname)
-      (let ((dst WritableReg (temp_writable_reg $I64))
+      (let ((dst WritableReg (temp_writable_reg $I32))
             (_ Unit (emit (MInst.LoadExtNameGot dst extname))))
         dst))
 
 ;; Helper for emitting `MInst.LoadExtNameNear` instructions.
+;; On RV32, addresses are 32-bit
 (decl load_ext_name_near (BoxExternalName i64) Reg)
 (rule (load_ext_name_near extname offset)
-      (let ((dst WritableReg (temp_writable_reg $I64))
+      (let ((dst WritableReg (temp_writable_reg $I32))
             (_ Unit (emit (MInst.LoadExtNameNear dst extname offset))))
         dst))
 
 ;; Helper for emitting `MInst.LoadExtNameFar` instructions.
+;; On RV32, addresses are 32-bit
 (decl load_ext_name_far (BoxExternalName i64) Reg)
 (rule (load_ext_name_far extname offset)
-      (let ((dst WritableReg (temp_writable_reg $I64))
+      (let ((dst WritableReg (temp_writable_reg $I32))
             (_ Unit (emit (MInst.LoadExtNameFar dst extname offset))))
         dst))
 
+;; On RV32, addresses are 32-bit
 (decl elf_tls_get_addr (ExternalName) Reg)
 (rule (elf_tls_get_addr name)
-      (let ((dst WritableReg (temp_writable_reg $I64))
+      (let ((dst WritableReg (temp_writable_reg $I32))
             (_ Unit (emit (MInst.ElfTlsGetAddr dst name))))
         dst))
 
@@ -3131,9 +3136,10 @@
 
 
 ;; Helper for creating an `LabelAddress` instruction.
-(decl rv64_label_address (MachLabel) Reg)
-(rule (rv64_label_address label)
-      (let ((dst WritableReg (temp_writable_reg $I64))
+;; On RV32, addresses are 32-bit
+(decl rv32_label_address (MachLabel) Reg)
+(rule (rv32_label_address label)
+      (let ((dst WritableReg (temp_writable_reg $I32))
             (_ Unit (emit (MInst.LabelAddress dst label))))
         dst))
 
