@@ -21,10 +21,17 @@ default = ["std"]
 std = [
     "glsl/std",
     "cranelift-codegen/std",
+    "cranelift-frontend/std",
+    "cranelift-module/std",
     "cranelift-jit",
+    "cranelift-jit/std",
     "cranelift-native"
 ]
-core = ["cranelift-codegen/core"]
+core = [
+    "cranelift-codegen/core",
+    "cranelift-frontend/core",
+    "cranelift-module/core"
+]
 
 [dev-dependencies]
 cranelift-reader = { workspace = true }

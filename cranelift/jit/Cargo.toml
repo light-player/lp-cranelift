@@ -54,10 +54,9 @@ core = [
     "cranelift-module/core",
 ]
 
-system-memory = ["std", "region", "libc", "cranelift-native"]
+system-memory = ["region", "libc", "cranelift-native", "windows-sys"]
 
 selinux-fix = ["memmap2", "system-memory"]
-
 wasmtime-unwinder = ["dep:wasmtime-unwinder"]
 
 [dev-dependencies]

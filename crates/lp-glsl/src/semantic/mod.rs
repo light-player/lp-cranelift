@@ -14,6 +14,7 @@ use alloc::string::{String, ToString};
 pub mod scope;
 pub mod types;
 pub mod type_check;
+pub mod builtins;
 
 pub struct TypedShader {
     pub main_function: TypedFunction,

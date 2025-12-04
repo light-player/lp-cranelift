@@ -71,7 +71,7 @@ impl<'a> CodegenContext<'a> {
                 Ok((vals, ty))
             }
 
-            // Function calls - check if it's a type constructor
+            // Function calls - check if it's a type constructor or built-in
             Expr::FunCall(func_ident, args) => {
                 // Extract identifier name from FunIdentifier enum
                 let func_name = match func_ident {
@@ -79,12 +79,18 @@ impl<'a> CodegenContext<'a> {
                     _ => return Err("Complex function identifiers not yet supported".to_string()),
                 };
                 
+                // Check if it's a type constructor
                 if is_vector_type_name(func_name) {
-                    self.translate_vector_constructor(func_name, args)
-                } else {
-                    // Regular function call (not implemented yet)
-                    Err(format!("Function calls not yet supported: {}", func_name))
+                    return self.translate_vector_constructor(func_name, args);
                 }
+                
+                // Check if it's a built-in function
+                if crate::semantic::builtins::is_builtin_function(func_name) {
+                    return self.translate_builtin_call_expr(func_name, args);
+                }
+                
+                // User-defined function (not yet supported)
+                Err(format!("Function not found: {}", func_name))
             }
 
             // Binary operators - both scalars and vectors
@@ -577,6 +583,24 @@ impl<'a> CodegenContext<'a> {
         }
 
         Ok((components, result_type))
+    }
+
+    /// Translate built-in function call
+    fn translate_builtin_call_expr(
+        &mut self,
+        name: &str,
+        args: &[glsl::syntax::Expr],
+    ) -> Result<(Vec<Value>, GlslType), String> {
+        // Translate all arguments
+        let mut translated_args = Vec::new();
+        
+        for arg in args {
+            let (vals, ty) = self.translate_expr_typed(arg)?;
+            translated_args.push((vals, ty));
+        }
+        
+        // Delegate to built-in implementation
+        self.translate_builtin_call(name, translated_args)
     }
 
     /// Parse vector component swizzle and return indices
