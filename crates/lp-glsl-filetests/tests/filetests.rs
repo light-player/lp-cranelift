@@ -50,3 +50,44 @@ fn test_bool_not() {
     test_file("basic/bool_not.glsl");
 }
 
+// Control flow tests
+#[test]
+fn test_simple_if() {
+    test_file("control_flow/simple_if.glsl");
+}
+
+#[test]
+fn test_if_else() {
+    test_file("control_flow/if_else.glsl");
+}
+
+#[test]
+fn test_while_loop() {
+    test_file("control_flow/while_loop.glsl");
+}
+
+#[test]
+fn test_for_loop() {
+    test_file("control_flow/for_loop.glsl");
+}
+
+#[test]
+fn test_break_stmt() {
+    test_file("control_flow/break_stmt.glsl");
+}
+
+#[test]
+fn test_continue_stmt() {
+    test_file("control_flow/continue_stmt.glsl");
+}
+
+#[test]
+fn test_nested_loops() {
+    test_file("control_flow/nested_loops.glsl");
+}
+
+#[test]
+fn test_early_return() {
+    test_file("control_flow/early_return.glsl");
+}
+
