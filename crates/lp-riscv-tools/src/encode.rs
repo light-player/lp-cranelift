@@ -104,14 +104,34 @@ pub fn mulh(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
     encode_r(0x33, rd, rs1, rs2, 0x1, 0x01)
 }
 
+/// MULHSU: rd = high 32 bits of (rs1 * rs2) (signed * unsigned, M extension)
+pub fn mulhsu(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x2, 0x01)
+}
+
+/// MULHU: rd = high 32 bits of (rs1 * rs2) (unsigned, M extension)
+pub fn mulhu(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x3, 0x01)
+}
+
 /// DIV: rd = rs1 / rs2 (signed, M extension)
 pub fn div(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
     encode_r(0x33, rd, rs1, rs2, 0x4, 0x01)
 }
 
+/// DIVU: rd = rs1 / rs2 (unsigned, M extension)
+pub fn divu(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x5, 0x01)
+}
+
 /// REM: rd = rs1 % rs2 (signed, M extension)
 pub fn rem(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
     encode_r(0x33, rd, rs1, rs2, 0x6, 0x01)
+}
+
+/// REMU: rd = rs1 % rs2 (unsigned, M extension)
+pub fn remu(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x7, 0x01)
 }
 
 /// ADDI: rd = rs1 + imm

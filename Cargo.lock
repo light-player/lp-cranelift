@@ -1250,7 +1250,12 @@ dependencies = [
 name = "embive-program"
 version = "40.0.0"
 dependencies = [
+ "cranelift-codegen",
+ "cranelift-frontend",
+ "hashbrown 0.15.2",
+ "lp-toy-lang",
  "runtime-embive",
+ "target-lexicon",
 ]
 
 [[package]]

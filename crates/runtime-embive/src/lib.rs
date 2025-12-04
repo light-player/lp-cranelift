@@ -181,8 +181,9 @@ global_asm! {
     "andi sp, t1, -16",
     "add s0, sp, zero",
     ".option pop",
-    // Call _code_entry
-    "jal ra, _code_entry",
+    // Call _code_entry using long-range jump (la pseudo-instruction expands to auipc + addi)
+    "la t0, _code_entry",
+    "jalr ra, 0(t0)",
 }
 
 // Interrupt trap (removed - not needed for emulator testing)

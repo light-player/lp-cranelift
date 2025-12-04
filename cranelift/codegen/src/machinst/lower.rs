@@ -24,9 +24,9 @@ use crate::settings::Flags;
 use crate::{CodegenError, CodegenResult, trace};
 use alloc::vec::Vec;
 use cranelift_control::ControlPlane;
-use rustc_hash::{FxHashMap, FxHashSet};
+use crate::{FxHashMap, FxHashSet};
 use smallvec::{SmallVec, smallvec};
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use super::{VCodeBuildDirection, VRegAllocator};
 

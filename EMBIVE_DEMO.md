@@ -106,3 +106,4 @@ Potential improvements:
 - Better ELF generation with proper symbol tables
 - Integration tests with actual embive VM
 
+

@@ -8,7 +8,8 @@ use crate::isa::riscv32::lower::isle::generated_code::{
 };
 use crate::machinst::isle::WritableReg;
 
-use std::fmt::Result;
+use core::fmt::Result;
+use alloc::{vec, format};
 
 /// A macro for defining a newtype of `Reg` that enforces some invariant about
 /// the wrapped `Reg` (such as that it is of a particular register class).
@@ -53,7 +54,7 @@ macro_rules! newtype_of_reg {
         // NB: We cannot implement `DerefMut` because that would let people do
         // nasty stuff like `*my_xreg.deref_mut() = some_freg`, breaking the
         // invariants that `XReg` provides.
-        impl std::ops::Deref for $newtype_reg {
+        impl core::ops::Deref for $newtype_reg {
             type Target = Reg;
 
             fn deref(&self) -> &Reg {
@@ -367,10 +368,10 @@ impl FliConstant {
             (F32, f) if f == (f32::MIN_POSITIVE as f64) => Self::new(1),
             (F64, f) if f == f64::MIN_POSITIVE => Self::new(1),
 
-            (_, f) if f == 2.0f64.powi(-16) => Self::new(2),
-            (_, f) if f == 2.0f64.powi(-15) => Self::new(3),
-            (_, f) if f == 2.0f64.powi(-8) => Self::new(4),
-            (_, f) if f == 2.0f64.powi(-7) => Self::new(5),
+            (_, f) if f == 1.52587890625e-5 => Self::new(2),  // 2^-16
+            (_, f) if f == 3.0517578125e-5 => Self::new(3),   // 2^-15
+            (_, f) if f == 0.00390625 => Self::new(4),        // 2^-8
+            (_, f) if f == 0.0078125 => Self::new(5),         // 2^-7
             (_, f) if f == 0.0625 => Self::new(6),
             (_, f) if f == 0.125 => Self::new(7),
             (_, f) if f == 0.25 => Self::new(8),
@@ -651,7 +652,7 @@ impl Display for FpuOPWidth {
 impl TryFrom<Type> for FpuOPWidth {
     type Error = &'static str;
 
-    fn try_from(value: Type) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: Type) -> core::result::Result<Self, Self::Error> {
         match value {
             F16 => Ok(FpuOPWidth::H),
             F32 => Ok(FpuOPWidth::S),

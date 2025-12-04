@@ -85,9 +85,55 @@ pub fn execute_instruction(
             let val2 = read_reg(regs, rs2);
             let rd_old = read_reg(regs, rd);
             // MULH: high 32 bits of signed multiply
-            let val1_i64 = val1 as i32 as i64;
-            let val2_i64 = val2 as i32 as i64;
+            let val1_i64 = val1 as i64;
+            let val2_i64 = val2 as i64;
             let product = val1_i64.wrapping_mul(val2_i64);
+            let result = (product >> 32) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0, // Will be set by emu
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+        Inst::Mulhsu { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            // MULHSU: high 32 bits of signed * unsigned multiply
+            let val1_i64 = val1 as i64;
+            let val2_u64 = (val2 as u32) as u64;
+            let product = ((val1_i64 as i128).wrapping_mul(val2_u64 as i128)) as i64;
+            let result = (product >> 32) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0, // Will be set by emu
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+        Inst::Mulhu { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            // MULHU: high 32 bits of unsigned multiply
+            let val1_u64 = (val1 as u32) as u64;
+            let val2_u64 = (val2 as u32) as u64;
+            let product = val1_u64.wrapping_mul(val2_u64);
             let result = (product >> 32) as i32;
             if rd.num() != 0 {
                 regs[rd.num() as usize] = result;
@@ -150,6 +196,33 @@ pub fn execute_instruction(
                 rd_new: result,
             }
         }
+        Inst::Divu { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            // DIVU: unsigned division
+            // Handle division by zero: RISC-V specifies result is all 1s (max value)
+            let val1_u = val1 as u32;
+            let val2_u = val2 as u32;
+            let result = if val2_u == 0 {
+                -1i32 // All 1s in signed representation
+            } else {
+                (val1_u / val2_u) as i32
+            };
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0, // Will be set by emu
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
         Inst::Rem { rd, rs1, rs2 } => {
             let val1 = read_reg(regs, rs1);
             let val2 = read_reg(regs, rs2);
@@ -162,6 +235,33 @@ pub fn execute_instruction(
                 0i32
             } else {
                 val1 % val2
+            };
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0, // Will be set by emu
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+        Inst::Remu { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            // REMU: unsigned remainder
+            // Handle division by zero: RISC-V specifies result is dividend
+            let val1_u = val1 as u32;
+            let val2_u = val2 as u32;
+            let result = if val2_u == 0 {
+                val1
+            } else {
+                (val1_u % val2_u) as i32
             };
             if rd.num() != 0 {
                 regs[rd.num() as usize] = result;

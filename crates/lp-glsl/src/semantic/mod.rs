@@ -13,6 +13,7 @@ use alloc::string::{String, ToString};
 
 pub mod scope;
 pub mod types;
+pub mod type_check;
 
 pub struct TypedShader {
     pub main_function: TypedFunction,
@@ -58,7 +59,8 @@ fn parse_return_type(ty: &glsl::syntax::FullySpecifiedType) -> Result<types::Typ
         TypeSpecifierNonArray::Void => Ok(types::Type::Void),
         TypeSpecifierNonArray::Bool => Ok(types::Type::Bool),
         TypeSpecifierNonArray::Int => Ok(types::Type::Int),
-        _ => Err(format!("Return type not supported in Phase 1: {:?}", ty.ty.ty)),
+        TypeSpecifierNonArray::Float => Ok(types::Type::Float),
+        _ => Err(format!("Return type not supported yet: {:?}", ty.ty.ty)),
     }
 }
 

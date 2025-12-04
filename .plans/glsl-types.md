@@ -5,17 +5,20 @@
 Add float type support with **proper type checking**, **type inference**, and **type coercion** according to the GLSL specification.
 
 **Spec Reference:** `/Users/yona/dev/photomancer/glsl-spec/chapters/`
+
 - `variables.adoc` lines 1182-1229: Implicit Conversions
 - `operators.adoc` lines 775-855: Arithmetic operator type rules
 
 ## Current State (Phases 1-2)
 
 **What Works:**
+
 - ✅ int/bool types with arithmetic and comparisons
 - ✅ Control flow (if/else, loops, break/continue)
 - ✅ Variable declarations and assignments
 
 **What's Missing:**
+
 - ❌ NO type inference (don't track expression result types)
 - ❌ NO type validation (can add int + bool without error!)
 - ❌ NO type coercion (can't mix int and float)
@@ -39,7 +42,7 @@ int main() {
 According to GLSL spec, these conversions are allowed:
 
 | From Type | Can Convert To |
-|-----------|----------------|
+| --------- | -------------- |
 | **int**   | **float**      |
 
 **NOT allowed:** bool → int, bool → float, float → int (must use constructor)
@@ -47,6 +50,7 @@ According to GLSL spec, these conversions are allowed:
 ### Arithmetic Operators (Spec: operators.adoc:775-855)
 
 **Rules:**
+
 1. Operands must have matching fundamental types (after implicit conversion)
 2. Result type = common type of operands (after promotion)
 3. Valid cases:
@@ -59,6 +63,7 @@ According to GLSL spec, these conversions are allowed:
 ### Comparison Operators (Spec: operators.adoc:876-884)
 
 **Rules:**
+
 1. Operands must have matching types (after implicit conversion)
 2. Result is always **bool**
 3. For component-wise vector comparison, use built-in functions (later phase)
@@ -66,6 +71,7 @@ According to GLSL spec, these conversions are allowed:
 ### Assignment (Spec: operators.adoc:694-713)
 
 **Rules:**
+
 1. RHS must match LHS type OR have implicit conversion to LHS type
 2. Example: `float x = 5;` is valid (int 5 → float conversion)
 3. Example: `int x = 5.5;` is ERROR (no implicit float → int)
@@ -95,29 +101,29 @@ pub fn infer_expr_type(
         Expr::FloatConst(_) => Ok(Type::Float),
         Expr::BoolConst(_) => Ok(Type::Bool),
         Expr::DoubleConst(_) => Ok(Type::Double),  // Future
-        
+
         Expr::Variable(ident) => {
             let var = symbols.lookup_variable(&ident.0)
                 .ok_or_else(|| format!("Undefined variable: {}", ident.0))?;
             Ok(var.ty.clone())
         }
-        
+
         Expr::Binary(op, lhs, rhs) => {
             let lhs_ty = infer_expr_type(lhs, symbols)?;
             let rhs_ty = infer_expr_type(rhs, symbols)?;
             infer_binary_result_type(op, &lhs_ty, &rhs_ty)
         }
-        
+
         Expr::Unary(op, expr) => {
             let expr_ty = infer_expr_type(expr, symbols)?;
             infer_unary_result_type(op, &expr_ty)
         }
-        
+
         Expr::Assignment(lhs, _op, rhs) => {
             // Assignment result has same type as LHS
             infer_expr_type(lhs, symbols)
         }
-        
+
         _ => Err(format!("Cannot infer type for: {:?}", expr)),
     }
 }
@@ -129,7 +135,7 @@ pub fn infer_binary_result_type(
     rhs_ty: &Type,
 ) -> Result<Type, String> {
     use BinaryOp::*;
-    
+
     match op {
         // Arithmetic operators: operands must be numeric
         Add | Sub | Mult | Div => {
@@ -142,7 +148,7 @@ pub fn infer_binary_result_type(
             // Result type is the promoted type
             Ok(promote_numeric(lhs_ty, rhs_ty))
         }
-        
+
         // Comparison operators: operands must be compatible, result is bool
         Equal | NonEqual | LT | GT | LTE | GTE => {
             if !lhs_ty.is_numeric() || !rhs_ty.is_numeric() {
@@ -153,7 +159,7 @@ pub fn infer_binary_result_type(
             }
             Ok(Type::Bool)
         }
-        
+
         // Logical operators: must be bool
         And | Or | Xor => {
             if lhs_ty != &Type::Bool || rhs_ty != &Type::Bool {
@@ -164,7 +170,7 @@ pub fn infer_binary_result_type(
             }
             Ok(Type::Bool)
         }
-        
+
         _ => Err(format!("Unsupported binary operator: {:?}", op)),
     }
 }
@@ -217,11 +223,11 @@ impl Type {
     pub fn is_numeric(&self) -> bool {
         matches!(self, Type::Int | Type::Float)
     }
-    
+
     pub fn is_scalar(&self) -> bool {
         matches!(self, Type::Bool | Type::Int | Type::Float)
     }
-    
+
     pub fn to_cranelift_type(&self) -> cranelift_codegen::ir::Type {
         match self {
             Type::Bool => cranelift_codegen::ir::types::I8,
@@ -239,6 +245,7 @@ impl Type {
 **File: `crates/lp-glsl/src/codegen/expr.rs`**
 
 Changes:
+
 1. `translate_expr` returns `Result<(Value, Type), String>` instead of `Result<Value, String>`
 2. Track types through all expression translation
 3. Implement type coercion when needed
@@ -250,29 +257,29 @@ pub fn translate_expr(&mut self, expr: &Expr) -> Result<(Value, Type), String> {
             let val = self.builder.ins().iconst(types::I32, *n as i64);
             Ok((val, Type::Int))
         }
-        
+
         Expr::FloatConst(f) => {
             let val = self.builder.ins().f32const(*f);
             Ok((val, Type::Float))
         }
-        
+
         Expr::Binary(op, lhs, rhs) => {
             let (lhs_val, lhs_ty) = self.translate_expr(lhs)?;
             let (rhs_val, rhs_ty) = self.translate_expr(rhs)?;
-            
+
             // Infer result type and validate
             let result_ty = infer_binary_result_type(op, &lhs_ty, &rhs_ty)?;
-            
+
             // Promote operands to common type
             let common_ty = promote_numeric(&lhs_ty, &rhs_ty);
             let lhs_val = self.coerce_to_type(lhs_val, &lhs_ty, &common_ty)?;
             let rhs_val = self.coerce_to_type(rhs_val, &rhs_ty, &common_ty)?;
-            
+
             // Generate operation
             let result_val = self.translate_binary_op(op, lhs_val, rhs_val, &common_ty)?;
             Ok((result_val, result_ty))
         }
-        
+
         // ...
     }
 }
@@ -286,7 +293,7 @@ fn coerce_to_type(
     if from_ty == to_ty {
         return Ok(val);
     }
-    
+
     match (from_ty, to_ty) {
         (Type::Int, Type::Float) => {
             // int → float: fcvt_from_sint
@@ -304,7 +311,7 @@ fn translate_binary_op(
     operand_ty: &Type,
 ) -> Result<Value, String> {
     use BinaryOp::*;
-    
+
     let val = match op {
         Add => match operand_ty {
             Type::Int => self.builder.ins().iadd(lhs, rhs),
@@ -326,19 +333,19 @@ fn translate_binary_op(
             Type::Float => self.builder.ins().fdiv(lhs, rhs),
             _ => return Err(format!("Div not supported for {:?}", operand_ty)),
         },
-        
+
         // Comparisons return bool
         Equal => match operand_ty {
             Type::Int => self.builder.ins().icmp(IntCC::Equal, lhs, rhs),
             Type::Float => self.builder.ins().fcmp(FloatCC::Equal, lhs, rhs),
             _ => return Err(format!("Equal not supported for {:?}", operand_ty)),
         },
-        
+
         // ... similar for other comparisons
-        
+
         _ => return Err(format!("Unsupported operator: {:?}", op)),
     };
-    
+
     Ok(val)
 }
 ```
@@ -585,7 +592,7 @@ use anyhow::Result;
 pub fn run_test(full_source: &str, glsl_source: &str) -> Result<()> {
     // Extract expected error pattern
     let error_pattern = extract_error_pattern(full_source)?;
-    
+
     // Compile and expect failure
     let mut compiler = lp_glsl::Compiler::new();
     match compiler.compile_int(glsl_source) {
@@ -603,7 +610,7 @@ pub fn run_test(full_source: &str, glsl_source: &str) -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -620,7 +627,7 @@ fn extract_error_pattern(source: &str) -> Result<String> {
 
 fn error_matches(error: &str, pattern: &str) -> bool {
     // Simple substring match (could use regex in future)
-    error.contains(pattern) || 
+    error.contains(pattern) ||
     error.to_lowercase().contains(&pattern.to_lowercase())
 }
 ```
@@ -632,25 +639,25 @@ fn error_matches(error: &str, pattern: &str) -> bool {
 ```rust
 pub fn run_filetest(path: &Path) -> Result<()> {
     let source = fs::read_to_string(path)?;
-    
+
     let test_compile = source.contains("test compile");
     let test_run = source.contains("test run");
     let test_error = source.contains("test error");  // NEW
-    
+
     let glsl_source = extract_glsl_source(&source);
-    
+
     if test_error {
         crate::test_error::run_test(&source, &glsl_source)?;
     }
-    
+
     if test_compile {
         crate::test_compile::run_test(&source, &glsl_source)?;
     }
-    
+
     if test_run {
         crate::test_run::run_test(&source, &glsl_source)?;
     }
-    
+
     Ok(())
 }
 ```
@@ -658,7 +665,7 @@ pub fn run_filetest(path: &Path) -> Result<()> {
 ## Implementation Order
 
 1. **Update Type system** - Add is_numeric(), is_scalar(), float support
-2. **Create type_check.rs** - Type inference and validation functions  
+2. **Create type_check.rs** - Type inference and validation functions
 3. **Update semantic analysis** - Build symbol table, validate declarations
 4. **Update codegen context** - Track variable types
 5. **Update expr.rs** - Return (Value, Type), validate types
@@ -711,6 +718,7 @@ crates/lp-glsl-filetests/
 ## Success Criteria
 
 ### Type System
+
 - [ ] Float type works (literals, arithmetic, comparisons)
 - [ ] Type inference tracks all expression types
 - [ ] Type validation catches mismatches
@@ -718,12 +726,14 @@ crates/lp-glsl-filetests/
 - [ ] Explicit conversions blocked (float → int requires constructor)
 
 ### Correctness
+
 - [ ] All float operations produce correct results
 - [ ] Type coercion happens automatically when allowed
 - [ ] Type errors are caught at compile time
 - [ ] Error messages match GLSL spec semantics
 
 ### Testing
+
 - [ ] 8 float filetests pass (compile + run)
 - [ ] 6 type error filetests correctly reject invalid code
 - [ ] All Phase 1-2 tests still pass
@@ -732,6 +742,7 @@ crates/lp-glsl-filetests/
 ## GLSL Spec Compliance
 
 All type rules implemented according to:
+
 - **Implicit Conversions:** `/Users/yona/dev/photomancer/glsl-spec/chapters/variables.adoc:1182-1229`
 - **Arithmetic Operators:** `/Users/yona/dev/photomancer/glsl-spec/chapters/operators.adoc:775-855`
 - **Comparison Operators:** `/Users/yona/dev/photomancer/glsl-spec/chapters/operators.adoc:876-884`

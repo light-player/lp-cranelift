@@ -34,9 +34,16 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
             match (funct3, funct7) {
                 (0x0, 0x0) => Ok(Inst::Add { rd, rs1, rs2 }),
                 (0x0, 0x20) => Ok(Inst::Sub { rd, rs1, rs2 }),
+                // M extension (multiply/divide)
                 (0x0, 0x01) => Ok(Inst::Mul { rd, rs1, rs2 }),
+                (0x1, 0x01) => Ok(Inst::Mulh { rd, rs1, rs2 }),
+                (0x2, 0x01) => Ok(Inst::Mulhsu { rd, rs1, rs2 }),
+                (0x3, 0x01) => Ok(Inst::Mulhu { rd, rs1, rs2 }),
                 (0x4, 0x01) => Ok(Inst::Div { rd, rs1, rs2 }),
+                (0x5, 0x01) => Ok(Inst::Divu { rd, rs1, rs2 }),
                 (0x6, 0x01) => Ok(Inst::Rem { rd, rs1, rs2 }),
+                (0x7, 0x01) => Ok(Inst::Remu { rd, rs1, rs2 }),
+                // Base integer instructions
                 (0x2, 0x0) => Ok(Inst::Slt { rd, rs1, rs2 }),
                 (0x3, 0x0) => Ok(Inst::Sltu { rd, rs1, rs2 }),
                 (0x4, 0x0) => Ok(Inst::Xor { rd, rs1, rs2 }),

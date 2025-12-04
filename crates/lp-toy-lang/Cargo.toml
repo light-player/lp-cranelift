@@ -8,10 +8,10 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-cranelift-frontend = { workspace = true }
-cranelift-codegen = { workspace = true }
-cranelift-jit = { workspace = true }
-cranelift-module = { workspace = true }
+cranelift-frontend = { workspace = true, optional = true }
+cranelift-codegen = { workspace = true, optional = true }
+cranelift-jit = { workspace = true, optional = true }
+cranelift-module = { workspace = true, optional = true }
 cranelift-native = { workspace = true, optional = true }
 nom = { version = "7", default-features = false, features = ["alloc"] }
 
@@ -26,6 +26,10 @@ default = ["std"]
 
 # Full std support with native ISA detection
 std = [
+    "cranelift-codegen",
+    "cranelift-frontend",
+    "cranelift-jit",
+    "cranelift-module",
     "cranelift-codegen/std",
     "cranelift-frontend/std",
     "cranelift-jit/std",
@@ -33,13 +37,16 @@ std = [
     "cranelift-native",
 ]
 
-# Core no_std support (requires custom memory provider and ISA)
+# Core no_std support - only frontend parsing, no JIT
 core = [
-    "cranelift-codegen/core",
-    "cranelift-frontend/core",
-    "cranelift-jit/core",
-    "cranelift-module/core",
     "hashbrown",
+]
+
+# For apps that need cranelift but no JIT (like embive-program which uses cranelift directly)
+cranelift = [
+    "cranelift-codegen",
+    "cranelift-frontend",
+    "cranelift-frontend/core",
 ]
 
 # RISC-V emulator support (optional)

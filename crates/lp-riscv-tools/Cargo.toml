@@ -24,7 +24,7 @@ cranelift-frontend = { workspace = true, optional = true }
 elf = { version = "0.7", optional = true }
 
 [features]
-std = ["dep:cranelift-frontend", "dep:elf"]
+std = ["dep:cranelift-frontend", "cranelift-frontend/std", "dep:elf"]
 
 [dev-dependencies]
 

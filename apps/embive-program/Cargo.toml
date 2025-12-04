@@ -11,9 +11,15 @@ test = false
 
 [dependencies]
 runtime-embive = { path = "../../crates/runtime-embive" }
+lp-toy-lang = { path = "../../crates/lp-toy-lang", default-features = false, features = ["core", "cranelift"] }
+
+# Cranelift for runtime JIT - carefully configured for no_std, riscv32 only
+cranelift-codegen = { path = "../../cranelift/codegen", default-features = false, features = ["riscv32"] }
+cranelift-frontend = { path = "../../cranelift/frontend", default-features = false, features = ["core"] }
+target-lexicon = { version = "0.13.0", default-features = false }
+hashbrown = { version = "0.15", default-features = false, features = ["alloc", "default-hasher"] }
 
 [build-dependencies]
-lp-riscv-shared = { path = "../../crates/lp-riscv-shared" }
 
 [target.riscv32imac-unknown-none-elf]
 

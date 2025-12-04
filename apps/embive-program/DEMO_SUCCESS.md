@@ -26,9 +26,9 @@ Workspace: /Users/yona/dev/photomancer/lp-cranelift
    ✓ Entry point: 0x00000000
 
 [3/4] Running in RISC-V emulator...
-   Hello from RISC-V!   
-   Running in no_std with Cranelift-compiled code.   
-   This is a test of the toolchain.   
+   Hello from RISC-V!
+   Running in no_std with Cranelift-compiled code.
+   This is a test of the toolchain.
    ✓ Program halted (EBREAK)
 
 [4/4] Verifying output...
@@ -45,6 +45,7 @@ test test_riscv_nostd_hello_world ... ok
 ## Components
 
 ### Runtime (`crates/runtime-embive/`)
+
 - Entry point and initialization
 - Heap allocator (512KB)
 - Syscall interface (ECALL)
@@ -52,17 +53,20 @@ test test_riscv_nostd_hello_world ... ok
 - Print macros (println!)
 
 ### Program (`apps/embive-program/`)
+
 - Simple hello world in no_std
 - Prints 3 lines via syscalls
 - Exits with EBREAK
 
 ### Emulator (`crates/lp-riscv-tools/`)
+
 - Full RISC-V 32-bit emulator
 - RVC (compressed) instruction support
 - ELF loader
 - Syscall handling
 
 ### Test (`crates/lp-riscv-tools/tests/riscv_nostd_test.rs`)
+
 - Builds for riscv32imac target
 - Loads and runs in emulator
 - Verifies output
@@ -77,6 +81,7 @@ cargo test --package lp-riscv-tools --features std riscv_nostd -- --ignored --no
 ## Next: Phase 2
 
 Now that Phase 1 works, we can add:
+
 - Pre-compiled toy language function (using Cranelift)
 - JIT execution of toy language code
 - Demonstrate full compilation pipeline in no_std

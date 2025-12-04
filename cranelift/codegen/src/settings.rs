@@ -291,6 +291,7 @@ pub enum SetError {
 }
 
 #[cfg(feature = "std")]
+#[cfg(feature = "std")]
 impl std::error::Error for SetError {}
 
 impl fmt::Display for SetError {

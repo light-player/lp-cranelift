@@ -3,7 +3,7 @@
 //! This test builds the embive-program (now a simple RISC-V program without embive)
 //! and runs it in the lp-riscv-tools emulator to verify the entire toolchain works.
 
-use lp_riscv_tools::{load_elf, Riscv32Emulator, StepResult};
+use lp_riscv_tools::{Riscv32Emulator, StepResult, load_elf};
 use std::{sync::mpsc, thread, time::Duration};
 
 #[test]
@@ -17,12 +17,12 @@ fn test_riscv_nostd_hello_world() {
         let _ = tx.send(result);
     });
 
-    // Wait for the test to complete with a 10 second timeout
-    match rx.recv_timeout(Duration::from_secs(10)) {
+    // Wait for the test to complete with a 60 second timeout (build can take time)
+    match rx.recv_timeout(Duration::from_secs(60)) {
         Ok(Ok(())) => {} // Success
         Ok(Err(e)) => panic!("Test failed: {}", e),
         Err(mpsc::RecvTimeoutError::Timeout) => {
-            panic!("Test timed out after 10 seconds");
+            panic!("Test timed out after 60 seconds");
         }
         Err(mpsc::RecvTimeoutError::Disconnected) => {
             panic!("Test thread disconnected unexpectedly");
@@ -47,7 +47,7 @@ fn run_nostd_test() -> Result<(), String> {
     // Build the program
     println!("[1/4] Building embive-program for riscv32imac...");
     let output = std::process::Command::new("cargo")
-        .env("RUSTFLAGS", "-C target-feature=-c")  // Disable compressed instructions
+        .env("RUSTFLAGS", "-C target-feature=-c") // Disable compressed instructions
         .args([
             "build",
             "--package",
@@ -71,14 +71,16 @@ fn run_nostd_test() -> Result<(), String> {
     println!("[2/4] Loading ELF binary...");
     let elf_path =
         workspace_root.join("target/riscv32imac-unknown-none-elf/release/embive-program");
-    let elf_data =
-        std::fs::read(&elf_path).map_err(|e| format!("Failed to read ELF: {}", e))?;
-    
+    let elf_data = std::fs::read(&elf_path).map_err(|e| format!("Failed to read ELF: {}", e))?;
+
     let elf_info = load_elf(&elf_data)?;
-    println!("   ✓ Loaded: {} bytes code, {} bytes RAM", 
-             elf_info.code.len(), elf_info.ram.len());
+    println!(
+        "   ✓ Loaded: {} bytes code, {} bytes RAM",
+        elf_info.code.len(),
+        elf_info.ram.len()
+    );
     println!("   ✓ Entry point: 0x{:08x}", elf_info.entry_point);
-    
+
     // Debug: Show first few instructions
     println!("   Debug: First 32 bytes of code:");
     for i in (0..32.min(elf_info.code.len())).step_by(4) {
@@ -96,11 +98,10 @@ fn run_nostd_test() -> Result<(), String> {
 
     // Create emulator
     println!("[3/4] Running in RISC-V emulator...");
-    let mut emu = Riscv32Emulator::new(elf_info.code, elf_info.ram)
-        .with_max_instructions(10_000_000);
+    let mut emu =
+        Riscv32Emulator::new(elf_info.code, elf_info.ram).with_max_instructions(100_000_000); // Increased for Cranelift compilation
 
     let mut output_lines = Vec::new();
-    let mut done = false;
     let mut result_value = None;
 
     // Run until halt
@@ -113,7 +114,6 @@ fn run_nostd_test() -> Result<(), String> {
                     0 => {
                         // SYSCALL_DONE
                         result_value = Some(info.args[0]);
-                        done = true;
                         println!("   [syscall] Done with result: {}", info.args[0]);
                         emu.set_register(lp_riscv_tools::Gpr::A0, 0); // a0 = 0 (success)
                     }
@@ -181,7 +181,7 @@ fn run_nostd_test() -> Result<(), String> {
     println!("[4/4] Verifying output...");
     let full_output = output_lines.join("");
 
-    // Check for expected hello world message
+    // Phase 1: Check for expected hello world message
     if !full_output.contains("Hello from RISC-V!") {
         return Err(format!(
             "Expected 'Hello from RISC-V!' not found in output:\n{}",
@@ -206,11 +206,39 @@ fn run_nostd_test() -> Result<(), String> {
     }
     println!("   ✓ Found 'Cranelift' mention");
 
+    // Phase 2: Check that program completed
+    if !full_output.contains("Successfully executed") {
+        return Err(format!(
+            "Expected success message not found in output:\n{}",
+            full_output
+        ));
+    }
+    println!("   ✓ Program executed successfully");
+
+    // Verify the syscall result (should be 42 from placeholder)
+    match result_value {
+        Some(42) => {
+            println!("   ✓ Correct result received: 42");
+        }
+        Some(other) => {
+            return Err(format!(
+                "Incorrect result: expected 42, got {}",
+                other
+            ));
+        }
+        None => {
+            return Err("No result received from program (expected 42)".to_string());
+        }
+    }
+
     println!();
-    println!("=== ✅ Test Passed! ===");
-    println!("Successfully ran no_std Cranelift-compiled code on RISC-V emulator");
+    println!("=== ✅ All Tests Passed! ===");
+    println!("Successfully ran no_std program compiled with Cranelift on RISC-V emulator");
+    println!("- Binary built for riscv32imac target");
+    println!("- ELF loaded into emulator memory");
+    println!("- Program executed with syscall interface");
+    println!("- Output verification passed");
     println!();
 
     Ok(())
 }
-

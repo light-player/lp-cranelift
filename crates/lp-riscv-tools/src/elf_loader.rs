@@ -76,7 +76,8 @@ pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
     }
 
     // Allocate buffers (at least 4KB each to be safe)
-    let rom_size = max_rom_addr.max(4096) as usize;
+    // Add extra padding to ROM for potential PC-relative loads at the end
+    let rom_size = (max_rom_addr.max(4096) + 4096) as usize; // Add 4KB padding
     let ram_size = max_ram_addr.max(512 * 1024) as usize; // At least 512KB for heap
     let mut code = vec![0u8; rom_size];
     let mut ram = vec![0u8; ram_size];

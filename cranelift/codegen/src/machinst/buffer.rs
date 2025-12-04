@@ -181,14 +181,14 @@ use crate::trace;
 use crate::{MachInstEmitState, ir};
 use crate::{VCodeConstantData, timing};
 use core::ops::Range;
+use core::cmp::Ordering;
 use cranelift_control::ControlPlane;
 use cranelift_entity::{PrimaryMap, SecondaryMap, entity_impl};
 use smallvec::SmallVec;
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
-use std::mem;
-use std::string::String;
-use std::vec::Vec;
+use alloc::collections::BinaryHeap;
+use core::mem;
+use alloc::string::String;
+use alloc::vec::Vec;
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -1817,7 +1817,7 @@ impl<T: CompilePhase> MachBufferFinalized<T> {
     /// Return the code in this mach buffer as a hex string for testing purposes.
     pub fn stringify_code_bytes(&self) -> String {
         // This is pretty lame, but whatever ..
-        use std::fmt::Write;
+        use core::fmt::Write;
         let mut s = String::with_capacity(self.data.len() * 2);
         for b in &self.data {
             write!(&mut s, "{b:02X}").unwrap();

@@ -77,11 +77,11 @@ SECTIONS {
     __data_source_start = LOADADDR(.data);
 
     /* Heap section - reserve space for dynamic allocation */
-    /* We reserve 512KB for the heap, which should be enough for most programs */
+    /* We reserve 2MB for the heap to support Cranelift compilation */
     /* NOLOAD means this section won't be loaded from the ELF, but space is reserved */
     .heap (NOLOAD) : ALIGN(16) {
         __heap_start = .;
-        . += 512 * 1024; /* 512KB heap */
+        . += 2 * 1024 * 1024; /* 2MB heap for Cranelift JIT */
         . = ALIGN(16);
         __heap_end = .;
     } > RAM

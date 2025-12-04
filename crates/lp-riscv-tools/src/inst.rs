@@ -17,10 +17,18 @@ pub enum Inst {
     Mul { rd: Gpr, rs1: Gpr, rs2: Gpr },
     /// MULH: rd = high 32 bits of (rs1 * rs2) (signed, M extension)
     Mulh { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// MULHSU: rd = high 32 bits of (rs1 * rs2) (signed * unsigned, M extension)
+    Mulhsu { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// MULHU: rd = high 32 bits of (rs1 * rs2) (unsigned, M extension)
+    Mulhu { rd: Gpr, rs1: Gpr, rs2: Gpr },
     /// DIV: rd = rs1 / rs2 (signed, M extension)
     Div { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// DIVU: rd = rs1 / rs2 (unsigned, M extension)
+    Divu { rd: Gpr, rs1: Gpr, rs2: Gpr },
     /// REM: rd = rs1 % rs2 (signed, M extension)
     Rem { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// REMU: rd = rs1 % rs2 (unsigned, M extension)
+    Remu { rd: Gpr, rs1: Gpr, rs2: Gpr },
     /// ADDI: rd = rs1 + imm
     Addi { rd: Gpr, rs1: Gpr, imm: i32 },
 
@@ -199,8 +207,12 @@ impl Inst {
             Inst::Sub { rd, rs1, rs2 } => sub(*rd, *rs1, *rs2),
             Inst::Mul { rd, rs1, rs2 } => mul(*rd, *rs1, *rs2),
             Inst::Mulh { rd, rs1, rs2 } => mulh(*rd, *rs1, *rs2),
+            Inst::Mulhsu { rd, rs1, rs2 } => mulhsu(*rd, *rs1, *rs2),
+            Inst::Mulhu { rd, rs1, rs2 } => mulhu(*rd, *rs1, *rs2),
             Inst::Div { rd, rs1, rs2 } => div(*rd, *rs1, *rs2),
+            Inst::Divu { rd, rs1, rs2 } => divu(*rd, *rs1, *rs2),
             Inst::Rem { rd, rs1, rs2 } => rem(*rd, *rs1, *rs2),
+            Inst::Remu { rd, rs1, rs2 } => remu(*rd, *rs1, *rs2),
             Inst::Addi { rd, rs1, imm } => addi(*rd, *rs1, *imm),
             Inst::Lb { rd, rs1, imm } => lb(*rd, *rs1, *imm),
             Inst::Lh { rd, rs1, imm } => lh(*rd, *rs1, *imm),

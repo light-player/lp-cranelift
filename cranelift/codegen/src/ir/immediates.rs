@@ -682,28 +682,58 @@ macro_rules! ieee_float {
             $(
                 /// Returns the square root of `self`.
                 pub fn sqrt(self) -> Self {
-                    Self::with_float(self.$as_float().sqrt())
+                    #[cfg(feature = "std")]
+                    { Self::with_float(self.$as_float().sqrt()) }
+                    #[cfg(not(feature = "std"))]
+                    { 
+                        use wasmtime_math::WasmFloat;
+                        Self::with_float(self.$as_float().wasm_sqrt())
+                    }
                 }
 
                 /// Returns the smallest integer greater than or equal to `self`.
                 pub fn ceil(self) -> Self {
-                    Self::with_float(self.$as_float().ceil())
+                    #[cfg(feature = "std")]
+                    { Self::with_float(self.$as_float().ceil()) }
+                    #[cfg(not(feature = "std"))]
+                    {
+                        use wasmtime_math::WasmFloat;
+                        Self::with_float(self.$as_float().wasm_ceil())
+                    }
                 }
 
                 /// Returns the largest integer less than or equal to `self`.
                 pub fn floor(self) -> Self {
-                    Self::with_float(self.$as_float().floor())
+                    #[cfg(feature = "std")]
+                    { Self::with_float(self.$as_float().floor()) }
+                    #[cfg(not(feature = "std"))]
+                    {
+                        use wasmtime_math::WasmFloat;
+                        Self::with_float(self.$as_float().wasm_floor())
+                    }
                 }
 
                 /// Returns the integer part of `self`. This means that non-integer numbers are always truncated towards zero.
                 pub fn trunc(self) -> Self {
-                    Self::with_float(self.$as_float().trunc())
+                    #[cfg(feature = "std")]
+                    { Self::with_float(self.$as_float().trunc()) }
+                    #[cfg(not(feature = "std"))]
+                    {
+                        use wasmtime_math::WasmFloat;
+                        Self::with_float(self.$as_float().wasm_trunc())
+                    }
                 }
 
                 /// Returns the nearest integer to `self`. Rounds half-way cases to the number
                 /// with an even least significant digit.
                 pub fn round_ties_even(self) -> Self {
-                    Self::with_float(self.$as_float().round_ties_even())
+                    #[cfg(feature = "std")]
+                    { Self::with_float(self.$as_float().round_ties_even()) }
+                    #[cfg(not(feature = "std"))]
+                    {
+                        use wasmtime_math::WasmFloat;
+                        Self::with_float(self.$as_float().wasm_nearest())
+                    }
                 }
             )?
         }

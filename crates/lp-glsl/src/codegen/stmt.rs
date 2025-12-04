@@ -171,7 +171,7 @@ impl<'a> CodegenContext<'a> {
         let exit_block = self.builder.create_block();
 
         self.loop_stack.push(crate::codegen::context::LoopContext {
-            header_block,
+            continue_target: header_block,
             exit_block,
         });
 
@@ -277,8 +277,13 @@ impl<'a> CodegenContext<'a> {
         condition: &glsl::syntax::Condition,
     ) -> Result<cranelift_codegen::ir::Value, String> {
         match condition {
-            glsl::syntax::Condition::Expr(expr) => self.translate_expr(expr),
-            _ => Err("Only expression conditions supported in Phase 2".to_string()),
+            glsl::syntax::Condition::Expr(expr) => {
+                let (val, ty) = self.translate_expr_typed(expr)?;
+                // Validate that condition is bool type (GLSL spec requirement)
+                crate::semantic::type_check::check_condition(&ty)?;
+                Ok(val)
+            }
+            _ => Err("Only expression conditions supported".to_string()),
         }
     }
 
@@ -355,42 +360,92 @@ impl<'a> CodegenContext<'a> {
 
                 // Handle the head declaration
                 if let Some(name) = &list.head.name {
-                    let var = self.declare_variable(name.0.clone(), ty);
+                    let vars = self.declare_variable(name.0.clone(), ty.clone());
 
                     // Handle initializer if present
                     if let Some(init) = &list.head.initializer {
-                        let init_val = self.translate_initializer(init)?;
-                        self.builder.def_var(var, init_val);
+                        let (init_vals, init_ty) = self.translate_initializer(init)?;
+                        
+                        // Type check
+                        if init_ty != ty {
+                            return Err(format!(
+                                "Type mismatch in initialization: expected {:?}, got {:?}",
+                                ty, init_ty
+                            ));
+                        }
+
+                        // Check component counts match
+                        if vars.len() != init_vals.len() {
+                            return Err(format!(
+                                "Component count mismatch: variable has {} components, initializer has {}",
+                                vars.len(), init_vals.len()
+                            ));
+                        }
+
+                        // Assign each component
+                        for (var, val) in vars.iter().zip(&init_vals) {
+                            self.builder.def_var(*var, *val);
+                        }
                     }
                 }
 
                 // Handle tail declarations (same type, different names)
                 for declarator in &list.tail {
-                    let var = self.declare_variable(declarator.ident.ident.0.clone(), ty);
+                    let vars = self.declare_variable(declarator.ident.ident.0.clone(), ty.clone());
 
                     if let Some(init) = &declarator.initializer {
-                        let init_val = self.translate_initializer(init)?;
-                        self.builder.def_var(var, init_val);
+                        let (init_vals, init_ty) = self.translate_initializer(init)?;
+                        
+                        // Type check
+                        if init_ty != ty {
+                            return Err(format!(
+                                "Type mismatch in initialization: expected {:?}, got {:?}",
+                                ty, init_ty
+                            ));
+                        }
+
+                        // Check component counts match
+                        if vars.len() != init_vals.len() {
+                            return Err(format!(
+                                "Component count mismatch: variable has {} components, initializer has {}",
+                                vars.len(), init_vals.len()
+                            ));
+                        }
+
+                        // Assign each component
+                        for (var, val) in vars.iter().zip(&init_vals) {
+                            self.builder.def_var(*var, *val);
+                        }
                     }
                 }
 
                 Ok(())
             }
-            _ => Err("Only variable declarations supported in Phase 1".to_string()),
+            _ => Err("Only variable declarations supported".to_string()),
         }
     }
 
     fn parse_type_specifier(
         &self,
         type_spec: &glsl::syntax::FullySpecifiedType,
-    ) -> Result<cranelift_codegen::ir::Type, String> {
+    ) -> Result<crate::semantic::types::Type, String> {
         use glsl::syntax::TypeSpecifierNonArray;
 
         match &type_spec.ty.ty {
-            TypeSpecifierNonArray::Int => Ok(cranelift_codegen::ir::types::I32),
-            TypeSpecifierNonArray::Bool => Ok(cranelift_codegen::ir::types::I8),
+            TypeSpecifierNonArray::Int => Ok(crate::semantic::types::Type::Int),
+            TypeSpecifierNonArray::Bool => Ok(crate::semantic::types::Type::Bool),
+            TypeSpecifierNonArray::Float => Ok(crate::semantic::types::Type::Float),
+            TypeSpecifierNonArray::Vec2 => Ok(crate::semantic::types::Type::Vec2),
+            TypeSpecifierNonArray::Vec3 => Ok(crate::semantic::types::Type::Vec3),
+            TypeSpecifierNonArray::Vec4 => Ok(crate::semantic::types::Type::Vec4),
+            TypeSpecifierNonArray::IVec2 => Ok(crate::semantic::types::Type::IVec2),
+            TypeSpecifierNonArray::IVec3 => Ok(crate::semantic::types::Type::IVec3),
+            TypeSpecifierNonArray::IVec4 => Ok(crate::semantic::types::Type::IVec4),
+            TypeSpecifierNonArray::BVec2 => Ok(crate::semantic::types::Type::BVec2),
+            TypeSpecifierNonArray::BVec3 => Ok(crate::semantic::types::Type::BVec3),
+            TypeSpecifierNonArray::BVec4 => Ok(crate::semantic::types::Type::BVec4),
             _ => Err(format!(
-                "Type not supported in Phase 1: {:?}",
+                "Type not supported yet: {:?}",
                 type_spec.ty.ty
             )),
         }
@@ -399,12 +454,12 @@ impl<'a> CodegenContext<'a> {
     fn translate_initializer(
         &mut self,
         init: &glsl::syntax::Initializer,
-    ) -> Result<cranelift_codegen::ir::Value, String> {
+    ) -> Result<(alloc::vec::Vec<cranelift_codegen::ir::Value>, crate::semantic::types::Type), String> {
         use glsl::syntax::Initializer;
 
         match init {
-            Initializer::Simple(expr) => self.translate_expr(expr.as_ref()),
-            _ => Err("Only simple initializers supported in Phase 1".to_string()),
+            Initializer::Simple(expr) => self.translate_expr_typed(expr.as_ref()),
+            _ => Err("Only simple initializers supported".to_string()),
         }
     }
 }

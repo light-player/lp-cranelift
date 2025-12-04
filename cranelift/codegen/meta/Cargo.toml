@@ -17,10 +17,11 @@ rustdoc-args = ["--document-private-items"]
 
 [dependencies]
 cranelift-srcgen = { workspace = true }
-cranelift-assembler-x64-meta = { path = "../../assembler-x64/meta", version = "0.127.0" }
+cranelift-assembler-x64-meta = { path = "../../assembler-x64/meta", version = "0.127.0", optional = true }
 cranelift-codegen-shared = { path = "../shared", version = "0.127.0" }
 pulley-interpreter = { workspace = true, optional = true }
 heck = "0.5.0"
 
 [features]
 pulley = ['dep:pulley-interpreter']
+x86 = ['dep:cranelift-assembler-x64-meta']

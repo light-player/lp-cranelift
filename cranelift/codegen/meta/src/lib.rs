@@ -1,7 +1,7 @@
 //! This crate generates Rust sources for use by
 //! [`cranelift_codegen`](../cranelift_codegen/index.html).
 
-use cranelift_srcgen::{Formatter, Language, error};
+use cranelift_srcgen::{Formatter, Language, error, fmtln};
 use shared::Definitions;
 
 #[macro_use]
@@ -10,6 +10,7 @@ mod cdsl;
 pub mod isa;
 pub mod isle;
 
+#[cfg(feature = "x86")]
 mod gen_asm;
 mod gen_inst;
 mod gen_isle;
@@ -102,6 +103,7 @@ fn generate_isle_for_shared_defs(
 
 /// Generate the ISLE definitions; this provides ISLE glue to access the
 /// assembler instructions in [cranelift_assembler_x64_meta].
+#[cfg(feature = "x86")]
 fn generate_isle_for_assembler(
     insts: &[cranelift_assembler_x64_meta::dsl::Inst],
     isle_dir: &std::path::Path,
@@ -114,6 +116,7 @@ fn generate_isle_for_assembler(
 /// Generate a macro containing builder functions for the assembler's ISLE
 /// constructors; this provides Rust implementations backing up the ISLE
 /// definitions in [generate_isle_for_assembler].
+#[cfg(feature = "x86")]
 fn generate_rust_macro_for_assembler(
     insts: &[cranelift_assembler_x64_meta::dsl::Inst],
     out_dir: &std::path::Path,
@@ -133,9 +136,30 @@ pub fn generate(
     generate_rust_for_shared_defs(&shared_defs, isas, out_dir)?;
     generate_isle_for_shared_defs(&shared_defs, isle_dir)?;
 
-    let insts = cranelift_assembler_x64_meta::instructions::list();
-    generate_isle_for_assembler(&insts, isle_dir)?;
-    generate_rust_macro_for_assembler(&insts, out_dir)?;
+    // Only generate x64 assembler code if x86 ISA is enabled
+    #[cfg(feature = "x86")]
+    {
+        let insts = cranelift_assembler_x64_meta::instructions::list();
+        generate_isle_for_assembler(&insts, isle_dir)?;
+        generate_rust_macro_for_assembler(&insts, out_dir)?;
+    }
+    
+    // If x86 is not enabled, create empty assembler files so ISLE compilation doesn't fail
+    #[cfg(not(feature = "x86"))]
+    {
+        use std::io::Write;
+        
+        // Create empty assembler.isle
+        let assembler_isle = isle_dir.join("assembler.isle");
+        let mut file = std::fs::File::create(&assembler_isle)?;
+        writeln!(file, ";; Empty assembler definitions (x86 not enabled)")?;
+        
+        // Create empty assembler-isle-macro.rs
+        let macro_rs = out_dir.join("assembler-isle-macro.rs");
+        let mut file = std::fs::File::create(&macro_rs)?;
+        writeln!(file, "// Empty assembler macro (x86 not enabled)")?;
+        writeln!(file, "macro_rules! isle_assembler_methods {{ ($($tt:tt)*) => {{}} }}")?;
+    }
 
     Ok(())
 }

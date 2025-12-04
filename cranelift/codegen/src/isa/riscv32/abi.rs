@@ -17,10 +17,12 @@ use crate::isa::unwind::UnwindInst;
 use crate::settings;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use alloc::{vec, format};
 use regalloc2::{MachineEnv, PReg, PRegSet};
 
 use smallvec::{SmallVec, smallvec};
-use std::borrow::ToOwned;
+use alloc::borrow::ToOwned;
+#[cfg(feature = "std")]
 use std::sync::OnceLock;
 
 /// Support for the Riscv32 ABI from the callee side (within a function body).
@@ -59,7 +61,7 @@ impl RiscvFlags {
 
             // Due to a limitation in regalloc2, we can't support types
             // larger than 1024 bytes. So limit that here.
-            return std::cmp::min(size, 1024);
+            return core::cmp::min(size, 1024);
         }
 
         return 0;
@@ -165,7 +167,7 @@ impl ABIMachineSpec for Riscv32MachineDeps {
                     // Compute size and 16-byte stack alignment happens
                     // separately after all args.
                     let size = reg_ty.bits() / 8;
-                    let size = std::cmp::max(size, 8);
+                    let size = core::cmp::max(size, 8);
                     // Align.
                     debug_assert!(size.is_power_of_two());
                     next_stack = align_to(next_stack, size);
@@ -611,9 +613,18 @@ impl ABIMachineSpec for Riscv32MachineDeps {
         }
     }
 
+    #[cfg(feature = "std")]
     fn get_machine_env(_flags: &settings::Flags, _call_conv: isa::CallConv) -> &MachineEnv {
         static MACHINE_ENV: OnceLock<MachineEnv> = OnceLock::new();
         MACHINE_ENV.get_or_init(create_reg_environment)
+    }
+
+    #[cfg(not(feature = "std"))]
+    fn get_machine_env(_flags: &settings::Flags, _call_conv: isa::CallConv) -> &MachineEnv {
+        // For no_std, we leak a Box to get a 'static reference.
+        // This is a workaround for the lack of OnceLock in no_std.
+        // The leaked memory is acceptable since this is called once per compilation context.
+        Box::leak(Box::new(create_reg_environment()))
     }
 
     fn get_regs_clobbered_by_call(

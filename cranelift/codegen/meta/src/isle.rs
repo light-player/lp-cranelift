@@ -121,6 +121,7 @@ pub fn get_isle_compilations(
                 untracked_inputs: vec![numerics_isle.clone(), clif_opt_isle],
             },
             // The x86-64 instruction selector.
+            #[cfg(feature = "x86")]
             IsleCompilation {
                 name: "x64".to_string(),
                 output: gen_dir.join("isle_x64.rs"),

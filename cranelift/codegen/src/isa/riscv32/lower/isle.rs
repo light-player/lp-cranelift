@@ -23,6 +23,7 @@ use crate::{
 };
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use alloc::{vec, format};
 use regalloc2::PReg;
 use wasmtime_math::{f32_cvt_to_int_bounds, f64_cvt_to_int_bounds};
 

@@ -1,5 +1,6 @@
 //! Generate the Cranelift-specific integration of the x64 assembler.
 
+#[cfg(feature = "x86")]
 use cranelift_assembler_x64_meta::dsl::{
     Feature, Format, Inst, Location, Mutability, Operand, OperandKind, RegClass,
 };

@@ -7,7 +7,7 @@ use crate::ir::{Block, BlockArg, BlockCall, Inst, Value};
 use crate::timing;
 use bumpalo::Bump;
 use cranelift_entity::SecondaryMap;
-use rustc_hash::{FxHashMap, FxHashSet};
+use crate::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
 
 // A note on notation.  For the sake of clarity, this file uses the phrase
@@ -227,7 +227,7 @@ pub fn do_remove_constant_phis(func: &mut Function, domtree: &mut DominatorTree)
     // info.  The solver will iterate over the summaries, rather than having
     // to inspect each instruction in each block.
     let bump =
-        Bump::with_capacity(domtree.cfg_postorder().len() * 4 * std::mem::size_of::<Value>());
+        Bump::with_capacity(domtree.cfg_postorder().len() * 4 * core::mem::size_of::<Value>());
     let mut summaries =
         SecondaryMap::<Block, BlockSummary>::with_capacity(domtree.cfg_postorder().len());
 
