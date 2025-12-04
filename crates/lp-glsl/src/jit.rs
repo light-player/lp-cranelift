@@ -144,15 +144,10 @@ impl JIT {
             ctx.translate_statement(stmt)?;
         }
 
-        // Get return value (if any)
-        let return_val = if let Some(ret_expr) = &typed_ast.main_function.return_expr {
-            ctx.translate_expr(ret_expr)?
-        } else {
-            // Default return 0
-            ctx.builder.ins().iconst(return_type, 0)
-        };
-
-        // Emit return
+        // Check if we need a default return (only if no explicit return was emitted)
+        // Note: If there was a return statement, we're now in an unreachable block
+        // We still need to emit a return to satisfy the verifier
+        let return_val = ctx.builder.ins().iconst(return_type, 0);
         ctx.builder.ins().return_(&[return_val]);
 
         // Finalize
