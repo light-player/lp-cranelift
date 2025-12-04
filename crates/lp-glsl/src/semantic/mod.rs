@@ -115,14 +115,24 @@ fn extract_parameter(param_decl: &glsl::syntax::FunctionParameterDeclaration) ->
     }
 }
 
-fn extract_param_qualifier(qualifier: &Option<glsl::syntax::FunctionParameterQualifier>) -> functions::ParamQualifier {
-    use glsl::syntax::FunctionParameterQualifier;
+fn extract_param_qualifier(qualifier: &Option<glsl::syntax::TypeQualifier>) -> functions::ParamQualifier {
+    use glsl::syntax::{TypeQualifierSpec, StorageQualifier};
     
-    match qualifier {
-        Some(FunctionParameterQualifier::Out) => functions::ParamQualifier::Out,
-        Some(FunctionParameterQualifier::InOut) => functions::ParamQualifier::InOut,
-        _ => functions::ParamQualifier::In, // Default is 'in'
+    if let Some(type_qual) = qualifier {
+        for spec in &type_qual.qualifiers.0 {
+            if let TypeQualifierSpec::Storage(storage) = spec {
+                return match storage {
+                    StorageQualifier::Out => functions::ParamQualifier::Out,
+                    StorageQualifier::InOut => functions::ParamQualifier::InOut,
+                    StorageQualifier::In => functions::ParamQualifier::In,
+                    _ => functions::ParamQualifier::In, // Default for other storage qualifiers
+                };
+            }
+        }
     }
+    
+    // Default is 'in'
+    functions::ParamQualifier::In
 }
 
 fn extract_function_body(func: &glsl::syntax::FunctionDefinition) -> Result<TypedFunction, String> {

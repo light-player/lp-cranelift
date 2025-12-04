@@ -1109,10 +1109,16 @@
 
 ;;;; Rules for `bswap` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(rule 1 (lower (has_type (fits_in_64 (ty_int ty)) (bswap x)))
+(rule 1 (lower (has_type (fits_in_32 (ty_int ty)) (bswap x)))
   (gen_bswap ty x))
 
-(rule 2 (lower (has_type $I128 (bswap x)))
+;; I64 case on RV32 (2-register pattern - swap halves and bytes within each half)
+(rule 2 (lower (has_type $I64 (bswap x)))
+  (value_regs
+    (gen_bswap $I32 (value_regs_get x 1))
+    (gen_bswap $I32 (value_regs_get x 0))))
+
+(rule 3 (lower (has_type $I128 (bswap x)))
   (value_regs
     (gen_bswap $I64 (value_regs_get x 1))
     (gen_bswap $I64 (value_regs_get x 0))))
