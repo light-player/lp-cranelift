@@ -122,6 +122,12 @@
 (decl u128_high_bits (u128) u64)
 (extern constructor u128_high_bits u128_high_bits)
 
+;; Get the low and high bits of a `u64` as `u64`s (for use on RV32).
+(decl u64_low_bits (u64) u64)
+(extern constructor u64_low_bits u64_low_bits)
+(decl u64_high_bits (u64) u64)
+(extern constructor u64_high_bits u64_high_bits)
+
 ;; Floating point operations
 
 (decl pure partial f16_min (Ieee16 Ieee16) Ieee16)

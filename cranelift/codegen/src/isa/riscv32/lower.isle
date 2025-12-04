@@ -6,7 +6,11 @@
 
 ;;;; Rules for `iconst` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(rule (lower (has_type ty (iconst (u64_from_imm64 n))))
+;; For I64 on RV32, split into low and high 32-bit parts
+(rule 1 (lower (has_type $I64 (iconst (u64_from_imm64 n))))
+  (value_regs (imm $I32 (u64_low_bits n)) (imm $I32 (u64_high_bits n))))
+
+(rule 0 (lower (has_type ty (iconst (u64_from_imm64 n))))
   (imm ty n))
 
 ;; ;;;; Rules for `vconst` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -45,7 +49,16 @@
 (rule 0 (lower (has_type (ty_int ty) (iadd x y)))
   (rv_add x y))
 
-;; NOTE: I64 support deferred to Phase 2 (multi-instruction sequences)
+;; I64 case - use 2-register pattern with carry propagation (similar to RV64 I128)
+(rule 5 (lower (has_type $I64 (iadd x y)))
+  (let ((low XReg (rv_add (value_regs_get x 0) (value_regs_get y 0)))
+        ;; compute carry.
+        (carry XReg (rv_sltu low (value_regs_get y 0)))
+        ;;
+        (high_tmp XReg (rv_add (value_regs_get x 1) (value_regs_get y 1)))
+        ;; add carry.
+        (high XReg (rv_add high_tmp carry)))
+    (value_regs low high)))
 
 ;; Special cases for when one operand is an immediate that fits in 12 bits.
 (rule 1 (lower (has_type (ty_int_ref_scalar_64 ty) (iadd x (imm12_from_value y))))
@@ -356,7 +369,9 @@
 (rule 0 (lower (has_type (ty_int ty) (isub x y)))
   (rv_sub x y))
 
-;; NOTE: I64 support deferred to Phase 2
+;; I64 case - use 2-register pattern with borrow propagation
+(rule 1 (lower (has_type $I64 (isub x y)))
+  (sub_i64 x y))
 
 (rule 2 (lower (has_type $I128 (isub x y)))
   (sub_i128 x y))

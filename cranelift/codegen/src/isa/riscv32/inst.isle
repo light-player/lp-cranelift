@@ -2692,6 +2692,21 @@
     (move_x_to_f tmp ty)))
 
 
+;; Subtract two I64 values using 2-register pattern (for RV32)
+(decl sub_i64 (ValueRegs ValueRegs) ValueRegs)
+(rule
+  (sub_i64 x y)
+  (let (
+      ;; low part.
+      (low XReg (rv_sub (value_regs_get x 0) (value_regs_get y 0)))
+      ;; compute borrow.
+      (borrow XReg (rv_sltu (value_regs_get x 0) low))
+      ;;
+      (high_tmp XReg (rv_sub (value_regs_get x 1) (value_regs_get y 1)))
+      ;;
+      (high XReg (rv_sub high_tmp borrow)))
+    (value_regs low high)))
+
 (decl sub_i128 (ValueRegs ValueRegs) ValueRegs)
 (rule
   (sub_i128 x y )

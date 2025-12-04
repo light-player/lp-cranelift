@@ -21,7 +21,7 @@ async fn main(_spawner: Spawner) {
     let peripherals = esp_hal::init(config);
 
     // Allocate heap - ESP32-C6 has plenty of RAM
-    esp_alloc::heap_allocator!(size: 128 * 1024);  // 128KB heap for Cranelift
+    esp_alloc::heap_allocator!(size: 128 * 1024); // 128KB heap for Cranelift
 
     let timer0 = SystemTimer::new(peripherals.SYSTIMER);
     esp_hal_embassy::init(timer0.alarm0);
@@ -45,7 +45,7 @@ int main() {
 
     info!("GLSL Source:\n{}", source);
 
-    // Create RISC-V32 ISA  
+    // Create RISC-V32 ISA
     info!("Step 1: Creating RISC-V32 ISA...");
     let mut flag_builder = settings::builder();
     flag_builder.set("opt_level", "none").unwrap();
@@ -110,7 +110,11 @@ int main() {
         info!("✅ GLSL JIT TEST SUCCESS ON REAL HARDWARE!");
         info!("======================================");
     } else {
-        defmt::panic!("GLSL JIT test failed: expected {}, got {}", expected, result);
+        defmt::panic!(
+            "GLSL JIT test failed: expected {}, got {}",
+            expected,
+            result
+        );
     }
 
     // Loop forever
@@ -118,4 +122,3 @@ int main() {
         embassy_time::Timer::after(embassy_time::Duration::from_secs(1)).await;
     }
 }
-

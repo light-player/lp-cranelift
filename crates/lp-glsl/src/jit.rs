@@ -13,7 +13,13 @@ use cranelift_codegen::settings::Configurable;
 use cranelift_codegen::Context as CodegenContext;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{DataDescription, Linkage, Module};
+use cranelift_module::{DataDescription, FuncId, Linkage, Module};
+use hashbrown::HashMap;
+
+#[cfg(feature = "std")]
+use std::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 pub struct JIT {
     builder_context: FunctionBuilderContext,
@@ -121,10 +127,170 @@ impl JIT {
     }
 
     fn translate(&mut self, typed_ast: crate::semantic::TypedShader) -> Result<(), String> {
-        // Determine return type from the main function
-        let return_type = typed_ast.main_function.return_type.to_cranelift_type();
-        if !matches!(typed_ast.main_function.return_type, crate::semantic::types::Type::Void) {
-            self.ctx.func.signature.returns.push(AbiParam::new(return_type));
+        // Step 1: Declare all user functions and get their FuncIds
+        let mut func_ids: HashMap<String, FuncId> = HashMap::new();
+        
+        for user_func in &typed_ast.user_functions {
+            let func_id = self.declare_function_signature(&user_func.name, &user_func.return_type, &user_func.parameters)?;
+            func_ids.insert(user_func.name.clone(), func_id);
+        }
+
+        // Step 2: Compile all user functions
+        for user_func in &typed_ast.user_functions {
+            let func_id = func_ids[&user_func.name];
+            self.compile_function(user_func, func_id, &func_ids)?;
+        }
+
+        // Step 3: Compile main function
+        self.compile_main_function(&typed_ast.main_function, &func_ids)?;
+
+        Ok(())
+    }
+
+    fn declare_function_signature(
+        &mut self,
+        name: &str,
+        return_type: &crate::semantic::types::Type,
+        parameters: &[crate::semantic::functions::Parameter],
+    ) -> Result<FuncId, String> {
+        use cranelift_codegen::ir::Signature;
+        use cranelift_codegen::isa::CallConv;
+
+        let mut sig = Signature::new(CallConv::SystemV);
+
+        // Add parameters to signature
+        for param in parameters {
+            if param.ty.is_vector() {
+                // Vector: pass each component as separate parameter
+                let base_ty = param.ty.vector_base_type().unwrap();
+                let cranelift_ty = base_ty.to_cranelift_type();
+                let count = param.ty.component_count().unwrap();
+                for _ in 0..count {
+                    sig.params.push(AbiParam::new(cranelift_ty));
+                }
+            } else {
+                // Scalar: single parameter
+                let cranelift_ty = param.ty.to_cranelift_type();
+                sig.params.push(AbiParam::new(cranelift_ty));
+            }
+        }
+
+        // Add return type
+        if *return_type != crate::semantic::types::Type::Void {
+            if return_type.is_vector() {
+                // Vector: return each component
+                let base_ty = return_type.vector_base_type().unwrap();
+                let cranelift_ty = base_ty.to_cranelift_type();
+                let count = return_type.component_count().unwrap();
+                for _ in 0..count {
+                    sig.returns.push(AbiParam::new(cranelift_ty));
+                }
+            } else {
+                // Scalar: single return value
+                let cranelift_ty = return_type.to_cranelift_type();
+                sig.returns.push(AbiParam::new(cranelift_ty));
+            }
+        }
+
+        // Declare function in module
+        self.module
+            .declare_function(name, Linkage::Local, &sig)
+            .map_err(|e| e.to_string())
+    }
+
+    fn compile_function(
+        &mut self,
+        func: &crate::semantic::TypedFunction,
+        func_id: FuncId,
+        func_ids: &HashMap<String, FuncId>,
+    ) -> Result<(), String> {
+        self.ctx.clear();
+
+        // Build signature (same as declaration)
+        self.declare_function_signature(&func.name, &func.return_type, &func.parameters)?;
+
+        // Create function builder
+        let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
+
+        // Create entry block
+        let entry_block = builder.create_block();
+        builder.append_block_params_for_function_params(entry_block);
+        builder.switch_to_block(entry_block);
+        builder.seal_block(entry_block);
+
+        // Create codegen context with function IDs
+        let mut ctx = crate::codegen::context::CodegenContext::new(builder, &mut self.module);
+        ctx.set_function_ids(func_ids);
+        ctx.set_function_registry(&typed_ast.function_registry);
+
+        // Declare parameters as variables in the function
+        let mut param_idx = 0;
+        for param in &func.parameters {
+            let param_vals: Vec<cranelift_codegen::ir::Value> = if param.ty.is_vector() {
+                let count = param.ty.component_count().unwrap();
+                (0..count).map(|_| {
+                    let val = builder.block_params(entry_block)[param_idx];
+                    param_idx += 1;
+                    val
+                }).collect()
+            } else {
+                vec![builder.block_params(entry_block)[param_idx]]
+                param_idx += 1;
+            };
+
+            // Declare parameter as variable and initialize
+            let vars = ctx.declare_variable(param.name.clone(), param.ty);
+            for (var, val) in vars.iter().zip(param_vals) {
+                ctx.builder.def_var(*var, val);
+            }
+        }
+
+        // Translate function body
+        for stmt in &func.body {
+            ctx.translate_statement(stmt)?;
+        }
+
+        // Add default return if needed
+        if func.return_type == crate::semantic::types::Type::Void {
+            ctx.builder.ins().return_(&[]);
+        } else {
+            // If we're here, there was no explicit return - emit default
+            let return_val = ctx.builder.ins().iconst(func.return_type.to_cranelift_type(), 0);
+            ctx.builder.ins().return_(&[return_val]);
+        }
+
+        // Finalize
+        ctx.builder.finalize();
+
+        // Define function in module
+        self.module
+            .define_function(func_id, &mut self.ctx)
+            .map_err(|e| format!("Compilation error: {}", e))?;
+        self.module.clear_context(&mut self.ctx);
+
+        Ok(())
+    }
+
+    fn compile_main_function(
+        &mut self,
+        main_func: &crate::semantic::TypedFunction,
+        func_ids: &HashMap<String, FuncId>,
+    ) -> Result<(), String> {
+        self.ctx.clear();
+
+        // Set up main signature (no parameters)
+        let return_type = main_func.return_type.to_cranelift_type();
+        if !matches!(main_func.return_type, crate::semantic::types::Type::Void) {
+            if main_func.return_type.is_vector() {
+                let base_ty = main_func.return_type.vector_base_type().unwrap();
+                let cranelift_ty = base_ty.to_cranelift_type();
+                let count = main_func.return_type.component_count().unwrap();
+                for _ in 0..count {
+                    self.ctx.func.signature.returns.push(AbiParam::new(cranelift_ty));
+                }
+            } else {
+                self.ctx.func.signature.returns.push(AbiParam::new(return_type));
+            }
         }
 
         // Create function builder
@@ -136,19 +302,22 @@ impl JIT {
         builder.switch_to_block(entry_block);
         builder.seal_block(entry_block);
 
-        // Create codegen context
+        // Create codegen context with function IDs
         let mut ctx = crate::codegen::context::CodegenContext::new(builder, &mut self.module);
+        ctx.set_function_ids(func_ids);
 
         // Translate main function body
-        for stmt in &typed_ast.main_function.body {
+        for stmt in &main_func.body {
             ctx.translate_statement(stmt)?;
         }
 
-        // Check if we need a default return (only if no explicit return was emitted)
-        // Note: If there was a return statement, we're now in an unreachable block
-        // We still need to emit a return to satisfy the verifier
-        let return_val = ctx.builder.ins().iconst(return_type, 0);
-        ctx.builder.ins().return_(&[return_val]);
+        // Add default return
+        if main_func.return_type == crate::semantic::types::Type::Void {
+            ctx.builder.ins().return_(&[]);
+        } else {
+            let return_val = ctx.builder.ins().iconst(return_type, 0);
+            ctx.builder.ins().return_(&[return_val]);
+        }
 
         // Finalize
         ctx.builder.finalize();

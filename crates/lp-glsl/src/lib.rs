@@ -15,6 +15,7 @@ extern crate alloc;
 pub mod frontend;
 pub mod semantic;
 pub mod codegen;
+pub mod transform;
 #[cfg(feature = "std")]
 pub mod jit;
 pub mod compiler;
@@ -22,4 +23,5 @@ pub mod compiler;
 pub use compiler::Compiler;
 #[cfg(feature = "std")]
 pub use jit::JIT;
+pub use transform::{FixedPointFormat, TransformError};
 

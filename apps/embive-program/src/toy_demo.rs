@@ -47,6 +47,7 @@ fn compile_toy_function(
     unsafe extern "C" {
         static __heap_start: u8;
         static __heap_end: u8;
+        static __stack_start: u8;
     }
     let heap_size = unsafe {
         core::ptr::addr_of!(__heap_end) as usize - core::ptr::addr_of!(__heap_start) as usize
@@ -156,11 +157,6 @@ fn compile_toy_function(
     }
     println!("  [DEBUG] Current stack pointer: 0x{:x}", sp);
 
-    unsafe extern "C" {
-        static __stack_start: u8;
-        static __heap_start: u8;
-        static __heap_end: u8;
-    }
     let stack_start = unsafe { core::ptr::addr_of!(__stack_start) as usize };
     let heap_start = unsafe { core::ptr::addr_of!(__heap_start) as usize };
     let heap_end = unsafe { core::ptr::addr_of!(__heap_end) as usize };

@@ -783,6 +783,14 @@ macro_rules! isle_common_prelude_methods {
             (val >> 64) as u64
         }
 
+        fn u64_low_bits(&mut self, val: u64) -> u64 {
+            val & 0xFFFFFFFF
+        }
+
+        fn u64_high_bits(&mut self, val: u64) -> u64 {
+            (val >> 32) & 0xFFFFFFFF
+        }
+
         fn f16_min(&mut self, a: Ieee16, b: Ieee16) -> Option<Ieee16> {
             a.minimum(b).non_nan()
         }
