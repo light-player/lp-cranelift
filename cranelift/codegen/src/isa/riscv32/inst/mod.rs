@@ -820,12 +820,15 @@ impl MachInst for Inst {
             I8 => Ok((&[RegClass::Int], &[I8])),
             I16 => Ok((&[RegClass::Int], &[I16])),
             I32 => Ok((&[RegClass::Int], &[I32])),
-            I64 => Ok((&[RegClass::Int], &[I64])),
+            // On RV32, I64 requires a register pair (2 x 32-bit registers)
+            I64 => Ok((&[RegClass::Int, RegClass::Int], &[I32, I32])),
             F16 => Ok((&[RegClass::Float], &[F16])),
             F32 => Ok((&[RegClass::Float], &[F32])),
             F64 => Ok((&[RegClass::Float], &[F64])),
+            // On RV32, I128 requires 4 x 32-bit registers
+            I128 => Ok((&[RegClass::Int, RegClass::Int, RegClass::Int, RegClass::Int], &[I32, I32, I32, I32])),
             // FIXME(#8312): Add support for Q extension
-            F128 | I128 => Ok((&[RegClass::Int, RegClass::Int], &[I64, I64])),
+            F128 => Ok((&[RegClass::Int, RegClass::Int, RegClass::Int, RegClass::Int], &[I32, I32, I32, I32])),
             _ if ty.is_vector() => {
                 debug_assert!(ty.bits() <= 512);
 
@@ -1241,7 +1244,9 @@ impl Inst {
                     (AluOPRRI::Addi, rs, _) if rs == zero_reg() => {
                         return format!("li {},{}", rd, imm12.as_i16());
                     }
-                    (AluOPRRI::Addiw, _, imm12) if imm12.as_i16() == 0 => {
+                    // Note: On RV32, we don't have Addiw (RV64-specific)
+                    // sext.w is not needed on RV32 since I32 values already occupy full register width
+                    (AluOPRRI::Addi, _, imm12) if imm12.as_i16() == 0 => {
                         return format!("sext.w {rd},{rs_s}");
                     }
                     (AluOPRRI::Xori, _, imm12) if imm12.as_i16() == -1 => {

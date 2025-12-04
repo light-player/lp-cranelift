@@ -347,12 +347,12 @@ impl Inst {
             }
 
             // CA Ops
+            // Note: On RV32, Addw doesn't exist (RV64-specific). We just use Add.
             Inst::AluRRR {
                 alu_op:
                     alu_op @ (AluOPRRR::And
                     | AluOPRRR::Or
                     | AluOPRRR::Xor
-                    | AluOPRRR::Addw
                     | AluOPRRR::Mul),
                 rd,
                 rs1,
@@ -365,7 +365,6 @@ impl Inst {
                     AluOPRRR::And => CaOp::CAnd,
                     AluOPRRR::Or => CaOp::COr,
                     AluOPRRR::Xor => CaOp::CXor,
-                    AluOPRRR::Addw => CaOp::CAddw,
                     AluOPRRR::Mul if has_zcb && has_m => CaOp::CMul,
                     _ => return None,
                 };
@@ -377,18 +376,14 @@ impl Inst {
             }
 
             // The sub instructions are non commutative, so we can't swap the operands.
+            // Note: On RV32, Subw doesn't exist (RV64-specific). We just use Sub.
             Inst::AluRRR {
-                alu_op: alu_op @ (AluOPRRR::Sub | AluOPRRR::Subw),
+                alu_op: AluOPRRR::Sub,
                 rd,
                 rs1,
                 rs2,
             } if rd.to_reg() == rs1 && reg_is_compressible(rs1) && reg_is_compressible(rs2) => {
-                let op = match alu_op {
-                    AluOPRRR::Sub => CaOp::CSub,
-                    AluOPRRR::Subw => CaOp::CSubw,
-                    _ => return None,
-                };
-                sink.put2(encode_ca_type(op, rd, rs2));
+                sink.put2(encode_ca_type(CaOp::CSub, rd, rs2));
             }
 
             // c.j
@@ -497,15 +492,8 @@ impl Inst {
             }
 
             // c.addiw
-            Inst::AluRRImm12 {
-                alu_op: AluOPRRI::Addiw,
-                rd,
-                rs,
-                imm12,
-            } if rd.to_reg() == rs && rs != zero_reg() => {
-                let imm6 = Imm6::maybe_from_imm12(imm12)?;
-                sink.put2(encode_ci_type(CiOp::CAddiw, rd, imm6));
-            }
+            // Note: On RV32, Addiw and c.addiw don't exist (RV64-specific)
+            // This pattern is removed for RV32
 
             // c.lui
             //

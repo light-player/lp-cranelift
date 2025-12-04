@@ -179,7 +179,6 @@ members = [
   # LP-specific crates for riscv32 backend testing
   "crates/lp-riscv-tools",
   "crates/lp-toy-lang",
-  "crates/lp-filetests",
 ]
 exclude = [
   'docs/rust_wasi_markdown_parser',

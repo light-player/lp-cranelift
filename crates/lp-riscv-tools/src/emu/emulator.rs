@@ -11,7 +11,9 @@ use super::{
     logging::{InstLog, LogLevel},
     memory::Memory,
 };
-use crate::{disasm::disassemble_instruction_with_labels, Gpr};
+use crate::Gpr;
+use cranelift_codegen::data_value::DataValue;
+use cranelift_codegen::ir::Signature;
 
 /// Result of a single step.
 #[derive(Debug, Clone)]
@@ -337,6 +339,245 @@ impl Riscv32Emulator {
         &mut self.memory
     }
 
+    /// Call a compiled function using the RISC-V calling convention.
+    ///
+    /// This high-level API handles:
+    /// - Setting up arguments in a0-a7 registers (and stack if needed)
+    /// - Setting up return address to detect function return
+    /// - Executing until function returns
+    /// - Extracting return values from a0-a1 (and stack if needed)
+    ///
+    /// # Arguments
+    ///
+    /// * `func_entry` - Program counter of function entry point
+    /// * `args` - Function arguments as DataValues
+    /// * `signature` - Function signature (for ABI conformance)
+    ///
+    /// # Returns
+    ///
+    /// Returns the function's return values as DataValues, or an error if execution failed.
+    pub fn call_function(
+        &mut self,
+        func_entry: u32,
+        args: &[DataValue],
+        signature: &Signature,
+    ) -> Result<Vec<DataValue>, EmulatorError> {
+        // Reset state for clean function call
+        self.regs = [0; 32];
+        self.pc = func_entry;
+        self.instruction_count = 0;
+
+        // Set up arguments according to RISC-V calling convention
+        // a0-a7 (x10-x17) are used for arguments
+        // i64 values use register pairs: (low, high)
+        let mut arg_reg_idx = 10; // Start at a0 (x10)
+
+        for (i, arg) in args.iter().enumerate() {
+            if arg_reg_idx > 17 {
+                // Out of argument registers - would need stack, not yet supported
+                return Err(EmulatorError::InvalidInstruction {
+                    pc: self.pc,
+                    instruction: 0,
+                    reason: format!("Out of argument registers (arg {})", i),
+                    regs: self.regs,
+                });
+            }
+
+            match arg {
+                DataValue::I8(v) => {
+                    self.regs[arg_reg_idx] = *v as i32;
+                    arg_reg_idx += 1;
+                }
+                DataValue::I16(v) => {
+                    self.regs[arg_reg_idx] = *v as i32;
+                    arg_reg_idx += 1;
+                }
+                DataValue::I32(v) => {
+                    self.regs[arg_reg_idx] = *v;
+                    arg_reg_idx += 1;
+                }
+                DataValue::I64(v) => {
+                    // i64 uses register pair: (low, high)
+                    if arg_reg_idx > 16 {
+                        // Need 2 registers, but only 1 available
+                        return Err(EmulatorError::InvalidInstruction {
+                            pc: self.pc,
+                            instruction: 0,
+                            reason: format!("Not enough registers for i64 argument (arg {})", i),
+                            regs: self.regs,
+                        });
+                    }
+                    let v_u64 = *v as u64;
+                    let low = v_u64 as u32 as i32;
+                    let high = (v_u64 >> 32) as u32 as i32;
+                    self.regs[arg_reg_idx] = low; // Lower register gets low 32 bits
+                    self.regs[arg_reg_idx + 1] = high; // Higher register gets high 32 bits
+                    arg_reg_idx += 2; // Consume 2 registers
+                }
+                DataValue::I128(v) => {
+                    // i128 uses 4 registers: (reg0, reg1, reg2, reg3)
+                    if arg_reg_idx > 14 {
+                        // Need 4 registers
+                        return Err(EmulatorError::InvalidInstruction {
+                            pc: self.pc,
+                            instruction: 0,
+                            reason: format!("Not enough registers for i128 argument (arg {})", i),
+                            regs: self.regs,
+                        });
+                    }
+                    let v_u128 = *v as u128;
+                    let reg0 = v_u128 as u32 as i32;
+                    let reg1 = (v_u128 >> 32) as u32 as i32;
+                    let reg2 = (v_u128 >> 64) as u32 as i32;
+                    let reg3 = (v_u128 >> 96) as u32 as i32;
+                    self.regs[arg_reg_idx] = reg0;
+                    self.regs[arg_reg_idx + 1] = reg1;
+                    self.regs[arg_reg_idx + 2] = reg2;
+                    self.regs[arg_reg_idx + 3] = reg3;
+                    arg_reg_idx += 4; // Consume 4 registers
+                }
+                _ => {
+                    return Err(EmulatorError::InvalidInstruction {
+                        pc: self.pc,
+                        instruction: 0,
+                        reason: format!("Unsupported argument type: {:?}", arg),
+                        regs: self.regs,
+                    });
+                }
+            }
+        }
+
+        // Set up stack pointer (x2/sp) to end of RAM
+        // Leave some space for stack growth
+        let ram_size = self.memory.ram().len();
+        let stack_top = super::memory::DEFAULT_RAM_START + ram_size as u32;
+        self.regs[2] = (stack_top - 16) as i32; // 16-byte aligned, with some space
+
+        // Set up return address (x1/ra) to a special halt address
+        // We'll use 0xFFFFFFFC as a sentinel value that triggers halt
+        const HALT_ADDRESS: u32 = 0xFFFF_FFFC;
+        self.regs[1] = HALT_ADDRESS as i32;
+
+        // Execute until function returns (PC == HALT_ADDRESS or ret instruction)
+        loop {
+            // Check if we've returned to halt address
+            if self.pc == HALT_ADDRESS {
+                break;
+            }
+
+            match self.step()? {
+                StepResult::Halted => {
+                    // EBREAK encountered
+                    break;
+                }
+                StepResult::Continue => {
+                    // Keep executing
+                }
+                StepResult::Syscall(_) => {
+                    // Unexpected syscall in function execution
+                    return Err(EmulatorError::InvalidInstruction {
+                        pc: self.pc,
+                        instruction: 0,
+                        reason: String::from("Unexpected ECALL during function execution"),
+                        regs: self.regs,
+                    });
+                }
+            }
+        }
+
+        // Extract return values from registers according to signature
+        // a0-a7 (x10-x17) are used for return values
+        // i64 values use register pairs: (low, high)
+        let mut results = Vec::new();
+        let mut reg_idx = 10; // Start at a0
+
+        for (i, param) in signature.returns.iter().enumerate() {
+            if reg_idx > 17 {
+                // Out of return registers - would need stack, not yet supported
+                return Err(EmulatorError::InvalidInstruction {
+                    pc: self.pc,
+                    instruction: 0,
+                    reason: format!("Out of return registers (return value {})", i),
+                    regs: self.regs,
+                });
+            }
+
+            // Convert register value to DataValue based on type
+            use cranelift_codegen::ir::types;
+            let result_value = match param.value_type {
+                types::I8 => {
+                    let value = DataValue::I8(self.regs[reg_idx] as i8);
+                    reg_idx += 1;
+                    value
+                }
+                types::I16 => {
+                    let value = DataValue::I16(self.regs[reg_idx] as i16);
+                    reg_idx += 1;
+                    value
+                }
+                types::I32 => {
+                    let value = DataValue::I32(self.regs[reg_idx]);
+                    reg_idx += 1;
+                    value
+                }
+                types::I64 => {
+                    if reg_idx > 16 {
+                        // Need 2 registers, but only 1 available
+                        return Err(EmulatorError::InvalidInstruction {
+                            pc: self.pc,
+                            instruction: 0,
+                            reason: format!(
+                                "Not enough registers for i64 return value (return value {})",
+                                i
+                            ),
+                            regs: self.regs,
+                        });
+                    }
+                    // i64 returned in register pair: (low, high)
+                    let low = self.regs[reg_idx] as u32 as u64;
+                    let high = self.regs[reg_idx + 1] as u32 as u64;
+                    let value = DataValue::I64(((high << 32) | low) as i64);
+                    reg_idx += 2; // Consumed 2 registers
+                    value
+                }
+                types::I128 => {
+                    if reg_idx > 14 {
+                        // Need 4 registers
+                        return Err(EmulatorError::InvalidInstruction {
+                            pc: self.pc,
+                            instruction: 0,
+                            reason: format!(
+                                "Not enough registers for i128 return value (return value {})",
+                                i
+                            ),
+                            regs: self.regs,
+                        });
+                    }
+                    // i128 returned in 4 registers: (reg0, reg1, reg2, reg3)
+                    let reg0 = self.regs[reg_idx] as u32 as u128;
+                    let reg1 = self.regs[reg_idx + 1] as u32 as u128;
+                    let reg2 = self.regs[reg_idx + 2] as u32 as u128;
+                    let reg3 = self.regs[reg_idx + 3] as u32 as u128;
+                    let value = DataValue::I128(((reg3 << 96) | (reg2 << 64) | (reg1 << 32) | reg0) as i128);
+                    reg_idx += 4; // Consumed 4 registers
+                    value
+                }
+                _ => {
+                    return Err(EmulatorError::InvalidInstruction {
+                        pc: self.pc,
+                        instruction: 0,
+                        reason: format!("Unsupported return type: {:?}", param.value_type),
+                        regs: self.regs,
+                    });
+                }
+            };
+
+            results.push(result_value);
+        }
+
+        Ok(results)
+    }
+
     /// Format debug information including disassembly and execution logs.
     ///
     /// # Arguments
@@ -356,7 +597,8 @@ impl Riscv32Emulator {
                 let inst_word =
                     u32::from_le_bytes([code[i], code[i + 1], code[i + 2], code[i + 3]]);
                 let pc = i as u32;
-                let disasm = disassemble_instruction_with_labels(inst_word, pc, None);
+                // Simple hex display (use Capstone externally for full disassembly)
+                let disasm = format!(".word 0x{:08x}", inst_word);
                 instructions.push((pc, inst_word, disasm));
             }
         }

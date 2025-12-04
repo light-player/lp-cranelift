@@ -2,9 +2,10 @@
 
 extern crate alloc;
 
+use alloc::format;
 use core::fmt;
 
-use crate::{disassemble_instruction, Gpr};
+use crate::Gpr;
 
 /// Logging verbosity level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -269,7 +270,8 @@ impl fmt::Display for InstLog {
         let cycle = self.cycle();
         let pc = self.pc();
         let instruction = self.instruction();
-        let disassembly = disassemble_instruction(instruction);
+        // Simple hex display (use Capstone externally for full disassembly)
+        let disassembly = format!(".word 0x{:08x}", instruction);
 
         // Print cycle count, address and instruction
         write!(f, "[{:4}] 0x{:08x}: {}", cycle, pc, disassembly)?;

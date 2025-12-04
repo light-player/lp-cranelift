@@ -832,6 +832,7 @@ dependencies = [
  "gimli 0.32.3",
  "libm",
  "log",
+ "lp-riscv-tools",
  "num_cpus",
  "pulley-interpreter",
  "serde",
@@ -905,6 +906,7 @@ dependencies = [
  "cranelift-frontend",
  "cranelift-module",
  "cranelift-native",
+ "hashbrown 0.15.2",
  "libc",
  "log",
  "memmap2",
@@ -2364,17 +2366,6 @@ dependencies = [
  "wat",
  "windows-sys 0.61.2",
  "wit-component 0.242.0",
-]
-
-[[package]]
-name = "lp-filetests"
-version = "40.0.0"
-dependencies = [
- "cranelift-codegen",
- "cranelift-control",
- "cranelift-reader",
- "filecheck",
- "lp-riscv-tools",
 ]
 
 [[package]]

@@ -81,11 +81,19 @@ fn is_isa_compatible(
         ) if host_triple.pointer_width() == requested.triple().pointer_width()
             && host_triple.endianness() == requested.triple().endianness() => {}
 
+        // Any host can run riscv32 via emulator (similar to pulley).
+        (_, Architecture::Riscv32 { .. }) => {}
+
         _ => {
             return Err(format!(
                 "skipped {file_path}: host can't run {requested_arch:?} programs"
             ));
         }
+    }
+
+    // For riscv32, we use an emulator so we don't need to check host ISA flags
+    if matches!(requested_arch, Architecture::Riscv32 { .. }) {
+        return Ok(());
     }
 
     // We need to check that the requested ISA does not have any flags that
@@ -154,6 +162,15 @@ fn compile_testfile(
         | Architecture::Pulley64
         | Architecture::Pulley32be
         | Architecture::Pulley64be => {
+            let mut builder = cranelift_codegen::isa::lookup(isa.triple().clone())?;
+            for value in isa.isa_flags() {
+                builder.set(value.name, &value.value_string()).unwrap();
+            }
+            builder.finish(flags.clone())?
+        }
+
+        // For riscv32, we use the emulator, so we can use the requested ISA directly
+        Architecture::Riscv32 { .. } => {
             let mut builder = cranelift_codegen::isa::lookup(isa.triple().clone())?;
             for value in isa.isa_flags() {
                 builder.set(value.name, &value.value_string()).unwrap();

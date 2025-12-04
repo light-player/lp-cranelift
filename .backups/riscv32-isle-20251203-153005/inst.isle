@@ -495,7 +495,12 @@
   (Or)
   (And)
 
-  ;; NOTE: RV64I *w variants removed for RV32 (Addw, Subw, Sllw, Srlw, Sraw)
+  ;; RV64I Base Instruction Set (in addition to RV32I)
+  (Addw)
+  (Subw)
+  (Sllw)
+  (Srlw)
+  (Sraw)
 
 
   ;;RV32M Standard Extension
@@ -508,7 +513,12 @@
   (Rem)
   (RemU)
 
-  ;; NOTE: RV64M *w variants removed for RV32 (Mulw, Divw, Divuw, Remw, Remuw)
+  ;; RV64M Standard Extension (in addition to RV32M)
+  (Mulw)
+  (Divw)
+  (Divuw)
+  (Remw)
+  (Remuw)
 
   ;; Zba: Address Generation Instructions
   (Adduw)
@@ -528,9 +538,9 @@
   (Min)
   (Minu)
   (Rol)
-  ;; NOTE: Rolw removed for RV32
+  (Rolw)
   (Ror)
-  ;; NOTE: Rorw removed for RV32
+  (Rorw)
 
   ;; Zbs: Single-bit instructions
   (Bclr)
@@ -545,7 +555,7 @@
 
   ;; Zbkb: Bit-manipulation for Cryptography
   (Pack)
-  ;; NOTE: Packw removed for RV32
+  (Packw)
   (Packh)
 
   ;; ZiCond: Integer Conditional Operations
@@ -586,23 +596,26 @@
   (Slli)
   (Srli)
   (Srai)
-  ;; NOTE: RV64I *w variants removed for RV32 (Addiw, Slliw, SrliW, Sraiw)
+  (Addiw)
+  (Slliw)
+  (SrliW)
+  (Sraiw)
 
   ;; Zba: Address Generation Instructions
   (SlliUw)
 
   ;; Zbb: Bit Manipulation Instructions
   (Clz)
-  ;; NOTE: Clzw removed for RV32
+  (Clzw)
   (Ctz)
-  ;; NOTE: Ctzw removed for RV32
+  (Ctzw)
   (Cpop)
-  ;; NOTE: Cpopw removed for RV32
+  (Cpopw)
   (Sextb)
   (Sexth)
   (Zexth)
   (Rori)
-  ;; NOTE: Roriw removed for RV32
+  (Roriw)
   (Rev8)
   (Brev8)
   (Orcb)
@@ -637,7 +650,8 @@
   (COr)
   (CXor)
   (CSub)
-  ;; NOTE: CAddw, CSubw removed for RV32
+  (CAddw)
+  (CSubw)
   (CMul)
 ))
 
@@ -649,7 +663,7 @@
 ;; Opcodes for the CI compressed instruction format
 (type CiOp (enum
   (CAddi)
-  ;; NOTE: CAddiw removed for RV32
+  (CAddiw)
   (CAddi16sp)
   (CSlli)
   (CLi)
@@ -1207,8 +1221,65 @@
 ;; RV64I Base Integer Instruction Set
 ;; Unlike RV32I instructions these are only present in the 64bit ISA
 
-;; NOTE: RV64I *w instruction helpers removed for RV32
-;; Removed: rv_addw, rv_addiw, rv_sextw, rv_subw, rv_sllw, rv_slliw, rv_srlw, rv_srliw, rv_sraw, rv_sraiw
+;; Helper for emitting the `addw` ("Add Word") instruction.
+;; rd ← sext32(rs1) + sext32(rs2)
+(decl rv_addw (XReg XReg) XReg)
+(rule (rv_addw rs1 rs2)
+  (alu_rrr (AluOPRRR.Addw) rs1 rs2))
+
+;; Helper for emitting the `addiw` ("Add Word Immediate") instruction.
+;; rd ← sext32(rs1) + imm
+(decl rv_addiw (XReg Imm12) XReg)
+(rule (rv_addiw rs1 imm)
+  (alu_rr_imm12 (AluOPRRI.Addiw) rs1 imm))
+
+;; Helper for emitting the `sext.w` ("Sign Extend Word") instruction.
+;; This instruction is a mnemonic for `addiw rd, rs, zero`.
+(decl rv_sextw (XReg) XReg)
+(rule (rv_sextw rs1)
+  (rv_addiw rs1 (imm12_const 0)))
+
+;; Helper for emitting the `subw` ("Subtract Word") instruction.
+;; rd ← sext32(rs1) - sext32(rs2)
+(decl rv_subw (XReg XReg) XReg)
+(rule (rv_subw rs1 rs2)
+  (alu_rrr (AluOPRRR.Subw) rs1 rs2))
+
+;; Helper for emitting the `sllw` ("Shift Left Logical Word") instruction.
+;; rd ← sext32(uext32(rs1) << rs2)
+(decl rv_sllw (XReg XReg) XReg)
+(rule (rv_sllw rs1 rs2)
+  (alu_rrr (AluOPRRR.Sllw) rs1 rs2))
+
+;; Helper for emitting the `slliw` ("Shift Left Logical Immediate Word") instruction.
+;; rd ← sext32(uext32(rs1) << imm)
+(decl rv_slliw (XReg Imm12) XReg)
+(rule (rv_slliw rs1 imm)
+  (alu_rr_imm12 (AluOPRRI.Slliw) rs1 imm))
+
+;; Helper for emitting the `srlw` ("Shift Right Logical Word") instruction.
+;; rd ← sext32(uext32(rs1) >> rs2)
+(decl rv_srlw (XReg XReg) XReg)
+(rule (rv_srlw rs1 rs2)
+  (alu_rrr (AluOPRRR.Srlw) rs1 rs2))
+
+;; Helper for emitting the `srliw` ("Shift Right Logical Immediate Word") instruction.
+;; rd ← sext32(uext32(rs1) >> imm)
+(decl rv_srliw (XReg Imm12) XReg)
+(rule (rv_srliw rs1 imm)
+  (alu_rr_imm12 (AluOPRRI.SrliW) rs1 imm))
+
+;; Helper for emitting the `sraw` ("Shift Right Arithmetic Word") instruction.
+;; rd ← sext32(rs1 >> rs2)
+(decl rv_sraw (XReg XReg) XReg)
+(rule (rv_sraw rs1 rs2)
+  (alu_rrr (AluOPRRR.Sraw) rs1 rs2))
+
+;; Helper for emitting the `sraiw` ("Shift Right Arithmetic Immediate Word") instruction.
+;; rd ← sext32(rs1 >> imm)
+(decl rv_sraiw (XReg Imm12) XReg)
+(rule (rv_sraiw rs1 imm)
+  (alu_rr_imm12 (AluOPRRI.Sraiw) rs1 imm))
 
 
 ;; RV32M Extension
@@ -1256,8 +1327,38 @@
 (rule (rv_remu rs1 rs2)
   (alu_rrr (AluOPRRR.RemU) rs1 rs2))
 
-;; NOTE: RV64M *w instruction helpers removed for RV32
-;; Removed: rv_mulw, rv_divw, rv_divuw, rv_remw, rv_remuw
+;; RV64M Extension
+;; TODO: Enable these instructions only when we have the M extension
+
+;; Helper for emitting the `mulw` ("Multiply Word") instruction.
+;; rd ← uext32(rs1) × uext32(rs2)
+(decl rv_mulw (XReg XReg) XReg)
+(rule (rv_mulw rs1 rs2)
+  (alu_rrr (AluOPRRR.Mulw) rs1 rs2))
+
+;; Helper for emitting the `divw` ("Divide Word") instruction.
+;; rd ← sext32(rs1) ÷ sext32(rs2)
+(decl rv_divw (XReg XReg) XReg)
+(rule (rv_divw rs1 rs2)
+  (alu_rrr (AluOPRRR.Divw) rs1 rs2))
+
+;; Helper for emitting the `divuw` ("Divide Unsigned Word") instruction.
+;; rd ← uext32(rs1) ÷ uext32(rs2)
+(decl rv_divuw (XReg XReg) XReg)
+(rule (rv_divuw rs1 rs2)
+  (alu_rrr (AluOPRRR.Divuw) rs1 rs2))
+
+;; Helper for emitting the `remw` ("Remainder Word") instruction.
+;; rd ← sext32(rs1) mod sext32(rs2)
+(decl rv_remw (XReg XReg) XReg)
+(rule (rv_remw rs1 rs2)
+  (alu_rrr (AluOPRRR.Remw) rs1 rs2))
+
+;; Helper for emitting the `remuw` ("Remainder Unsigned Word") instruction.
+;; rd ← uext32(rs1) mod uext32(rs2)
+(decl rv_remuw (XReg XReg) XReg)
+(rule (rv_remuw rs1 rs2)
+  (alu_rrr (AluOPRRR.Remuw) rs1 rs2))
 
 
 ;; F and D Extensions
@@ -1547,21 +1648,30 @@
 (rule (rv_clz rs1)
   (alu_rr_funct12 (AluOPRRI.Clz) rs1))
 
-;; NOTE: rv_clzw removed for RV32
+;; Helper for emitting the `clzw` ("Count Leading Zero Bits in Word") instruction.
+(decl rv_clzw (XReg) XReg)
+(rule (rv_clzw rs1)
+  (alu_rr_funct12 (AluOPRRI.Clzw) rs1))
 
 ;; Helper for emitting the `ctz` ("Count Trailing Zero Bits") instruction.
 (decl rv_ctz (XReg) XReg)
 (rule (rv_ctz rs1)
   (alu_rr_funct12 (AluOPRRI.Ctz) rs1))
 
-;; NOTE: rv_ctzw removed for RV32
+;; Helper for emitting the `ctzw` ("Count Trailing Zero Bits in Word") instruction.
+(decl rv_ctzw (XReg) XReg)
+(rule (rv_ctzw rs1)
+  (alu_rr_funct12 (AluOPRRI.Ctzw) rs1))
 
 ;; Helper for emitting the `cpop` ("Count Population") instruction.
 (decl rv_cpop (XReg) XReg)
 (rule (rv_cpop rs1)
   (alu_rr_funct12 (AluOPRRI.Cpop) rs1))
 
-;; NOTE: rv_cpopw removed for RV32
+;; Helper for emitting the `cpopw` ("Count Population") instruction.
+(decl rv_cpopw (XReg) XReg)
+(rule (rv_cpopw rs1)
+  (alu_rr_funct12 (AluOPRRI.Cpopw) rs1))
 
 ;; Helper for emitting the `max` instruction.
 (decl rv_max (XReg XReg) XReg)
@@ -1603,21 +1713,30 @@
 (rule (rv_rol rs1 rs2)
   (alu_rrr (AluOPRRR.Rol) rs1 rs2))
 
-;; NOTE: rv_rolw removed for RV32
+;; Helper for emitting the `rolw` ("Rotate Left Word") instruction.
+(decl rv_rolw (XReg XReg) XReg)
+(rule (rv_rolw rs1 rs2)
+  (alu_rrr (AluOPRRR.Rolw) rs1 rs2))
 
 ;; Helper for emitting the `ror` ("Rotate Right") instruction.
 (decl rv_ror (XReg XReg) XReg)
 (rule (rv_ror rs1 rs2)
   (alu_rrr (AluOPRRR.Ror) rs1 rs2))
 
-;; NOTE: rv_rorw removed for RV32
+;; Helper for emitting the `rorw` ("Rotate Right Word") instruction.
+(decl rv_rorw (XReg XReg) XReg)
+(rule (rv_rorw rs1 rs2)
+  (alu_rrr (AluOPRRR.Rorw) rs1 rs2))
 
 ;; Helper for emitting the `rori` ("Rotate Right") instruction.
 (decl rv_rori (XReg Imm12) XReg)
 (rule (rv_rori rs1 rs2)
   (alu_rr_imm12 (AluOPRRI.Rori) rs1 rs2))
 
-;; NOTE: rv_roriw removed for RV32
+;; Helper for emitting the `roriw` ("Rotate Right Word") instruction.
+(decl rv_roriw (XReg Imm12) XReg)
+(rule (rv_roriw rs1 rs2)
+  (alu_rr_imm12 (AluOPRRI.Roriw) rs1 rs2))
 
 ;; Helper for emitting the `rev8` ("Byte Reverse") instruction.
 (decl rv_rev8 (XReg) XReg)
@@ -1674,7 +1793,10 @@
 (rule (rv_pack rs1 rs2)
   (alu_rrr (AluOPRRR.Pack) rs1 rs2))
 
-;; NOTE: rv_packw removed for RV32
+;; Helper for emitting the `packw` ("Pack low 16-bits of registers") instruction.
+(decl rv_packw (XReg XReg) XReg)
+(rule (rv_packw rs1 rs2)
+  (alu_rrr (AluOPRRR.Packw) rs1 rs2))
 
 ;; `ZiCond` Extension Instructions
 
@@ -2057,9 +2179,9 @@
 
 
 
-;; On RV32, always use Addi (operates on XLEN=32)
 (decl select_addi (Type) AluOPRRI)
-(rule (select_addi ty) (AluOPRRI.Addi))
+(rule 1 (select_addi (fits_in_32 ty)) (AluOPRRI.Addiw))
+(rule (select_addi (fits_in_64 ty)) (AluOPRRI.Addi))
 
 
 (decl gen_andi (XReg u64) XReg)
@@ -2087,13 +2209,15 @@
 (rule 1 (lower_ctz (fits_in_16 ty) x)
   (if-let true (has_zbb))
   (let ((tmp Reg (gen_bseti x (ty_bits ty))))
-    (rv_ctz tmp)))
+    (rv_ctzw tmp)))
 
 (rule 2 (lower_ctz $I32 x)
   (if-let true (has_zbb))
-  (rv_ctz x))
+  (rv_ctzw x))
 
-;; NOTE: I64 support deferred to Phase 2 (multi-instruction sequences)
+(rule 2 (lower_ctz $I64 x)
+  (if-let true (has_zbb))
+  (rv_ctz x))
 
 ;; Count leading zeros from a i128 bit value.
 ;; We count both halves separately and conditionally add them if it makes sense.
@@ -2121,13 +2245,25 @@
 ;; No point in trying to use `packh` here to zero extend 8 bit values
 ;; since we can just use `andi` instead which is part of the base ISA.
 
-;; If we have the `zbb` extension we can use the dedicated `zext.h` instruction.
+;; If we have the `zbkb` extension `packw` can be used to zero extend 16 bit values
 (rule 1 (zext val @ (value_type $I16))
+  (if-let true (has_zbkb))
+  (rv_packw val (zero_reg)))
+
+;; If we have the `zbkb` extension `pack` can be used to zero extend 32 bit registers
+(rule 1 (zext val @ (value_type $I32))
+  (if-let true (has_zbkb))
+  (rv_pack val (zero_reg)))
+
+;; If we have the `zbb` extension we can use the dedicated `zext.h` instruction.
+(rule 2 (zext val @ (value_type $I16))
   (if-let true (has_zbb))
   (rv_zexth val))
 
-;; NOTE: On RV32, I32 is the native size (XLEN=32), no zero extension needed
-;; The value is already in its full register width representation
+;; With `zba` we have a `zext.w` instruction
+(rule 2 (zext val @ (value_type $I32))
+  (if-let true (has_zba))
+  (rv_zextw val))
 
 ;; Ignore sign extensions for values whose representation is already the full
 ;; register width.
@@ -2144,21 +2280,23 @@
     (rv_srai (rv_slli val shift) shift)))
 
 ;; If we have the `zbb` extension we can use the dedicated `sext.b` instruction.
-(rule 2 (sext val @ (value_type $I8))
+(rule 1 (sext val @ (value_type $I8))
   (if-let true (has_zbb))
   (rv_sextb val))
 
 ;; If we have the `zbb` extension we can use the dedicated `sext.h` instruction.
-(rule 2 (sext val @ (value_type $I16))
+(rule 1 (sext val @ (value_type $I16))
   (if-let true (has_zbb))
   (rv_sexth val))
 
-;; NOTE: On RV32, I32 is the native register width (XLEN=32)
-;; Sign extending from I32 is a no-op on RV32 (handled by rule below)
+;; When signed extending from 32 to 64 bits we can use a
+;; `addiw val 0`. Also known as a `sext.w`
+(rule 1 (sext val @ (value_type $I32))
+  (rv_sextw val))
 
 ;; Ignore sign extensions for values whose representation is already the full
 ;; register width.
-(rule 1 (sext val)
+(rule 2 (sext val)
   (if (val_already_extended (ExtendOp.Signed) val))
   val)
 
@@ -2861,13 +2999,13 @@
 ;; Args are: src, src_ty, dst_ty
 (decl gen_bitcast (Reg Type Type) Reg)
 
-;; NOTE: Vector bitcast rules deferred to Phase 2 (full vector support)
-;; (rule 9 (gen_bitcast r (ty_supported_float_size $F16) (ty_supported_vec _)) (if-let false (has_zvfh)) (rv_vfmv_sf r (vstate_from_type $F32)))
-;; (rule 8 (gen_bitcast r (ty_supported_vec ty) (ty_supported_float_size $F16)) (if-let false (has_zvfh)) (gen_bitcast (gen_bitcast r ty $I16) $I16 $F16))
-;; (rule 7 (gen_bitcast r (ty_supported_float_min src_ty) (ty_supported_vec _)) (rv_vfmv_sf r src_ty))
-;; (rule 6 (gen_bitcast r (ty_supported_vec _) (ty_supported_float_min dst_ty)) (rv_vfmv_fs r dst_ty))
-;; (rule 5 (gen_bitcast r (ty_int_ref_scalar_64 src_ty) (ty_supported_vec _)) (rv_vmv_sx r src_ty))
-;; (rule 4 (gen_bitcast r (ty_supported_vec _) (ty_int_ref_scalar_64 dst_ty)) (rv_vmv_xs r dst_ty))
+(rule 9 (gen_bitcast r (ty_supported_float_size $F16) (ty_supported_vec _)) (if-let false (has_zvfh)) (rv_vfmv_sf r (vstate_from_type $F32)))
+(rule 8 (gen_bitcast r (ty_supported_vec ty) (ty_supported_float_size $F16)) (if-let false (has_zvfh)) (gen_bitcast (gen_bitcast r ty $I16) $I16 $F16))
+(rule 7 (gen_bitcast r (ty_supported_float_min src_ty) (ty_supported_vec _)) (rv_vfmv_sf r src_ty))
+(rule 6 (gen_bitcast r (ty_supported_vec _) (ty_supported_float_min dst_ty)) (rv_vfmv_fs r dst_ty))
+
+(rule 5 (gen_bitcast r (ty_int_ref_scalar_64 src_ty) (ty_supported_vec _)) (rv_vmv_sx r src_ty))
+(rule 4 (gen_bitcast r (ty_supported_vec _) (ty_int_ref_scalar_64 dst_ty)) (rv_vmv_xs r dst_ty))
 (rule 3 (gen_bitcast r (ty_supported_float_min $F16) $I16) (rv_fmvxh r))
 (rule 2 (gen_bitcast r (ty_supported_float_size $F16) $I16) (rv_fmvxw r))
 (rule 2 (gen_bitcast r (ty_supported_float_size $F32) $I32) (rv_fmvxw r))

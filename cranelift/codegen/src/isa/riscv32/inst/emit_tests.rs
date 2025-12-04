@@ -980,56 +980,10 @@ fn test_riscv32_binemit() {
         "and a0,a0,a1",
         0xb57533,
     ));
-    insns.push(TestUnit::new(
-        Inst::AluRRR {
-            alu_op: AluOPRRR::Addw,
-            rd: writable_a0(),
-            rs1: a0(),
-            rs2: a1(),
-        },
-        "addw a0,a0,a1",
-        0xb5053b,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRR {
-            alu_op: AluOPRRR::Subw,
-            rd: writable_a0(),
-            rs1: a0(),
-            rs2: a1(),
-        },
-        "subw a0,a0,a1",
-        0x40b5053b,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRR {
-            alu_op: AluOPRRR::Sllw,
-            rd: writable_a0(),
-            rs1: a0(),
-            rs2: a1(),
-        },
-        "sllw a0,a0,a1",
-        0xb5153b,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRR {
-            alu_op: AluOPRRR::Srlw,
-            rd: writable_a0(),
-            rs1: a0(),
-            rs2: a1(),
-        },
-        "srlw a0,a0,a1",
-        0xb5553b,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRR {
-            alu_op: AluOPRRR::Sraw,
-            rd: writable_a0(),
-            rs1: a0(),
-            rs2: a1(),
-        },
-        "sraw a0,a0,a1",
-        0x40b5553b,
-    ));
+    // Note: RV64-specific Addw and Subw test cases removed
+    // Note: RV64-specific Sllw test removed
+    // Note: RV64-specific Srlw test removed
+    // Note: RV64-specific Sraw test removed
 
     insns.push(TestUnit::new(
         Inst::AluRRR {
@@ -1113,46 +1067,10 @@ fn test_riscv32_binemit() {
         0x2b57533,
     ));
 
-    insns.push(TestUnit::new(
-        Inst::AluRRR {
-            alu_op: AluOPRRR::Mulw,
-            rd: writable_a0(),
-            rs1: a0(),
-            rs2: a1(),
-        },
-        "mulw a0,a0,a1",
-        0x2b5053b,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRR {
-            alu_op: AluOPRRR::Divw,
-            rd: writable_a0(),
-            rs1: a0(),
-            rs2: a1(),
-        },
-        "divw a0,a0,a1",
-        0x2b5453b,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRR {
-            alu_op: AluOPRRR::Remw,
-            rd: writable_a0(),
-            rs1: a0(),
-            rs2: a1(),
-        },
-        "remw a0,a0,a1",
-        0x2b5653b,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRR {
-            alu_op: AluOPRRR::Remuw,
-            rd: writable_a0(),
-            rs1: a0(),
-            rs2: a1(),
-        },
-        "remuw a0,a0,a1",
-        0x2b5753b,
-    ));
+    // Note: RV64-specific Mulw test removed
+    // Note: RV64-specific Divw test removed
+    // Note: RV64-specific Remw test removed
+    // Note: RV64-specific Remuw test removed
 
     //
     insns.push(TestUnit::new(

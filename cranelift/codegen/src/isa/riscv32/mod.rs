@@ -164,7 +164,7 @@ impl TargetIsa for Riscv32Backend {
     #[cfg(feature = "disas")]
     fn to_capstone(&self) -> Result<capstone::Capstone, capstone::Error> {
         use capstone::prelude::*;
-        let mut cs_builder = Capstone::new().riscv().mode(arch::riscv::ArchMode::RiscV64);
+        let mut cs_builder = Capstone::new().riscv().mode(arch::riscv::ArchMode::RiscV32);
 
         // Enable C instruction decoding if we have compressed instructions enabled.
         //

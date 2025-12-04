@@ -195,18 +195,19 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
         *arg0
     }
 
-    fn min_vec_reg_size(&mut self) -> u64 {
-        self.min_vec_reg_size
-    }
+    // NOTE: Vector support deferred to Phase 2
+    // fn min_vec_reg_size(&mut self) -> u64 {
+    //     self.min_vec_reg_size
+    // }
 
-    #[inline]
-    fn ty_vec_fits_in_register(&mut self, ty: Type) -> Option<Type> {
-        if ty.is_vector() && (ty.bits() as u64) <= self.min_vec_reg_size() {
-            Some(ty)
-        } else {
-            None
-        }
-    }
+    // #[inline]
+    // fn ty_vec_fits_in_register(&mut self, ty: Type) -> Option<Type> {
+    //     if ty.is_vector() && (ty.bits() as u64) <= self.min_vec_reg_size() {
+    //         Some(ty)
+    //     } else {
+    //         None
+    //     }
+    // }
 
     fn ty_supported(&mut self, ty: Type) -> Option<Type> {
         let lane_type = ty.lane_type();
@@ -274,7 +275,8 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
 
     fn ty_reg_pair(&mut self, ty: Type) -> Option<Type> {
         match ty {
-            I128 | F128 => Some(ty),
+            // On RV32, I64 requires a register pair
+            I64 | I128 | F128 => Some(ty),
             _ => None,
         }
     }
@@ -622,25 +624,26 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
         (cmp.kind, self.xreg_new(cmp.rs1), self.xreg_new(cmp.rs2))
     }
 
-    #[inline]
-    fn vstate_from_type(&mut self, ty: Type) -> VState {
-        VState::from_type(ty)
-    }
+    // NOTE: Vector support deferred to Phase 2
+    // #[inline]
+    // fn vstate_from_type(&mut self, ty: Type) -> VState {
+    //     VState::from_type(ty)
+    // }
 
-    #[inline]
-    fn vstate_mf2(&mut self, vs: VState) -> VState {
-        VState {
-            vtype: VType {
-                lmul: VecLmul::LmulF2,
-                ..vs.vtype
-            },
-            ..vs
-        }
-    }
+    // #[inline]
+    // fn vstate_mf2(&mut self, vs: VState) -> VState {
+    //     VState {
+    //         vtype: VType {
+    //             lmul: VecLmul::LmulF2,
+    //             ..vs.vtype
+    //         },
+    //         ..vs
+    //     }
+    // }
 
-    fn vec_alu_rr_dst_type(&mut self, op: &VecAluOpRR) -> Type {
-        MInst::canonical_type_for_rc(op.dst_regclass())
-    }
+    // fn vec_alu_rr_dst_type(&mut self, op: &VecAluOpRR) -> Type {
+    //     MInst::canonical_type_for_rc(op.dst_regclass())
+    // }
 
     fn bclr_imm(&mut self, ty: Type, i: u64) -> Option<Imm12> {
         // Only consider those bits in the immediate which are up to the width

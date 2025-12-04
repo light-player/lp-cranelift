@@ -3,8 +3,10 @@
 //! This crate provides:
 //! - RISC-V 32-bit emulator for testing generated code
 //! - Instruction encoding/decoding utilities
-//! - Assembly parsing and disassembly
 //! - Register and instruction definitions
+//!
+//! Note: Assembly parsing and disassembly have been removed.
+//! Use Capstone for disassembly instead.
 
 #![no_std]
 
@@ -17,10 +19,8 @@ extern crate std;
 pub mod emu;
 
 // Instruction utilities
-pub mod asm_parser;
 pub mod auipc_imm;
 pub mod decode;
-pub mod disasm;
 pub mod encode;
 pub mod format;
 pub mod inst;
@@ -29,13 +29,9 @@ pub mod register_role;
 pub mod regs;
 
 // Re-exports for convenience
-pub use emu::{
-    Riscv32Emulator, StepResult, SyscallInfo,
-    EmulatorError, MemoryAccessKind,
-    InstLog, LogLevel,
-};
-pub use regs::Gpr;
-pub use inst::Inst;
 pub use decode::decode_instruction;
-pub use disasm::disassemble_instruction;
-pub use asm_parser::assemble_code;
+pub use emu::{
+    EmulatorError, InstLog, LogLevel, MemoryAccessKind, Riscv32Emulator, StepResult, SyscallInfo,
+};
+pub use inst::Inst;
+pub use regs::Gpr;

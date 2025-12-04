@@ -688,11 +688,7 @@ impl AluOPRRR {
             Self::Sra => "sra",
             Self::Or => "or",
             Self::And => "and",
-            Self::Addw => "addw",
-            Self::Subw => "subw",
-            Self::Sllw => "sllw",
-            Self::Srlw => "srlw",
-            Self::Sraw => "sraw",
+            // Note: RV64 *w instructions removed
             Self::Mul => "mul",
             Self::Mulh => "mulh",
             Self::Mulhsu => "mulhsu",
@@ -701,11 +697,7 @@ impl AluOPRRR {
             Self::DivU => "divu",
             Self::Rem => "rem",
             Self::RemU => "remu",
-            Self::Mulw => "mulw",
-            Self::Divw => "divw",
-            Self::Divuw => "divuw",
-            Self::Remw => "remw",
-            Self::Remuw => "remuw",
+            // Note: RV64M *w instructions removed
             Self::Adduw => "add.uw",
             Self::Andn => "andn",
             Self::Bclr => "bclr",
@@ -721,9 +713,9 @@ impl AluOPRRR {
             Self::Minu => "minu",
             Self::Orn => "orn",
             Self::Rol => "rol",
-            Self::Rolw => "rolw",
+            // Note: RV64 Rolw removed
             Self::Ror => "ror",
-            Self::Rorw => "rorw",
+            // Note: RV64 Rorw removed
             Self::Sh1add => "sh1add",
             Self::Sh1adduw => "sh1add.uw",
             Self::Sh2add => "sh2add",
@@ -732,7 +724,7 @@ impl AluOPRRR {
             Self::Sh3adduw => "sh3add.uw",
             Self::Xnor => "xnor",
             Self::Pack => "pack",
-            Self::Packw => "packw",
+            // Note: RV64 Packw removed
             Self::Packh => "packh",
             Self::CzeroEqz => "czero.eqz",
             Self::CzeroNez => "czero.nez",
@@ -754,11 +746,7 @@ impl AluOPRRR {
             AluOPRRR::And => 0b111,
             AluOPRRR::Sub => 0b000,
 
-            AluOPRRR::Addw => 0b000,
-            AluOPRRR::Subw => 0b000,
-            AluOPRRR::Sllw => 0b001,
-            AluOPRRR::Srlw => 0b101,
-            AluOPRRR::Sraw => 0b101,
+            // Note: RV64-specific *w instructions removed (Addw, Subw, Sllw, Srlw, Sraw)
 
             AluOPRRR::Mul => 0b000,
             AluOPRRR::Mulh => 0b001,
@@ -769,11 +757,7 @@ impl AluOPRRR {
             AluOPRRR::Rem => 0b110,
             AluOPRRR::RemU => 0b111,
 
-            AluOPRRR::Mulw => 0b000,
-            AluOPRRR::Divw => 0b100,
-            AluOPRRR::Divuw => 0b101,
-            AluOPRRR::Remw => 0b110,
-            AluOPRRR::Remuw => 0b111,
+            // Note: RV64M *w instructions removed (Mulw, Divw, Divuw, Remw, Remuw)
 
             // Zbb
             AluOPRRR::Adduw => 0b000,
@@ -791,9 +775,9 @@ impl AluOPRRR {
             AluOPRRR::Minu => 0b101,
             AluOPRRR::Orn => 0b110,
             AluOPRRR::Rol => 0b001,
-            AluOPRRR::Rolw => 0b001,
+            // Note: RV64 Rolw removed
             AluOPRRR::Ror => 0b101,
-            AluOPRRR::Rorw => 0b101,
+            // Note: RV64 Rorw removed
             AluOPRRR::Sh1add => 0b010,
             AluOPRRR::Sh1adduw => 0b010,
             AluOPRRR::Sh2add => 0b100,
@@ -804,7 +788,7 @@ impl AluOPRRR {
 
             // Zbkb
             AluOPRRR::Pack => 0b100,
-            AluOPRRR::Packw => 0b100,
+            // Note: RV64 Packw removed
             AluOPRRR::Packh => 0b111,
 
             // ZiCond
@@ -830,12 +814,7 @@ impl AluOPRRR {
             | AluOPRRR::Pack
             | AluOPRRR::Packh => 0b0110011,
 
-            AluOPRRR::Addw
-            | AluOPRRR::Subw
-            | AluOPRRR::Sllw
-            | AluOPRRR::Srlw
-            | AluOPRRR::Sraw
-            | AluOPRRR::Packw => 0b0111011,
+            // Note: RV64-specific *w instructions removed - they use opcode 0b0111011 (OP-32) on RV64
 
             AluOPRRR::Mul
             | AluOPRRR::Mulh
@@ -846,11 +825,7 @@ impl AluOPRRR {
             | AluOPRRR::Rem
             | AluOPRRR::RemU => 0b0110011,
 
-            AluOPRRR::Mulw
-            | AluOPRRR::Divw
-            | AluOPRRR::Divuw
-            | AluOPRRR::Remw
-            | AluOPRRR::Remuw => 0b0111011,
+            // Note: RV64M *w instructions removed (opcode 0b0111011 = OP-32)
 
             AluOPRRR::Adduw => 0b0111011,
             AluOPRRR::Andn
@@ -875,9 +850,8 @@ impl AluOPRRR {
             | AluOPRRR::CzeroEqz
             | AluOPRRR::CzeroNez => 0b0110011,
 
-            AluOPRRR::Rolw
-            | AluOPRRR::Rorw
-            | AluOPRRR::Sh2adduw
+            // Note: RV64 Rolw, Rorw removed
+            AluOPRRR::Sh2adduw
             | AluOPRRR::Sh3adduw
             | AluOPRRR::Sh1adduw => 0b0111011,
         }
@@ -899,11 +873,7 @@ impl AluOPRRR {
             AluOPRRR::Or => 0b0000000,
             AluOPRRR::And => 0b0000000,
 
-            AluOPRRR::Addw => 0b0000000,
-            AluOPRRR::Subw => 0b0100000,
-            AluOPRRR::Sllw => 0b0000000,
-            AluOPRRR::Srlw => 0b0000000,
-            AluOPRRR::Sraw => 0b0100000,
+            // Note: RV64-specific *w instructions removed (Addw, Subw, Sllw, Srlw, Sraw)
 
             AluOPRRR::Mul => 0b0000001,
             AluOPRRR::Mulh => 0b0000001,
@@ -914,11 +884,8 @@ impl AluOPRRR {
             AluOPRRR::Rem => 0b0000001,
             AluOPRRR::RemU => 0b0000001,
 
-            AluOPRRR::Mulw => 0b0000001,
-            AluOPRRR::Divw => 0b0000001,
-            AluOPRRR::Divuw => 0b0000001,
-            AluOPRRR::Remw => 0b0000001,
-            AluOPRRR::Remuw => 0b0000001,
+            // Note: RV64M *w instructions removed (Mulw, Divw, Divuw, Remw, Remuw)
+
             AluOPRRR::Adduw => 0b0000100,
             AluOPRRR::Andn => 0b0100000,
             AluOPRRR::Bclr => 0b0100100,
@@ -933,10 +900,9 @@ impl AluOPRRR {
             AluOPRRR::Min => 0b0000101,
             AluOPRRR::Minu => 0b0000101,
             AluOPRRR::Orn => 0b0100000,
+            // Note: RV64 Rolw, Rorw removed
             AluOPRRR::Rol => 0b0110000,
-            AluOPRRR::Rolw => 0b0110000,
             AluOPRRR::Ror => 0b0110000,
-            AluOPRRR::Rorw => 0b0110000,
             AluOPRRR::Sh1add => 0b0010000,
             AluOPRRR::Sh1adduw => 0b0010000,
             AluOPRRR::Sh2add => 0b0010000,
@@ -947,7 +913,7 @@ impl AluOPRRR {
 
             // Zbkb
             AluOPRRR::Pack => 0b0000100,
-            AluOPRRR::Packw => 0b0000100,
+            // Note: RV64 Packw removed
             AluOPRRR::Packh => 0b0000100,
 
             // ZiCond
@@ -982,14 +948,8 @@ impl AluOPRRI {
     }
 
     pub(crate) fn option_funct7(self) -> Option<u32> {
-        let x = match self {
-            Self::Slliw => Some(0b000_0000),
-            Self::SrliW => Some(0b000_0000),
-            Self::Sraiw => Some(0b010_0000),
-            Self::Roriw => Some(0b0110000),
-            _ => None,
-        };
-        x
+        // Note: RV64 *w instructions removed (Slliw, SrliW, Sraiw, Roriw)
+        None
     }
 
     pub(crate) fn imm12(self, imm12: Imm12) -> u32 {
@@ -1008,11 +968,11 @@ impl AluOPRRI {
     pub(crate) fn option_funct12(self) -> Option<u32> {
         match self {
             Self::Clz => Some(0b011000000000),
-            Self::Clzw => Some(0b011000000000),
+            // Note: RV64 Clzw removed
             Self::Cpop => Some(0b011000000010),
-            Self::Cpopw => Some(0b011000000010),
+            // Note: RV64 Cpopw removed
             Self::Ctz => Some(0b011000000001),
-            Self::Ctzw => Some(0b011000000001),
+            // Note: RV64 Ctzw removed
             Self::Rev8 => Some(0b011010111000),
             Self::Sextb => Some(0b011000000100),
             Self::Sexth => Some(0b011000000101),
@@ -1034,23 +994,20 @@ impl AluOPRRI {
             Self::Slli => "slli",
             Self::Srli => "srli",
             Self::Srai => "srai",
-            Self::Addiw => "addiw",
-            Self::Slliw => "slliw",
-            Self::SrliW => "srliw",
-            Self::Sraiw => "sraiw",
+            // Note: RV64 *w instructions removed (Addiw, Slliw, SrliW, Sraiw)
             Self::Bclri => "bclri",
             Self::Bexti => "bexti",
             Self::Binvi => "binvi",
             Self::Bseti => "bseti",
             Self::Rori => "rori",
-            Self::Roriw => "roriw",
+            // Note: RV64 Roriw removed
             Self::SlliUw => "slli.uw",
             Self::Clz => "clz",
-            Self::Clzw => "clzw",
+            // Note: RV64 Clzw removed
             Self::Cpop => "cpop",
-            Self::Cpopw => "cpopw",
+            // Note: RV64 Cpopw removed
             Self::Ctz => "ctz",
-            Self::Ctzw => "ctzw",
+            // Note: RV64 Ctzw removed
             Self::Rev8 => "rev8",
             Self::Sextb => "sext.b",
             Self::Sexth => "sext.h",
@@ -1071,23 +1028,20 @@ impl AluOPRRI {
             AluOPRRI::Slli => 0b001,
             AluOPRRI::Srli => 0b101,
             AluOPRRI::Srai => 0b101,
-            AluOPRRI::Addiw => 0b000,
-            AluOPRRI::Slliw => 0b001,
-            AluOPRRI::SrliW => 0b101,
-            AluOPRRI::Sraiw => 0b101,
+            // Note: RV64 *w instructions removed (Addiw, Slliw, SrliW, Sraiw)
             AluOPRRI::Bclri => 0b001,
             AluOPRRI::Bexti => 0b101,
             AluOPRRI::Binvi => 0b001,
             AluOPRRI::Bseti => 0b001,
             AluOPRRI::Rori => 0b101,
-            AluOPRRI::Roriw => 0b101,
+            // Note: RV64 Roriw removed
             AluOPRRI::SlliUw => 0b001,
             AluOPRRI::Clz => 0b001,
-            AluOPRRI::Clzw => 0b001,
+            // Note: RV64 Clzw removed
             AluOPRRI::Cpop => 0b001,
-            AluOPRRI::Cpopw => 0b001,
+            // Note: RV64 Cpopw removed
             AluOPRRI::Ctz => 0b001,
-            AluOPRRI::Ctzw => 0b001,
+            // Note: RV64 Ctzw removed
             AluOPRRI::Rev8 => 0b101,
             AluOPRRI::Sextb => 0b001,
             AluOPRRI::Sexth => 0b001,
@@ -1122,15 +1076,8 @@ impl AluOPRRI {
             | AluOPRRI::Orcb
             | AluOPRRI::Brev8 => 0b0010011,
 
-            AluOPRRI::Addiw
-            | AluOPRRI::Slliw
-            | AluOPRRI::SrliW
-            | AluOPRRI::Sraiw
-            | AluOPRRI::Roriw
-            | AluOPRRI::SlliUw
-            | AluOPRRI::Clzw
-            | AluOPRRI::Cpopw
-            | AluOPRRI::Ctzw => 0b0011011,
+            // Note: RV64 *w instructions removed, SlliUw kept (Zba extension)
+            AluOPRRI::SlliUw => 0b0011011,
             AluOPRRI::Zexth => 0b0111011,
         }
     }
@@ -1719,8 +1666,7 @@ impl CaOp {
             CaOp::COr => 0b10,
             CaOp::CXor => 0b01,
             CaOp::CSub => 0b00,
-            CaOp::CAddw => 0b01,
-            CaOp::CSubw => 0b00,
+            // Note: RV64 CAddw, CSubw removed
             CaOp::CMul => 0b10,
         }
     }
@@ -1729,7 +1675,8 @@ impl CaOp {
         // https://github.com/michaeljclark/riscv-meta/blob/master/opcodes
         match self {
             CaOp::CAnd | CaOp::COr | CaOp::CXor | CaOp::CSub => 0b100_011,
-            CaOp::CSubw | CaOp::CAddw | CaOp::CMul => 0b100_111,
+            // Note: RV64 CAddw, CSubw removed
+            CaOp::CMul => 0b100_111,
         }
     }
 
@@ -1740,8 +1687,7 @@ impl CaOp {
             | CaOp::COr
             | CaOp::CXor
             | CaOp::CSub
-            | CaOp::CAddw
-            | CaOp::CSubw
+            // Note: RV64 CAddw, CSubw removed
             | CaOp::CMul => COpcodeSpace::C1,
         }
     }
@@ -1768,7 +1714,8 @@ impl CiOp {
         // https://github.com/michaeljclark/riscv-meta/blob/master/opcodes
         match self {
             CiOp::CAddi | CiOp::CSlli => 0b000,
-            CiOp::CAddiw | CiOp::CFldsp => 0b001,
+            // Note: RV64 CAddiw removed
+            CiOp::CFldsp => 0b001,
             CiOp::CLi | CiOp::CLwsp => 0b010,
             CiOp::CAddi16sp | CiOp::CLui | CiOp::CLdsp => 0b011,
         }
@@ -1777,7 +1724,8 @@ impl CiOp {
     pub fn op(&self) -> COpcodeSpace {
         // https://five-embeddev.com/riscv-isa-manual/latest/rvc-opcode-map.html#rvcopcodemap
         match self {
-            CiOp::CAddi | CiOp::CAddiw | CiOp::CAddi16sp | CiOp::CLi | CiOp::CLui => {
+            // Note: RV64 CAddiw removed
+            CiOp::CAddi | CiOp::CAddi16sp | CiOp::CLi | CiOp::CLui => {
                 COpcodeSpace::C1
             }
             CiOp::CSlli | CiOp::CLwsp | CiOp::CLdsp | CiOp::CFldsp => COpcodeSpace::C2,

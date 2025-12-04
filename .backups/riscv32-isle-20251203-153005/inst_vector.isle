@@ -1,0 +1,82 @@
+;; RISC-V 32-bit Vector Extension support (RVV)
+;;
+;; NOTE: Vector support is currently deferred to a later phase.
+;; This file contains only minimal type definitions to satisfy the build system.
+;; Actual vector instruction support will be added in a future phase.
+
+;; Represents the possible widths of an element when used in an operation.
+(type VecElementWidth (enum
+  (E8)
+  (E16)
+  (E32)
+  (E64)
+))
+
+;; Vector Register Group Multiplier (LMUL)
+(type VecLmul (enum
+  (LmulF8)
+  (LmulF4)
+  (LmulF2)
+  (Lmul1)
+  (Lmul2)
+  (Lmul4)
+  (Lmul8)
+))
+
+;; Tail Mode
+(type VecTailMode (enum
+  (Agnostic)
+  (Undisturbed)
+))
+
+;; Mask Mode
+(type VecMaskMode (enum
+  (Agnostic)
+  (Undisturbed)
+))
+
+;; Application Vector Length (AVL)
+(type VecAvl (enum
+  (Static (size UImm5))
+))
+
+(type VType (primitive VType))
+(type VState (primitive VState))
+
+;; Vector Opcode Category
+(type VecOpCategory (enum
+  (OPIVV)
+  (OPFVV)
+  (OPMVV)
+  (OPIVI)
+  (OPIVX)
+  (OPFVF)
+  (OPMVX)
+  (OPCFG)
+))
+
+;; Vector Opcode Masking
+(type VecOpMasking (enum
+  (Enabled (reg Reg))
+  (Disabled)
+))
+
+(decl pure masked (VReg) VecOpMasking)
+(rule (masked reg) (VecOpMasking.Enabled reg))
+
+(decl pure unmasked () VecOpMasking)
+(rule (unmasked) (VecOpMasking.Disabled))
+
+;; Vector Addressing Mode
+(type VecAMode (enum
+  (UnitStride
+    (base AMode))
+))
+
+;; Minimal vector operation enums (empty for now - will be populated in later phases)
+(type VecAluOpRRRR (enum))
+(type VecAluOpRRRImm5 (enum))
+(type VecAluOpRRR (enum))
+(type VecAluOpRRImm5 (enum))
+(type VecAluOpRR (enum))
+(type VecAluOpRImm5 (enum))

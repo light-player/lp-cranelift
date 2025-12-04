@@ -16,6 +16,7 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module, ModuleError};
 use cranelift_native::builder_with_options;
 use cranelift_reader::TestFile;
+use lp_riscv_tools::Riscv32Emulator;
 use pulley_interpreter::interp as pulley;
 use std::cell::Cell;
 use std::cmp::max;
@@ -456,6 +457,59 @@ impl<'a> Trampoline<'a> {
                         ],
                         [],
                     );
+                }
+            }
+
+            // For riscv32, use the emulator to execute the machine code.
+            Architecture::Riscv32 { .. } => {
+                // Convert arguments from u128 array to DataValues
+                let mut args = Vec::new();
+                let mut arg_idx = 0;
+                for param in &self.func_signature.params {
+                    let arg_value = unsafe { *arguments_address.add(arg_idx) };
+                    let data_value = match param.value_type {
+                        ir::types::I8 => DataValue::I8(arg_value as i8),
+                        ir::types::I16 => DataValue::I16(arg_value as i16),
+                        ir::types::I32 => DataValue::I32(arg_value as i32),
+                        ir::types::I64 => DataValue::I64(arg_value as i64),
+                        ir::types::I128 => DataValue::I128(arg_value as i128),
+                        _ => panic!("Unsupported argument type: {:?}", param.value_type),
+                    };
+                    args.push(data_value);
+                    arg_idx += 1;
+                }
+
+                // Get the machine code for the function
+                // Note: For now, we'll use a simplified approach assuming the function
+                // starts at function_ptr. In a real implementation, we'd need to extract
+                // the actual code size and bytes from the JIT module.
+                let code_size = 1024; // TODO: Get actual code size
+                let code_slice = unsafe { std::slice::from_raw_parts(function_ptr, code_size) };
+
+                // Create emulator with code and RAM
+                let mut emu = Riscv32Emulator::new(
+                    code_slice.to_vec(),
+                    vec![0; 4096], // 4KB RAM
+                );
+
+                // Call the function via emulator
+                let results = emu
+                    .call_function(0, &args, &self.func_signature)
+                    .expect("Emulator execution failed");
+
+                // Write results back to arguments_address
+                for (i, result) in results.iter().enumerate() {
+                    let result_value = match result {
+                        DataValue::I8(v) => *v as u128,
+                        DataValue::I16(v) => *v as u128,
+                        DataValue::I32(v) => *v as u128,
+                        DataValue::I64(v) => *v as u128,
+                        DataValue::I128(v) => *v as u128,
+                        _ => panic!("Unsupported return type: {:?}", result),
+                    };
+                    unsafe {
+                        *arguments_address.add(i) = result_value;
+                    }
                 }
             }
 
