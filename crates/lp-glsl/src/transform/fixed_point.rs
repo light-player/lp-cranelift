@@ -428,6 +428,37 @@ fn convert_fdiv(
     Ok(())
 }
 
+/// Convert Fneg to Ineg (fixed-point negation is direct integer negation)
+fn convert_fneg(
+    func: &mut Function,
+    inst: Inst,
+    _format: FixedPointFormat,
+    value_map: &mut ValueMap<Value, Value>,
+) -> Result<(), TransformError> {
+    use cranelift_codegen::ir::InstructionData;
+    use cranelift_codegen::cursor::{Cursor, FuncCursor};
+    
+    let inst_data = &func.dfg.insts[inst];
+    if let InstructionData::Unary { opcode: _, arg } = inst_data {
+        let arg = *value_map.get(arg).unwrap_or(arg);
+        let old_result = func.dfg.first_result(inst);
+        
+        // Create new ineg instruction
+        let mut cursor = FuncCursor::new(func).at_inst(inst);
+        let new_result = cursor.ins().ineg(arg);
+        
+        // Add to value map
+        value_map.insert(old_result, new_result);
+        
+        // Detach and remove old instruction
+        cursor.func.dfg.detach_inst_results(inst);
+        cursor.goto_inst(inst);
+        cursor.remove_inst();
+    }
+    
+    Ok(())
+}
+
 /// Convert Fcmp to Icmp with appropriate condition code
 fn convert_fcmp(
     func: &mut Function,
@@ -574,6 +605,7 @@ fn convert_instruction(
         Opcode::Fmul => convert_fmul(func, inst, format, value_map)?,
         Opcode::Fdiv => convert_fdiv(func, inst, format, value_map)?,
         Opcode::Fcmp => convert_fcmp(func, inst, format, value_map)?,
+        Opcode::Fneg => convert_fneg(func, inst, format, value_map)?,
         Opcode::Load => convert_load(func, inst, format, value_map)?,
         Opcode::Store => convert_store(func, inst, format, value_map)?,
         _ => {

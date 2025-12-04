@@ -9,7 +9,7 @@ use alloc::string::String;
 /// High-level compiler interface
 #[cfg(feature = "std")]
 pub struct Compiler {
-    jit: JIT,
+    pub jit: JIT,
 }
 
 #[cfg(feature = "std")]
@@ -20,8 +20,7 @@ impl Compiler {
 
     /// Set the fixed-point format for float-to-fixed transformation
     pub fn set_fixed_point_format(&mut self, format: Option<crate::FixedPointFormat>) {
-        //self.jit.fixed_point_format = format;
-        let _ = format; // Suppress unused warning
+        self.jit.fixed_point_format = format;
     }
 
     /// Compile GLSL shader that returns i32
