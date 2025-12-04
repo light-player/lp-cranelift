@@ -1,8 +1,9 @@
 // test error
 
-float main() {
-    return sign();  // ERROR: wrong argument count
+int main() {
+    float x = sign();  // ERROR: wrong argument count
+    return 0;
 }
 
-// error: No matching overload
+// EXPECT_ERROR: No matching overload for sign
 

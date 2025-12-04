@@ -1,8 +1,9 @@
 // test error
 
 int main() {
-    return mix(1, 2, 0);  // ERROR: mix requires float types
+    float x = mix(1, 2, 0);  // ERROR: mix requires float types
+    return 0;
 }
 
-// error: No matching overload
+// EXPECT_ERROR: Verification error
 

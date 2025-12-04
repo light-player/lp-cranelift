@@ -1,8 +1,9 @@
 // test error
 
-float main() {
-    return mix(1.0, 2.0);  // ERROR: wrong argument count
+int main() {
+    float x = mix(1.0, 2.0);  // ERROR: wrong argument count
+    return 0;
 }
 
-// error: No matching overload
+// EXPECT_ERROR: No matching overload for mix
 

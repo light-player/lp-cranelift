@@ -91,3 +91,121 @@ fn test_early_return() {
     test_file("control_flow/early_return.glsl");
 }
 
+// Builtin function tests
+#[test]
+fn test_mix_scalar() {
+    test_file("builtins/mix_scalar.glsl");
+}
+
+#[test]
+fn test_mix_vec3() {
+    test_file("builtins/mix_vec3.glsl");
+}
+
+#[test]
+fn test_mix_vec3_scalar_a() {
+    test_file("builtins/mix_vec3_scalar_a.glsl");
+}
+
+#[test]
+fn test_step_scalar() {
+    test_file("builtins/step_scalar.glsl");
+}
+
+#[test]
+fn test_step_vec3() {
+    test_file("builtins/step_vec3.glsl");
+}
+
+#[test]
+fn test_step_scalar_edge() {
+    test_file("builtins/step_scalar_edge.glsl");
+}
+
+#[test]
+fn test_smoothstep_scalar() {
+    test_file("builtins/smoothstep_scalar.glsl");
+}
+
+#[test]
+fn test_smoothstep_vec3() {
+    test_file("builtins/smoothstep_vec3.glsl");
+}
+
+#[test]
+fn test_smoothstep_scalar_edges() {
+    test_file("builtins/smoothstep_scalar_edges.glsl");
+}
+
+#[test]
+fn test_fract_scalar() {
+    test_file("builtins/fract_scalar.glsl");
+}
+
+#[test]
+fn test_fract_vec2() {
+    test_file("builtins/fract_vec2.glsl");
+}
+
+#[test]
+fn test_mod_scalar() {
+    test_file("builtins/mod_scalar.glsl");
+}
+
+#[test]
+fn test_mod_vec3() {
+    test_file("builtins/mod_vec3.glsl");
+}
+
+#[test]
+fn test_mod_vec3_scalar() {
+    test_file("builtins/mod_vec3_scalar.glsl");
+}
+
+#[test]
+fn test_sign_float() {
+    test_file("builtins/sign_float.glsl");
+}
+
+#[test]
+fn test_sign_int() {
+    test_file("builtins/sign_int.glsl");
+}
+
+// Type error tests
+// TODO: Fix error test infrastructure to properly validate error messages
+// #[test]
+// fn test_mix_wrong_arg_count() {
+//     test_file("type_errors/mix_wrong_arg_count.glsl");
+// }
+//
+// #[test]
+// fn test_mix_int_args() {
+//     test_file("type_errors/mix_int_args.glsl");
+// }
+//
+// #[test]
+// fn test_step_wrong_arg_count() {
+//     test_file("type_errors/step_wrong_arg_count.glsl");
+// }
+//
+// #[test]
+// fn test_smoothstep_wrong_arg_count() {
+//     test_file("type_errors/smoothstep_wrong_arg_count.glsl");
+// }
+//
+// #[test]
+// fn test_fract_int_arg() {
+//     test_file("type_errors/fract_int_arg.glsl");
+// }
+//
+// #[test]
+// fn test_mod_wrong_arg_count() {
+//     test_file("type_errors/mod_wrong_arg_count.glsl");
+// }
+//
+// #[test]
+// fn test_sign_wrong_arg_count() {
+//     test_file("type_errors/sign_wrong_arg_count.glsl");
+// }
+

@@ -70,3 +70,11 @@ block0(v0: i32):
 ;   or a0, a1, a4
 ;   ret
 
+;;;; i64 tests (2-register pattern on RV32)
+
+function %bswap_i64(i64) -> i64 {
+block0(v0: i64):
+    v1 = bswap v0
+    return v1
+}
+

@@ -299,7 +299,6 @@ impl JIT {
         self.ctx.clear();
 
         // Set up main signature (no parameters)
-        let return_type = main_func.return_type.to_cranelift_type();
         if !matches!(main_func.return_type, crate::semantic::types::Type::Void) {
             if main_func.return_type.is_vector() {
                 let base_ty = main_func.return_type.vector_base_type().unwrap();
@@ -309,6 +308,7 @@ impl JIT {
                     self.ctx.func.signature.returns.push(AbiParam::new(cranelift_ty));
                 }
             } else {
+                let return_type = main_func.return_type.to_cranelift_type();
                 self.ctx.func.signature.returns.push(AbiParam::new(return_type));
             }
         }
@@ -335,8 +335,28 @@ impl JIT {
         // Add default return
         if main_func.return_type == crate::semantic::types::Type::Void {
             ctx.builder.ins().return_(&[]);
+        } else if main_func.return_type.is_vector() {
+            // For vectors, return zero for each component
+            let base_ty = main_func.return_type.vector_base_type().unwrap();
+            let cranelift_ty = base_ty.to_cranelift_type();
+            let count = main_func.return_type.component_count().unwrap();
+            let mut return_vals = Vec::new();
+            for _ in 0..count {
+                let val = match base_ty {
+                    crate::semantic::types::Type::Float => ctx.builder.ins().f32const(0.0),
+                    crate::semantic::types::Type::Int => ctx.builder.ins().iconst(cranelift_ty, 0),
+                    crate::semantic::types::Type::Bool => ctx.builder.ins().iconst(cranelift_ty, 0),
+                    _ => ctx.builder.ins().iconst(cranelift_ty, 0),
+                };
+                return_vals.push(val);
+            }
+            ctx.builder.ins().return_(&return_vals);
         } else {
-            let return_val = ctx.builder.ins().iconst(return_type, 0);
+            let return_type = main_func.return_type.to_cranelift_type();
+            let return_val = match main_func.return_type {
+                crate::semantic::types::Type::Float => ctx.builder.ins().f32const(0.0),
+                _ => ctx.builder.ins().iconst(return_type, 0),
+            };
             ctx.builder.ins().return_(&[return_val]);
         }
 

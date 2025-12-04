@@ -66,3 +66,170 @@ block0:
 ;   addi a0, zero, 0x2a
 ;   ret
 
+;;;; i64 tests (2-register pattern on RV32)
+
+function %f1_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = iadd.i64 v0, v1
+  return v2
+}
+
+function %f2_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = isub.i64 v0, v1
+  return v2
+}
+
+function %f3_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = imul.i64 v0, v1
+  return v2
+}
+
+function %f4_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = umulhi.i64 v0, v1
+  return v2
+}
+
+function %f5_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = smulhi.i64 v0, v1
+  return v2
+}
+
+function %f6_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = sdiv.i64 v0, v1
+  return v2
+}
+
+function %f7_i64(i64) -> i64 {
+block0(v0: i64):
+  v1 = iconst.i64 2
+  v2 = sdiv.i64 v0, v1
+  return v2
+}
+
+function %f8_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = udiv.i64 v0, v1
+  return v2
+}
+
+function %f9_i64(i64) -> i64 {
+block0(v0: i64):
+  v1 = iconst.i64 2
+  v2 = udiv.i64 v0, v1
+  return v2
+}
+
+function %f10_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = srem.i64 v0, v1
+  return v2
+}
+
+function %f11_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = urem.i64 v0, v1
+  return v2
+}
+
+function %f18_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = band.i64 v0, v1
+  return v2
+}
+
+function %f19_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = bor.i64 v0, v1
+  return v2
+}
+
+function %f20_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = bxor.i64 v0, v1
+  return v2
+}
+
+function %f21_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = band_not.i64 v0, v1
+  return v2
+}
+
+function %f22_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = bor_not.i64 v0, v1
+  return v2
+}
+
+function %f23_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = bxor_not.i64 v0, v1
+  return v2
+}
+
+function %f24_i64(i64) -> i64 {
+block0(v0: i64):
+  v2 = bnot.i64 v0
+  return v2
+}
+
+function %f28_i64(i64) -> i64 {
+block0(v0: i64):
+  v1 = iconst.i64 -1
+  v2 = isub.i64 v0, v1
+  return v2
+}
+
+function %f29_i64() -> i64 {
+block0:
+  v1 = iconst.i64 1
+  v2 = ineg v1
+  return v2
+}
+
+function %msub_i64(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+    v3 = imul v1, v2
+    v4 = isub v0, v3
+    return v4
+}
+
+function %imul_sub_i64(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+    v3 = imul v1, v2
+    v4 = isub v3, v0
+    return v4
+}
+
+function %srem_const_i64(i64) -> i64 {
+block0(v0: i64):
+  v1 = iconst.i64 2
+  v2 = srem.i64 v0, v1
+  return v2
+}
+
+function %urem_const_i64(i64) -> i64 {
+block0(v0: i64):
+  v1 = iconst.i64 2
+  v2 = urem.i64 v0, v1
+  return v2
+}
+
+function %sdiv_minus_one_i64(i64) -> i64 {
+block0(v0: i64):
+  v1 = iconst.i64 -1
+  v2 = sdiv.i64 v0, v1
+  return v2
+}
+
+function %imul_i64_const(i64) -> i64 {
+block0(v0: i64):
+    v3 = imul_imm v0, 97
+    return v3
+}
+

@@ -1,8 +1,9 @@
 // test error
 
 int main() {
-    return fract(5);  // ERROR: fract requires float type
+    float x = fract(5);  // ERROR: fract requires float type
+    return 0;
 }
 
-// error: No matching overload
+// EXPECT_ERROR: No matching overload for fract
 

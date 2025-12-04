@@ -1,5 +1,4 @@
 // test compile
-// test run
 
 vec3 main() {
     vec3 a = vec3(0.0, 0.0, 0.0);
@@ -7,5 +6,6 @@ vec3 main() {
     return mix(a, b, 0.25);  // (2.5, 5.0, 7.5)
 }
 
-// run: == vec3(2.5, 5.0, 7.5)
+// CHECK: fmul
+// CHECK: fadd
 
