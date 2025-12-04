@@ -10,7 +10,6 @@ workspace = true
 [dependencies]
 lp-glsl = { path = "../lp-glsl", features = ["std"] }
 anyhow = { workspace = true }
-filecheck = { workspace = true }
 
 [[test]]
 name = "filetests"

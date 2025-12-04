@@ -9,5 +9,5 @@ int main() {
     return 0;
 }
 
-// EXPECT_ERROR: Comparison.*requires.*numeric operands
+// EXPECT_ERROR: Comparison operator Equal requires numeric operands, got Int and Bool
 

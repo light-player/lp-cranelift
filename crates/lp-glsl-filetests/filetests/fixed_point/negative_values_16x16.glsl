@@ -7,7 +7,15 @@ float main() {
     return a + b;
 }
 
-// CHECK: iconst.i32 -360448
-// CHECK: iconst.i32 147456
-// CHECK: iadd
-
+// function u0:0() -> i32 fast {
+// block0:
+//     v5 = iconst.i32 0x0005_8000
+//     v6 = ineg v5  ; v5 = 0x0005_8000
+//     v7 = iconst.i32 0x0002_4000
+//     v8 = iadd v6, v7  ; v7 = 0x0002_4000
+//     return v8
+//
+// block1:
+//     v9 = iconst.i32 0
+//     return v9  ; v9 = 0
+// }

@@ -29,15 +29,15 @@ pub fn run_filetest(path: &Path) -> Result<()> {
     let glsl_source = extract_glsl_source(&source);
     
     if test_error {
-        crate::test_error::run_test(&source, &glsl_source)?;
+        crate::test_error::run_test(path, &source, &glsl_source)?;
     }
     
     if test_compile {
-        crate::test_compile::run_test(&source, &glsl_source, fixed_point_format)?;
+        crate::test_compile::run_test(path, &source, &glsl_source, fixed_point_format)?;
     }
     
     if test_run {
-        crate::test_run::run_test(&source, &glsl_source, fixed_point_format)?;
+        crate::test_run::run_test(path, &source, &glsl_source, fixed_point_format)?;
     }
     
     if !test_compile && !test_run && !test_error {

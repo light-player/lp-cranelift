@@ -5,5 +5,5 @@ int main() {
     return x;
 }
 
-// EXPECT_ERROR: cannot assign.*Float.*to.*Int
+// EXPECT_ERROR: Type mismatch in initialization: expected Int, got Float
 

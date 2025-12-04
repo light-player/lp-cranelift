@@ -7,9 +7,19 @@ float main() {
     return a / b;
 }
 
-// CHECK: sextend.i128
-// CHECK: iconst.i64 32
-// CHECK: ishl
-// CHECK: sdiv
-// CHECK: ireduce.i64
-
+// function u0:0() -> i64 fast {
+// block0:
+//     v4 = iconst.i64 0x000a_0000_0000
+//     v5 = iconst.i64 0x0004_0000_0000
+//     v6 = sextend.i128 v4  ; v4 = 0x000a_0000_0000
+//     v7 = iconst.i64 32
+//     v8 = ishl v6, v7  ; v7 = 32
+//     v9 = sextend.i128 v5  ; v5 = 0x0004_0000_0000
+//     v10 = sdiv v8, v9
+//     v11 = ireduce.i64 v10
+//     return v11
+//
+// block1:
+//     v12 = iconst.i64 0
+//     return v12  ; v12 = 0
+// }

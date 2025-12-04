@@ -6,5 +6,5 @@ int main() {
     return 1;
 }
 
-// EXPECT_ERROR: Component assignment requires scalar RHS
+// EXPECT_ERROR: Swizzle assignment size mismatch: 1 components on LHS, 2 on RHS
 

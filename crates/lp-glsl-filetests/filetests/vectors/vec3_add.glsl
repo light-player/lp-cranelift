@@ -8,6 +8,22 @@ int main() {
     return 1;
 }
 
-// CHECK: fadd
+// function u0:0() -> i32 fast {
+// block0:
+//     v0 = f32const 0x1.000000p0
+//     v1 = f32const 0x1.000000p1
+//     v2 = f32const 0x1.800000p1
+//     v3 = f32const 0x1.000000p2
+//     v4 = f32const 0x1.400000p2
+//     v5 = f32const 0x1.800000p2
+//     v6 = fadd v0, v3  ; v0 = 0x1.000000p0, v3 = 0x1.000000p2
+//     v7 = fadd v1, v4  ; v1 = 0x1.000000p1, v4 = 0x1.400000p2
+//     v8 = fadd v2, v5  ; v2 = 0x1.800000p1, v5 = 0x1.800000p2
+//     v9 = iconst.i32 1
+//     return v9  ; v9 = 1
+//
+// block1:
+//     v10 = iconst.i32 0
+//     return v10  ; v10 = 0
+// }
 // run: == 1
-

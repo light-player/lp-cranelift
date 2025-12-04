@@ -6,5 +6,5 @@ int main() {
     return x + y;  // ERROR: cannot add int and bool
 }
 
-// EXPECT_ERROR: Arithmetic operator .* requires numeric operands
+// EXPECT_ERROR: Arithmetic operator Add requires numeric operands, got Int and Bool
 

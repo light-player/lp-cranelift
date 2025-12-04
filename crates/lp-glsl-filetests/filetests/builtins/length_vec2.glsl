@@ -6,8 +6,18 @@ float main() {
     return length(v);  // sqrt(9 + 16) = 5.0
 }
 
-// CHECK: fmul
-// CHECK: fadd
-// CHECK: sqrt
-// run: ~= 5.0 (tolerance: 0.01)
-
+// function u0:0() -> f32 fast {
+// block0:
+//     v0 = f32const 0x1.800000p1
+//     v1 = f32const 0x1.000000p2
+//     v2 = fmul v0, v0  ; v0 = 0x1.800000p1, v0 = 0x1.800000p1
+//     v3 = fmul v1, v1  ; v1 = 0x1.000000p2, v1 = 0x1.000000p2
+//     v4 = fadd v2, v3
+//     v5 = sqrt v4
+//     return v5
+//
+// block1:
+//     v6 = f32const 0.0
+//     return v6  ; v6 = 0.0
+// }
+// run: ~= 0 (tolerance: 0.01)

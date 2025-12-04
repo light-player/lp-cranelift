@@ -6,5 +6,5 @@ float main() {
     return dot(a, b);  // ERROR: size mismatch
 }
 
-// EXPECT_ERROR: No matching overload for dot
+// EXPECT_ERROR: dot() requires matching vector sizes
 

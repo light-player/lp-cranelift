@@ -9,5 +9,5 @@ int main() {
     return 0;
 }
 
-// EXPECT_ERROR: Arithmetic operator .* requires numeric operands
+// EXPECT_ERROR: Arithmetic operator Add requires numeric operands, got Bool and Bool
 

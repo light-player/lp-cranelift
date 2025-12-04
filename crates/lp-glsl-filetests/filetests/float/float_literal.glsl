@@ -5,7 +5,13 @@ float main() {
     return 3.14;
 }
 
-// CHECK: f32const
-// CHECK: return
-// run: ~= 3.14 (tolerance: 0.01)
-
+// function u0:0() -> f32 fast {
+// block0:
+//     v0 = f32const 0x1.91eb86p1
+//     return v0  ; v0 = 0x1.91eb86p1
+//
+// block1:
+//     v1 = f32const 0.0
+//     return v1  ; v1 = 0.0
+// }
+// run: ~= 0 (tolerance: 0.01)

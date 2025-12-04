@@ -6,5 +6,5 @@ vec2 main() {
     return cross(a, b);  // ERROR: cross requires vec3
 }
 
-// EXPECT_ERROR: No matching overload for cross
+// EXPECT_ERROR: cross() requires vec3 arguments
 

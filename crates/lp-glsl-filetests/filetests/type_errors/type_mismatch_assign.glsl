@@ -7,5 +7,5 @@ int main() {
     return x;
 }
 
-// EXPECT_ERROR: cannot assign.*Bool.*to.*Int
+// EXPECT_ERROR: Type mismatch: cannot assign Bool to Int
 

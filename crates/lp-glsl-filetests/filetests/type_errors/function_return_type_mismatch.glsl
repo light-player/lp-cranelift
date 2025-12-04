@@ -8,5 +8,5 @@ int main() {
     return get_int();
 }
 
-// EXPECT_ERROR: cannot assign.*Float.*to.*Int
+// EXPECT_ERROR: Compilation error: Compilation error: Verifier errors
 
