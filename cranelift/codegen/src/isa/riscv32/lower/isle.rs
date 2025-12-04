@@ -581,7 +581,8 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
     }
 
     fn gen_stack_addr(&mut self, slot: StackSlot, offset: Offset32) -> Reg {
-        let result = self.temp_writable_reg(I64);
+        // On RV32, addresses are 32-bit
+        let result = self.temp_writable_reg(I32);
         let i = self
             .lower_ctx
             .abi()
