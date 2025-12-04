@@ -2250,15 +2250,6 @@
       (_ Unit (emit (MInst.Popcnt sum step tmp rs $I32))))
     (writable_reg_to_reg sum)))
 
-(decl gen_popcnt_i32 (XReg) XReg)
-(rule (gen_popcnt_i32 rs)
-  (let
-    ((tmp WritableXReg (temp_writable_xreg))
-      (step WritableXReg (temp_writable_xreg))
-      (sum WritableXReg (temp_writable_xreg))
-      (_ Unit (emit (MInst.Popcnt sum step tmp rs $I32))))
-    (writable_reg_to_xreg sum)))
-
 ;; Generates a AMode that points to a register plus an offset.
 (decl gen_reg_offset_amode (Reg i64) AMode)
 (extern constructor gen_reg_offset_amode gen_reg_offset_amode)
