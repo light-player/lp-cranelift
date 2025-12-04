@@ -206,7 +206,8 @@ impl Inst {
             Inst::VecSetState { .. } => None,
 
             // `vmv` instructions copy a set of registers and ignore vstate.
-            Inst::VecAluRRImm5 { op: VecAluOpRRImm5::VmvrV, .. } => None,
+            // NOTE: VmvrV variant removed in Phase 1 (vector support deferred)
+            // Inst::VecAluRRImm5 { op: VecAluOpRRImm5::VmvrV, .. } => None,
 
             Inst::VecAluRR { vstate, .. } |
             Inst::VecAluRRR { vstate, .. } |
@@ -1353,16 +1354,18 @@ impl Inst {
                         rs1: rm,
                         rs2: rm,
                     },
-                    RegClass::Vector => Inst::VecAluRRImm5 {
-                        op: VecAluOpRRImm5::VmvrV,
-                        vd: rd,
-                        vs2: rm,
-                        // Imm 0 means copy 1 register.
-                        imm: Imm5::maybe_from_i8(0).unwrap(),
-                        mask: VecOpMasking::Disabled,
-                        // Vstate for this instruction is ignored.
-                        vstate: VState::from_type(ty),
-                    },
+                    // NOTE: Vector register moves deferred to Phase 2
+                    RegClass::Vector => unreachable!("Vector support deferred to Phase 2"),
+                    // RegClass::Vector => Inst::VecAluRRImm5 {
+                    //     op: VecAluOpRRImm5::VmvrV,
+                    //     vd: rd,
+                    //     vs2: rm,
+                    //     // Imm 0 means copy 1 register.
+                    //     imm: Imm5::maybe_from_i8(0).unwrap(),
+                    //     mask: VecOpMasking::Disabled,
+                    //     // Vstate for this instruction is ignored.
+                    //     vstate: VState::from_type(ty),
+                    // },
                 }
                 .emit(sink, emit_info, state);
             }

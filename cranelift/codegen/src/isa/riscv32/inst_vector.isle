@@ -56,16 +56,15 @@
 ))
 
 ;; Vector Opcode Masking
-(type VecOpMasking (enum
-  (Enabled (reg Reg))
-  (Disabled)
-))
+;; Defined as a primitive type in inst/vector.rs
+(type VecOpMasking (primitive VecOpMasking))
 
-(decl pure masked (VReg) VecOpMasking)
-(rule (masked reg) (VecOpMasking.Enabled reg))
-
-(decl pure unmasked () VecOpMasking)
-(rule (unmasked) (VecOpMasking.Disabled))
+;; NOTE: Constructor rules removed - VecOpMasking is now a primitive type
+;; These would need to be implemented in Rust code if vector support is added
+;; (decl pure masked (VReg) VecOpMasking)
+;; (rule (masked reg) (VecOpMasking.Enabled reg))
+;; (decl pure unmasked () VecOpMasking)
+;; (rule (unmasked) (VecOpMasking.Disabled))
 
 ;; Vector Addressing Mode
 (type VecAMode (enum

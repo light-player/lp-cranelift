@@ -217,8 +217,9 @@ pub fn encode_valu_r_imm(
 ) -> u32 {
     let funct7 = (op.funct6() << 1) | masking.encode();
 
+    // NOTE: VmvVI variant removed in Phase 1 (vector support deferred)
     // This is true for this opcode, not sure if there are any other ones.
-    debug_assert_eq!(op, VecAluOpRImm5::VmvVI);
+    // debug_assert_eq!(op, VecAluOpRImm5::VmvVI);
     let vs1 = imm.bits() as u32;
     let vs2 = op.aux_encoding();
 

@@ -21,10 +21,13 @@ use crate::{
     isa::riscv32::inst::*,
     machinst::{ArgPair, CallArgList, CallRetList, InstOutput},
 };
-use regalloc2::PReg;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use regalloc2::PReg;
 use wasmtime_math::{f32_cvt_to_int_bounds, f64_cvt_to_int_bounds};
+
+// Re-export VecOpMasking so ISLE generated code can use it
+pub use crate::isa::riscv32::inst::vector::VecOpMasking;
 
 type BoxCallInfo = Box<CallInfo<ExternalName>>;
 type BoxCallIndInfo = Box<CallInfo<Reg>>;
@@ -200,17 +203,15 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
     //     self.min_vec_reg_size
     // }
 
+    // NOTE: Vector support deferred to Phase 2
+    // This method is referenced but always disabled
     // #[inline]
-    // fn ty_vec_fits_in_register(&mut self, ty: Type) -> Option<Type> {
-    //     if ty.is_vector() && (ty.bits() as u64) <= self.min_vec_reg_size() {
-    //         Some(ty)
-    //     } else {
-    //         None
-    //     }
+    // fn ty_vec_fits_in_register(&mut self, _ty: Type) -> Option<Type> {
+    //     None
     // }
 
     fn ty_supported(&mut self, ty: Type) -> Option<Type> {
-        let lane_type = ty.lane_type();
+        let _lane_type = ty.lane_type();
         let supported = match ty {
             // Scalar integers are always supported
             ty if ty.is_int() => true,
@@ -223,29 +224,30 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
             // F128 is currently stored in a pair of integer registers
             F128 => true,
 
+            // NOTE: Vector support deferred to Phase 2
             // The base vector extension supports all integer types, up to 64 bits
             // as long as they fit in a register
-            ty if self.ty_vec_fits_in_register(ty).is_some()
-                && lane_type.is_int()
-                && lane_type.bits() <= 64 =>
-            {
-                true
-            }
+            // ty if self.ty_vec_fits_in_register(ty).is_some()
+            //     && lane_type.is_int()
+            //     && lane_type.bits() <= 64 =>
+            // {
+            //     true
+            // }
 
             // If the vector type has floating point lanes then the spec states:
             //
-            // Vector instructions where any floating-point vector operand’s EEW is not a
+            // Vector instructions where any floating-point vector operand's EEW is not a
             // supported floating-point type width (which includes when FLEN < SEW) are reserved.
             //
             // So we also have to check if we support the scalar version of the type.
-            ty if self.ty_vec_fits_in_register(ty).is_some()
-                && lane_type.is_float()
-                && self.ty_supported(lane_type).is_some()
-                // Additionally the base V spec only supports 32 and 64 bit floating point types.
-                && (lane_type.bits() == 32 || lane_type.bits() == 64 || (lane_type.bits() == 16 && self.backend.isa_flags.has_zvfh())) =>
-            {
-                true
-            }
+            // ty if self.ty_vec_fits_in_register(ty).is_some()
+            //     && lane_type.is_float()
+            //     && self.ty_supported(lane_type).is_some()
+            //     // Additionally the base V spec only supports 32 and 64 bit floating point types.
+            //     && (lane_type.bits() == 32 || lane_type.bits() == 64 || (lane_type.bits() == 16 && self.backend.isa_flags.has_zvfh())) =>
+            // {
+            //     true
+            // }
 
             // Otherwise do not match
             _ => false,

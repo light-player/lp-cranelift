@@ -1,6 +1,7 @@
 //! This module defines riscv32-specific machine instruction types.
 
-use super::lower::isle::generated_code::{VecAMode, VecElementWidth, VecOpMasking};
+use super::lower::isle::generated_code::{VecAMode, VecElementWidth};
+use super::inst::vector::VecOpMasking;
 use crate::binemit::{Addend, CodeOffset, Reloc};
 pub use crate::ir::condcodes::IntCC;
 use crate::ir::types::{self, F16, F32, F64, F128, I8, I8X16, I16, I32, I64, I128};
@@ -1583,23 +1584,25 @@ impl Inst {
                 let vd_s = format_reg(vd.to_reg());
                 let mask = format_mask(mask);
 
+                // NOTE: Vector pseudo-instructions deferred to Phase 2
                 // Note: vs2 and vs1 here are opposite to the standard scalar ordering.
                 // This is noted in Section 10.1 of the RISC-V Vector spec.
-                match (op, vs2, vs1) {
-                    (VecAluOpRRR::VrsubVX, _, vs1) if vs1 == zero_reg() => {
-                        format!("vneg.v {vd_s},{vs2_s}{mask} {vstate}")
-                    }
-                    (VecAluOpRRR::VfsgnjnVV, vs2, vs1) if vs2 == vs1 => {
-                        format!("vfneg.v {vd_s},{vs2_s}{mask} {vstate}")
-                    }
-                    (VecAluOpRRR::VfsgnjxVV, vs2, vs1) if vs2 == vs1 => {
-                        format!("vfabs.v {vd_s},{vs2_s}{mask} {vstate}")
-                    }
-                    (VecAluOpRRR::VmnandMM, vs2, vs1) if vs2 == vs1 => {
-                        format!("vmnot.m {vd_s},{vs2_s}{mask} {vstate}")
-                    }
-                    _ => format!("{op} {vd_s},{vs2_s},{vs1_s}{mask} {vstate}"),
-                }
+                // match (op, vs2, vs1) {
+                //     (VecAluOpRRR::VrsubVX, _, vs1) if vs1 == zero_reg() => {
+                //         format!("vneg.v {vd_s},{vs2_s}{mask} {vstate}")
+                //     }
+                //     (VecAluOpRRR::VfsgnjnVV, vs2, vs1) if vs2 == vs1 => {
+                //         format!("vfneg.v {vd_s},{vs2_s}{mask} {vstate}")
+                //     }
+                //     (VecAluOpRRR::VfsgnjxVV, vs2, vs1) if vs2 == vs1 => {
+                //         format!("vfabs.v {vd_s},{vs2_s}{mask} {vstate}")
+                //     }
+                //     (VecAluOpRRR::VmnandMM, vs2, vs1) if vs2 == vs1 => {
+                //         format!("vmnot.m {vd_s},{vs2_s}{mask} {vstate}")
+                //     }
+                //     _ => format!("{op} {vd_s},{vs2_s},{vs1_s}{mask} {vstate}"),
+                // }
+                format!("{op} {vd_s},{vs2_s},{vs1_s}{mask} {vstate}")
             }
             &Inst::VecAluRRImm5 {
                 op,
@@ -1621,12 +1624,14 @@ impl Inst {
                     format!("{imm}")
                 };
 
-                match (op, imm) {
-                    (VecAluOpRRImm5::VxorVI, imm) if imm == Imm5::maybe_from_i8(-1).unwrap() => {
-                        format!("vnot.v {vd_s},{vs2_s}{mask} {vstate}")
-                    }
-                    _ => format!("{op} {vd_s},{vs2_s},{imm_s}{mask} {vstate}"),
-                }
+                // NOTE: Vector pseudo-instructions deferred to Phase 2
+                // match (op, imm) {
+                //     (VecAluOpRRImm5::VxorVI, imm) if imm == Imm5::maybe_from_i8(-1).unwrap() => {
+                //         format!("vnot.v {vd_s},{vs2_s}{mask} {vstate}")
+                //     }
+                //     _ => format!("{op} {vd_s},{vs2_s},{imm_s}{mask} {vstate}"),
+                // }
+                format!("{op} {vd_s},{vs2_s},{imm_s}{mask} {vstate}")
             }
             &Inst::VecAluRR {
                 op,

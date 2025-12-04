@@ -5,10 +5,20 @@
 //! Full vector instruction support will be added in a future phase.
 
 use crate::isa::riscv32::lower::isle::generated_code::{
-    VecAvl, VecElementWidth, VecLmul, VecMaskMode, VecTailMode,
+    VecAMode, VecAluOpRR, VecAluOpRRImm5, VecAluOpRRR, VecAluOpRRRImm5,
+    VecAluOpRImm5, VecAluOpRRRR, VecAvl, VecElementWidth, VecLmul,
+    VecMaskMode, VecOpCategory, VecTailMode,
 };
 use core::fmt;
 use super::{Type, UImm5};
+use crate::machinst::{OperandVisitor, Reg, RegClass};
+
+/// Vector Opcode Masking
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VecOpMasking {
+    Enabled { reg: Reg },
+    Disabled,
+}
 
 // Minimal stub implementations for vector types
 
@@ -174,11 +184,36 @@ impl VType {
     }
 }
 
+impl fmt::Display for VType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{},{},{},{}", 
+            self.sew, 
+            self.lmul,
+            self.tail_mode,
+            self.mask_mode)
+    }
+}
+
 /// VState - Vector State
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct VState {
     pub avl: VecAvl,
     pub vtype: VType,
+}
+
+impl fmt::Display for VState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{},{},{},{}", 
+            self.avl, 
+            self.vtype.sew,
+            self.vtype.lmul,
+            if self.vtype.tail_mode == VecTailMode::Agnostic && 
+               self.vtype.mask_mode == VecMaskMode::Agnostic {
+                "ma,ta"
+            } else {
+                "mu,tu"
+            })
+    }
 }
 
 impl VState {
@@ -194,5 +229,228 @@ impl VState {
                 mask_mode: VecMaskMode::Agnostic,
             },
         }
+    }
+}
+
+// Stubs for VecAMode methods (vector load/store addressing modes)
+// Full implementation deferred to Phase 2
+impl VecAMode {
+    pub fn lumop(&self) -> u32 {
+        unreachable!("Vector load/store support deferred to Phase 2")
+    }
+
+    pub fn sumop(&self) -> u32 {
+        unreachable!("Vector load/store support deferred to Phase 2")
+    }
+
+    pub fn mop(&self) -> u32 {
+        unreachable!("Vector load/store support deferred to Phase 2")
+    }
+
+    pub fn nf(&self) -> u32 {
+        unreachable!("Vector load/store support deferred to Phase 2")
+    }
+
+    pub fn get_operands<V: OperandVisitor>(&mut self, _collector: &mut V) {
+        unreachable!("Vector addressing mode support deferred to Phase 2")
+    }
+}
+
+// Stubs for VecAluOp encoding methods
+// Full implementation deferred to Phase 2
+impl VecAluOpRRR {
+    pub fn funct6(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn opcode(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn funct3(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn vs1_regclass(&mut self) -> RegClass {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn forbids_overlaps(&mut self, _mask: &VecOpMasking) -> bool {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+}
+
+impl fmt::Display for VecAluOpRRR {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+}
+
+impl VecAluOpRRImm5 {
+    pub fn funct6(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn opcode(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn funct3(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn imm_is_unsigned(&self) -> bool {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn forbids_overlaps(&mut self, _mask: &VecOpMasking) -> bool {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+}
+
+impl fmt::Display for VecAluOpRRImm5 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+}
+
+impl VecAluOpRRRImm5 {
+    pub fn funct6(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn opcode(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn funct3(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn imm_is_unsigned(&self) -> bool {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn forbids_overlaps(&mut self, _mask: &VecOpMasking) -> bool {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+}
+
+impl fmt::Display for VecAluOpRRRImm5 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+}
+
+impl VecAluOpRR {
+    pub fn funct6(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn opcode(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn funct3(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn vs_is_vs2_encoded(&self) -> bool {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn aux_encoding(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn dst_regclass(&mut self) -> RegClass {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn src_regclass(&mut self) -> RegClass {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn forbids_overlaps(&mut self, _mask: &VecOpMasking) -> bool {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+}
+
+impl fmt::Display for VecAluOpRR {
+    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+}
+
+impl VecAluOpRImm5 {
+    pub fn funct6(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn opcode(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn funct3(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn aux_encoding(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn forbids_overlaps(&mut self, _mask: &VecOpMasking) -> bool {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+}
+
+impl fmt::Display for VecAluOpRImm5 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+}
+
+impl VecAluOpRRRR {
+    pub fn funct6(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn opcode(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn funct3(&self) -> u32 {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+
+    pub fn vs1_regclass(&mut self) -> RegClass {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+}
+
+impl fmt::Display for VecAluOpRRRR {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        unreachable!("Vector ALU support deferred to Phase 2")
+    }
+}
+
+impl VecOpMasking {
+    pub fn encode(&self) -> u32 {
+        unreachable!("Vector masking support deferred to Phase 2")
+    }
+}
+
+impl fmt::Display for VecOpMasking {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            VecOpMasking::Enabled { .. } => write!(f, ",v0.t"),
+            VecOpMasking::Disabled => Ok(()),
+        }
+    }
+}
+
+impl VecOpCategory {
+    pub fn encode(&self) -> u32 {
+        unreachable!("Vector category support deferred to Phase 2")
     }
 }
