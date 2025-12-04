@@ -35,7 +35,7 @@ async fn main(_spawner: Spawner) {
     info!("======================================\n");
 
     let source = r#"
-void main() {
+int main() {
     int a = 7;
     int b = 6;
     int result = a * b;
