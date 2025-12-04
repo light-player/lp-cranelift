@@ -50,7 +50,7 @@
   (rv_add x y))
 
 ;; I64 case - use 2-register pattern with carry propagation (similar to RV64 I128)
-(rule 5 (lower (has_type $I64 (iadd x y)))
+(rule -5 (lower (has_type $I64 (iadd x y)))
   (let ((low XReg (rv_add (value_regs_get x 0) (value_regs_get y 0)))
         ;; compute carry.
         (carry XReg (rv_sltu low (value_regs_get y 0)))
@@ -2367,12 +2367,16 @@
 
 ;;;;;  Rules for `icmp`;;;;;;;;;
 
-;; 8-64 bit comparisons. Mostly fall back onto `IntegerCompare` and then
+;; 8-32 bit comparisons. Mostly fall back onto `IntegerCompare` and then
 ;; materializing that, but before that happens try to match some
 ;; constant-related patterns
 
-(rule 0 (lower (icmp cc x @ (value_type (fits_in_64 ty)) y))
+(rule 0 (lower (icmp cc x @ (value_type (fits_in_32 ty)) y))
   (lower_icmp cc x y))
+
+;; 64-bit comparisons on RV32 (similar to 128-bit on RV64)
+(rule 10 (lower (icmp cc x @ (value_type $I64) y))
+  (lower_icmp_i64 cc x y))
 
 (decl lower_icmp (IntCC Value Value) XReg)
 (rule 0 (lower_icmp cc x y)
@@ -2454,6 +2458,51 @@
   (rv_xori (rv_slt x y) (imm12_const 1)))
 (rule (lower_int_compare (int_compare_decompose (IntCC.UnsignedGreaterThanOrEqual) x y))
   (rv_xori (rv_sltu x y) (imm12_const 1)))
+
+;; 64-bit comparisons on RV32 (2-register pattern).
+;;
+;; Currently only `==`, `!=`, and `<` are implemented, and everything else
+;; delegates to one of those.
+
+(decl lower_icmp_i64 (IntCC ValueRegs ValueRegs) XReg)
+(rule 0 (lower_icmp_i64 (IntCC.Equal) x y)
+  (let ((lo XReg (rv_xor (value_regs_get x 0) (value_regs_get y 0)))
+        (hi XReg (rv_xor (value_regs_get x 1) (value_regs_get y 1))))
+    (rv_seqz (rv_or lo hi))))
+(rule 0 (lower_icmp_i64 (IntCC.NotEqual) x y)
+  (let ((lo XReg (rv_xor (value_regs_get x 0) (value_regs_get y 0)))
+        (hi XReg (rv_xor (value_regs_get x 1) (value_regs_get y 1))))
+    (rv_snez (rv_or lo hi))))
+
+;; swap args for `>` to use `<` instead
+(rule 0 (lower_icmp_i64 cc @ (IntCC.SignedGreaterThan) x y)
+  (lower_icmp_i64 (intcc_swap_args cc) y x))
+(rule 0 (lower_icmp_i64 cc @ (IntCC.UnsignedGreaterThan) x y)
+  (lower_icmp_i64 (intcc_swap_args cc) y x))
+
+;; complement `=`-related conditions to get ones that don't use `=`.
+(rule 0 (lower_icmp_i64 cc @ (IntCC.SignedLessThanOrEqual) x y)
+  (rv_xori (lower_icmp_i64 (intcc_complement cc) x y) (imm12_const 1)))
+(rule 0 (lower_icmp_i64 cc @ (IntCC.SignedGreaterThanOrEqual) x y)
+  (rv_xori (lower_icmp_i64 (intcc_complement cc) x y) (imm12_const 1)))
+(rule 0 (lower_icmp_i64 cc @ (IntCC.UnsignedLessThanOrEqual) x y)
+  (rv_xori (lower_icmp_i64 (intcc_complement cc) x y) (imm12_const 1)))
+(rule 0 (lower_icmp_i64 cc @ (IntCC.UnsignedGreaterThanOrEqual) x y)
+  (rv_xori (lower_icmp_i64 (intcc_complement cc) x y) (imm12_const 1)))
+
+;; Compare both the bottom and upper halves of the 64-bit values. If
+;; the top half is equal use the bottom comparison, otherwise use the upper
+;; comparison. Note that the lower comparison is always unsigned since if it's
+;; used the top halves are all zeros and the semantic values are positive.
+(rule 1 (lower_icmp_i64 cc x y)
+  (if-let (IntCC.UnsignedLessThan) (intcc_unsigned cc))
+  (let ((x_lo Reg (value_regs_get x 0))
+        (x_hi Reg (value_regs_get x 1))
+        (y_lo Reg (value_regs_get y 0))
+        (y_hi Reg (value_regs_get y 1))
+        (top_cmp XReg (lower_int_compare (int_compare cc x_hi y_hi)))
+        (bottom_cmp XReg (rv_sltu x_lo y_lo)))
+    (gen_select_xreg (cmp_eqz (rv_xor x_hi y_hi)) bottom_cmp top_cmp)))
 
 ;; 128-bit comparisons.
 ;;
