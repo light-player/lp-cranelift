@@ -1,0 +1,168 @@
+//! Operator type inference for binary and unary operations
+//! Implements GLSL spec: operators.adoc:775-855
+
+use crate::error::{ErrorCode, GlslError, source_span_to_location};
+use crate::semantic::types::Type;
+use glsl::syntax::{BinaryOp, UnaryOp, SourceSpan};
+
+use super::conversion::promote_numeric;
+use super::matrix;
+
+/// Infer result type of binary operation (with implicit conversion)
+/// Implements GLSL spec: operators.adoc:775-855, operators.adoc:1019-1098 (matrix ops)
+pub fn infer_binary_result_type(
+    op: &BinaryOp,
+    lhs_ty: &Type,
+    rhs_ty: &Type,
+    span: SourceSpan,
+) -> Result<Type, GlslError> {
+    use BinaryOp::*;
+
+    match op {
+        // Arithmetic operators
+        Add | Sub | Mult | Div => {
+            // Matrix operations
+            if lhs_ty.is_matrix() || rhs_ty.is_matrix() {
+                return matrix::infer_matrix_binary_result_type(op, lhs_ty, rhs_ty, span);
+            }
+            
+            // Vector operations
+            if lhs_ty.is_vector() || rhs_ty.is_vector() {
+                // Vector + Vector: component-wise, types must match
+                if lhs_ty.is_vector() && rhs_ty.is_vector() {
+                    if lhs_ty != rhs_ty {
+                        return Err(GlslError::new(
+                            ErrorCode::E0106,
+                            format!("vector operation requires matching types, got {:?} and {:?}", lhs_ty, rhs_ty)
+                        )
+                        .with_location(source_span_to_location(&span)));
+                    }
+                    return Ok(lhs_ty.clone());
+                }
+                
+                // Vector + Scalar or Scalar + Vector: result is vector type
+                if lhs_ty.is_vector() {
+                    let vec_base = lhs_ty.vector_base_type().unwrap();
+                    if !rhs_ty.is_numeric() || !vec_base.is_numeric() {
+                        return Err(GlslError::new(
+                            ErrorCode::E0106,
+                            format!("cannot use {:?} with {:?}", rhs_ty, lhs_ty)
+                        )
+                        .with_location(source_span_to_location(&span)));
+                    }
+                    return Ok(lhs_ty.clone());
+                }
+                
+                if rhs_ty.is_vector() {
+                    let vec_base = rhs_ty.vector_base_type().unwrap();
+                    if !lhs_ty.is_numeric() || !vec_base.is_numeric() {
+                        return Err(GlslError::new(
+                            ErrorCode::E0106,
+                            format!("cannot use {:?} with {:?}", lhs_ty, rhs_ty)
+                        )
+                        .with_location(source_span_to_location(&span)));
+                    }
+                    return Ok(rhs_ty.clone());
+                }
+            }
+            
+            // Scalar operations
+            if !lhs_ty.is_numeric() || !rhs_ty.is_numeric() {
+                return Err(GlslError::new(
+                    ErrorCode::E0106,
+                    format!("arithmetic operator {:?} requires numeric operands", op)
+                )
+                .with_location(source_span_to_location(&span))
+                .with_note(format!("left operand has type `{:?}`, right operand has type `{:?}`", lhs_ty, rhs_ty)));
+            }
+            // Result type is the promoted type
+            Ok(promote_numeric(lhs_ty, rhs_ty))
+        }
+
+        // Comparison operators: operands must be compatible, result is bool
+        Equal | NonEqual | LT | GT | LTE | GTE => {
+            if !lhs_ty.is_numeric() || !rhs_ty.is_numeric() {
+                return Err(GlslError::new(
+                    ErrorCode::E0106,
+                    format!("comparison operator {:?} requires numeric operands", op)
+                )
+                .with_location(source_span_to_location(&span))
+                .with_note(format!("left operand has type `{:?}`, right operand has type `{:?}`", lhs_ty, rhs_ty)));
+            }
+            Ok(Type::Bool)
+        }
+
+        // Logical operators: must be bool
+        And | Or | Xor => {
+            if lhs_ty != &Type::Bool || rhs_ty != &Type::Bool {
+                return Err(GlslError::new(
+                    ErrorCode::E0106,
+                    format!("logical operator {:?} requires bool operands", op)
+                )
+                .with_location(source_span_to_location(&span))
+                .with_note(format!("left operand has type `{:?}`, right operand has type `{:?}`", lhs_ty, rhs_ty)));
+            }
+            Ok(Type::Bool)
+        }
+
+        _ => Err(GlslError::new(
+            ErrorCode::E0112,
+            format!("unsupported binary operator: {:?}", op)
+        )
+        .with_location(source_span_to_location(&span))),
+    }
+}
+
+/// Infer result type of unary operation
+pub fn infer_unary_result_type(
+    op: &UnaryOp,
+    operand_ty: &Type,
+    span: SourceSpan,
+) -> Result<Type, GlslError> {
+    use UnaryOp::*;
+
+    match op {
+        Minus => {
+            if !operand_ty.is_numeric() {
+                return Err(GlslError::new(
+                    ErrorCode::E0112,
+                    "unary minus requires numeric operand"
+                )
+                .with_location(source_span_to_location(&span))
+                .with_note(format!("operand has type `{:?}`", operand_ty)));
+            }
+            Ok(operand_ty.clone())
+        }
+
+        Not => {
+            if operand_ty != &Type::Bool {
+                return Err(GlslError::new(
+                    ErrorCode::E0112,
+                    "logical NOT requires bool operand"
+                )
+                .with_location(source_span_to_location(&span))
+                .with_note(format!("operand has type `{:?}`", operand_ty)));
+            }
+            Ok(Type::Bool)
+        }
+
+        _ => Err(GlslError::new(
+            ErrorCode::E0112,
+            format!("unsupported unary operator: {:?}", op)
+        )
+        .with_location(source_span_to_location(&span))),
+    }
+}
+
+/// Validate condition expression type (must be bool)
+pub fn check_condition(cond_ty: &Type) -> Result<(), GlslError> {
+    if cond_ty != &Type::Bool {
+        return Err(GlslError::new(
+            ErrorCode::E0107,
+            "condition must be bool type"
+        )
+        .with_note(format!("condition has type `{:?}`, expected `Bool`", cond_ty)));
+    }
+    Ok(())
+}
+
