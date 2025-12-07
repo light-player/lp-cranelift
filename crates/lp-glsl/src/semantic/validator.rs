@@ -8,7 +8,8 @@ use crate::semantic::types::Type;
 use crate::semantic::scope::{SymbolTable, StorageClass};
 use crate::semantic::type_check::{infer_expr_type_with_registry, check_assignment_with_span, check_condition};
 use crate::semantic::functions::FunctionRegistry;
-use glsl::syntax::{Statement, SimpleStatement, Expr, JumpStatement};
+use crate::semantic::type_resolver;
+use glsl::syntax::{Statement, SimpleStatement, JumpStatement};
 
 /// Helper function to add span text to an error if source is available
 fn add_span_text_to_error(
@@ -125,7 +126,8 @@ fn validate_declaration(
     match decl {
         glsl::syntax::Declaration::InitDeclaratorList(list) => {
             // Get type from type specifier
-            let ty = parse_type_from_fully_specified(&list.head.ty)?;
+            // Note: TypeSpecifier doesn't have a span, so we pass None
+            let ty = type_resolver::parse_return_type(&list.head.ty, None)?;
             
             // Handle the head declaration
             if let Some(name) = &list.head.name {
@@ -363,7 +365,7 @@ fn validate_jump(
                 })?;
             
             if !can_implicitly_convert(&expr_type, return_type) {
-                let mut error = GlslError::new(
+                let error = GlslError::new(
                     ErrorCode::E0116,
                     format!("return type mismatch: expected `{:?}`, found `{:?}`", return_type, expr_type),
                 )
@@ -394,32 +396,4 @@ fn validate_jump(
     }
 }
 
-/// Parse a type from a fully specified type (helper function).
-fn parse_type_from_fully_specified(ty: &glsl::syntax::FullySpecifiedType) -> Result<Type, GlslError> {
-    use glsl::syntax::TypeSpecifierNonArray;
-    use crate::error::source_span_to_location;
-
-    match &ty.ty.ty {
-        TypeSpecifierNonArray::Void => Ok(Type::Void),
-        TypeSpecifierNonArray::Bool => Ok(Type::Bool),
-        TypeSpecifierNonArray::Int => Ok(Type::Int),
-        TypeSpecifierNonArray::Float => Ok(Type::Float),
-        TypeSpecifierNonArray::Vec2 => Ok(Type::Vec2),
-        TypeSpecifierNonArray::Vec3 => Ok(Type::Vec3),
-        TypeSpecifierNonArray::Vec4 => Ok(Type::Vec4),
-        TypeSpecifierNonArray::IVec2 => Ok(Type::IVec2),
-        TypeSpecifierNonArray::IVec3 => Ok(Type::IVec3),
-        TypeSpecifierNonArray::IVec4 => Ok(Type::IVec4),
-        TypeSpecifierNonArray::BVec2 => Ok(Type::BVec2),
-        TypeSpecifierNonArray::BVec3 => Ok(Type::BVec3),
-        TypeSpecifierNonArray::BVec4 => Ok(Type::BVec4),
-        TypeSpecifierNonArray::Mat2 => Ok(Type::Mat2),
-        TypeSpecifierNonArray::Mat3 => Ok(Type::Mat3),
-        TypeSpecifierNonArray::Mat4 => Ok(Type::Mat4),
-        _ => {
-            let error = GlslError::unsupported_type(format!("{:?}", ty.ty.ty));
-            Err(error)
-        }
-    }
-}
 
