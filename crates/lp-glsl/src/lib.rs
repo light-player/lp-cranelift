@@ -17,6 +17,7 @@ pub mod frontend;
 pub mod semantic;
 pub mod codegen;
 pub mod transform;
+pub mod pipeline;
 #[cfg(feature = "std")]
 pub mod jit;
 pub mod compiler;
