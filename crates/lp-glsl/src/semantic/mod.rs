@@ -17,6 +17,7 @@ pub mod types;
 pub mod type_check;
 pub mod builtins;
 pub mod functions;
+pub mod validator;
 
 pub struct TypedShader {
     pub main_function: TypedFunction,
@@ -33,6 +34,11 @@ pub struct TypedFunction {
 
 /// Analyze GLSL shader and produce typed AST
 pub fn analyze(shader: &TranslationUnit) -> Result<TypedShader, GlslError> {
+    analyze_with_source(shader, "")
+}
+
+/// Analyze GLSL shader with source text for better error messages
+pub fn analyze_with_source(shader: &TranslationUnit, source: &str) -> Result<TypedShader, GlslError> {
     let mut func_registry = functions::FunctionRegistry::new();
     let mut main_func: Option<TypedFunction> = None;
     let mut user_functions: Vec<TypedFunction> = Vec::new();
@@ -61,6 +67,12 @@ pub fn analyze(shader: &TranslationUnit) -> Result<TypedShader, GlslError> {
     let main_function = main_func.ok_or_else(|| {
         GlslError::no_main_function()
     })?;
+
+    // Third pass: validate all function bodies
+    for func in &user_functions {
+        validator::validate_function(func, &func_registry, source)?;
+    }
+    validator::validate_function(&main_function, &func_registry, source)?;
 
     Ok(TypedShader {
         main_function,
