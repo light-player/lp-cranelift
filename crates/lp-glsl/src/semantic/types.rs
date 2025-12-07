@@ -40,7 +40,12 @@ impl Type {
 
     /// Returns true if this type is numeric (can be used in arithmetic)
     pub fn is_numeric(&self) -> bool {
-        matches!(self, Type::Int | Type::Float)
+        match self {
+            Type::Int | Type::Float => true,
+            Type::Vec2 | Type::Vec3 | Type::Vec4 |
+            Type::IVec2 | Type::IVec3 | Type::IVec4 => true,
+            _ => false,
+        }
     }
 
     /// Returns true if this type is a scalar (single value)

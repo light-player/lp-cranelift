@@ -4,17 +4,27 @@
 use crate::error::{ErrorCode, GlslError, extract_span_from_expr, extract_span_from_identifier, source_span_to_location};
 use crate::semantic::types::Type;
 use crate::semantic::scope::SymbolTable;
+use crate::semantic::functions::FunctionRegistry;
 use glsl::syntax::{Expr, BinaryOp, UnaryOp};
 
 #[cfg(feature = "std")]
-use std::format;
+use std::{format, vec::Vec};
 #[cfg(not(feature = "std"))]
-use alloc::format;
+use alloc::{format, vec::Vec};
 
 /// Infer the result type of an expression
 pub fn infer_expr_type(
     expr: &Expr,
     symbols: &SymbolTable,
+) -> Result<Type, GlslError> {
+    infer_expr_type_with_registry(expr, symbols, None)
+}
+
+/// Infer the result type of an expression with optional function registry
+pub fn infer_expr_type_with_registry(
+    expr: &Expr,
+    symbols: &SymbolTable,
+    func_registry: Option<&FunctionRegistry>,
 ) -> Result<Type, GlslError> {
     match expr {
         Expr::IntConst(_, _) => Ok(Type::Int),
@@ -34,19 +44,128 @@ pub fn infer_expr_type(
         }
 
         Expr::Binary(op, lhs, rhs, span) => {
-            let lhs_ty = infer_expr_type(lhs, symbols)?;
-            let rhs_ty = infer_expr_type(rhs, symbols)?;
+            let lhs_ty = infer_expr_type_with_registry(lhs, symbols, func_registry)?;
+            let rhs_ty = infer_expr_type_with_registry(rhs, symbols, func_registry)?;
             infer_binary_result_type(op, &lhs_ty, &rhs_ty, span.clone())
         }
 
         Expr::Unary(op, expr, span) => {
-            let expr_ty = infer_expr_type(expr, symbols)?;
+            let expr_ty = infer_expr_type_with_registry(expr, symbols, func_registry)?;
             infer_unary_result_type(op, &expr_ty, span.clone())
         }
 
         Expr::Assignment(lhs, _op, _rhs, _span) => {
             // Assignment result has same type as LHS
-            infer_expr_type(lhs, symbols)
+            infer_expr_type_with_registry(lhs, symbols, func_registry)
+        }
+
+        Expr::Dot(expr, field, dot_span) => {
+            // Component access (swizzle) - infer type of base expression
+            let base_ty = infer_expr_type_with_registry(expr, symbols, func_registry)?;
+            
+            if !base_ty.is_vector() {
+                let span = extract_span_from_expr(expr);
+                return Err(GlslError::new(
+                    ErrorCode::E0112,
+                    format!("component access on non-vector type: {:?}", base_ty)
+                )
+                .with_location(source_span_to_location(&span)));
+            }
+            
+            // Parse swizzle to determine result type
+            let component_count = base_ty.component_count().unwrap();
+            let dot_span_clone = dot_span.clone();
+            let swizzle_len = parse_swizzle_length(&field.name, component_count)
+                .map_err(|mut e| {
+                    // Add location if not already present
+                    if e.location.is_none() {
+                        e = e.with_location(source_span_to_location(&dot_span_clone));
+                    }
+                    e
+                })?;
+            let base_scalar_ty = base_ty.vector_base_type().unwrap();
+            
+            if swizzle_len == 1 {
+                // Single component: return scalar
+                Ok(base_scalar_ty)
+            } else {
+                // Multiple components: return vector
+                Type::vector_type(&base_scalar_ty, swizzle_len)
+                    .ok_or_else(|| {
+                        let mut error = GlslError::new(
+                            ErrorCode::E0113,
+                            format!("invalid swizzle length: {}", swizzle_len)
+                        );
+                        if error.location.is_none() {
+                            error = error.with_location(source_span_to_location(&dot_span));
+                        }
+                        error
+                    })
+            }
+        }
+
+        Expr::FunCall(func_ident, args, span) => {
+            // Extract function name
+            let func_name = match func_ident {
+                glsl::syntax::FunIdentifier::Identifier(ident) => &ident.name,
+                _ => {
+                    let span = extract_span_from_expr(expr);
+                    return Err(GlslError::new(
+                        ErrorCode::E0112,
+                        "complex function identifiers not yet supported"
+                    )
+                    .with_location(source_span_to_location(&span)));
+                }
+            };
+
+            // Infer argument types
+            let mut arg_types = Vec::new();
+            for arg in args {
+                arg_types.push(infer_expr_type_with_registry(arg, symbols, func_registry)?);
+            }
+
+            // Check if it's a type constructor (must come before function lookup)
+            if is_vector_type_name(func_name) {
+                return check_vector_constructor_with_span(func_name, &arg_types, Some(span.clone()));
+            }
+            
+            if is_matrix_type_name(func_name) {
+                return check_matrix_constructor(func_name, &arg_types);
+            }
+
+            // Check if it's a built-in function
+            if crate::semantic::builtins::is_builtin_function(func_name) {
+                match crate::semantic::builtins::check_builtin_call(func_name, &arg_types) {
+                    Ok(return_type) => Ok(return_type),
+                    Err(err_msg) => {
+                        Err(GlslError::new(
+                            ErrorCode::E0114,
+                            err_msg,
+                        )
+                        .with_location(source_span_to_location(span)))
+                    }
+                }
+            } else if let Some(registry) = func_registry {
+                // User-defined function
+                let span_clone = span.clone();
+                let func_sig = registry.lookup_function(func_name, &arg_types)
+                    .map_err(|mut e| {
+                        // Add location if not already present
+                        if e.location.is_none() {
+                            e = e.with_location(source_span_to_location(&span_clone));
+                        }
+                        e
+                    })?;
+                Ok(func_sig.return_type.clone())
+            } else {
+                // No function registry available - can't validate function calls
+                let span = extract_span_from_expr(expr);
+                Err(GlslError::new(
+                    ErrorCode::E0112,
+                    format!("cannot infer type for function call `{}` without function registry", func_name)
+                )
+                .with_location(source_span_to_location(&span)))
+            }
         }
 
         _ => {
@@ -78,7 +197,47 @@ pub fn infer_binary_result_type(
                 return infer_matrix_binary_result_type(op, lhs_ty, rhs_ty, span);
             }
             
-            // Scalar/vector operations
+            // Vector operations
+            if lhs_ty.is_vector() || rhs_ty.is_vector() {
+                // Vector + Vector: component-wise, types must match
+                if lhs_ty.is_vector() && rhs_ty.is_vector() {
+                    if lhs_ty != rhs_ty {
+                        return Err(GlslError::new(
+                            ErrorCode::E0106,
+                            format!("vector operation requires matching types, got {:?} and {:?}", lhs_ty, rhs_ty)
+                        )
+                        .with_location(source_span_to_location(&span)));
+                    }
+                    return Ok(lhs_ty.clone());
+                }
+                
+                // Vector + Scalar or Scalar + Vector: result is vector type
+                if lhs_ty.is_vector() {
+                    let vec_base = lhs_ty.vector_base_type().unwrap();
+                    if !rhs_ty.is_numeric() || !vec_base.is_numeric() {
+                        return Err(GlslError::new(
+                            ErrorCode::E0106,
+                            format!("cannot use {:?} with {:?}", rhs_ty, lhs_ty)
+                        )
+                        .with_location(source_span_to_location(&span)));
+                    }
+                    return Ok(lhs_ty.clone());
+                }
+                
+                if rhs_ty.is_vector() {
+                    let vec_base = rhs_ty.vector_base_type().unwrap();
+                    if !lhs_ty.is_numeric() || !vec_base.is_numeric() {
+                        return Err(GlslError::new(
+                            ErrorCode::E0106,
+                            format!("cannot use {:?} with {:?}", lhs_ty, rhs_ty)
+                        )
+                        .with_location(source_span_to_location(&span)));
+                    }
+                    return Ok(rhs_ty.clone());
+                }
+            }
+            
+            // Scalar operations
             if !lhs_ty.is_numeric() || !rhs_ty.is_numeric() {
                 return Err(GlslError::new(
                     ErrorCode::E0106,
@@ -180,7 +339,29 @@ pub fn promote_numeric(lhs: &Type, rhs: &Type) -> Type {
 
 /// Check if implicit conversion is allowed (GLSL spec: variables.adoc:1182-1229)
 pub fn can_implicitly_convert(from: &Type, to: &Type) -> bool {
-    from == to || matches!((from, to), (Type::Int, Type::Float))
+    // Exact match always allowed
+    if from == to {
+        return true;
+    }
+    
+    // Scalar conversions
+    if matches!((from, to), (Type::Int, Type::Float)) {
+        return true;
+    }
+    
+    // Vector conversions: same size, compatible base types
+    if let (Some(from_base), Some(to_base), Some(from_count), Some(to_count)) = (
+        from.vector_base_type(),
+        to.vector_base_type(),
+        from.component_count(),
+        to.component_count(),
+    ) {
+        if from_count == to_count {
+            return can_implicitly_convert(&from_base, &to_base);
+        }
+    }
+    
+    false
 }
 
 /// Validate assignment types
@@ -627,5 +808,70 @@ fn infer_matrix_binary_result_type(
         )
         .with_location(source_span_to_location(&span))),
     }
+}
+
+/// Parse swizzle string and return the number of components
+/// Validates that the swizzle is valid for the given vector size
+fn parse_swizzle_length(swizzle: &str, max_components: usize) -> Result<usize, GlslError> {
+    if swizzle.is_empty() {
+        return Err(GlslError::new(ErrorCode::E0113, "empty swizzle"));
+    }
+    
+    if swizzle.len() > 4 {
+        return Err(GlslError::new(
+            ErrorCode::E0113,
+            format!("swizzle can have at most 4 components, got {}", swizzle.len())
+        ));
+    }
+    
+    // Determine naming set and validate consistency
+    let mut xyzw_count = 0;
+    let mut rgba_count = 0;
+    let mut stpq_count = 0;
+    
+    for ch in swizzle.chars() {
+        match ch {
+            'x' | 'y' | 'z' | 'w' => xyzw_count += 1,
+            'r' | 'g' | 'b' | 'a' => rgba_count += 1,
+            's' | 't' | 'p' | 'q' => stpq_count += 1,
+            _ => return Err(GlslError::new(ErrorCode::E0113, format!("invalid swizzle character: '{}'", ch))),
+        }
+    }
+    
+    let sets_used = (xyzw_count > 0) as u32 + (rgba_count > 0) as u32 + (stpq_count > 0) as u32;
+    if sets_used > 1 {
+        return Err(GlslError::new(
+            ErrorCode::E0113,
+            format!("swizzle '{}' mixes component naming sets (xyzw/rgba/stpq)", swizzle)
+        ));
+    }
+    
+    // Validate each component is within bounds
+    let naming_set = if xyzw_count > 0 {
+        ('x', 'y', 'z', 'w')
+    } else if rgba_count > 0 {
+        ('r', 'g', 'b', 'a')
+    } else {
+        ('s', 't', 'p', 'q')
+    };
+    
+    for ch in swizzle.chars() {
+        let idx = match ch {
+            'x' | 'r' | 's' => 0,
+            'y' | 'g' | 't' => 1,
+            'z' | 'b' | 'p' => 2,
+            'w' | 'a' | 'q' => 3,
+            _ => return Err(GlslError::new(ErrorCode::E0113, format!("invalid component '{}'", ch))),
+        };
+        
+        if idx >= max_components {
+            return Err(GlslError::new(
+                ErrorCode::E0111,
+                format!("component '{}' not valid for vector with {} components", ch, max_components)
+            ));
+        }
+    }
+    
+    Ok(swizzle.len())
 }
 
