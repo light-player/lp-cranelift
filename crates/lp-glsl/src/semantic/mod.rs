@@ -1,4 +1,5 @@
 use glsl::syntax::TranslationUnit;
+use crate::error::GlslError;
 
 #[cfg(feature = "std")]
 use std::vec::Vec;
@@ -31,7 +32,7 @@ pub struct TypedFunction {
 }
 
 /// Analyze GLSL shader and produce typed AST
-pub fn analyze(shader: &TranslationUnit) -> Result<TypedShader, String> {
+pub fn analyze(shader: &TranslationUnit) -> Result<TypedShader, GlslError> {
     let mut func_registry = functions::FunctionRegistry::new();
     let mut main_func: Option<TypedFunction> = None;
     let mut user_functions: Vec<TypedFunction> = Vec::new();
@@ -49,7 +50,7 @@ pub fn analyze(shader: &TranslationUnit) -> Result<TypedShader, String> {
         if let glsl::syntax::ExternalDeclaration::FunctionDefinition(func) = decl {
             let typed_func = extract_function_body(func)?;
             
-            if func.prototype.name.0 == "main" {
+            if func.prototype.name.name == "main" {
                 main_func = Some(typed_func);
             } else {
                 user_functions.push(typed_func);
@@ -57,7 +58,9 @@ pub fn analyze(shader: &TranslationUnit) -> Result<TypedShader, String> {
         }
     }
 
-    let main_function = main_func.ok_or("No main() function found")?;
+    let main_function = main_func.ok_or_else(|| {
+        GlslError::no_main_function()
+    })?;
 
     Ok(TypedShader {
         main_function,
@@ -66,9 +69,11 @@ pub fn analyze(shader: &TranslationUnit) -> Result<TypedShader, String> {
     })
 }
 
-fn extract_function_signature(prototype: &glsl::syntax::FunctionPrototype) -> Result<functions::FunctionSignature, String> {
-    let name = prototype.name.0.clone();
-    let return_type = parse_return_type(&prototype.ty)?;
+fn extract_function_signature(prototype: &glsl::syntax::FunctionPrototype) -> Result<functions::FunctionSignature, GlslError> {
+    let name = prototype.name.name.clone();
+    // Extract span from function name for error reporting (fallback to type location)
+    let type_span = prototype.name.span.clone();
+    let return_type = parse_return_type(&prototype.ty, Some(type_span))?;
     
     let mut parameters = Vec::new();
     for param_decl in &prototype.parameters {
@@ -83,13 +88,14 @@ fn extract_function_signature(prototype: &glsl::syntax::FunctionPrototype) -> Re
     })
 }
 
-fn extract_parameter(param_decl: &glsl::syntax::FunctionParameterDeclaration) -> Result<functions::Parameter, String> {
+fn extract_parameter(param_decl: &glsl::syntax::FunctionParameterDeclaration) -> Result<functions::Parameter, GlslError> {
     use glsl::syntax::FunctionParameterDeclaration;
 
     match param_decl {
         FunctionParameterDeclaration::Named(qualifier, decl) => {
-            let ty = parse_type_specifier(&decl.ty)?;
-            let name = decl.ident.ident.0.clone();
+            let param_span = decl.ident.ident.span.clone();
+            let ty = parse_type_specifier(&decl.ty, Some(param_span))?;
+            let name = decl.ident.ident.name.clone();
             
             let param_qualifier = extract_param_qualifier(qualifier);
             
@@ -101,7 +107,8 @@ fn extract_parameter(param_decl: &glsl::syntax::FunctionParameterDeclaration) ->
         }
         FunctionParameterDeclaration::Unnamed(qualifier, ty) => {
             // Unnamed parameters (allowed in prototypes)
-            let param_ty = parse_type_specifier(ty)?;
+            // For unnamed params, we don't have a good span, so pass None
+            let param_ty = parse_type_specifier(ty, None)?;
             let param_qualifier = extract_param_qualifier(qualifier);
             
             Ok(functions::Parameter {
@@ -133,7 +140,7 @@ fn extract_param_qualifier(qualifier: &Option<glsl::syntax::TypeQualifier>) -> f
     functions::ParamQualifier::In
 }
 
-fn extract_function_body(func: &glsl::syntax::FunctionDefinition) -> Result<TypedFunction, String> {
+fn extract_function_body(func: &glsl::syntax::FunctionDefinition) -> Result<TypedFunction, GlslError> {
     let sig = extract_function_signature(&func.prototype)?;
     let body = func.statement.statement_list.clone();
 
@@ -145,8 +152,9 @@ fn extract_function_body(func: &glsl::syntax::FunctionDefinition) -> Result<Type
     })
 }
 
-fn parse_type_specifier(ty: &glsl::syntax::TypeSpecifier) -> Result<types::Type, String> {
+fn parse_type_specifier(ty: &glsl::syntax::TypeSpecifier, span: Option<glsl::syntax::SourceSpan>) -> Result<types::Type, GlslError> {
     use glsl::syntax::TypeSpecifierNonArray;
+    use crate::error::source_span_to_location;
 
     match &ty.ty {
         TypeSpecifierNonArray::Void => Ok(types::Type::Void),
@@ -162,11 +170,20 @@ fn parse_type_specifier(ty: &glsl::syntax::TypeSpecifier) -> Result<types::Type,
         TypeSpecifierNonArray::BVec2 => Ok(types::Type::BVec2),
         TypeSpecifierNonArray::BVec3 => Ok(types::Type::BVec3),
         TypeSpecifierNonArray::BVec4 => Ok(types::Type::BVec4),
-        _ => Err(format!("Type not supported yet: {:?}", ty.ty)),
+        TypeSpecifierNonArray::Mat2 => Ok(types::Type::Mat2),
+        TypeSpecifierNonArray::Mat3 => Ok(types::Type::Mat3),
+        TypeSpecifierNonArray::Mat4 => Ok(types::Type::Mat4),
+        _ => {
+            let mut error = GlslError::unsupported_type(format!("{:?}", ty.ty));
+            if let Some(s) = span {
+                error = error.with_location(source_span_to_location(&s));
+            }
+            Err(error)
+        }
     }
 }
 
-fn parse_return_type(ty: &glsl::syntax::FullySpecifiedType) -> Result<types::Type, String> {
-    parse_type_specifier(&ty.ty)
+fn parse_return_type(ty: &glsl::syntax::FullySpecifiedType, span: Option<glsl::syntax::SourceSpan>) -> Result<types::Type, GlslError> {
+    parse_type_specifier(&ty.ty, span)
 }
 
