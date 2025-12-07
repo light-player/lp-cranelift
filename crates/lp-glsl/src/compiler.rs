@@ -76,12 +76,22 @@ impl Compiler {
         source: &str,
         isa: &dyn cranelift_codegen::isa::TargetIsa,
     ) -> Result<alloc::vec::Vec<u8>, String> {
+        self.compile_to_code_detailed(source, isa).map_err(|e| String::from(e))
+    }
+    
+    /// Compile GLSL source to machine code with detailed error information
+    pub fn compile_to_code_detailed(
+        &mut self,
+        source: &str,
+        isa: &dyn cranelift_codegen::isa::TargetIsa,
+    ) -> Result<alloc::vec::Vec<u8>, crate::error::GlslError> {
         use cranelift_codegen::{Context, ir::AbiParam, control::ControlPlane, ir::InstBuilder};
         use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
+        use crate::error::{ErrorCode, GlslError};
         
         // 1. Parse GLSL
         let shader = glsl::parser::Parse::parse(source)
-            .map_err(|e| alloc::format!("Parse error: {:?}", e))?;
+            .map_err(|e| GlslError::new(ErrorCode::E0001, alloc::format!("parse error: {:?}", e)))?;
 
         // 2. Semantic analysis
         let typed_ast = crate::semantic::analyze(&shader)?;
@@ -188,15 +198,14 @@ impl Compiler {
 
         // 5.5. Apply fixed-point transformation if enabled
         if let Some(format) = self.fixed_point_format {
-            crate::transform::fixed_point::convert_floats_to_fixed(&mut ctx.func, format)
-                .map_err(|e| alloc::format!("Fixed-point transformation error: {}", e))?;
+            crate::transform::fixed_point::convert_floats_to_fixed(&mut ctx.func, format)?;
         }
 
         // 6. Compile to machine code
         let mut ctrl_plane = ControlPlane::default();
         let code_info = ctx
             .compile(isa, &mut ctrl_plane)
-            .map_err(|e| alloc::format!("Codegen failed: {:?}", e))?;
+            .map_err(|e| GlslError::new(ErrorCode::E0400, alloc::format!("code generation failed: {:?}", e)))?;
 
         Ok(code_info.buffer.data().to_vec())
     }

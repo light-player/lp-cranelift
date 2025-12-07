@@ -12,6 +12,7 @@ extern crate std;
 #[macro_use]
 extern crate alloc;
 
+pub mod error;
 pub mod frontend;
 pub mod semantic;
 pub mod codegen;
@@ -21,7 +22,8 @@ pub mod jit;
 pub mod compiler;
 
 pub use compiler::Compiler;
+pub use error::{ErrorCode, GlslError, SourceLocation};
 #[cfg(feature = "std")]
 pub use jit::JIT;
-pub use transform::{FixedPointFormat, TransformError};
+pub use transform::FixedPointFormat;
 
