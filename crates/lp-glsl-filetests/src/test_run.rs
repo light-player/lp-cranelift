@@ -84,13 +84,13 @@ pub fn run_test(
 
                 let mut compiler = lp_glsl::Compiler::new();
                 compiler.set_fixed_point_format(fixed_point_format);
-                let func = compiler
-                    .compile_int(glsl_source)
-                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                let result_fixed = func();
-
-                // Convert fixed-point result back to float
+                
                 let result_float = if let Some(format) = fixed_point_format {
+                    // Fixed-point mode: use compile_int and convert
+                    let func = compiler
+                        .compile_int(glsl_source)
+                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                    let result_fixed = func();
                     match format {
                         lp_glsl::FixedPointFormat::Fixed16x16 => result_fixed as f32 / 65536.0,
                         lp_glsl::FixedPointFormat::Fixed32x32 => {
@@ -99,8 +99,11 @@ pub fn run_test(
                         }
                     }
                 } else {
-                    // No fixed-point, interpret as raw float bits
-                    f32::from_bits(result_fixed as u32)
+                    // No fixed-point: use compile_float directly
+                    let func = compiler
+                        .compile_float(glsl_source)
+                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                    func()
                 };
 
                 let diff = (result_float - expected).abs();
@@ -121,6 +124,101 @@ pub fn run_test(
                     );
                 }
             }
+            ExpectedType::Vec2Approx { expected, tolerance } => {
+                let mut compiler = lp_glsl::Compiler::new();
+                compiler.set_fixed_point_format(fixed_point_format);
+                let func = compiler
+                    .compile_vec2(glsl_source)
+                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                let result = func();
+
+                let result_vec = [result.0, result.1];
+                let mut max_diff = 0.0f32;
+                for i in 0..2 {
+                    let diff = (result_vec[i] - expected[i]).abs();
+                    max_diff = max_diff.max(diff);
+                }
+
+                if max_diff > tolerance {
+                    if crate::file_update::is_bless_enabled() {
+                        let new_directive = format!("≈ vec2({}, {}) (tolerance: {})", result_vec[0], result_vec[1], tolerance);
+                        crate::file_update::update_run_directive(path, &new_directive)?;
+                        return Ok(());
+                    }
+
+                    anyhow::bail!(
+                        "Run test failed: expected vec2({}, {}) (tolerance {}), got vec2({}, {}) (max diff: {})\n\
+                         \n\
+                         This test assertion can be automatically updated by setting the\n\
+                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
+                        expected[0], expected[1], tolerance, result_vec[0], result_vec[1], max_diff
+                    );
+                }
+            }
+            ExpectedType::Vec3Approx { expected, tolerance } => {
+                let mut compiler = lp_glsl::Compiler::new();
+                compiler.set_fixed_point_format(fixed_point_format);
+                let func = compiler
+                    .compile_vec3(glsl_source)
+                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                let result = func();
+
+                let result_vec = [result.0, result.1, result.2];
+                let mut max_diff = 0.0f32;
+                for i in 0..3 {
+                    let diff = (result_vec[i] - expected[i]).abs();
+                    max_diff = max_diff.max(diff);
+                }
+
+                if max_diff > tolerance {
+                    if crate::file_update::is_bless_enabled() {
+                        let new_directive = format!("≈ vec3({}, {}, {}) (tolerance: {})", result_vec[0], result_vec[1], result_vec[2], tolerance);
+                        crate::file_update::update_run_directive(path, &new_directive)?;
+                        return Ok(());
+                    }
+
+                    anyhow::bail!(
+                        "Run test failed: expected vec3({}, {}, {}) (tolerance {}), got vec3({}, {}, {}) (max diff: {})\n\
+                         \n\
+                         This test assertion can be automatically updated by setting the\n\
+                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
+                        expected[0], expected[1], expected[2], tolerance,
+                        result_vec[0], result_vec[1], result_vec[2], max_diff
+                    );
+                }
+            }
+            ExpectedType::Vec4Approx { expected, tolerance } => {
+                let mut compiler = lp_glsl::Compiler::new();
+                compiler.set_fixed_point_format(fixed_point_format);
+                let func = compiler
+                    .compile_vec4(glsl_source)
+                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                let result = func();
+
+                let result_vec = [result.0, result.1, result.2, result.3];
+                let mut max_diff = 0.0f32;
+                for i in 0..4 {
+                    let diff = (result_vec[i] - expected[i]).abs();
+                    max_diff = max_diff.max(diff);
+                }
+
+                if max_diff > tolerance {
+                    if crate::file_update::is_bless_enabled() {
+                        let new_directive = format!("≈ vec4({}, {}, {}, {}) (tolerance: {})", result_vec[0], result_vec[1], result_vec[2], result_vec[3], tolerance);
+                        crate::file_update::update_run_directive(path, &new_directive)?;
+                        return Ok(());
+                    }
+
+                    anyhow::bail!(
+                        "Run test failed: expected vec4({}, {}, {}, {}) (tolerance {}), got vec4({}, {}, {}, {}) (max diff: {})\n\
+                         \n\
+                         This test assertion can be automatically updated by setting the\n\
+                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
+                        expected[0], expected[1], expected[2], expected[3], tolerance,
+                        result_vec[0], result_vec[1], result_vec[2], result_vec[3], max_diff
+                    );
+                }
+            }
         }
     }
 
@@ -135,6 +233,9 @@ enum ExpectedType {
     Int(i32),
     Bool(bool),
     FloatApprox { expected: f32, tolerance: f32 },
+    Vec2Approx { expected: [f32; 2], tolerance: f32 },
+    Vec3Approx { expected: [f32; 3], tolerance: f32 },
+    Vec4Approx { expected: [f32; 4], tolerance: f32 },
 }
 
 fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
@@ -145,8 +246,80 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
         // Parse // run: directives
         if let Some(comment) = trimmed.strip_prefix("//") {
             if let Some(run_spec) = comment.trim().strip_prefix("run:") {
-                let spec = run_spec.trim();
+                // Strip inline comments (everything after //)
+                let spec = run_spec.split("//").next().unwrap_or(run_spec).trim();
 
+                // Parse "≈ vecN(...) (tolerance: <tol>)" for approximate vector comparison
+                if let Some(approx_str) = spec.strip_prefix("≈").map(str::trim) {
+                    // Try to parse as vector
+                    if let Some(vec_str) = approx_str.strip_prefix("vec2(") {
+                        if let Some((values_str, tolerance_part)) = vec_str.split_once(") (tolerance:") {
+                            let values: Vec<f32> = values_str
+                                .split(',')
+                                .map(|s| s.trim().parse::<f32>())
+                                .collect::<Result<Vec<_>, _>>()
+                                .map_err(|_| anyhow::anyhow!("Failed to parse vec2 values: {}", values_str))?;
+                            if values.len() != 2 {
+                                anyhow::bail!("vec2 expects 2 values, got {}", values.len());
+                            }
+                            let tolerance_str = tolerance_part.trim().trim_end_matches(')').trim();
+                            let tolerance = tolerance_str.parse::<f32>().map_err(|_| {
+                                anyhow::anyhow!("Failed to parse tolerance: {}", tolerance_str)
+                            })?;
+                            directives.push(RunDirective {
+                                expected_type: ExpectedType::Vec2Approx {
+                                    expected: [values[0], values[1]],
+                                    tolerance,
+                                },
+                            });
+                            continue;
+                        }
+                    } else if let Some(vec_str) = approx_str.strip_prefix("vec3(") {
+                        if let Some((values_str, tolerance_part)) = vec_str.split_once(") (tolerance:") {
+                            let values: Vec<f32> = values_str
+                                .split(',')
+                                .map(|s| s.trim().parse::<f32>())
+                                .collect::<Result<Vec<_>, _>>()
+                                .map_err(|_| anyhow::anyhow!("Failed to parse vec3 values: {}", values_str))?;
+                            if values.len() != 3 {
+                                anyhow::bail!("vec3 expects 3 values, got {}", values.len());
+                            }
+                            let tolerance_str = tolerance_part.trim().trim_end_matches(')').trim();
+                            let tolerance = tolerance_str.parse::<f32>().map_err(|_| {
+                                anyhow::anyhow!("Failed to parse tolerance: {}", tolerance_str)
+                            })?;
+                            directives.push(RunDirective {
+                                expected_type: ExpectedType::Vec3Approx {
+                                    expected: [values[0], values[1], values[2]],
+                                    tolerance,
+                                },
+                            });
+                            continue;
+                        }
+                    } else if let Some(vec_str) = approx_str.strip_prefix("vec4(") {
+                        if let Some((values_str, tolerance_part)) = vec_str.split_once(") (tolerance:") {
+                            let values: Vec<f32> = values_str
+                                .split(',')
+                                .map(|s| s.trim().parse::<f32>())
+                                .collect::<Result<Vec<_>, _>>()
+                                .map_err(|_| anyhow::anyhow!("Failed to parse vec4 values: {}", values_str))?;
+                            if values.len() != 4 {
+                                anyhow::bail!("vec4 expects 4 values, got {}", values.len());
+                            }
+                            let tolerance_str = tolerance_part.trim().trim_end_matches(')').trim();
+                            let tolerance = tolerance_str.parse::<f32>().map_err(|_| {
+                                anyhow::anyhow!("Failed to parse tolerance: {}", tolerance_str)
+                            })?;
+                            directives.push(RunDirective {
+                                expected_type: ExpectedType::Vec4Approx {
+                                    expected: [values[0], values[1], values[2], values[3]],
+                                    tolerance,
+                                },
+                            });
+                            continue;
+                        }
+                    }
+                }
                 // Parse "~= <value> (tolerance: <tol>)" for approximate float comparison
                 if let Some(approx_str) = spec.strip_prefix("~=").map(str::trim) {
                     // Parse "value (tolerance: tolerance)"

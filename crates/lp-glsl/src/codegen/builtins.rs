@@ -3,7 +3,9 @@
 use crate::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
 use crate::error::{ErrorCode, GlslError};
-use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
+use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types, AbiParam, Signature, FuncRef};
+use cranelift_codegen::isa::CallConv;
+use cranelift_module::{Linkage, Module};
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -32,6 +34,21 @@ impl<'a> CodegenContext<'a> {
             "clamp" => self.builtin_clamp(args),
             "abs" => self.builtin_abs(args),
             "sqrt" => self.builtin_sqrt(args),
+            // Angle and Trigonometry Functions (builtinfunctions.adoc:122-310)
+            "radians" => self.builtin_radians(args),
+            "degrees" => self.builtin_degrees(args),
+            "sin" => self.builtin_sin(args),
+            "cos" => self.builtin_cos(args),
+            "tan" => self.builtin_tan(args),
+            "asin" => self.builtin_asin(args),
+            "acos" => self.builtin_acos(args),
+            "atan" => self.builtin_atan(args),
+            "sinh" => self.builtin_sinh(args),
+            "cosh" => self.builtin_cosh(args),
+            "tanh" => self.builtin_tanh(args),
+            "asinh" => self.builtin_asinh(args),
+            "acosh" => self.builtin_acosh(args),
+            "atanh" => self.builtin_atanh(args),
             "floor" => self.builtin_floor(args),
             "ceil" => self.builtin_ceil(args),
             "pow" => self.builtin_pow(args),
@@ -334,6 +351,308 @@ impl<'a> CodegenContext<'a> {
             result_vals.push(self.builder.ins().sqrt(val));
         }
 
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    // Angle and Trigonometry Functions (builtinfunctions.adoc:122-310)
+
+    /// radians(degrees) - Convert degrees to radians
+    fn builtin_radians(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (deg_vals, deg_ty) = &args[0];
+        let pi_over_180 = self.builder.ins().f32const(0.017453292519943295); // π/180
+        let mut result_vals = Vec::new();
+        
+        for &deg in deg_vals {
+            result_vals.push(self.builder.ins().fmul(deg, pi_over_180));
+        }
+        
+        Ok((result_vals, deg_ty.clone()))
+    }
+
+    /// degrees(radians) - Convert radians to degrees
+    fn builtin_degrees(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (rad_vals, rad_ty) = &args[0];
+        let _180_over_pi = self.builder.ins().f32const(57.29577951308232); // 180/π
+        let mut result_vals = Vec::new();
+        
+        for &rad in rad_vals {
+            result_vals.push(self.builder.ins().fmul(rad, _180_over_pi));
+        }
+        
+        Ok((result_vals, rad_ty.clone()))
+    }
+
+    /// Helper to declare and get FuncRef for external math library function
+    fn get_math_libcall(&mut self, func_name: &str) -> Result<FuncRef, GlslError> {
+        // Create signature: f32 -> f32
+        let mut sig = Signature::new(CallConv::SystemV);
+        sig.params.push(AbiParam::new(types::F32));
+        sig.returns.push(AbiParam::new(types::F32));
+        
+        // Declare function in module if not already declared
+        let func_id = self.module
+            .declare_function(func_name, Linkage::Import, &sig)
+            .map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("failed to declare external function {}: {}", func_name, e),
+                )
+            })?;
+        
+        // Import into current function
+        Ok(self.module.declare_func_in_func(func_id, self.builder.func))
+    }
+
+    /// Helper to declare and get FuncRef for atan2 (2-arg function)
+    fn get_atan2_libcall(&mut self) -> Result<FuncRef, GlslError> {
+        // Create signature: (f32, f32) -> f32
+        let mut sig = Signature::new(CallConv::SystemV);
+        sig.params.push(AbiParam::new(types::F32));
+        sig.params.push(AbiParam::new(types::F32));
+        sig.returns.push(AbiParam::new(types::F32));
+        
+        // Declare function in module if not already declared
+        let func_id = self.module
+            .declare_function("atan2f", Linkage::Import, &sig)
+            .map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("failed to declare external function atan2f: {}", e),
+                )
+            })?;
+        
+        // Import into current function
+        Ok(self.module.declare_func_in_func(func_id, self.builder.func))
+    }
+
+    /// sin(angle) - Sine (component-wise)
+    fn builtin_sin(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("sinf")?;
+        let mut result_vals = Vec::new();
+        
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+        
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// cos(angle) - Cosine (component-wise)
+    fn builtin_cos(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("cosf")?;
+        let mut result_vals = Vec::new();
+        
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+        
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// tan(angle) - Tangent (component-wise)
+    fn builtin_tan(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("tanf")?;
+        let mut result_vals = Vec::new();
+        
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+        
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// asin(x) - Arc sine (component-wise)
+    fn builtin_asin(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("asinf")?;
+        let mut result_vals = Vec::new();
+        
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+        
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// acos(x) - Arc cosine (component-wise)
+    fn builtin_acos(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("acosf")?;
+        let mut result_vals = Vec::new();
+        
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+        
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// atan(x) or atan(y, x) - Arc tangent (component-wise)
+    fn builtin_atan(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        
+        if args.len() == 1 {
+            // 1-arg version: atan(x)
+            let func_ref = self.get_math_libcall("atanf")?;
+            let mut result_vals = Vec::new();
+            
+            for &val in x_vals {
+                let call_inst = self.builder.ins().call(func_ref, &[val]);
+                result_vals.push(self.builder.inst_results(call_inst)[0]);
+            }
+            
+            Ok((result_vals, x_ty.clone()))
+        } else {
+            // 2-arg version: atan(y, x)
+            let (y_vals, _) = &args[1];
+            
+            if x_vals.len() != y_vals.len() {
+                return Err(GlslError::new(ErrorCode::E0104, "atan() 2-arg version requires matching vector sizes"));
+            }
+            
+            let func_ref = self.get_atan2_libcall()?;
+            let mut result_vals = Vec::new();
+            
+            for i in 0..x_vals.len() {
+                let call_inst = self.builder.ins().call(func_ref, &[y_vals[i], x_vals[i]]);
+                result_vals.push(self.builder.inst_results(call_inst)[0]);
+            }
+            
+            Ok((result_vals, x_ty.clone()))
+        }
+    }
+
+    /// sinh(x) - Hyperbolic sine (component-wise)
+    fn builtin_sinh(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("sinhf")?;
+        let mut result_vals = Vec::new();
+        
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+        
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// cosh(x) - Hyperbolic cosine (component-wise)
+    fn builtin_cosh(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("coshf")?;
+        let mut result_vals = Vec::new();
+        
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+        
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// tanh(x) - Hyperbolic tangent (component-wise)
+    fn builtin_tanh(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("tanhf")?;
+        let mut result_vals = Vec::new();
+        
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+        
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// asinh(x) - Inverse hyperbolic sine (component-wise)
+    fn builtin_asinh(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("asinhf")?;
+        let mut result_vals = Vec::new();
+        
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+        
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// acosh(x) - Inverse hyperbolic cosine (component-wise)
+    fn builtin_acosh(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("acoshf")?;
+        let mut result_vals = Vec::new();
+        
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+        
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// atanh(x) - Inverse hyperbolic tangent (component-wise)
+    fn builtin_atanh(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("atanhf")?;
+        let mut result_vals = Vec::new();
+        
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+        
         Ok((result_vals, x_ty.clone()))
     }
 

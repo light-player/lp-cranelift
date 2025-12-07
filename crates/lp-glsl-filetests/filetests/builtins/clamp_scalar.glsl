@@ -18,4 +18,4 @@ float main() {
 //     v5 = f32const 0.0
 //     return v5  ; v5 = 0.0
 // }
-// run: ~= 0 (tolerance: 0.01)
+// run: ~= 5 (tolerance: 0.01)

@@ -167,6 +167,98 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
             return_type: BuiltinReturnType::SameAsParam(0),
         }]),
         
+        // Angle and Trigonometry Functions (builtinfunctions.adoc:122-310)
+        "radians" => Some(vec![BuiltinSignature {
+            name: "radians",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "degrees" => Some(vec![BuiltinSignature {
+            name: "degrees",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "sin" => Some(vec![BuiltinSignature {
+            name: "sin",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "cos" => Some(vec![BuiltinSignature {
+            name: "cos",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "tan" => Some(vec![BuiltinSignature {
+            name: "tan",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "asin" => Some(vec![BuiltinSignature {
+            name: "asin",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "acos" => Some(vec![BuiltinSignature {
+            name: "acos",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "atan" => Some(vec![
+            BuiltinSignature {
+                name: "atan",
+                param_types: vec![BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "atan",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
+        
+        "sinh" => Some(vec![BuiltinSignature {
+            name: "sinh",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "cosh" => Some(vec![BuiltinSignature {
+            name: "cosh",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "tanh" => Some(vec![BuiltinSignature {
+            name: "tanh",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "asinh" => Some(vec![BuiltinSignature {
+            name: "asinh",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "acosh" => Some(vec![BuiltinSignature {
+            name: "acosh",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
+        "atanh" => Some(vec![BuiltinSignature {
+            name: "atanh",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+        
         "floor" => Some(vec![BuiltinSignature {
             name: "floor",
             param_types: vec![BuiltinParamType::GenFType],

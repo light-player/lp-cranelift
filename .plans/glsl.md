@@ -6,7 +6,7 @@
 
 ## Current State
 
-**Completed (Phase 1-3):**
+**Completed (Phase 1-4):**
 
 - ✅ Core architecture and pipeline
 - ✅ Basic types: int, bool, float
@@ -16,25 +16,28 @@
 - ✅ Type system with inference and validation
 - ✅ Vector operations: component access, swizzling, construction
 - ✅ Basic built-in functions: dot, cross, length, normalize, distance, min, max, clamp, abs, sqrt, floor, ceil, mix, step, smoothstep, fract, mod, sign
-- ✅ Fixed-point transformation (16.16 and 32.32 formats, in progress)
+- ✅ **Matrices (mat2, mat3, mat4)** - fully implemented with:
+  - Matrix construction (identity, columns, scalars)
+  - Matrix indexing (column access)
+  - Matrix arithmetic (+, -, × with scalar/vector/matrix)
+  - Matrix built-ins: matrixCompMult, outerProduct, transpose, determinant (mat2/mat3), inverse (mat2 only)
+- ✅ **Fixed-point transformation** - fully implemented (16.16 and 32.32 formats)
 
 **Remaining Work:**
 
-- Matrices (mat2, mat3, mat4)
-- Trigonometric functions
-- Exponential/logarithmic functions
-- Advanced math functions
-- Structs
-- Arrays
+- Trigonometric functions (sin, cos, tan, asin, acos, atan, etc.)
+- Exponential/logarithmic functions (exp, log, exp2, log2, inversesqrt; pow registered but not implemented)
+- Structs (types exist in Type enum, but no codegen/semantic support)
+- Arrays (types exist in Type enum, but no codegen/semantic support)
 - Texture sampling (runtime integration)
-- Additional GLSL features
+- Additional GLSL features (uniforms, I/O qualifiers)
 
 ---
 
-## Phase 4: Matrix Types and Operations
+## Phase 4: Matrix Types and Operations ✅ COMPLETE
 
 **Priority:** High  
-**Estimated Effort:** 4-6 hours  
+**Status:** ✅ **COMPLETED**  
 **Spec Reference:** `/Users/yona/dev/photomancer/glsl-spec/chapters/`
 
 - `variables.adoc` lines 72-97: Matrix type definitions
@@ -204,18 +207,21 @@ float main() {
 
 ### Success Criteria
 
-- [ ] All matrix types defined and usable
-- [ ] Matrix construction works (identity, columns, scalars)
-- [ ] Matrix indexing returns correct columns/elements
-- [ ] Matrix × scalar, vector, matrix operations correct
-- [ ] All 5 matrix built-ins implemented
-- [ ] Minimum 12 tests pass (construction, operations, built-ins)
+- [x] All matrix types defined and usable
+- [x] Matrix construction works (identity, columns, scalars)
+- [x] Matrix indexing returns correct columns/elements
+- [x] Matrix × scalar, vector, matrix operations correct
+- [x] All 5 matrix built-ins implemented (matrixCompMult, outerProduct, transpose, determinant, inverse)
+- [x] Comprehensive test suite in `crates/lp-glsl-filetests/filetests/matrices/`
+
+**Note:** Determinant supports mat2 and mat3 (mat4 not yet implemented). Inverse supports mat2 only (mat3/mat4 not yet implemented).
 
 ---
 
 ## Phase 5: Trigonometric Functions
 
 **Priority:** High (needed for shader effects)  
+**Status:** ❌ **NOT STARTED**  
 **Estimated Effort:** 2-3 hours  
 **Spec Reference:** `builtinfunctions.adoc` lines 122-310
 
@@ -359,27 +365,34 @@ float main() {
 - [ ] Scalar versions work with libcalls
 - [ ] Vector versions expand component-wise
 - [ ] Minimum 10 tests pass with correct values
-- [ ] Fixed-point versions available (approximate)
+- [ ] Fixed-point transformation already available (16.16 and 32.32 formats)
 
 ---
 
 ## Phase 6: Exponential and Logarithmic Functions
 
 **Priority:** Medium-High  
+**Status:** ❌ **PARTIALLY STARTED** (pow registered but not implemented)  
 **Estimated Effort:** 1-2 hours  
 **Spec Reference:** `builtinfunctions.adoc` lines 311-409
+
+**Current State:**
+
+- `pow()` is registered in builtin signatures but returns error "needs exp/log"
+- `sqrt()` is fully implemented
+- `exp()`, `log()`, `exp2()`, `log2()`, `inversesqrt()` not yet implemented
 
 ### Requirements
 
 **Exponential Functions (builtinfunctions.adoc:311-409):**
 
-- `pow(x, y)` - x raised to y power
-- `exp(x)` - natural exponentiation (e^x)
-- `log(x)` - natural logarithm
-- `exp2(x)` - 2^x
-- `log2(x)` - base 2 logarithm
-- `sqrt(x)` - square root (already implemented)
-- `inversesqrt(x)` - 1/sqrt(x)
+- `pow(x, y)` - x raised to y power (registered but returns error - needs exp/log)
+- `exp(x)` - natural exponentiation (e^x) - **NOT IMPLEMENTED**
+- `log(x)` - natural logarithm - **NOT IMPLEMENTED**
+- `exp2(x)` - 2^x - **NOT IMPLEMENTED**
+- `log2(x)` - base 2 logarithm - **NOT IMPLEMENTED**
+- `sqrt(x)` - square root - ✅ **IMPLEMENTED**
+- `inversesqrt(x)` - 1/sqrt(x) - **NOT IMPLEMENTED**
 
 All operate component-wise on vectors.
 
@@ -439,7 +452,8 @@ float main() {
 
 ### Success Criteria
 
-- [ ] All 7 exponential/log functions implemented
+- [ ] All 7 exponential/log functions implemented (currently only sqrt works)
+- [ ] pow() implemented via exp/log or libcall
 - [ ] Minimum 6 tests pass with correct values
 - [ ] Component-wise vector support
 
@@ -448,8 +462,15 @@ float main() {
 ## Phase 7: Struct Types
 
 **Priority:** Medium  
+**Status:** ❌ **NOT STARTED** (types exist but no implementation)  
 **Estimated Effort:** 4-6 hours  
 **Spec Reference:** `variables.adoc` lines 564-719
+
+**Current State:**
+
+- `Type::Struct(StructId)` exists in type system
+- No semantic analysis for struct declarations
+- No codegen for struct construction, member access, or storage
 
 ### Requirements
 
@@ -590,8 +611,16 @@ vec3 main() {
 ## Phase 8: Array Types
 
 **Priority:** Medium  
+**Status:** ❌ **NOT STARTED** (types exist but no implementation)  
 **Estimated Effort:** 3-4 hours  
 **Spec Reference:** `variables.adoc` lines 359-515
+
+**Current State:**
+
+- `Type::Array(Box<Type>, usize)` exists in type system
+- No semantic analysis for array declarations
+- No codegen for array construction, indexing, or storage
+- Note: Matrix indexing uses `Expr::Bracket` but only for matrices, not general arrays
 
 ### Requirements
 
@@ -997,9 +1026,9 @@ Every test file should include:
 
 ## Implementation Priority Order
 
-1. **Phase 4: Matrices** (critical for 3D transforms)
-2. **Phase 5: Trigonometry** (critical for visual effects)
-3. **Phase 6: Exponential/Log** (less critical, quick to add)
+1. ✅ **Phase 4: Matrices** (critical for 3D transforms) - **COMPLETE**
+2. **Phase 5: Trigonometry** (critical for visual effects) - **NEXT PRIORITY**
+3. **Phase 6: Exponential/Log** (less critical, quick to add) - **PARTIALLY STARTED**
 4. **Phase 7: Structs** (architectural, enables complex data)
 5. **Phase 11: Uniforms/I/O** (needed for real shaders)
 6. **Phase 8: Arrays** (useful but can work around)
@@ -1013,16 +1042,16 @@ Every test file should include:
 
 Based on current development velocity (~1 day for phases 1-3):
 
-- **Phase 4 (Matrices):** 4-6 hours
-- **Phase 5 (Trig):** 2-3 hours
-- **Phase 6 (Exp/Log):** 1-2 hours
+- ✅ **Phase 4 (Matrices):** 4-6 hours - **COMPLETE**
+- **Phase 5 (Trig):** 2-3 hours - **NEXT**
+- **Phase 6 (Exp/Log):** 1-2 hours - **PARTIALLY STARTED**
 - **Phase 7 (Structs):** 4-6 hours
 - **Phase 8 (Arrays):** 3-4 hours
 - **Phase 9 (Additional Built-ins):** 2-3 hours
 - **Phase 10 (Textures):** 2-3 hours
 - **Phase 11 (Uniforms/I/O):** 3-4 hours
 
-**Total:** ~22-31 hours (2-4 days of focused work)
+**Remaining:** ~18-25 hours (2-3 days of focused work)
 
 ---
 

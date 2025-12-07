@@ -26,4 +26,4 @@ float main() {
 //     v11 = f32const 0.0
 //     return v11  ; v11 = 0.0
 // }
-// run: ~= 0 (tolerance: 0.01)
+// run: ~= 32 (tolerance: 0.01)

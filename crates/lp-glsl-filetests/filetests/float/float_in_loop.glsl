@@ -40,4 +40,4 @@ float main() {
 //     v13 = f32const 0.0
 //     return v13  ; v13 = 0.0
 // }
-// run: ~= 0 (tolerance: 0.01)
+// run: ~= 4.5 (tolerance: 0.01)

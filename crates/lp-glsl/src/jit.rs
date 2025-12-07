@@ -220,6 +220,97 @@ impl JIT {
             })
     }
 
+    /// Set up function builder with entry block
+    fn setup_function_builder(builder: &mut FunctionBuilder) -> cranelift_codegen::ir::Block {
+        let entry_block = builder.create_block();
+        builder.append_block_params_for_function_params(entry_block);
+        builder.switch_to_block(entry_block);
+        builder.seal_block(entry_block);
+        entry_block
+    }
+
+    /// Generate default return statement for a function
+    /// Used when function doesn't have explicit return
+    fn generate_default_return(
+        ctx: &mut crate::codegen::context::CodegenContext,
+        return_type: &crate::semantic::types::Type,
+    ) -> Result<(), crate::error::GlslError> {
+        use crate::semantic::types::Type;
+
+        if return_type == &Type::Void {
+            ctx.builder.ins().return_(&[]);
+            return Ok(());
+        }
+
+        if return_type.is_vector() {
+            Self::generate_default_vector_return(ctx, return_type)
+        } else {
+            Self::generate_default_scalar_return(ctx, return_type)
+        }
+    }
+
+    fn generate_default_scalar_return(
+        ctx: &mut crate::codegen::context::CodegenContext,
+        return_type: &crate::semantic::types::Type,
+    ) -> Result<(), crate::error::GlslError> {
+        use crate::error::{ErrorCode, GlslError};
+        use crate::semantic::types::Type;
+        use cranelift_codegen::ir::types;
+
+        let return_val = match return_type {
+            Type::Int => ctx.builder.ins().iconst(types::I32, 0),
+            Type::Float => ctx.builder.ins().f32const(0.0),
+            Type::Bool => ctx.builder.ins().iconst(types::I8, 0),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!(
+                        "unsupported return type for default return: {:?}",
+                        return_type
+                    ),
+                ));
+            }
+        };
+        ctx.builder.ins().return_(&[return_val]);
+        Ok(())
+    }
+
+    fn generate_default_vector_return(
+        ctx: &mut crate::codegen::context::CodegenContext,
+        return_type: &crate::semantic::types::Type,
+    ) -> Result<(), crate::error::GlslError> {
+        use crate::error::{ErrorCode, GlslError};
+        use crate::semantic::types::Type;
+        use cranelift_codegen::ir::types;
+
+        let base_ty = return_type.vector_base_type().ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("expected vector type, got: {:?}", return_type),
+            )
+        })?;
+        let count = return_type.component_count().unwrap();
+        let mut vals = Vec::new();
+
+        for _ in 0..count {
+            let val = match base_ty {
+                Type::Float => ctx.builder.ins().f32const(0.0),
+                Type::Int => ctx.builder.ins().iconst(types::I32, 0),
+                Type::Bool => ctx.builder.ins().iconst(types::I8, 0),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("unsupported vector base type: {:?}", base_ty),
+                    ));
+                }
+            };
+            vals.push(val);
+        }
+
+        ctx.builder.ins().return_(&vals);
+        Ok(())
+    }
+
     fn compile_function(
         &mut self,
         func: &crate::semantic::TypedFunction,
@@ -241,16 +332,14 @@ impl JIT {
         // Create function builder
         let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut func_builder_context);
 
-        // Create entry block
-        let entry_block = builder.create_block();
-        builder.append_block_params_for_function_params(entry_block);
-        builder.switch_to_block(entry_block);
-        builder.seal_block(entry_block);
+        // Set up entry block (using helper)
+        let entry_block = Self::setup_function_builder(&mut builder);
 
         // Create codegen context with function IDs
         let mut ctx = crate::codegen::context::CodegenContext::new(builder, &mut self.module);
         ctx.set_function_ids(func_ids);
         ctx.set_function_registry(func_registry);
+        ctx.set_return_type(func.return_type.clone());
 
         // Declare parameters as variables in the function
         let block_params = ctx.builder.block_params(entry_block).to_vec();
@@ -318,58 +407,24 @@ impl JIT {
             ctx.translate_statement(stmt)?;
         }
 
-        // Add default return if needed
-        if func.return_type == crate::semantic::types::Type::Void {
-            ctx.builder.ins().return_(&[]);
-        } else {
-            // If we're here, there was no explicit return - emit default
-            let return_val = match func.return_type {
-                crate::semantic::types::Type::Int => ctx
-                    .builder
-                    .ins()
-                    .iconst(cranelift_codegen::ir::types::I32, 0),
-                crate::semantic::types::Type::Float => ctx.builder.ins().f32const(0.0),
-                crate::semantic::types::Type::Bool => ctx
-                    .builder
-                    .ins()
-                    .iconst(cranelift_codegen::ir::types::I8, 0),
-                _ => {
-                    // For vectors, return zero vector
-                    let base_ty = func.return_type.vector_base_type().unwrap();
-                    let count = func.return_type.component_count().unwrap();
-                    let mut vals = Vec::new();
-                    for _ in 0..count {
-                        let val = match base_ty {
-                            crate::semantic::types::Type::Float => ctx.builder.ins().f32const(0.0),
-                            crate::semantic::types::Type::Int => ctx
-                                .builder
-                                .ins()
-                                .iconst(cranelift_codegen::ir::types::I32, 0),
-                            crate::semantic::types::Type::Bool => ctx
-                                .builder
-                                .ins()
-                                .iconst(cranelift_codegen::ir::types::I8, 0),
-                            _ => {
-                                return Err(GlslError::new(
-                                    ErrorCode::E0400,
-                                    format!(
-                                        "unsupported return type for default return: {:?}",
-                                        func.return_type
-                                    ),
-                                ));
-                            }
-                        };
-                        vals.push(val);
-                    }
-                    ctx.builder.ins().return_(&vals);
-                    return Ok(());
-                }
-            };
-            ctx.builder.ins().return_(&[return_val]);
-        }
+        // Generate default return if needed (using helper)
+        Self::generate_default_return(&mut ctx, &func.return_type)?;
 
         // Finalize
         ctx.builder.finalize();
+
+        // Verify function before defining to get better error messages
+        if let Err(verifier_error) =
+            cranelift_codegen::verify_function(&self.ctx.func, self.module.isa())
+        {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "verifier error in function '{}': {}\n\nFunction IR:\n{}",
+                    func.name, verifier_error, self.ctx.func
+                ),
+            ));
+        }
 
         // Define function in module
         // Note: If verification fails, the error won't have location information
@@ -407,11 +462,8 @@ impl JIT {
         // Create function builder
         let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut main_builder_context);
 
-        // Create entry block
-        let entry_block = builder.create_block();
-        builder.append_block_params_for_function_params(entry_block);
-        builder.switch_to_block(entry_block);
-        builder.seal_block(entry_block);
+        // Set up entry block (using helper)
+        Self::setup_function_builder(&mut builder);
 
         // Create codegen context with function IDs
         let mut ctx = crate::codegen::context::CodegenContext::new(builder, &mut self.module);
@@ -419,40 +471,14 @@ impl JIT {
         ctx.set_function_registry(func_registry);
         ctx.set_source_text(source_text);
         ctx.set_return_type(main_func.return_type.clone());
-        ctx.set_return_type(main_func.return_type.clone());
 
         // Translate main function body
         for stmt in &main_func.body {
             ctx.translate_statement(stmt)?;
         }
 
-        // Add default return
-        if main_func.return_type == crate::semantic::types::Type::Void {
-            ctx.builder.ins().return_(&[]);
-        } else if main_func.return_type.is_vector() {
-            // For vectors, return zero for each component
-            let base_ty = main_func.return_type.vector_base_type().unwrap();
-            let cranelift_ty = base_ty.to_cranelift_type();
-            let count = main_func.return_type.component_count().unwrap();
-            let mut return_vals = Vec::new();
-            for _ in 0..count {
-                let val = match base_ty {
-                    crate::semantic::types::Type::Float => ctx.builder.ins().f32const(0.0),
-                    crate::semantic::types::Type::Int => ctx.builder.ins().iconst(cranelift_ty, 0),
-                    crate::semantic::types::Type::Bool => ctx.builder.ins().iconst(cranelift_ty, 0),
-                    _ => ctx.builder.ins().iconst(cranelift_ty, 0),
-                };
-                return_vals.push(val);
-            }
-            ctx.builder.ins().return_(&return_vals);
-        } else {
-            let return_type = main_func.return_type.to_cranelift_type();
-            let return_val = match main_func.return_type {
-                crate::semantic::types::Type::Float => ctx.builder.ins().f32const(0.0),
-                _ => ctx.builder.ins().iconst(return_type, 0),
-            };
-            ctx.builder.ins().return_(&[return_val]);
-        }
+        // Generate default return if needed (using helper)
+        Self::generate_default_return(&mut ctx, &main_func.return_type)?;
 
         // Finalize
         ctx.builder.finalize();

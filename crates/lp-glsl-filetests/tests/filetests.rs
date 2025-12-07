@@ -489,6 +489,127 @@ fn test_sqrt_scalar() {
     test_file("builtins/sqrt_scalar.glsl");
 }
 
+// Angle and Trigonometry Functions
+#[test]
+fn test_radians_scalar() {
+    test_file("builtins/radians_scalar.glsl");
+}
+
+#[test]
+fn test_radians_vec2() {
+    test_file("builtins/radians_vec2.glsl");
+}
+
+#[test]
+fn test_degrees_scalar() {
+    test_file("builtins/degrees_scalar.glsl");
+}
+
+#[test]
+fn test_radians_degrees_roundtrip() {
+    test_file("builtins/radians_degrees_roundtrip.glsl");
+}
+
+#[test]
+fn test_sin_scalar() {
+    test_file("builtins/sin_scalar.glsl");
+}
+
+#[test]
+fn test_sin_pi_2() {
+    test_file("builtins/sin_pi_2.glsl");
+}
+
+#[test]
+fn test_sin_vec3() {
+    test_file("builtins/sin_vec3.glsl");
+}
+
+#[test]
+fn test_cos_scalar() {
+    test_file("builtins/cos_scalar.glsl");
+}
+
+#[test]
+fn test_cos_pi() {
+    test_file("builtins/cos_pi.glsl");
+}
+
+#[test]
+fn test_cos_vec2() {
+    test_file("builtins/cos_vec2.glsl");
+}
+
+#[test]
+fn test_tan_scalar() {
+    test_file("builtins/tan_scalar.glsl");
+}
+
+#[test]
+fn test_tan_vec3() {
+    test_file("builtins/tan_vec3.glsl");
+}
+
+#[test]
+fn test_asin_scalar() {
+    test_file("builtins/asin_scalar.glsl");
+}
+
+#[test]
+fn test_asin_boundary() {
+    test_file("builtins/asin_boundary.glsl");
+}
+
+#[test]
+fn test_acos_scalar() {
+    test_file("builtins/acos_scalar.glsl");
+}
+
+#[test]
+fn test_atan_scalar() {
+    test_file("builtins/atan_scalar.glsl");
+}
+
+#[test]
+fn test_atan2_scalar() {
+    test_file("builtins/atan2_scalar.glsl");
+}
+
+#[test]
+fn test_atan2_quadrant() {
+    test_file("builtins/atan2_quadrant.glsl");
+}
+
+#[test]
+fn test_sinh_scalar() {
+    test_file("builtins/sinh_scalar.glsl");
+}
+
+#[test]
+fn test_cosh_scalar() {
+    test_file("builtins/cosh_scalar.glsl");
+}
+
+#[test]
+fn test_tanh_scalar() {
+    test_file("builtins/tanh_scalar.glsl");
+}
+
+#[test]
+fn test_asinh_scalar() {
+    test_file("builtins/asinh_scalar.glsl");
+}
+
+#[test]
+fn test_acosh_scalar() {
+    test_file("builtins/acosh_scalar.glsl");
+}
+
+#[test]
+fn test_atanh_scalar() {
+    test_file("builtins/atanh_scalar.glsl");
+}
+
 // User function tests
 #[test]
 fn test_simple_function() {
@@ -664,6 +785,21 @@ fn test_swizzle_invalid_component_error() {
 #[test]
 fn test_swizzle_assign_duplicate_error() {
     test_file("type_errors/swizzle_assign_duplicate.glsl");
+}
+
+#[test]
+fn test_trig_wrong_arg_type_error() {
+    test_file("type_errors/trig_wrong_arg_type.glsl");
+}
+
+#[test]
+fn test_trig_wrong_arg_count_error() {
+    test_file("type_errors/trig_wrong_arg_count.glsl");
+}
+
+#[test]
+fn test_atan2_type_mismatch_error() {
+    test_file("type_errors/atan2_type_mismatch.glsl");
 }
 
 // Type error tests (previously commented out)

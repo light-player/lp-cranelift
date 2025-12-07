@@ -19,4 +19,4 @@ float main() {
 //     v4 = f32const 0.0
 //     return v4  ; v4 = 0.0
 // }
-// run: ~= 0 (tolerance: 0.01)
+// run: ~= 7.5 (tolerance: 0.01)

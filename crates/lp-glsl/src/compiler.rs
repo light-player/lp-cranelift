@@ -41,6 +41,24 @@ impl Compiler {
         Ok(unsafe { std::mem::transmute(code_ptr) })
     }
 
+    /// Compile GLSL shader that returns vec2 (2 f32s)
+    pub fn compile_vec2(&mut self, source: &str) -> Result<fn() -> (f32, f32), String> {
+        let code_ptr = self.jit.compile(source)?;
+        Ok(unsafe { std::mem::transmute(code_ptr) })
+    }
+
+    /// Compile GLSL shader that returns vec3 (3 f32s)
+    pub fn compile_vec3(&mut self, source: &str) -> Result<fn() -> (f32, f32, f32), String> {
+        let code_ptr = self.jit.compile(source)?;
+        Ok(unsafe { std::mem::transmute(code_ptr) })
+    }
+
+    /// Compile GLSL shader that returns vec4 (4 f32s)
+    pub fn compile_vec4(&mut self, source: &str) -> Result<fn() -> (f32, f32, f32, f32), String> {
+        let code_ptr = self.jit.compile(source)?;
+        Ok(unsafe { std::mem::transmute(code_ptr) })
+    }
+
     /// Compile to CLIF IR for debugging/testing
     pub fn compile_to_clif(&mut self, source: &str) -> Result<String, String> {
         self.jit.compile_to_clif(source)
