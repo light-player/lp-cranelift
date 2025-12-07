@@ -6,5 +6,9 @@ float main() {
     return dot(a, b);  // ERROR: size mismatch
 }
 
-// EXPECT_ERROR: dot() requires matching vector sizes
+// EXPECT_ERROR_CODE: E0114
+// EXPECT_ERROR: No matching overload for dot([Vec2, Vec3])
+// EXPECT_LOCATION: 5:12
+
+
 

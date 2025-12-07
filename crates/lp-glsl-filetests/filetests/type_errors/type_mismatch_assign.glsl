@@ -7,5 +7,7 @@ int main() {
     return x;
 }
 
-// EXPECT_ERROR: Type mismatch: cannot assign Bool to Int
+// EXPECT_ERROR_CODE: E0102
+// EXPECT_ERROR: type mismatch in assignment
+// EXPECT_LOCATION: 5:9
 

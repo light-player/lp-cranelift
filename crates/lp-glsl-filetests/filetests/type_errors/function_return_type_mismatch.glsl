@@ -8,5 +8,8 @@ int main() {
     return get_int();
 }
 
-// EXPECT_ERROR: Compilation error: Compilation error: Verifier errors
+// Note: This may produce a verification error rather than a semantic error
+// Verifier errors don't preserve location information
+// EXPECT_ERROR_CODE: E0400
+// EXPECT_ERROR: code generation failed: Compilation error: Verifier errors
 

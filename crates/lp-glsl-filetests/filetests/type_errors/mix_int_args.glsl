@@ -5,5 +5,7 @@ int main() {
     return 0;
 }
 
-// EXPECT_ERROR: Verification error
+// EXPECT_ERROR_CODE: E0114
+// EXPECT_ERROR: No matching overload
+// EXPECT_LOCATION: 4
 

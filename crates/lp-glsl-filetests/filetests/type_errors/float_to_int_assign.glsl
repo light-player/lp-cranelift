@@ -5,5 +5,7 @@ int main() {
     return x;
 }
 
-// EXPECT_ERROR: Type mismatch in initialization: expected Int, got Float
+// EXPECT_ERROR_CODE: E0102
+// EXPECT_ERROR: type mismatch in assignment
+// EXPECT_LOCATION: 3:13
 

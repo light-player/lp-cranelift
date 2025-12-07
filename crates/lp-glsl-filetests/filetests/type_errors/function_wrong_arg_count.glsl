@@ -8,5 +8,7 @@ float main() {
     return add(1.0);  // ERROR: needs 2 args
 }
 
-// EXPECT_ERROR: No matching function
+// EXPECT_ERROR_CODE: E0114
+// EXPECT_ERROR: no matching overload for function `add`
+// EXPECT_LOCATION: 7:12
 

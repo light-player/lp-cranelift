@@ -5,5 +5,7 @@ int main() {
     return 1;
 }
 
-// EXPECT_ERROR: Cannot use Bool in vec3 constructor
+// EXPECT_ERROR_CODE: E0103
+// EXPECT_ERROR: cannot use `Bool` in `vec3` constructor
+// EXPECT_LOCATION: 4
 
