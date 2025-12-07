@@ -5,6 +5,7 @@ use hashbrown::HashMap;
 
 use crate::semantic::functions::FunctionRegistry;
 use crate::semantic::types::Type as GlslType;
+use crate::semantic::types::Type;
 
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
@@ -32,6 +33,12 @@ pub struct CodegenContext<'a> {
     // User-defined function support
     pub function_ids: Option<HashMap<String, FuncId>>,
     pub function_registry: Option<&'a FunctionRegistry>,
+
+    // Source text for span extraction
+    pub source_text: Option<&'a str>,
+
+    // Current function return type (for return statement validation)
+    pub return_type: Option<GlslType>,
 }
 
 pub struct LoopContext {
@@ -48,7 +55,17 @@ impl<'a> CodegenContext<'a> {
             loop_stack: Vec::new(),
             function_ids: None,
             function_registry: None,
+            source_text: None,
+            return_type: None,
         }
+    }
+
+    pub fn set_return_type(&mut self, return_type: GlslType) {
+        self.return_type = Some(return_type);
+    }
+
+    pub fn set_source_text(&mut self, source: &'a str) {
+        self.source_text = Some(source);
     }
 
     pub fn set_function_ids(&mut self, func_ids: &HashMap<String, FuncId>) {
@@ -59,15 +76,25 @@ impl<'a> CodegenContext<'a> {
         self.function_registry = Some(registry);
     }
 
+    /// Add span_text to an error if source is available
+    pub fn add_span_to_error(&self, error: crate::error::GlslError, span: &glsl::syntax::SourceSpan) -> crate::error::GlslError {
+        use crate::error::add_span_text_to_error;
+        add_span_text_to_error(error, self.source_text, span)
+    }
+
     pub fn declare_variable(&mut self, name: String, glsl_ty: GlslType) -> Vec<Variable> {
         let component_count = if glsl_ty.is_vector() {
             glsl_ty.component_count().unwrap()
+        } else if glsl_ty.is_matrix() {
+            glsl_ty.matrix_element_count().unwrap()
         } else {
             1
         };
 
         let base_ty = if glsl_ty.is_vector() {
             glsl_ty.vector_base_type().unwrap()
+        } else if glsl_ty.is_matrix() {
+            Type::Float // Matrices are always float
         } else {
             glsl_ty.clone()
         };
@@ -105,5 +132,47 @@ impl<'a> CodegenContext<'a> {
 
     pub fn lookup_variable_type(&self, name: &str) -> Option<&GlslType> {
         self.variables.get(name).map(|info| &info.glsl_type)
+    }
+
+    /// Store a value to a matrix element at (row, col)
+    /// Matrix is stored in column-major order: element (row, col) = vars[col * rows + row]
+    pub fn store_matrix_element(
+        &mut self,
+        matrix_vars: &[Variable],
+        row: usize,
+        col: usize,
+        rows: usize,
+        value: cranelift_codegen::ir::Value,
+    ) {
+        let index = col * rows + row;
+        self.builder.def_var(matrix_vars[index], value);
+    }
+
+    /// Load a matrix element at (row, col)
+    pub fn load_matrix_element(
+        &mut self,
+        matrix_vars: &[Variable],
+        row: usize,
+        col: usize,
+        rows: usize,
+    ) -> cranelift_codegen::ir::Value {
+        let index = col * rows + row;
+        self.builder.use_var(matrix_vars[index])
+    }
+
+    /// Load an entire matrix column as a vector
+    /// Returns the values for the column
+    pub fn load_matrix_column(
+        &mut self,
+        matrix_vars: &[Variable],
+        col: usize,
+        rows: usize,
+    ) -> Vec<cranelift_codegen::ir::Value> {
+        let mut result = Vec::new();
+        for row in 0..rows {
+            let index = col * rows + row;
+            result.push(self.builder.use_var(matrix_vars[index]));
+        }
+        result
     }
 }

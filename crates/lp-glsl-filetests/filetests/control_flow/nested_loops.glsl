@@ -17,44 +17,50 @@ int main() {
 //     v1 = iconst.i32 0
 //     jump block1(v1, v0)  ; v1 = 0, v0 = 0
 //
-// block1(v2: i32, v14: i32):
-//     v15 -> v2
+// block1(v2: i32, v20: i32):
+//     v21 -> v2
 //     v3 = iconst.i32 3
 //     v4 = icmp slt v2, v3  ; v3 = 3
-//     brif v4, block2, block4
+//     v5 = iconst.i8 1
+//     v6 = iconst.i8 0
+//     v7 = select v4, v5, v6  ; v5 = 1, v6 = 0
+//     brif v7, block2, block4
 //
 // block2:
-//     v5 = iconst.i32 0
-//     jump block5(v5, v14)  ; v5 = 0
+//     v8 = iconst.i32 0
+//     jump block5(v8, v20)  ; v8 = 0
 //
-// block5(v6: i32, v9: i32):
-//     v7 = iconst.i32 3
-//     v8 = icmp slt v6, v7  ; v7 = 3
-//     brif v8, block6, block8
+// block5(v9: i32, v15: i32):
+//     v10 = iconst.i32 3
+//     v11 = icmp slt v9, v10  ; v10 = 3
+//     v12 = iconst.i8 1
+//     v13 = iconst.i8 0
+//     v14 = select v11, v12, v13  ; v12 = 1, v13 = 0
+//     brif v14, block6, block8
 //
 // block6:
-//     v10 = iconst.i32 1
-//     v11 = iadd.i32 v9, v10  ; v10 = 1
+//     v16 = iconst.i32 1
+//     v17 = iadd.i32 v15, v16  ; v16 = 1
 //     jump block7
 //
 // block7:
-//     v12 = iconst.i32 1
-//     v13 = iadd.i32 v6, v12  ; v12 = 1
-//     jump block5(v13, v11)
+//     v18 = iconst.i32 1
+//     v19 = iadd.i32 v9, v18  ; v18 = 1
+//     jump block5(v19, v17)
 //
 // block8:
 //     jump block3
 //
 // block3:
-//     v16 = iconst.i32 1
-//     v17 = iadd.i32 v2, v16  ; v16 = 1
-//     jump block1(v17, v9)
+//     v22 = iconst.i32 1
+//     v23 = iadd.i32 v2, v22  ; v22 = 1
+//     jump block1(v23, v15)
 //
 // block4:
-//     return v14
+//     return v20
 //
 // block9:
-//     v18 = iconst.i32 0
-//     return v18  ; v18 = 0
+//     v24 = iconst.i32 0
+//     return v24  ; v24 = 0
 // }
 // run: == 9

@@ -2,17 +2,13 @@
 
 use crate::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
+use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use std::vec::Vec;
-
-#[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString};
-#[cfg(feature = "std")]
-use std::string::{String, ToString};
 
 #[cfg(not(feature = "std"))]
 use alloc::format;
@@ -24,7 +20,7 @@ impl<'a> CodegenContext<'a> {
         &mut self,
         name: &str,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         match name {
             "dot" => self.builtin_dot(args),
             "cross" => self.builtin_cross(args),
@@ -45,19 +41,25 @@ impl<'a> CodegenContext<'a> {
             "fract" => self.builtin_fract(args),
             "mod" => self.builtin_mod(args),
             "sign" => self.builtin_sign(args),
-            _ => Err(format!("Built-in function not implemented: {}", name)),
+            // Matrix Functions (builtinfunctions.adoc:1538-1687)
+            "matrixCompMult" => self.builtin_matrixCompMult(args),
+            "outerProduct" => self.builtin_outerProduct(args),
+            "transpose" => self.builtin_transpose(args),
+            "determinant" => self.builtin_determinant(args),
+            "inverse" => self.builtin_inverse(args),
+            _ => Err(GlslError::new(ErrorCode::E0400, format!("built-in function not implemented: {}", name))),
         }
     }
 
     // Geometric Functions
 
     /// Dot product: x·y = x₀y₀ + x₁y₁ + x₂y₂ + ...
-    fn builtin_dot(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), String> {
+    fn builtin_dot(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, _) = &args[0];
         let (y_vals, _) = &args[1];
 
         if x_vals.len() != y_vals.len() {
-            return Err("dot() requires matching vector sizes".to_string());
+            return Err(GlslError::new(ErrorCode::E0104, "dot() requires matching vector sizes"));
         }
 
         let mut sum = self.builder.ins().fmul(x_vals[0], y_vals[0]);
@@ -73,12 +75,12 @@ impl<'a> CodegenContext<'a> {
     fn builtin_cross(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, _) = &args[0];
         let (y_vals, _) = &args[1];
 
         if x_vals.len() != 3 || y_vals.len() != 3 {
-            return Err("cross() requires vec3 arguments".to_string());
+            return Err(GlslError::new(ErrorCode::E0104, "cross() requires vec3 arguments"));
         }
 
         // cross(x, y) = (x.y*y.z - x.z*y.y, x.z*y.x - x.x*y.z, x.x*y.y - x.y*y.x)
@@ -112,7 +114,7 @@ impl<'a> CodegenContext<'a> {
     fn builtin_length(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, _) = &args[0];
 
         // Compute dot product with self
@@ -132,7 +134,7 @@ impl<'a> CodegenContext<'a> {
     fn builtin_normalize(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
 
         // Compute length
@@ -152,12 +154,12 @@ impl<'a> CodegenContext<'a> {
     fn builtin_distance(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (p0_vals, p0_ty) = &args[0];
         let (p1_vals, _) = &args[1];
 
         if p0_vals.len() != p1_vals.len() {
-            return Err("distance() requires matching vector sizes".to_string());
+            return Err(GlslError::new(ErrorCode::E0104, "distance() requires matching vector sizes"));
         }
 
         // Compute p0 - p1
@@ -173,7 +175,7 @@ impl<'a> CodegenContext<'a> {
     // Common Functions
 
     /// min(x, y) - component-wise for vectors
-    fn builtin_min(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), String> {
+    fn builtin_min(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
         let (y_vals, _) = &args[1];
 
@@ -196,7 +198,7 @@ impl<'a> CodegenContext<'a> {
                         let cmp = self.builder.ins().icmp(IntCC::SignedLessThan, x, y_scalar);
                         self.builder.ins().select(cmp, x, y_scalar)
                     }
-                    _ => return Err("min() not supported for this type".to_string()),
+                    _ => return Err(GlslError::new(ErrorCode::E0105, "min() not supported for this type")),
                 };
                 result_vals.push(min_val);
             }
@@ -212,7 +214,7 @@ impl<'a> CodegenContext<'a> {
                                 .icmp(IntCC::SignedLessThan, x_vals[i], y_vals[i]);
                         self.builder.ins().select(cmp, x_vals[i], y_vals[i])
                     }
-                    _ => return Err("min() not supported for this type".to_string()),
+                    _ => return Err(GlslError::new(ErrorCode::E0105, "min() not supported for this type")),
                 };
                 result_vals.push(min_val);
             }
@@ -222,7 +224,7 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// max(x, y) - component-wise for vectors
-    fn builtin_max(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), String> {
+    fn builtin_max(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
         let (y_vals, _) = &args[1];
 
@@ -248,7 +250,7 @@ impl<'a> CodegenContext<'a> {
                             .icmp(IntCC::SignedGreaterThan, x, y_scalar);
                         self.builder.ins().select(cmp, x, y_scalar)
                     }
-                    _ => return Err("max() not supported for this type".to_string()),
+                    _ => return Err(GlslError::new(ErrorCode::E0105, "max() not supported for this type")),
                 };
                 result_vals.push(max_val);
             }
@@ -264,7 +266,7 @@ impl<'a> CodegenContext<'a> {
                                 .icmp(IntCC::SignedGreaterThan, x_vals[i], y_vals[i]);
                         self.builder.ins().select(cmp, x_vals[i], y_vals[i])
                     }
-                    _ => return Err("max() not supported for this type".to_string()),
+                    _ => return Err(GlslError::new(ErrorCode::E0105, "max() not supported for this type")),
                 };
                 result_vals.push(max_val);
             }
@@ -277,7 +279,7 @@ impl<'a> CodegenContext<'a> {
     fn builtin_clamp(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let x_arg = args[0].clone();
         let min_arg = args[1].clone();
         let max_arg = args[2].clone();
@@ -290,7 +292,7 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// abs(x) - absolute value
-    fn builtin_abs(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), String> {
+    fn builtin_abs(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
 
         let base_ty = if x_ty.is_vector() {
@@ -310,7 +312,7 @@ impl<'a> CodegenContext<'a> {
                     let neg_val = self.builder.ins().ineg(val);
                     self.builder.ins().select(is_neg, neg_val, val)
                 }
-                _ => return Err("abs() not supported for this type".to_string()),
+                _ => return Err(GlslError::new(ErrorCode::E0105, "abs() not supported for this type")),
             };
             result_vals.push(abs_val);
         }
@@ -324,7 +326,7 @@ impl<'a> CodegenContext<'a> {
     fn builtin_sqrt(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
 
         let mut result_vals = Vec::new();
@@ -339,7 +341,7 @@ impl<'a> CodegenContext<'a> {
     fn builtin_floor(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
 
         let mut result_vals = Vec::new();
@@ -354,7 +356,7 @@ impl<'a> CodegenContext<'a> {
     fn builtin_ceil(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
 
         let mut result_vals = Vec::new();
@@ -366,21 +368,21 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// pow(x, y) = x^y (component-wise)
-    fn builtin_pow(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), String> {
+    fn builtin_pow(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, _x_ty) = &args[0];
         let (y_vals, _) = &args[1];
 
         if x_vals.len() != y_vals.len() {
-            return Err("pow() requires matching sizes".to_string());
+            return Err(GlslError::new(ErrorCode::E0104, "pow() requires matching sizes"));
         }
 
         // TODO: Cranelift doesn't have fpow instruction - need to implement via exp/log
         // For now, return error
-        Err("pow() builtin not yet implemented (needs exp/log)".to_string())
+        Err(GlslError::new(ErrorCode::E0400, "pow() builtin not yet implemented (needs exp/log)"))
     }
 
     /// mix(x, y, a) = x * (1-a) + y * a (linear interpolation)
-    fn builtin_mix(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), String> {
+    fn builtin_mix(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
         let (y_vals, _) = &args[1];
         let (a_vals, _) = &args[2];
@@ -424,7 +426,7 @@ impl<'a> CodegenContext<'a> {
     fn builtin_step(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (edge_vals, _) = &args[0];
         let (x_vals, x_ty) = &args[1];
 
@@ -464,7 +466,7 @@ impl<'a> CodegenContext<'a> {
     fn builtin_smoothstep(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (edge0_vals, _) = &args[0];
         let (edge1_vals, _) = &args[1];
         let (x_vals, x_ty) = &args[2];
@@ -527,7 +529,7 @@ impl<'a> CodegenContext<'a> {
     fn builtin_fract(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
 
         let mut result_vals = Vec::new();
@@ -540,7 +542,7 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// mod(x, y) = x - y * floor(x/y)
-    fn builtin_mod(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), String> {
+    fn builtin_mod(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
         let (y_vals, _) = &args[1];
 
@@ -578,7 +580,7 @@ impl<'a> CodegenContext<'a> {
     fn builtin_sign(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
-    ) -> Result<(Vec<Value>, Type), String> {
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
 
         let base_ty = if x_ty.is_vector() {
@@ -636,9 +638,233 @@ impl<'a> CodegenContext<'a> {
                     result_vals.push(result);
                 }
             }
-            _ => return Err("sign() not supported for this type".to_string()),
+            _ => return Err(GlslError::new(ErrorCode::E0105, "sign() not supported for this type")),
         }
 
         Ok((result_vals, x_ty.clone()))
+    }
+
+    // Matrix Functions (builtinfunctions.adoc:1538-1687)
+
+    /// Component-wise matrix multiply: result[i][j] = x[i][j] * y[i][j]
+    fn builtin_matrixCompMult(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let (y_vals, y_ty) = &args[1];
+
+        if x_ty != y_ty || !x_ty.is_matrix() {
+            return Err(GlslError::new(ErrorCode::E0104, "matrixCompMult() requires two matrices of the same type"));
+        }
+
+        let mut result_vals = Vec::new();
+        for (x_val, y_val) in x_vals.iter().zip(y_vals.iter()) {
+            result_vals.push(self.builder.ins().fmul(*x_val, *y_val));
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// Outer product: vec1 × vec2 → matrix
+    /// For vec3 × vec3, returns mat3 where result[i][j] = vec1[i] * vec2[j]
+    fn builtin_outerProduct(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+        let (vec1_vals, vec1_ty) = &args[0];
+        let (vec2_vals, vec2_ty) = &args[1];
+
+        if !vec1_ty.is_vector() || !vec2_ty.is_vector() {
+            return Err(GlslError::new(ErrorCode::E0104, "outerProduct() requires two vectors"));
+        }
+
+        let vec1_size = vec1_vals.len();
+        let vec2_size = vec2_vals.len();
+
+        // Determine result matrix type based on vector sizes
+        let result_ty = match (vec1_size, vec2_size) {
+            (2, 2) => Type::Mat2,
+            (3, 3) => Type::Mat3,
+            (4, 4) => Type::Mat4,
+            _ => return Err(GlslError::new(ErrorCode::E0104, 
+                format!("outerProduct() requires matching vector sizes (got {} and {})", vec1_size, vec2_size))),
+        };
+
+        // Compute outer product: result[i][j] = vec1[i] * vec2[j]
+        // Result matrix is stored column-major
+        let mut result_vals = Vec::new();
+        for j in 0..vec2_size {
+            for i in 0..vec1_size {
+                let product = self.builder.ins().fmul(vec1_vals[i], vec2_vals[j]);
+                result_vals.push(product);
+            }
+        }
+
+        Ok((result_vals, result_ty))
+    }
+
+    /// Transpose matrix: swap rows and columns
+    fn builtin_transpose(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+        let (m_vals, m_ty) = &args[0];
+
+        if !m_ty.is_matrix() {
+            return Err(GlslError::new(ErrorCode::E0104, "transpose() requires a matrix"));
+        }
+
+        let (rows, cols) = m_ty.matrix_dims().unwrap();
+
+        // Transpose: result[row][col] = m[col][row]
+        // Input is column-major: m_vals[col * rows + row] = m[row][col]
+        // Output should be column-major: result_vals[col * rows + row] = result[row][col] = m[col][row]
+        // m[col][row] = m_vals[row * cols + col] (since m is stored column-major)
+        // So: result_vals[result_col * rows + result_row] = m_vals[result_row * cols + result_col]
+        let mut result_vals = Vec::new();
+        for result_col in 0..rows {  // Transposed matrix has rows columns
+            for result_row in 0..cols {  // Transposed matrix has cols rows
+                // result[result_row][result_col] = m[result_col][result_row]
+                // m[result_col][result_row] = m_vals[result_row * cols + result_col]
+                let old_idx = result_row * cols + result_col;
+                result_vals.push(m_vals[old_idx]);
+            }
+        }
+
+        // Result type is the same (square matrices)
+        Ok((result_vals, m_ty.clone()))
+    }
+
+    /// Compute matrix determinant
+    fn builtin_determinant(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+        let (m_vals, m_ty) = &args[0];
+
+        if !m_ty.is_matrix() {
+            return Err(GlslError::new(ErrorCode::E0104, "determinant() requires a matrix"));
+        }
+
+        let (rows, cols) = m_ty.matrix_dims().unwrap();
+        if rows != cols {
+            return Err(GlslError::new(ErrorCode::E0104, "determinant() only supported for square matrices"));
+        }
+
+        // Helper to get element at (row, col) from column-major storage
+        let get = |row: usize, col: usize| -> Value {
+            m_vals[col * rows + row]
+        };
+
+        let det = match rows {
+            2 => {
+                // det = a*d - b*c
+                // Matrix: [a b]  stored as [a, c, b, d] (col-major)
+                //         [c d]
+                let a = get(0, 0);
+                let b = get(0, 1);
+                let c = get(1, 0);
+                let d = get(1, 1);
+                let ad = self.builder.ins().fmul(a, d);
+                let bc = self.builder.ins().fmul(b, c);
+                self.builder.ins().fsub(ad, bc)
+            }
+            3 => {
+                // Sarrus rule for 3x3
+                // det = a(ei - fh) - b(di - fg) + c(dh - eg)
+                let a = get(0, 0);
+                let b = get(0, 1);
+                let c = get(0, 2);
+                let d = get(1, 0);
+                let e = get(1, 1);
+                let f = get(1, 2);
+                let g = get(2, 0);
+                let h = get(2, 1);
+                let i = get(2, 2);
+
+                let ei = self.builder.ins().fmul(e, i);
+                let fh = self.builder.ins().fmul(f, h);
+                let ei_minus_fh = self.builder.ins().fsub(ei, fh);
+                let term1 = self.builder.ins().fmul(a, ei_minus_fh);
+
+                let di = self.builder.ins().fmul(d, i);
+                let fg = self.builder.ins().fmul(f, g);
+                let di_minus_fg = self.builder.ins().fsub(di, fg);
+                let term2 = self.builder.ins().fmul(b, di_minus_fg);
+
+                let dh = self.builder.ins().fmul(d, h);
+                let eg = self.builder.ins().fmul(e, g);
+                let dh_minus_eg = self.builder.ins().fsub(dh, eg);
+                let term3 = self.builder.ins().fmul(c, dh_minus_eg);
+
+                let term1_minus_term2 = self.builder.ins().fsub(term1, term2);
+                self.builder.ins().fadd(term1_minus_term2, term3)
+            }
+            4 => {
+                // Cofactor expansion for 4x4 (using first row)
+                // This is complex, so we'll use a simpler approach: compute via minors
+                // For now, return an error and implement later if needed
+                return Err(GlslError::new(ErrorCode::E0400, "4x4 determinant not yet implemented"));
+            }
+            _ => return Err(GlslError::new(ErrorCode::E0104, format!("determinant() not supported for {}-dimensional matrices", rows))),
+        };
+
+        Ok((vec![det], Type::Float))
+    }
+
+    /// Compute matrix inverse
+    fn builtin_inverse(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+        let (m_vals, m_ty) = &args[0];
+
+        if !m_ty.is_matrix() {
+            return Err(GlslError::new(ErrorCode::E0104, "inverse() requires a matrix"));
+        }
+
+        let (rows, cols) = m_ty.matrix_dims().unwrap();
+        if rows != cols {
+            return Err(GlslError::new(ErrorCode::E0104, "inverse() only supported for square matrices"));
+        }
+
+        // Helper to get element at (row, col) from column-major storage
+        let get = |row: usize, col: usize| -> Value {
+            m_vals[col * rows + row]
+        };
+
+        match rows {
+            2 => {
+                // Inverse of 2x2: (1/det) * [d -b]
+                //                              [-c a]
+                // Matrix: [a b]  stored as [a, c, b, d] (col-major)
+                //         [c d]
+                let a = get(0, 0);
+                let b = get(0, 1);
+                let c = get(1, 0);
+                let d = get(1, 1);
+
+                // Compute determinant
+                let ad = self.builder.ins().fmul(a, d);
+                let bc = self.builder.ins().fmul(b, c);
+                let det = self.builder.ins().fsub(ad, bc);
+
+                // Compute 1/det
+                let one = self.builder.ins().f32const(1.0);
+                let inv_det = self.builder.ins().fdiv(one, det);
+
+                // Compute inverse elements (stored column-major)
+                // result[0][0] = d * inv_det
+                // result[1][0] = -c * inv_det
+                // result[0][1] = -b * inv_det
+                // result[1][1] = a * inv_det
+                let zero = self.builder.ins().f32const(0.0);
+                let minus_c = self.builder.ins().fsub(zero, c);
+                let minus_b = self.builder.ins().fsub(zero, b);
+
+                let mut result_vals = Vec::new();
+                result_vals.push(self.builder.ins().fmul(d, inv_det));  // result[0][0]
+                result_vals.push(self.builder.ins().fmul(minus_c, inv_det));  // result[1][0]
+                result_vals.push(self.builder.ins().fmul(minus_b, inv_det));  // result[0][1]
+                result_vals.push(self.builder.ins().fmul(a, inv_det));  // result[1][1]
+
+                Ok((result_vals, m_ty.clone()))
+            }
+            3 => {
+                // For 3x3, use adjugate/determinant method
+                // This is complex, so for now return error
+                return Err(GlslError::new(ErrorCode::E0400, "3x3 matrix inverse not yet implemented"));
+            }
+            4 => {
+                return Err(GlslError::new(ErrorCode::E0400, "4x4 matrix inverse not yet implemented"));
+            }
+            _ => return Err(GlslError::new(ErrorCode::E0104, format!("inverse() not supported for {}-dimensional matrices", rows))),
+        }
     }
 }

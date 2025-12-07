@@ -19,7 +19,7 @@ vec3 main() {
 //     v9 = fmin v6, v5  ; v5 = 0x1.000000p0
 //     v10 = fmin v7, v5  ; v5 = 0x1.000000p0
 //     v11 = fmin v8, v5  ; v5 = 0x1.000000p0
-//     return v9
+//     return v9, v10, v11
 //
 // block1:
 //     v12 = f32const 0.0

@@ -16,10 +16,13 @@ bool main() {
 //     v5 = select v4, v2, v3  ; v2 = 0.0, v3 = 0x1.000000p0
 //     v6 = f32const 0x1.fae148p-1
 //     v7 = fcmp gt v5, v6  ; v6 = 0x1.fae148p-1
-//     return v7
+//     v8 = iconst.i8 1
+//     v9 = iconst.i8 0
+//     v10 = select v7, v8, v9  ; v8 = 1, v9 = 0
+//     return v10
 //
 // block1:
-//     v8 = iconst.i8 0
-//     return v8  ; v8 = 0
+//     v11 = iconst.i8 0
+//     return v11  ; v11 = 0
 // }
 // run: == true

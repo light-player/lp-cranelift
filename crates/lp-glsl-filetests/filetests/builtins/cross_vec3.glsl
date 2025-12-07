@@ -23,7 +23,7 @@ vec3 main() {
 //     v12 = fmul v0, v4  ; v0 = 0x1.000000p0, v4 = 0x1.000000p0
 //     v13 = fmul v1, v3  ; v1 = 0.0, v3 = 0.0
 //     v14 = fsub v12, v13
-//     return v8
+//     return v8, v11, v14
 //
 // block1:
 //     v15 = f32const 0.0

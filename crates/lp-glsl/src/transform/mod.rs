@@ -5,5 +5,5 @@
 
 pub mod fixed_point;
 
-pub use fixed_point::{FixedPointFormat, TransformError, convert_floats_to_fixed};
+pub use fixed_point::{FixedPointFormat, convert_floats_to_fixed};
 

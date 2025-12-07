@@ -15,21 +15,24 @@ int main() {
 //     v0 = f32const 0x1.400000p1
 //     v1 = f32const 0x1.800000p0
 //     v2 = fcmp gt v0, v1  ; v0 = 0x1.400000p1, v1 = 0x1.800000p0
-//     brif v2, block1, block2
+//     v3 = iconst.i8 1
+//     v4 = iconst.i8 0
+//     v5 = select v2, v3, v4  ; v3 = 1, v4 = 0
+//     brif v5, block1, block2
 //
 // block1:
-//     v3 = iconst.i32 1
-//     return v3  ; v3 = 1
+//     v6 = iconst.i32 1
+//     return v6  ; v6 = 1
 //
 // block3:
 //     jump block2
 //
 // block2:
-//     v4 = iconst.i32 0
-//     return v4  ; v4 = 0
+//     v7 = iconst.i32 0
+//     return v7  ; v7 = 0
 //
 // block4:
-//     v5 = iconst.i32 0
-//     return v5  ; v5 = 0
+//     v8 = iconst.i32 0
+//     return v8  ; v8 = 0
 // }
 // run: == 1

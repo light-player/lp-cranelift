@@ -71,12 +71,24 @@ fn extract_expected_output(source: &str) -> String {
                 || content.trim_start().starts_with("CHECK")
                 || content.trim_start().starts_with("run:")
                 || content.trim_start().starts_with("EXPECT_ERROR:")
+                || content.trim_start().starts_with("Validate")
             {
                 continue;
             }
             
+            // Only start collecting expectations when we see CLIF-like patterns
+            // (function declarations or block labels)
+            if !in_expectations {
+                if content.trim_start().starts_with("function")
+                    || content.trim_start().starts_with("block") {
+                    in_expectations = true;
+                } else {
+                    // Skip explanatory comments that don't look like CLIF
+                    continue;
+                }
+            }
+            
             // This is an expectation comment
-            in_expectations = true;
             expected_lines.push(content.to_string());
         } else if in_expectations && !trimmed.is_empty() {
             // We hit a non-comment line after starting expectations, stop

@@ -1,4 +1,5 @@
 use crate::semantic::types::Type;
+use crate::error::{ErrorCode, GlslError};
 use hashbrown::HashMap;
 
 #[cfg(feature = "std")]
@@ -45,10 +46,10 @@ impl SymbolTable {
         name: String,
         ty: Type,
         storage: StorageClass,
-    ) -> Result<(), String> {
+    ) -> Result<(), GlslError> {
         let scope = self.scopes.last_mut().unwrap();
         if scope.variables.contains_key(&name) {
-            return Err(format!("Variable '{}' already declared", name));
+            return Err(GlslError::new(ErrorCode::E0400, format!("variable `{}` already declared", name)));
         }
         scope.variables.insert(
             name.clone(),

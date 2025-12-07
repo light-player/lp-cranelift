@@ -93,6 +93,41 @@ impl Type {
         }
     }
 
+    /// Returns true if this type is a matrix
+    pub fn is_matrix(&self) -> bool {
+        matches!(self, Type::Mat2 | Type::Mat3 | Type::Mat4)
+    }
+
+    /// Get matrix dimensions (rows, cols) for matrix types
+    pub fn matrix_dims(&self) -> Option<(usize, usize)> {
+        match self {
+            Type::Mat2 => Some((2, 2)),
+            Type::Mat3 => Some((3, 3)),
+            Type::Mat4 => Some((4, 4)),
+            _ => None,
+        }
+    }
+
+    /// Get the column vector type for a matrix (mat3 → Vec3)
+    pub fn matrix_column_type(&self) -> Option<Type> {
+        match self {
+            Type::Mat2 => Some(Type::Vec2),
+            Type::Mat3 => Some(Type::Vec3),
+            Type::Mat4 => Some(Type::Vec4),
+            _ => None,
+        }
+    }
+
+    /// Get total number of elements in a matrix (mat3 → 9)
+    pub fn matrix_element_count(&self) -> Option<usize> {
+        match self {
+            Type::Mat2 => Some(4),
+            Type::Mat3 => Some(9),
+            Type::Mat4 => Some(16),
+            _ => None,
+        }
+    }
+
     /// Get the corresponding Cranelift type
     pub fn to_cranelift_type(&self) -> cranelift_codegen::ir::Type {
         match self {
@@ -100,7 +135,12 @@ impl Type {
             Type::Int => cranelift_codegen::ir::types::I32,
             Type::Float => cranelift_codegen::ir::types::F32,
             Type::Void => panic!("Void type has no Cranelift representation"),
-            _ => panic!("Type not yet supported"),
+            Type::Mat2 | Type::Mat3 | Type::Mat4 => {
+                // Matrices are stored as arrays of F32 on the stack
+                // We return F32 as the base type, actual storage handled in codegen
+                cranelift_codegen::ir::types::F32
+            },
+            _ => panic!("Type not yet supported: {:?}", self),
         }
     }
 }

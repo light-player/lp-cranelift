@@ -28,6 +28,7 @@ pub struct BuiltinSignature {
 pub enum BuiltinParamType {
     GenFType,    // float, vec2, vec3, vec4
     GenIType,    // int, ivec2, ivec3, ivec4
+    GenMatType,  // mat2, mat3, mat4
     Float,       // scalar float only
     Int,         // scalar int only
     Vec3,        // vec3 only (for cross product)
@@ -255,6 +256,47 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
             },
         ]),
         
+        // Matrix Functions (builtinfunctions.adoc:1538-1687)
+        "matrixCompMult" => Some(vec![
+            BuiltinSignature {
+                name: "matrixCompMult",
+                param_types: vec![BuiltinParamType::GenMatType, BuiltinParamType::GenMatType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
+        
+        "outerProduct" => Some(vec![
+            BuiltinSignature {
+                name: "outerProduct",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0), // Returns matrix based on vector sizes
+            },
+        ]),
+        
+        "transpose" => Some(vec![
+            BuiltinSignature {
+                name: "transpose",
+                param_types: vec![BuiltinParamType::GenMatType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
+        
+        "determinant" => Some(vec![
+            BuiltinSignature {
+                name: "determinant",
+                param_types: vec![BuiltinParamType::GenMatType],
+                return_type: BuiltinReturnType::AlwaysFloat,
+            },
+        ]),
+        
+        "inverse" => Some(vec![
+            BuiltinSignature {
+                name: "inverse",
+                param_types: vec![BuiltinParamType::GenMatType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
+        
         _ => None,
     }
 }
@@ -302,7 +344,27 @@ fn try_match_signature(
 
     // Compute return type
     let return_type = match sig.return_type {
-        BuiltinReturnType::SameAsParam(idx) => arg_types[idx].clone(),
+        BuiltinReturnType::SameAsParam(idx) => {
+            // Special case: outerProduct returns matrix based on vector sizes
+            if sig.name == "outerProduct" {
+                let vec1_size = arg_types[0].component_count().unwrap_or(1);
+                let vec2_size = arg_types[1].component_count().unwrap_or(1);
+                // outerProduct(vec1, vec2) returns mat(vec1_size × vec2_size)
+                // For now, we only support square matrices, so require matching sizes
+                if vec1_size == vec2_size {
+                    match vec1_size {
+                        2 => Type::Mat2,
+                        3 => Type::Mat3,
+                        4 => Type::Mat4,
+                        _ => return Err(format!("outerProduct: unsupported vector size {}", vec1_size)),
+                    }
+                } else {
+                    return Err(format!("outerProduct: vector sizes must match for square matrices (got {} and {})", vec1_size, vec2_size));
+                }
+            } else {
+                arg_types[idx].clone()
+            }
+        },
         BuiltinReturnType::AlwaysFloat => Type::Float,
         BuiltinReturnType::AlwaysVec3 => Type::Vec3,
     };
@@ -318,6 +380,9 @@ fn matches_param_type(param: &BuiltinParamType, arg: &Type) -> bool {
         ),
         BuiltinParamType::GenIType => matches!(arg,
             Type::Int | Type::IVec2 | Type::IVec3 | Type::IVec4
+        ),
+        BuiltinParamType::GenMatType => matches!(arg,
+            Type::Mat2 | Type::Mat3 | Type::Mat4
         ),
         BuiltinParamType::Float => arg == &Type::Float,
         BuiltinParamType::Int => arg == &Type::Int,
@@ -335,7 +400,7 @@ fn validate_gentype_consistency(
 
     for (param, arg) in param_types.iter().zip(arg_types) {
         match param {
-            BuiltinParamType::GenFType | BuiltinParamType::GenIType => {
+            BuiltinParamType::GenFType | BuiltinParamType::GenIType | BuiltinParamType::GenMatType => {
                 if let Some(ref expected) = expected_type {
                     if arg != expected {
                         return Err(format!(

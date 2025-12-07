@@ -1,5 +1,6 @@
 //! User-defined function registry and type checking
 
+use crate::error::{ErrorCode, GlslError};
 use crate::semantic::types::Type;
 use crate::semantic::type_check::can_implicitly_convert;
 use hashbrown::HashMap;
@@ -51,7 +52,7 @@ impl FunctionRegistry {
         }
     }
 
-    pub fn register_function(&mut self, sig: FunctionSignature) -> Result<(), String> {
+    pub fn register_function(&mut self, sig: FunctionSignature) -> Result<(), GlslError> {
         self.functions
             .entry(sig.name.clone())
             .or_insert_with(Vec::new)
@@ -59,9 +60,12 @@ impl FunctionRegistry {
         Ok(())
     }
 
-    pub fn lookup_function(&self, name: &str, arg_types: &[Type]) -> Result<&FunctionSignature, String> {
+    pub fn lookup_function(&self, name: &str, arg_types: &[Type]) -> Result<&FunctionSignature, GlslError> {
         let overloads = self.functions.get(name)
-            .ok_or_else(|| format!("Function '{}' not found", name))?;
+            .ok_or_else(|| {
+                GlslError::new(ErrorCode::E0101, format!("undefined function `{}`", name))
+                    .with_note(format!("function `{}` is not defined", name))
+            })?;
 
         // Try exact match first
         for sig in overloads {
@@ -77,7 +81,11 @@ impl FunctionRegistry {
             }
         }
 
-        Err(format!("No matching function for {}({:?})", name, arg_types))
+        Err(GlslError::new(
+            ErrorCode::E0114,
+            format!("no matching overload for function `{}`", name)
+        )
+        .with_note(format!("cannot find function `{}` that accepts arguments of type {:?}", name, arg_types)))
     }
 
     fn exact_match(sig: &FunctionSignature, arg_types: &[Type]) -> bool {

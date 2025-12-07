@@ -14,7 +14,7 @@ vec2 main() {
 //     v3 = f32const 0x1.000000p1
 //     v4 = fmax v0, v2  ; v0 = 0x1.000000p0, v2 = 0x1.800000p1
 //     v5 = fmax v1, v3  ; v1 = 0x1.400000p2, v3 = 0x1.000000p1
-//     return v4
+//     return v4, v5
 //
 // block1:
 //     v6 = f32const 0.0

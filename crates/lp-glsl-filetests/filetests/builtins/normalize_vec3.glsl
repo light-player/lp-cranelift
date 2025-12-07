@@ -19,7 +19,7 @@ vec3 main() {
 //     v9 = fdiv v0, v8  ; v0 = 0x1.800000p1
 //     v10 = fdiv v1, v8  ; v1 = 0.0
 //     v11 = fdiv v2, v8  ; v2 = 0x1.000000p2
-//     return v9
+//     return v9, v10, v11
 //
 // block1:
 //     v12 = f32const 0.0

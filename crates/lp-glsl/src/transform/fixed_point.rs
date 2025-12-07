@@ -6,6 +6,8 @@
 
 #![allow(unused_imports)]
 
+use crate::error::{ErrorCode, GlslError};
+
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String, vec::Vec};
 #[cfg(feature = "std")]
@@ -103,23 +105,8 @@ pub fn fixed32x32_to_float(fixed: i64) -> f32 {
     (fixed as f64 / 4294967296.0) as f32
 }
 
-/// Error type for transformation errors
-#[derive(Debug, Clone)]
-pub struct TransformError {
-    pub message: String,
-}
-
-impl TransformError {
-    pub fn new(message: String) -> Self {
-        Self { message }
-    }
-}
-
-impl core::fmt::Display for TransformError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
+/// Error type for transformation errors (deprecated - use GlslError)
+#[deprecated(note = "Use GlslError instead")]
 
 /// Convert all float operations in a function to fixed-point.
 ///
@@ -132,7 +119,7 @@ impl core::fmt::Display for TransformError {
 pub fn convert_floats_to_fixed(
     func: &mut Function,
     format: FixedPointFormat,
-) -> Result<(), TransformError> {
+) -> Result<(), GlslError> {
     // 1. Convert signature
     convert_signature(func, format);
 
@@ -172,10 +159,10 @@ pub fn convert_floats_to_fixed(
 
     // 6. Verify function is still valid
     if let Err(errors) = cranelift_codegen::verify_function(func, &cranelift_codegen::settings::Flags::new(cranelift_codegen::settings::builder())) {
-        return Err(TransformError::new(format!(
-            "Verification failed after transformation: {}",
-            errors
-        )));
+        return Err(GlslError::new(
+            ErrorCode::E0301,
+            format!("verification failed after fixed-point transformation: {}", errors)
+        ));
     }
 
     Ok(())
@@ -206,7 +193,7 @@ fn convert_f32const(
     inst: Inst,
     format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), TransformError> {
+) -> Result<(), GlslError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
@@ -245,7 +232,7 @@ fn convert_fadd(
     inst: Inst,
     _format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), TransformError> {
+) -> Result<(), GlslError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
@@ -277,7 +264,7 @@ fn convert_fsub(
     inst: Inst,
     _format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), TransformError> {
+) -> Result<(), GlslError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
@@ -310,7 +297,7 @@ fn convert_fmul(
     inst: Inst,
     format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), TransformError> {
+) -> Result<(), GlslError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
@@ -374,7 +361,7 @@ fn convert_fdiv(
     inst: Inst,
     format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), TransformError> {
+) -> Result<(), GlslError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
@@ -434,7 +421,7 @@ fn convert_fneg(
     inst: Inst,
     _format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), TransformError> {
+) -> Result<(), GlslError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
@@ -465,7 +452,7 @@ fn convert_fcmp(
     inst: Inst,
     _format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), TransformError> {
+) -> Result<(), GlslError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
@@ -517,7 +504,7 @@ fn convert_load(
     inst: Inst,
     format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), TransformError> {
+) -> Result<(), GlslError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
@@ -557,7 +544,7 @@ fn convert_store(
     inst: Inst,
     _format: FixedPointFormat,
     _value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), TransformError> {
+) -> Result<(), GlslError> {
     use cranelift_codegen::ir::InstructionData;
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
     
@@ -593,7 +580,7 @@ fn convert_instruction(
     inst: Inst,
     format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), TransformError> {
+) -> Result<(), GlslError> {
     use cranelift_codegen::ir::Opcode;
     
     let opcode = func.dfg.insts[inst].opcode();

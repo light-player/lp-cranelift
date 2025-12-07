@@ -611,6 +611,61 @@ fn test_function_wrong_arg_type_error() {
     test_file("type_errors/function_wrong_arg_type.glsl");
 }
 
+#[test]
+fn test_parse_error() {
+    test_file("type_errors/parse_error.glsl");
+}
+
+#[test]
+fn test_undefined_variable_error() {
+    test_file("type_errors/undefined_variable.glsl");
+}
+
+#[test]
+fn test_undefined_function_error() {
+    test_file("type_errors/undefined_function.glsl");
+}
+
+#[test]
+fn test_no_main_function_error() {
+    test_file("type_errors/no_main_function.glsl");
+}
+
+#[test]
+fn test_unsupported_type_error() {
+    test_file("type_errors/unsupported_type.glsl");
+}
+
+#[test]
+fn test_invalid_vector_constructor_error() {
+    test_file("type_errors/invalid_vector_constructor.glsl");
+}
+
+#[test]
+fn test_return_type_mismatch_error() {
+    test_file("type_errors/return_type_mismatch.glsl");
+}
+
+#[test]
+fn test_builtin_wrong_arg_type_error() {
+    test_file("type_errors/builtin_wrong_arg_type.glsl");
+}
+
+#[test]
+fn test_assignment_lhs_error() {
+    test_file("type_errors/assignment_lhs_error.glsl");
+}
+
+#[test]
+fn test_swizzle_invalid_component_error() {
+    test_file("type_errors/swizzle_invalid_component.glsl");
+}
+
+#[test]
+fn test_swizzle_assign_duplicate_error() {
+    test_file("type_errors/swizzle_assign_duplicate.glsl");
+}
+
 // Type error tests (previously commented out)
 // TODO: Fix error test infrastructure to properly validate error messages
 // #[test]

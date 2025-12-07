@@ -15,26 +15,29 @@ float main() {
 //     v1 = iconst.i32 0
 //     jump block1(v1, v0)  ; v1 = 0, v0 = 0.0
 //
-// block1(v2: i32, v5: f32):
+// block1(v2: i32, v8: f32):
 //     v3 = iconst.i32 3
 //     v4 = icmp slt v2, v3  ; v3 = 3
-//     brif v4, block2, block4
+//     v5 = iconst.i8 1
+//     v6 = iconst.i8 0
+//     v7 = select v4, v5, v6  ; v5 = 1, v6 = 0
+//     brif v7, block2, block4
 //
 // block2:
-//     v6 = f32const 0x1.800000p0
-//     v7 = fadd.f32 v5, v6  ; v6 = 0x1.800000p0
+//     v9 = f32const 0x1.800000p0
+//     v10 = fadd.f32 v8, v9  ; v9 = 0x1.800000p0
 //     jump block3
 //
 // block3:
-//     v8 = iconst.i32 1
-//     v9 = iadd.i32 v2, v8  ; v8 = 1
-//     jump block1(v9, v7)
+//     v11 = iconst.i32 1
+//     v12 = iadd.i32 v2, v11  ; v11 = 1
+//     jump block1(v12, v10)
 //
 // block4:
-//     return v5
+//     return v8
 //
 // block5:
-//     v10 = f32const 0.0
-//     return v10  ; v10 = 0.0
+//     v13 = f32const 0.0
+//     return v13  ; v13 = 0.0
 // }
 // run: ~= 0 (tolerance: 0.01)
