@@ -269,8 +269,20 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
             }
         }
         0x0f => {
-            // FENCE instruction (memory ordering - no-op in single-threaded)
-            Ok(Inst::Fence)
+            // FENCE/FENCE.I instructions
+            // Check funct3 to distinguish between FENCE and FENCE.I
+            let funct3 = ((inst >> 12) & 0x7) as u8;
+            let imm = ((inst >> 20) & 0xfff) as u16;
+            let rs1 = ((inst >> 15) & 0x1f) as u8;
+            let rd = ((inst >> 7) & 0x1f) as u8;
+            
+            if funct3 == 0x1 && imm == 0x001 && rs1 == 0 && rd == 0 {
+                // FENCE.I: funct3=0x1, imm[11:0]=0x001, rs1=0, rd=0
+                Ok(Inst::FenceI)
+            } else {
+                // FENCE: funct3=0x0 (or other values, but we treat as FENCE)
+                Ok(Inst::Fence)
+            }
         }
         0x73 => {
             // System instructions
@@ -448,6 +460,31 @@ mod tests {
                 assert_eq!(imm, 0xff000);
             }
             _ => panic!("Expected AUIPC"),
+        }
+    }
+
+    #[test]
+    fn test_fence_i_decode() {
+        // FENCE.I: 0x0000100f
+        let inst = decode_instruction(0x0000100f).expect("Failed to decode");
+        match inst {
+            Inst::FenceI => {}
+            _ => panic!("Expected FenceI, got {:?}", inst),
+        }
+    }
+
+    #[test]
+    fn test_fence_i_round_trip() {
+        use crate::encode::fence_i;
+        // Encode FENCE.I
+        let encoded = fence_i();
+        assert_eq!(encoded, 0x0000100f);
+        
+        // Decode it back
+        let decoded = decode_instruction(encoded).expect("Failed to decode");
+        match decoded {
+            Inst::FenceI => {}
+            _ => panic!("Expected FenceI, got {:?}", decoded),
         }
     }
 }

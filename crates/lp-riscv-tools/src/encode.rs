@@ -370,6 +370,12 @@ pub fn ebreak() -> u32 {
     0x00100073
 }
 
+/// FENCE.I: Instruction cache synchronization
+/// Encoding: opcode=0x0f, funct3=0x1, rs1=0, rd=0, imm[11:0]=0x001
+pub fn fence_i() -> u32 {
+    0x0000100f
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -520,5 +526,13 @@ mod tests {
 
         let inst_t0 = auipc(Gpr::T0, 0x12345000);
         assert_eq!(inst_t0, 0x12345297); // rd=5: 0x17 | (5 << 7) | (0x12345 << 12) = 0x17 | 0x280 | 0x12345000
+    }
+
+    #[test]
+    fn test_fence_i() {
+        // FENCE.I encoding: opcode=0x0f, funct3=0x1, imm=0x001, rs1=0, rd=0
+        // Expected: 0x0000100f
+        let inst = fence_i();
+        assert_eq!(inst, 0x0000100f);
     }
 }

@@ -1179,6 +1179,15 @@ pub fn execute_instruction(
                 kind: SystemKind::Ebreak, // Use existing kind (doesn't matter for logging)
             }
         }
+        Inst::FenceI => {
+            // FENCE.I: Instruction cache synchronization (no-op in emulator)
+            InstLog::System {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                kind: SystemKind::Ebreak, // Use existing kind (doesn't matter for logging)
+            }
+        }
 
         // ====================================================================
         // Compressed instructions

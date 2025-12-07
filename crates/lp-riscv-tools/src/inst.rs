@@ -122,6 +122,8 @@ pub enum Inst {
     Ebreak,
     /// FENCE: Memory ordering (no-op in single-threaded emulator)
     Fence,
+    /// FENCE.I: Instruction cache synchronization (no-op in emulator)
+    FenceI,
 
     // Atomic instructions (A extension)
     /// LR.W: Load reserved word
@@ -251,6 +253,7 @@ impl Inst {
             Inst::Ecall => ecall(),
             Inst::Ebreak => ebreak(),
             Inst::Fence => 0x0000000f, // fence (no-op encoding)
+            Inst::FenceI => super::encode::fence_i(),
 
             // Atomic instructions - encode as placeholders (not typically needed)
             Inst::LrW { .. } => 0x1000202f, // lr.w a0, (zero)

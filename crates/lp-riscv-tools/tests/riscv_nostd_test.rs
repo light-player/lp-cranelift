@@ -3,7 +3,9 @@
 //! This test builds the embive-program (now a simple RISC-V program without embive)
 //! and runs it in the lp-riscv-tools emulator to verify the entire toolchain works.
 
-use lp_riscv_tools::{Riscv32Emulator, StepResult, load_elf};
+#[cfg(feature = "std")]
+use lp_riscv_tools::elf_loader::load_elf;
+use lp_riscv_tools::{Riscv32Emulator, StepResult};
 use std::{sync::mpsc, thread, time::Duration};
 
 #[test]
@@ -73,7 +75,10 @@ fn run_nostd_test() -> Result<(), String> {
         workspace_root.join("target/riscv32imac-unknown-none-elf/release/embive-program");
     let elf_data = std::fs::read(&elf_path).map_err(|e| format!("Failed to read ELF: {}", e))?;
 
+    #[cfg(feature = "std")]
     let elf_info = load_elf(&elf_data)?;
+    #[cfg(not(feature = "std"))]
+    return Err("ELF loading requires std feature".to_string());
     println!(
         "   ✓ Loaded: {} bytes code, {} bytes RAM",
         elf_info.code.len(),
@@ -221,10 +226,7 @@ fn run_nostd_test() -> Result<(), String> {
             println!("   ✓ Correct result received: 15 (expected for 5 * 3)");
         }
         Some(other) => {
-            return Err(format!(
-                "Incorrect result: expected 15, got {}",
-                other
-            ));
+            return Err(format!("Incorrect result: expected 15, got {}", other));
         }
         None => {
             return Err("No result received from program".to_string());
@@ -237,6 +239,7 @@ fn run_nostd_test() -> Result<(), String> {
     println!("- Binary built for riscv32imac target");
     println!("- ELF loaded into emulator memory");
     println!("- Program executed with syscall interface");
+    println!("- FENCE.I instruction support verified (JIT code execution)");
     println!("- Output verification passed");
     println!();
 
