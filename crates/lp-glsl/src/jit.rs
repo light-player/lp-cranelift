@@ -6,7 +6,7 @@ use std::string::String;
 #[cfg(not(feature = "std"))]
 use alloc::format;
 use cranelift_codegen::Context as CodegenContext;
-use cranelift_codegen::ir::{AbiParam, InstBuilder};
+use cranelift_codegen::ir::InstBuilder;
 use cranelift_codegen::settings::Configurable;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_jit::{JITBuilder, JITModule};
@@ -77,28 +77,15 @@ impl JIT {
         &mut self,
         glsl_source: &str,
     ) -> Result<*const u8, crate::error::GlslError> {
-        use crate::error::{ErrorCode, GlslError, extract_source_line, source_span_to_location};
+        use crate::error::{ErrorCode, GlslError};
         // Clear the context for a fresh compilation
         self.ctx.clear();
 
-        // 1. Parse GLSL
-        let shader = glsl::parser::Parse::parse(glsl_source).map_err(|e| {
-            let mut error = GlslError::new(ErrorCode::E0001, format!("parse error: {:?}", e));
-            // Try to extract span from parse error if available
-            if let Some(ref span) = e.span {
-                error = error.with_location(source_span_to_location(span));
-                if let Some(span_text) = extract_source_line(glsl_source, span) {
-                    error = error.with_span_text(span_text);
-                }
-            }
-            error
-        })?;
+        // 1. Parse and analyze GLSL
+        let semantic_result = crate::pipeline::CompilationPipeline::parse_and_analyze(glsl_source)?;
 
-        // 2. Semantic analysis
-        let typed_ast = crate::semantic::analyze(&shader)?;
-
-        // 3. Generate Cranelift IR
-        self.translate(typed_ast, glsl_source)?;
+        // 2. Generate Cranelift IR
+        self.translate(semantic_result.typed_ast, semantic_result.source)?;
 
         // 3.5. Apply fixed-point transformation if enabled
         if let Some(format) = self.fixed_point_format {
@@ -154,27 +141,13 @@ impl JIT {
         &mut self,
         glsl_source: &str,
     ) -> Result<String, crate::error::GlslError> {
-        use crate::error::{ErrorCode, GlslError, extract_source_line, source_span_to_location};
         self.ctx.clear();
 
-        // 1. Parse GLSL
-        let shader = glsl::parser::Parse::parse(glsl_source).map_err(|e| {
-            let mut error = GlslError::new(ErrorCode::E0001, format!("parse error: {:?}", e));
-            // Try to extract span from parse error if available
-            if let Some(ref span) = e.span {
-                error = error.with_location(source_span_to_location(span));
-                if let Some(span_text) = extract_source_line(glsl_source, span) {
-                    error = error.with_span_text(span_text);
-                }
-            }
-            error
-        })?;
+        // 1. Parse and analyze GLSL
+        let semantic_result = crate::pipeline::CompilationPipeline::parse_and_analyze(glsl_source)?;
 
-        // 2. Semantic analysis
-        let typed_ast = crate::semantic::analyze(&shader)?;
-
-        // 3. Generate Cranelift IR
-        self.translate(typed_ast, glsl_source)?;
+        // 2. Generate Cranelift IR
+        self.translate(semantic_result.typed_ast, semantic_result.source)?;
 
         // 3.5. Apply fixed-point transformation if enabled
         if let Some(format) = self.fixed_point_format {
@@ -231,45 +204,10 @@ impl JIT {
         return_type: &crate::semantic::types::Type,
         parameters: &[crate::semantic::functions::Parameter],
     ) -> Result<FuncId, crate::error::GlslError> {
+        use crate::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};
-        use cranelift_codegen::ir::Signature;
-        use cranelift_codegen::isa::CallConv;
 
-        let mut sig = Signature::new(CallConv::SystemV);
-
-        // Add parameters to signature
-        for param in parameters {
-            if param.ty.is_vector() {
-                // Vector: pass each component as separate parameter
-                let base_ty = param.ty.vector_base_type().unwrap();
-                let cranelift_ty = base_ty.to_cranelift_type();
-                let count = param.ty.component_count().unwrap();
-                for _ in 0..count {
-                    sig.params.push(AbiParam::new(cranelift_ty));
-                }
-            } else {
-                // Scalar: single parameter
-                let cranelift_ty = param.ty.to_cranelift_type();
-                sig.params.push(AbiParam::new(cranelift_ty));
-            }
-        }
-
-        // Add return type
-        if *return_type != crate::semantic::types::Type::Void {
-            if return_type.is_vector() {
-                // Vector: return each component
-                let base_ty = return_type.vector_base_type().unwrap();
-                let cranelift_ty = base_ty.to_cranelift_type();
-                let count = return_type.component_count().unwrap();
-                for _ in 0..count {
-                    sig.returns.push(AbiParam::new(cranelift_ty));
-                }
-            } else {
-                // Scalar: single return value
-                let cranelift_ty = return_type.to_cranelift_type();
-                sig.returns.push(AbiParam::new(cranelift_ty));
-            }
-        }
+        let sig = SignatureBuilder::build(return_type, parameters);
 
         // Declare function in module
         self.module
@@ -290,45 +228,12 @@ impl JIT {
         func_registry: &crate::semantic::functions::FunctionRegistry,
         _source_text: &str,
     ) -> Result<(), crate::error::GlslError> {
+        use crate::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};
-        use cranelift_codegen::ir::{AbiParam, Signature};
-        use cranelift_codegen::isa::CallConv;
         self.ctx.clear();
 
         // Build signature (same as declaration) and set it on the function
-        let mut sig = Signature::new(CallConv::SystemV);
-
-        // Add parameters to signature
-        for param in &func.parameters {
-            if param.ty.is_vector() {
-                let base_ty = param.ty.vector_base_type().unwrap();
-                let cranelift_ty = base_ty.to_cranelift_type();
-                let count = param.ty.component_count().unwrap();
-                for _ in 0..count {
-                    sig.params.push(AbiParam::new(cranelift_ty));
-                }
-            } else {
-                let cranelift_ty = param.ty.to_cranelift_type();
-                sig.params.push(AbiParam::new(cranelift_ty));
-            }
-        }
-
-        // Add return type
-        if func.return_type != crate::semantic::types::Type::Void {
-            if func.return_type.is_vector() {
-                let base_ty = func.return_type.vector_base_type().unwrap();
-                let cranelift_ty = base_ty.to_cranelift_type();
-                let count = func.return_type.component_count().unwrap();
-                for _ in 0..count {
-                    sig.returns.push(AbiParam::new(cranelift_ty));
-                }
-            } else {
-                let cranelift_ty = func.return_type.to_cranelift_type();
-                sig.returns.push(AbiParam::new(cranelift_ty));
-            }
-        }
-
-        // Set signature on function
+        let sig = SignatureBuilder::build(&func.return_type, &func.parameters);
         self.ctx.func.signature = sig;
 
         // Create a new FunctionBuilderContext for this function to avoid state pollution
@@ -354,13 +259,7 @@ impl JIT {
         let expected_param_count: usize = func
             .parameters
             .iter()
-            .map(|p| {
-                if p.ty.is_vector() {
-                    p.ty.component_count().unwrap()
-                } else {
-                    1
-                }
-            })
+            .map(|p| SignatureBuilder::count_parameters(&p.ty))
             .sum();
         if block_params.len() < expected_param_count {
             return Err(GlslError::new(
@@ -495,30 +394,13 @@ impl JIT {
         func_registry: &crate::semantic::functions::FunctionRegistry,
         source_text: &str,
     ) -> Result<(), crate::error::GlslError> {
+        use crate::codegen::signature::SignatureBuilder;
         self.ctx.clear();
 
-        // Set up main signature (no parameters)
-        if !matches!(main_func.return_type, crate::semantic::types::Type::Void) {
-            if main_func.return_type.is_vector() {
-                let base_ty = main_func.return_type.vector_base_type().unwrap();
-                let cranelift_ty = base_ty.to_cranelift_type();
-                let count = main_func.return_type.component_count().unwrap();
-                for _ in 0..count {
-                    self.ctx
-                        .func
-                        .signature
-                        .returns
-                        .push(AbiParam::new(cranelift_ty));
-                }
-            } else {
-                let return_type = main_func.return_type.to_cranelift_type();
-                self.ctx
-                    .func
-                    .signature
-                    .returns
-                    .push(AbiParam::new(return_type));
-            }
-        }
+        // Set up main signature (no parameters, just return type)
+        let mut sig = SignatureBuilder::new();
+        SignatureBuilder::add_return_type(&mut sig, &main_func.return_type);
+        self.ctx.func.signature = sig;
 
         // Create a new FunctionBuilderContext for the main function to avoid state pollution
         let mut main_builder_context = FunctionBuilderContext::new();

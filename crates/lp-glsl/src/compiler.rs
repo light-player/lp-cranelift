@@ -87,21 +87,18 @@ impl Compiler {
     ) -> Result<alloc::vec::Vec<u8>, crate::error::GlslError> {
         use cranelift_codegen::{Context, ir::AbiParam, control::ControlPlane, ir::InstBuilder};
         use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
-        use crate::error::{ErrorCode, GlslError};
+        use crate::error::GlslError;
         
-        // 1. Parse GLSL
-        let shader = glsl::parser::Parse::parse(source)
-            .map_err(|e| GlslError::new(ErrorCode::E0001, alloc::format!("parse error: {:?}", e)))?;
-
-        // 2. Semantic analysis
-        let typed_ast = crate::semantic::analyze(&shader)?;
+        // 1. Parse and analyze GLSL
+        let semantic_result = crate::pipeline::CompilationPipeline::parse_and_analyze(source)?;
+        let typed_ast = semantic_result.typed_ast;
 
         // 3. Setup Cranelift context
+        use crate::codegen::signature::SignatureBuilder;
         let mut ctx = Context::new();
-        let return_type = typed_ast.main_function.return_type.to_cranelift_type();
-        if !matches!(typed_ast.main_function.return_type, crate::semantic::types::Type::Void) {
-            ctx.func.signature.returns.push(AbiParam::new(return_type));
-        }
+        let mut sig = SignatureBuilder::new();
+        SignatureBuilder::add_return_type(&mut sig, &typed_ast.main_function.return_type);
+        ctx.func.signature = sig;
 
         // 4. Build IR
         let mut builder_context = FunctionBuilderContext::new();
