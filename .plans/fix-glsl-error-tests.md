@@ -1,14 +1,17 @@
 # Plan: Fix Failing GLSL Filetests
 
 ## Overview
+
 8 GLSL filetests are failing due to missing location information in error messages and one assertion failure.
 
 ## Issues Identified
 
 ### 1. Missing Location Information (7 tests)
+
 Most error tests expect `EXPECT_LOCATION` to match a line number, but errors are returning `<unknown>` instead.
 
 **Affected Tests:**
+
 - `test_function_return_type_mismatch_error`
 - `test_function_wrong_arg_type_error`
 - `test_return_type_mismatch_error`
@@ -18,6 +21,7 @@ Most error tests expect `EXPECT_LOCATION` to match a line number, but errors are
 - `test_vec_component_out_of_range_error`
 
 **Root Causes:**
+
 1. **Component access errors** (`parse_vector_swizzle`): Errors created without span information
 2. **Vector operation type mismatch**: Errors created without span from binary operation
 3. **Unsupported type errors**: Errors created during type parsing without span
@@ -25,6 +29,7 @@ Most error tests expect `EXPECT_LOCATION` to match a line number, but errors are
 5. **Function argument type mismatch**: Location may be incorrect
 
 ### 2. Assertion Failure (1 test)
+
 - `test_vec3_function`: Hits `assertion failed: func_ctx.is_empty()` in `FunctionBuilder::new()`
 
 **Root Cause:**
@@ -33,6 +38,7 @@ Most error tests expect `EXPECT_LOCATION` to match a line number, but errors are
 ## Fix Plan
 
 ### Fix 1: Add Location to Component Access Errors
+
 **File:** `crates/lp-glsl/src/codegen/expr.rs`
 
 - Modify `parse_vector_swizzle` to accept an optional `span` parameter
@@ -57,6 +63,7 @@ fn parse_vector_swizzle(name: &str, vec_ty: &GlslType, span: Option<glsl::syntax
 ```
 
 ### Fix 2: Add Location to Vector Operation Type Mismatch
+
 **File:** `crates/lp-glsl/src/codegen/expr.rs`
 
 - In `translate_vector_binary_op` (line 414), capture span from binary operation
@@ -88,6 +95,7 @@ fn translate_vector_binary_op(
 ```
 
 ### Fix 3: Add Location to Unsupported Type Errors
+
 **File:** `crates/lp-glsl/src/semantic/mod.rs`
 
 - Modify `parse_type_specifier` to accept optional span
@@ -110,6 +118,7 @@ fn parse_type_specifier(ty: &glsl::syntax::TypeSpecifierNonArray, span: Option<g
 ```
 
 ### Fix 4: Verify Return Type Mismatch Location
+
 **File:** `crates/lp-glsl/src/codegen/stmt.rs`
 
 - Verify that `translate_return` properly passes span to `coerce_to_type_with_location`
@@ -118,6 +127,7 @@ fn parse_type_specifier(ty: &glsl::syntax::TypeSpecifierNonArray, span: Option<g
 **Status:** Already has span extraction, but verify it's being used correctly.
 
 ### Fix 5: Fix Function Argument Type Mismatch Location
+
 **File:** `crates/lp-glsl/src/codegen/expr.rs`
 
 - Verify location is correctly set in `translate_user_function_call` (line 1165)
@@ -126,6 +136,7 @@ fn parse_type_specifier(ty: &glsl::syntax::TypeSpecifierNonArray, span: Option<g
 **Status:** Already has location at line 1165, but may need to verify it matches test expectations.
 
 ### Fix 6: Clear FunctionBuilderContext Between Compilations
+
 **File:** `crates/lp-glsl/src/jit.rs`
 
 - After `builder.finalize()` in `compile_function` (line 471), ensure builder is dropped
@@ -133,6 +144,7 @@ fn parse_type_specifier(ty: &glsl::syntax::TypeSpecifierNonArray, span: Option<g
 - Consider creating a new `FunctionBuilderContext` for each function, or add explicit clearing
 
 **Options:**
+
 1. Create new `FunctionBuilderContext` for each function (simpler, but allocates)
 2. Add method to clear context state (if available in cranelift)
 3. Ensure builder is properly dropped before reuse
@@ -150,11 +162,13 @@ fn parse_type_specifier(ty: &glsl::syntax::TypeSpecifierNonArray, span: Option<g
 ## Testing
 
 After each fix, run:
+
 ```bash
 cargo test --package lp-glsl-filetests --test filetests
 ```
 
 Use BLESS mode to update expectations if error messages change:
+
 ```bash
 CRANELIFT_TEST_BLESS=1 cargo test --package lp-glsl-filetests --test filetests
 ```
@@ -164,4 +178,3 @@ CRANELIFT_TEST_BLESS=1 cargo test --package lp-glsl-filetests --test filetests
 - Location information should use line numbers (1-indexed) as expected by tests
 - Some errors may be caught at different phases (semantic vs codegen), ensure location is preserved
 - The `func_ctx.is_empty()` assertion is a debug assertion, so it may not fail in release builds
-

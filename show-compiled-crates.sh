@@ -60,3 +60,5 @@ echo "  2. Add 'opt-level = \"z\"' for size optimization"
 echo "  3. Run: cargo bloat --release --target $TARGET -p $PACKAGE"
 echo "=========================================="
 
+
+

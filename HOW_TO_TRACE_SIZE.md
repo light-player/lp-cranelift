@@ -236,3 +236,5 @@ Many Debug trait implementations are compiled in even though you're not using th
 
 **Target:** Get from 3.1 MB → **300-500 KB** with proper optimization flags and feature gating.
 
+
+

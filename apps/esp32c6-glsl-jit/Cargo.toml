@@ -12,7 +12,7 @@ test = false
 [dependencies]
 # GLSL compiler for JIT compilation
 lp-glsl = { path = "../../crates/lp-glsl", default-features = false, features = ["core"] }
-glsl = { path = "/Users/yona/dev/photomancer/glsl-parser/glsl", default-features = false }
+glsl = { git = "https://github.com/Yona-Appletree/glsl-parser.git", branch = "feature/spans", default-features = false }
 
 # Cranelift for JIT compilation on ESP32-C3/C6 (RISC-V32)
 cranelift-codegen = { path = "../../cranelift/codegen", default-features = false, features = ["riscv32"] }

@@ -320,3 +320,5 @@ This plan should be implemented **before** or **in parallel** with the glsl-erro
 - nom_locate docs: https://docs.rs/nom_locate/
 - Similar implementation: https://github.com/rust-bakery/nom/blob/main/examples/s_expression.rs
 - glslang TSourceLoc: `/Users/yona/dev/photomancer/glslang/glslang/Include/Common.h:235`
+
+
