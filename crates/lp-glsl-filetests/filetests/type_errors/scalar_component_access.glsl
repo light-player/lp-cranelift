@@ -7,8 +7,8 @@ int main() {
 }
 
 // EXPECT_ERROR_CODE: E0112
-// EXPECT_ERROR: Component access on non-vector type
-// EXPECT_LOCATION: 5
+// EXPECT_ERROR: component access on non-vector type: Float
+// EXPECT_LOCATION: 4:15
 
 
 

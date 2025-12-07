@@ -5,7 +5,7 @@ float main() {
     return 3.14159;
 }
 
-// function u0:0() -> i64 fast {
+// function u0:0() -> i64 system_v {
 // block0:
 //     v2 = iconst.i64 0x0003_243f_4000
 //     return v2  ; v2 = 0x0003_243f_4000

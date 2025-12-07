@@ -6,7 +6,7 @@ int main() {
     return 1;  // Just test construction succeeds
 }
 
-// function u0:0() -> i32 fast {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v0 = f32const 0x1.000000p0
 //     v1 = f32const 0x1.000000p1

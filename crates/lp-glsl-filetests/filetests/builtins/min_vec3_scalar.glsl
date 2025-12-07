@@ -5,7 +5,7 @@ vec3 main() {
     return min(v, 4.0);  // (4.0, 2.0, 4.0)
 }
 
-// function u0:0() -> f32, f32, f32 fast {
+// function u0:0() -> f32, f32, f32 system_v {
 // block0:
 //     v0 = f32const 0x1.400000p2
 //     v1 = f32const 0x1.000000p1

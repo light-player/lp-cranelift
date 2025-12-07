@@ -5,7 +5,7 @@ vec3 main() {
     return normalize(v);  // (0.6, 0.0, 0.8)
 }
 
-// function u0:0() -> f32, f32, f32 fast {
+// function u0:0() -> f32, f32, f32 system_v {
 // block0:
 //     v0 = f32const 0x1.800000p1
 //     v1 = f32const 0.0

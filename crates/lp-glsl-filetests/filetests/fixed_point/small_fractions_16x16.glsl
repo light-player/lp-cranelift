@@ -6,7 +6,7 @@ float main() {
     return a + a;
 }
 
-// function u0:0() -> i32 fast {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v3 = iconst.i32 1
 //     v4 = iadd v3, v3  ; v3 = 1, v3 = 1

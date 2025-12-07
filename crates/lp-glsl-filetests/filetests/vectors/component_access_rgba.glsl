@@ -7,7 +7,7 @@ float main() {
     return red + alpha;  // 1.5
 }
 
-// function u0:0() -> f32 fast {
+// function u0:0() -> f32 system_v {
 // block0:
 //     v0 = f32const 0x1.000000p-1
 //     v1 = f32const 0x1.333334p-1
@@ -20,5 +20,3 @@ float main() {
 //     v5 = f32const 0.0
 //     return v5  ; v5 = 0.0
 // }
-
-

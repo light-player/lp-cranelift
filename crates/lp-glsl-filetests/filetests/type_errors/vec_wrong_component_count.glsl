@@ -7,5 +7,5 @@ int main() {
 
 // EXPECT_ERROR_CODE: E0115
 // EXPECT_ERROR: `vec3` constructor has wrong number of components
-// EXPECT_LOCATION: 4
+// EXPECT_LOCATION: 3:14
 

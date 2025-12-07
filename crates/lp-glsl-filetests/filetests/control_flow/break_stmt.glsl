@@ -14,7 +14,7 @@ int main() {
     return sum;
 }
 
-// function u0:0() -> i32 fast {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v0 = iconst.i32 0
 //     v1 = iconst.i32 0

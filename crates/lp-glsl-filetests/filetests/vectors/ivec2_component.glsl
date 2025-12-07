@@ -7,7 +7,7 @@ int main() {
     return x + y;  // 30
 }
 
-// function u0:0() -> i32 fast {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v0 = iconst.i32 10
 //     v1 = iconst.i32 20
@@ -18,5 +18,3 @@ int main() {
 //     v3 = iconst.i32 0
 //     return v3  ; v3 = 0
 // }
-
-

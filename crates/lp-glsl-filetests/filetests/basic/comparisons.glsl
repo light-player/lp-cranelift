@@ -7,7 +7,7 @@ bool main() {
     return a < b;
 }
 
-// function u0:0() -> i8 fast {
+// function u0:0() -> i8 system_v {
 // block0:
 //     v0 = iconst.i32 10
 //     v1 = iconst.i32 20

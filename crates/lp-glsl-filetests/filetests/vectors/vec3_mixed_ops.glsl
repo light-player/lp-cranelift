@@ -7,7 +7,7 @@ int main() {
     return 1;
 }
 
-// function u0:0() -> i32 fast {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v0 = f32const 0x1.000000p0
 //     v1 = f32const 0x1.000000p1
@@ -29,5 +29,3 @@ int main() {
 //     v14 = iconst.i32 0
 //     return v14  ; v14 = 0
 // }
-
-

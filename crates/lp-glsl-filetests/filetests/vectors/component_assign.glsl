@@ -6,7 +6,7 @@ float main() {
     return v.y;  // 5.0
 }
 
-// function u0:0() -> f32 fast {
+// function u0:0() -> f32 system_v {
 // block0:
 //     v0 = f32const 0x1.000000p0
 //     v1 = f32const 0x1.000000p1
@@ -18,5 +18,3 @@ float main() {
 //     v4 = f32const 0.0
 //     return v4  ; v4 = 0.0
 // }
-
-

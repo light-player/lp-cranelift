@@ -6,7 +6,7 @@ bool main() {
     return !t;
 }
 
-// function u0:0() -> i8 fast {
+// function u0:0() -> i8 system_v {
 // block0:
 //     v0 = iconst.i8 1
 //     v1 = iconst.i8 0

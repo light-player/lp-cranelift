@@ -5,7 +5,7 @@ float main() {
     return clamp(7.0, 2.0, 5.0);  // 5.0
 }
 
-// function u0:0() -> f32 fast {
+// function u0:0() -> f32 system_v {
 // block0:
 //     v0 = f32const 0x1.c00000p2
 //     v1 = f32const 0x1.000000p1

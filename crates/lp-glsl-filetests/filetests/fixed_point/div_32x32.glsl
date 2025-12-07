@@ -7,7 +7,7 @@ float main() {
     return a / b;
 }
 
-// function u0:0() -> i64 fast {
+// function u0:0() -> i64 system_v {
 // block0:
 //     v4 = iconst.i64 0x000a_0000_0000
 //     v5 = iconst.i64 0x0004_0000_0000

@@ -9,7 +9,7 @@ int main() {
     return 0;
 }
 
-// function u0:0() -> i32 fast {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v0 = iconst.i32 5
 //     v1 = iconst.i32 0

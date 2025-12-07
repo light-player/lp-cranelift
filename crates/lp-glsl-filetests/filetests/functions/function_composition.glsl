@@ -14,7 +14,7 @@ float main() {
     return b;
 }
 
-// function u0:0() -> f32 fast {
+// function u0:0() -> f32 system_v {
 //     sig0 = (f32) -> f32 system_v
 //     sig1 = (f32) -> f32 system_v
 //     fn0 = colocated u0:0 sig0

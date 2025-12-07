@@ -7,7 +7,7 @@ float main() {
     return x + y;  // x implicitly converted to float
 }
 
-// function u0:0() -> f32 fast {
+// function u0:0() -> f32 system_v {
 // block0:
 //     v0 = iconst.i32 5
 //     v1 = f32const 0x1.400000p1

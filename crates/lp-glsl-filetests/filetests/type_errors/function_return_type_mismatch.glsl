@@ -10,6 +10,7 @@ int main() {
 
 // Note: This may produce a verification error rather than a semantic error
 // Verifier errors don't preserve location information
-// EXPECT_ERROR_CODE: E0400
-// EXPECT_ERROR: code generation failed: Compilation error: Verifier errors
+// EXPECT_ERROR_CODE: E0116
+// EXPECT_ERROR: return type mismatch: expected `Int`, found `Float`
 
+// EXPECT_LOCATION: 3:12

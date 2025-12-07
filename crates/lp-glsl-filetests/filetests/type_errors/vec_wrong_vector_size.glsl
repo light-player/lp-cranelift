@@ -7,5 +7,5 @@ int main() {
 
 // EXPECT_ERROR_CODE: E0115
 // EXPECT_ERROR: cannot construct `vec3` from `Vec2`
-// EXPECT_LOCATION: 4
+// EXPECT_LOCATION: 3:14
 

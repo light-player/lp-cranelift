@@ -7,7 +7,7 @@ float main() {
     return a + b;
 }
 
-// function u0:0() -> i32 fast {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v5 = iconst.i32 0x0005_8000
 //     v6 = ineg v5  ; v5 = 0x0005_8000

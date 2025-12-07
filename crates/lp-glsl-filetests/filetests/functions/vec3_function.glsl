@@ -9,7 +9,7 @@ vec3 main() {
     return scale(v, 2.0);  // (2.0, 4.0, 6.0)
 }
 
-// function u0:0() -> f32, f32, f32 fast {
+// function u0:0() -> f32, f32, f32 system_v {
 //     sig0 = (f32, f32, f32, f32) -> f32, f32, f32 system_v
 //     fn0 = colocated u0:0 sig0
 //

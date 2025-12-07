@@ -7,6 +7,6 @@ int main() {
 
 // EXPECT_ERROR_CODE: E0100
 // EXPECT_ERROR: undefined variable `y`
-// EXPECT_LOCATION: 4:
+// EXPECT_LOCATION: 4:12
 // EXPECT_SPAN_TEXT:     return y;
 

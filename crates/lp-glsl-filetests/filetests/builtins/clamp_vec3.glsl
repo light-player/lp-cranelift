@@ -5,7 +5,7 @@ vec3 main() {
     return clamp(v, 0.0, 1.0);  // (0.0, 0.5, 1.0)
 }
 
-// function u0:0() -> f32, f32, f32 fast {
+// function u0:0() -> f32, f32, f32 system_v {
 // block0:
 //     v0 = f32const 0x1.000000p0
 //     v1 = fneg v0  ; v0 = 0x1.000000p0

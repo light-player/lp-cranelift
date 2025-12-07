@@ -6,7 +6,7 @@ vec2 main() {
     return max(a, b);  // (3.0, 5.0)
 }
 
-// function u0:0() -> f32, f32 fast {
+// function u0:0() -> f32, f32 system_v {
 // block0:
 //     v0 = f32const 0x1.000000p0
 //     v1 = f32const 0x1.400000p2

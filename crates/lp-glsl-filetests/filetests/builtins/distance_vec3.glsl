@@ -6,7 +6,7 @@ float main() {
     return distance(p0, p1);  // sqrt(1 + 4 + 4) = 3.0
 }
 
-// function u0:0() -> f32 fast {
+// function u0:0() -> f32 system_v {
 // block0:
 //     v0 = f32const 0.0
 //     v1 = f32const 0.0
@@ -29,5 +29,3 @@ float main() {
 //     v15 = f32const 0.0
 //     return v15  ; v15 = 0.0
 // }
-
-

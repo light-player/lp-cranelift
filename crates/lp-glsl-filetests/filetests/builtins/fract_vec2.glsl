@@ -8,7 +8,7 @@ bool main() {
     return sum > 0.99 && sum < 1.01;
 }
 
-// function u0:0() -> i8 fast {
+// function u0:0() -> i8 system_v {
 // block0:
 //     v0 = f32const 0x1.e00000p1
 //     v1 = f32const 0x1.500000p2

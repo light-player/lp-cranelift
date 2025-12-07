@@ -6,7 +6,7 @@ float main() {
     return a - 32766.0;
 }
 
-// function u0:0() -> i32 fast {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v4 = iconst.i32 0x7fff_0000
 //     v5 = iconst.i32 0x7ffe_0000
