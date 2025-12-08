@@ -120,7 +120,7 @@ impl ExecutionBackend for EmulatorBackend {
 
     fn execute_int(
         &self,
-        code: &CompiledCode,
+        _code: &CompiledCode,
         _fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<i32> {
         // Similar to execute_float but extract i32
@@ -129,7 +129,7 @@ impl ExecutionBackend for EmulatorBackend {
 
     fn execute_i64(
         &self,
-        code: &CompiledCode,
+        _code: &CompiledCode,
         _fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<i64> {
         anyhow::bail!("execute_i64 not yet implemented for emulator");
@@ -137,7 +137,7 @@ impl ExecutionBackend for EmulatorBackend {
 
     fn execute_bool(
         &self,
-        code: &CompiledCode,
+        _code: &CompiledCode,
         _fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<i8> {
         anyhow::bail!("execute_bool not yet implemented for emulator");

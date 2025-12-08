@@ -18,7 +18,7 @@ pub const STACK_BASE: u32 = 0x80010000; // Top of stack (grows downward)
 pub fn generate_bootstrap(
     test_func_addr: u32,
     return_type: ReturnType,
-    fixed_point_format: Option<FixedPointFormat>,
+    _fixed_point_format: Option<FixedPointFormat>,
 ) -> Result<Vec<u8>> {
     let mut code = Vec::new();
 
@@ -29,12 +29,9 @@ pub fn generate_bootstrap(
     code.extend_from_slice(&encode_addi(2, 2, 0));
 
     // 2. Call test function: jal ra, test_func_addr
-    // For now, assume test_func_addr is within ±1MB range for jal
-    // If not, we'd need: auipc ra, offset_high; jalr ra, ra, offset_low
-    let offset = test_func_addr as i32 - 0; // PC is 0 at start, but we're at offset 8 now
-    // For simplicity, use jalr with absolute address
+    // Use jalr with absolute address (auipc + addi + jalr)
     // auipc t0, (test_func_addr >> 12)
-    code.extend_from_slice(&encode_auipc(5, (test_func_addr >> 12) as u32)); // t0 = x5
+    code.extend_from_slice(&encode_auipc(5, (test_func_addr >> 12))); // t0 = x5
     // addi t0, t0, (test_func_addr & 0xFFF)
     code.extend_from_slice(&encode_addi(5, 5, (test_func_addr & 0xFFF) as i32));
     // jalr ra, t0, 0

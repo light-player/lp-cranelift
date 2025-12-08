@@ -1,6 +1,6 @@
 //! Native JIT execution backend
 
-use super::backend::{CompiledCode, ExecutionBackend, ReturnType};
+use super::backend::{CompiledCode, ExecutionBackend};
 use anyhow::Result;
 use lp_glsl::FixedPointFormat;
 use lp_jit_util::call_structreturn;
@@ -86,7 +86,7 @@ impl ExecutionBackend for NativeJitBackend {
         match code {
             CompiledCode::NativeJit {
                 code_ptr,
-                return_type,
+                return_type: _,
             } => {
                 use cranelift_codegen::settings;
                 let call_conv = cranelift_codegen::isa::CallConv::triple_default(
