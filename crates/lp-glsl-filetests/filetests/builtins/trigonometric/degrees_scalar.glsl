@@ -6,7 +6,7 @@ float main() {
     return degrees(pi);  // Should be 180.0
 }
 
-// function u0:0() -> f32 system_v {
+// function u0:0() -> f32 apple_aarch64 {
 // block0:
 //     v0 = f32const 0x1.921fb6p1
 //     v1 = f32const 0x1.ca5dc2p5

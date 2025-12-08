@@ -7,7 +7,7 @@ bool main() {
     return result > 4.99 && result < 5.01;
 }
 
-// function u0:0() -> i8 system_v {
+// function u0:0() -> i8 apple_aarch64 {
 // block0:
 //     v0 = f32const 0.0
 //     v1 = f32const 0x1.400000p3

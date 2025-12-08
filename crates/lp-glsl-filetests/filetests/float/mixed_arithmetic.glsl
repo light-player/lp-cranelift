@@ -8,7 +8,7 @@ float main() {
     return c;
 }
 
-// function u0:0() -> f32 system_v {
+// function u0:0() -> f32 apple_aarch64 {
 // block0:
 //     v0 = iconst.i32 3
 //     v1 = f32const 0x1.000000p1

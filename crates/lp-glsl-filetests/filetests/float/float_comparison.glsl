@@ -10,7 +10,7 @@ int main() {
     return 0;
 }
 
-// function u0:0() -> i32 system_v {
+// function u0:0() -> i32 apple_aarch64 {
 // block0:
 //     v0 = f32const 0x1.400000p1
 //     v1 = f32const 0x1.800000p0

@@ -5,7 +5,7 @@ float main() {
     return ceil(3.2);  // Should return 4.0
 }
 
-// function u0:0() -> f32 system_v {
+// function u0:0() -> f32 apple_aarch64 {
 // block0:
 //     v0 = f32const 0x1.99999ap1
 //     v1 = ceil v0  ; v0 = 0x1.99999ap1

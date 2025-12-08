@@ -9,6 +9,7 @@ cranelift-frontend = { path = "../../cranelift/frontend" }
 cranelift-module = { path = "../../cranelift/module" }
 cranelift-jit = { path = "../../cranelift/jit" }
 target-lexicon = { workspace = true }
+lp-jit-util = { path = "../../crates/lp-jit-util" }
 
 [features]
 default = []

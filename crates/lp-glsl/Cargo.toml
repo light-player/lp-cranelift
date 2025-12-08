@@ -16,6 +16,7 @@ cranelift-module = { workspace = true }
 cranelift-native = { workspace = true, optional = true }
 hashbrown = { workspace = true }
 target-lexicon = { workspace = true }
+lp-jit-util = { path = "../lp-jit-util" }
 
 [features]
 default = ["std"]

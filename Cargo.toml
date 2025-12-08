@@ -182,6 +182,7 @@ members = [
   "crates/lp-riscv-shared",
   "crates/lp-glsl",
   "crates/lp-glsl-filetests",
+  "crates/lp-jit-util",
   "crates/runtime-embive",
   # LP-specific applications
     "apps/embive-program",

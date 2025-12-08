@@ -5,7 +5,7 @@ float main() {
     return radians(180.0);  // Should be approximately π
 }
 
-// function u0:0() -> f32 system_v {
+// function u0:0() -> f32 apple_aarch64 {
 // block0:
 //     v0 = f32const 0x1.680000p7
 //     v1 = f32const 0x1.1df46ap-6

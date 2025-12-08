@@ -14,9 +14,9 @@ float main() {
     return b;
 }
 
-// function u0:0() -> f32 system_v {
-//     sig0 = (f32) -> f32 system_v
-//     sig1 = (f32) -> f32 system_v
+// function u0:0() -> f32 apple_aarch64 {
+//     sig0 = (f32) -> f32 apple_aarch64
+//     sig1 = (f32) -> f32 apple_aarch64
 //     fn0 = colocated u0:0 sig0
 //     fn1 = colocated u0:1 sig1
 //

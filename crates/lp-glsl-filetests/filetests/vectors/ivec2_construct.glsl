@@ -5,7 +5,7 @@ int main() {
     return 1;
 }
 
-// function u0:0() -> i32 system_v {
+// function u0:0() -> i32 apple_aarch64 {
 // block0:
 //     v0 = iconst.i32 10
 //     v1 = iconst.i32 20

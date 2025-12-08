@@ -10,9 +10,9 @@ vec3 main() {
     return scale(v, 2.0);  // (2.0, 4.0, 6.0)
 }
 
-// function u0:0(i64 sret) system_v {
+// function u0:0(i64 sret) apple_aarch64 {
 //     ss0 = explicit_slot 12, align = 4
-//     sig0 = (i64 sret, f32, f32, f32, f32) system_v
+//     sig0 = (i64 sret, f32, f32, f32, f32) apple_aarch64
 //     fn0 = colocated u0:0 sig0
 //
 // block0(v0: i64):

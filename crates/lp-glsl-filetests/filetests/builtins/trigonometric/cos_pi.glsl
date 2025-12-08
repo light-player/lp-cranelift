@@ -6,7 +6,7 @@ float main() {
     return cos(pi);
 }
 
-// function u0:0() -> f32 system_v {
+// function u0:0() -> f32 apple_aarch64 {
 //     sig0 = (f32) -> f32 system_v
 //     fn0 = u0:0 sig0
 //

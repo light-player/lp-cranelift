@@ -7,7 +7,7 @@ float main() {
     return a / b;
 }
 
-// function u0:0() -> i32 system_v {
+// function u0:0() -> i32 apple_aarch64 {
 // block0:
 //     v4 = iconst.i32 0x000a_0000
 //     v5 = iconst.i32 0x0004_0000

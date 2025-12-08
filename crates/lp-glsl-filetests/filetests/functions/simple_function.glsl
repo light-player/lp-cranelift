@@ -9,8 +9,8 @@ float main() {
     return square(5.0);  // 25.0
 }
 
-// function u0:0() -> f32 system_v {
-//     sig0 = (f32) -> f32 system_v
+// function u0:0() -> f32 apple_aarch64 {
+//     sig0 = (f32) -> f32 apple_aarch64
 //     fn0 = colocated u0:0 sig0
 //
 // block0:

@@ -5,7 +5,7 @@ bool main() {
     return true;
 }
 
-// function u0:0() -> i8 system_v {
+// function u0:0() -> i8 apple_aarch64 {
 // block0:
 //     v0 = iconst.i8 1
 //     return v0  ; v0 = 1

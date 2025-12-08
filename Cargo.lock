@@ -3259,6 +3259,7 @@ dependencies = [
  "cranelift-reader",
  "glsl",
  "hashbrown 0.15.2",
+ "lp-jit-util",
  "target-lexicon",
 ]
 
@@ -3268,6 +3269,14 @@ version = "40.0.0"
 dependencies = [
  "anyhow",
  "lp-glsl",
+]
+
+[[package]]
+name = "lp-jit-util"
+version = "40.0.0"
+dependencies = [
+ "cranelift-codegen",
+ "target-lexicon",
 ]
 
 [[package]]
@@ -4892,6 +4901,7 @@ dependencies = [
  "cranelift-frontend",
  "cranelift-jit",
  "cranelift-module",
+ "lp-jit-util",
  "target-lexicon",
 ]
 

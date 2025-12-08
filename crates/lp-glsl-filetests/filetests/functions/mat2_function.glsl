@@ -8,18 +8,32 @@ mat2 main() {
     return identity();
 }
 
-// function u0:0() -> f32, f32, f32, f32 system_v {
-//     sig0 = () -> f32, f32, f32, f32 system_v
+// function u0:0(i64 sret) apple_aarch64 {
+//     ss0 = explicit_slot 16, align = 4
+//     sig0 = (i64 sret) apple_aarch64
 //     fn0 = colocated u0:0 sig0
 //
-// block0:
-//     v0, v1, v2, v3 = call fn0()
-//     return v0, v1, v2, v3
+// block0(v0: i64):
+//     v1 = stack_addr.i64 ss0
+//     call fn0(v1)
+//     v2 = load.f32 notrap aligned v1
+//     v3 = load.f32 notrap aligned v1+4
+//     v4 = load.f32 notrap aligned v1+8
+//     v5 = load.f32 notrap aligned v1+12
+//     store notrap aligned v2, v0
+//     store notrap aligned v3, v0+4
+//     store notrap aligned v4, v0+8
+//     store notrap aligned v5, v0+12
+//     return
 //
 // block1:
-//     v4 = f32const 0.0
-//     v5 = f32const 0.0
 //     v6 = f32const 0.0
+//     store notrap aligned v6, v0  ; v6 = 0.0
 //     v7 = f32const 0.0
-//     return v4, v5, v6, v7  ; v4 = 0.0, v5 = 0.0, v6 = 0.0, v7 = 0.0
+//     store notrap aligned v7, v0+4  ; v7 = 0.0
+//     v8 = f32const 0.0
+//     store notrap aligned v8, v0+8  ; v8 = 0.0
+//     v9 = f32const 0.0
+//     store notrap aligned v9, v0+12  ; v9 = 0.0
+//     return
 // }

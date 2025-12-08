@@ -6,6 +6,11 @@ use std::{boxed::Box, string::String};
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, string::String};
 
+#[cfg(feature = "std")]
+use lp_jit_util::call_structreturn;
+use cranelift_codegen::isa::CallConv;
+use cranelift_codegen::ir::types;
+
 /// High-level compiler interface
 #[cfg(feature = "std")]
 pub struct Compiler {
@@ -43,55 +48,105 @@ impl Compiler {
 
     /// Compile GLSL shader that returns vec2 (2 f32s)
     pub fn compile_vec2(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32)>, String> {
+        // Get calling convention and pointer type before compilation
+        let call_conv = self.jit.call_conv();
+        let pointer_type = self.jit.pointer_type();
         let code_ptr = self.jit.compile(source)?;
-        let func: fn(*mut [f32; 2]) -> () = unsafe { std::mem::transmute(code_ptr) };
         Ok(Box::new(move || {
             let mut buffer = [0.0f32; 2];
-            func(&mut buffer as *mut _);
+            unsafe {
+                call_structreturn(
+                    code_ptr,
+                    buffer.as_mut_ptr(),
+                    2,
+                    call_conv,
+                    pointer_type,
+                ).expect("StructReturn call failed");
+            }
             (buffer[0], buffer[1])
         }))
     }
 
     /// Compile GLSL shader that returns vec3 (3 f32s)
     pub fn compile_vec3(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32)>, String> {
+        // Get calling convention and pointer type before compilation
+        let call_conv = self.jit.call_conv();
+        let pointer_type = self.jit.pointer_type();
         let code_ptr = self.jit.compile(source)?;
-        let func: fn(*mut [f32; 3]) -> () = unsafe { std::mem::transmute(code_ptr) };
         Ok(Box::new(move || {
             let mut buffer = [0.0f32; 3];
-            func(&mut buffer as *mut _);
+            unsafe {
+                call_structreturn(
+                    code_ptr,
+                    buffer.as_mut_ptr(),
+                    3,
+                    call_conv,
+                    pointer_type,
+                ).expect("StructReturn call failed");
+            }
             (buffer[0], buffer[1], buffer[2])
         }))
     }
 
     /// Compile GLSL shader that returns vec4 (4 f32s)
     pub fn compile_vec4(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32)>, String> {
+        // Get calling convention and pointer type before compilation
+        let call_conv = self.jit.call_conv();
+        let pointer_type = self.jit.pointer_type();
         let code_ptr = self.jit.compile(source)?;
-        let func: fn(*mut [f32; 4]) -> () = unsafe { std::mem::transmute(code_ptr) };
         Ok(Box::new(move || {
             let mut buffer = [0.0f32; 4];
-            func(&mut buffer as *mut _);
+            unsafe {
+                call_structreturn(
+                    code_ptr,
+                    buffer.as_mut_ptr(),
+                    4,
+                    call_conv,
+                    pointer_type,
+                ).expect("StructReturn call failed");
+            }
             (buffer[0], buffer[1], buffer[2], buffer[3])
         }))
     }
 
     /// Compile GLSL shader that returns mat2 (4 f32s, column-major)
     pub fn compile_mat2(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32)>, String> {
+        // Get calling convention and pointer type before compilation
+        let call_conv = self.jit.call_conv();
+        let pointer_type = self.jit.pointer_type();
         let code_ptr = self.jit.compile(source)?;
-        let func: fn(*mut [f32; 4]) -> () = unsafe { std::mem::transmute(code_ptr) };
         Ok(Box::new(move || {
             let mut buffer = [0.0f32; 4];
-            func(&mut buffer as *mut _);
+            unsafe {
+                call_structreturn(
+                    code_ptr,
+                    buffer.as_mut_ptr(),
+                    4,
+                    call_conv,
+                    pointer_type,
+                ).expect("StructReturn call failed");
+            }
             (buffer[0], buffer[1], buffer[2], buffer[3])
         }))
     }
 
     /// Compile GLSL shader that returns mat3 (9 f32s, column-major)
     pub fn compile_mat3(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32, f32, f32, f32, f32, f32)>, String> {
+        // Get calling convention and pointer type before compilation
+        let call_conv = self.jit.call_conv();
+        let pointer_type = self.jit.pointer_type();
         let code_ptr = self.jit.compile(source)?;
-        let func: fn(*mut [f32; 9]) -> () = unsafe { std::mem::transmute(code_ptr) };
         Ok(Box::new(move || {
             let mut buffer = [0.0f32; 9];
-            func(&mut buffer as *mut _);
+            unsafe {
+                call_structreturn(
+                    code_ptr,
+                    buffer.as_mut_ptr(),
+                    9,
+                    call_conv,
+                    pointer_type,
+                ).expect("StructReturn call failed");
+            }
             (buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8])
         }))
     }

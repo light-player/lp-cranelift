@@ -8,10 +8,8 @@ use cranelift_codegen::isa::{CallConv, lookup as isa_lookup};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{Linkage, Module};
 use target_lexicon::Triple;
-use std::mem;
 use std::fs;
-#[cfg(target_arch = "aarch64")]
-use std::arch::asm;
+use lp_jit_util::call_structreturn;
 
 /// Native Rust function that mimics StructReturn calling convention
 /// This is what we expect the JIT function to match
@@ -24,33 +22,6 @@ pub extern "C" fn native_structreturn_vec3(buffer: *mut f32) {
     }
 }
 
-/// Call a JIT function with StructReturn on ARM64 AppleAarch64
-/// The StructReturn pointer must be in x8, not x0
-#[cfg(target_arch = "aarch64")]
-unsafe fn call_structreturn_apple_aarch64(func_ptr: *const u8, buffer: *mut f32) {
-    // On AppleAarch64, StructReturn uses x8 register
-    // We need to use inline assembly to pass the parameter in x8
-    // The function expects the StructReturn pointer in x8
-    // blr expects the function address in a register (we'll use x9 as temp)
-    asm!(
-        "mov x8, {buffer}",
-        "mov x9, {func}",
-        "blr x9",
-        buffer = in(reg) buffer as u64,
-        func = in(reg) func_ptr as u64,
-        out("x8") _,
-        out("x9") _,
-        clobber_abi("C"),
-    );
-}
-
-/// Call a JIT function with StructReturn on other platforms
-#[cfg(not(target_arch = "aarch64"))]
-unsafe fn call_structreturn_apple_aarch64(func_ptr: *const u8, buffer: *mut f32) {
-    // For non-ARM64, use standard calling convention
-    let func: extern "C" fn(*mut f32) = mem::transmute(func_ptr);
-    func(buffer);
-}
 
 /// Test StructReturn for a specific ISA by directly building CLIF
 fn test_structreturn_clif(
@@ -176,25 +147,16 @@ fn test_structreturn_clif(
     println!("Buffer ptr: {:p}, size: {}", buffer_ptr, buffer_size);
     println!("Buffer alignment: {}", std::mem::align_of::<f32>());
     
-    // Use the correct calling convention based on the platform
+    // Use the utility function to handle platform-specific calling conventions
+    println!("Using calling convention: {:?}", call_conv);
     unsafe {
-        match call_conv {
-            CallConv::AppleAarch64 => {
-                println!("Using AppleAarch64 calling convention (StructReturn in x8)");
-                call_structreturn_apple_aarch64(code_ptr, buffer_ptr);
-            }
-            CallConv::SystemV => {
-                println!("Using SystemV calling convention (StructReturn in first arg register)");
-                // For SystemV, StructReturn is typically in the first argument register
-                let func: extern "C" fn(*mut f32) = mem::transmute(code_ptr);
-                func(buffer_ptr);
-            }
-            _ => {
-                println!("Using default calling convention: {:?}", call_conv);
-                let func: extern "C" fn(*mut f32) = mem::transmute(code_ptr);
-                func(buffer_ptr);
-            }
-        }
+        call_structreturn(
+            code_ptr,
+            buffer_ptr,
+            buffer_size,
+            call_conv,
+            pointer_type,
+        ).map_err(|e| format!("StructReturn call failed: {}", e))?;
     }
     
     println!("Function returned");

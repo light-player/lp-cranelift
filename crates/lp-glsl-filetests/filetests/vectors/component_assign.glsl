@@ -6,7 +6,7 @@ float main() {
     return v.y;  // 5.0
 }
 
-// function u0:0() -> f32 system_v {
+// function u0:0() -> f32 apple_aarch64 {
 // block0:
 //     v0 = f32const 0x1.000000p0
 //     v1 = f32const 0x1.000000p1

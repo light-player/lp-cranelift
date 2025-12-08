@@ -7,6 +7,7 @@ use std::string::String;
 use alloc::format;
 use cranelift_codegen::Context as CodegenContext;
 use cranelift_codegen::ir::InstBuilder;
+use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::settings::Configurable;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_jit::{JITBuilder, JITModule};
@@ -28,6 +29,23 @@ pub struct JIT {
     module: JITModule,
     function_counter: usize,
     pub fixed_point_format: Option<crate::FixedPointFormat>,
+}
+
+impl JIT {
+    /// Get access to the underlying JIT module (for accessing ISA information)
+    pub fn module(&self) -> &JITModule {
+        &self.module
+    }
+
+    /// Get the calling convention for the current ISA
+    pub fn call_conv(&self) -> CallConv {
+        CallConv::triple_default(self.module.isa().triple())
+    }
+
+    /// Get the pointer type for the current ISA
+    pub fn pointer_type(&self) -> cranelift_codegen::ir::Type {
+        self.module.isa().pointer_type()
+    }
 }
 
 impl Default for JIT {

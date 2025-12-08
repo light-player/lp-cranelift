@@ -5,7 +5,7 @@ float main() {
     return abs(-3.5);  // 3.5
 }
 
-// function u0:0() -> f32 system_v {
+// function u0:0() -> f32 apple_aarch64 {
 // block0:
 //     v0 = f32const 0x1.c00000p1
 //     v1 = fneg v0  ; v0 = 0x1.c00000p1

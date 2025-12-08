@@ -12,7 +12,7 @@ bool main() {
     return sum > 1.45 && sum < 1.55;
 }
 
-// function u0:0() -> i8 system_v {
+// function u0:0() -> i8 apple_aarch64 {
 // block0:
 //     v0 = f32const 0.0
 //     v1 = f32const 0.0
