@@ -9,7 +9,10 @@ workspace = true
 
 [dependencies]
 lp-glsl = { path = "../lp-glsl", features = ["std"] }
+lp-riscv-tools = { path = "../lp-riscv-tools", features = ["std"] }
 anyhow = { workspace = true }
+cranelift-codegen = { workspace = true }
+target-lexicon = { workspace = true }
 
 [[test]]
 name = "filetests"

@@ -1,10 +1,10 @@
 #[cfg(feature = "std")]
 use crate::jit::JIT;
 
-#[cfg(feature = "std")]
-use std::{boxed::Box, string::String};
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, string::String};
+#[cfg(feature = "std")]
+use std::{boxed::Box, string::String};
 
 #[cfg(feature = "std")]
 use lp_jit_util::call_structreturn;
@@ -44,6 +44,12 @@ impl Compiler {
         Ok(unsafe { std::mem::transmute(code_ptr) })
     }
 
+    /// Compile GLSL shader that returns i64 (for 32.32 fixed-point)
+    pub fn compile_i64(&mut self, source: &str) -> Result<fn() -> i64, String> {
+        let code_ptr = self.jit.compile(source)?;
+        Ok(unsafe { std::mem::transmute(code_ptr) })
+    }
+
     /// Compile GLSL shader that returns vec2 (2 f32s)
     pub fn compile_vec2(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32)>, String> {
         // Get calling convention and pointer type before compilation
@@ -68,7 +74,10 @@ impl Compiler {
     }
 
     /// Compile GLSL shader that returns vec3 (3 f32s)
-    pub fn compile_vec3(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32)>, String> {
+    pub fn compile_vec3(
+        &mut self,
+        source: &str,
+    ) -> Result<Box<dyn Fn() -> (f32, f32, f32)>, String> {
         // Get calling convention and pointer type before compilation
         let call_conv = self.jit.call_conv();
         let pointer_type = self.jit.pointer_type();
@@ -91,7 +100,10 @@ impl Compiler {
     }
 
     /// Compile GLSL shader that returns vec4 (4 f32s)
-    pub fn compile_vec4(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32)>, String> {
+    pub fn compile_vec4(
+        &mut self,
+        source: &str,
+    ) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32)>, String> {
         // Get calling convention and pointer type before compilation
         let call_conv = self.jit.call_conv();
         let pointer_type = self.jit.pointer_type();
@@ -99,20 +111,18 @@ impl Compiler {
         Ok(Box::new(move || {
             let mut buffer = [0.0f32; 4];
             unsafe {
-                call_structreturn(
-                    code_ptr,
-                    buffer.as_mut_ptr(),
-                    4,
-                    call_conv,
-                    pointer_type,
-                ).expect("StructReturn call failed");
+                call_structreturn(code_ptr, buffer.as_mut_ptr(), 4, call_conv, pointer_type)
+                    .expect("StructReturn call failed");
             }
             (buffer[0], buffer[1], buffer[2], buffer[3])
         }))
     }
 
     /// Compile GLSL shader that returns mat2 (4 f32s, column-major)
-    pub fn compile_mat2(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32)>, String> {
+    pub fn compile_mat2(
+        &mut self,
+        source: &str,
+    ) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32)>, String> {
         // Get calling convention and pointer type before compilation
         let call_conv = self.jit.call_conv();
         let pointer_type = self.jit.pointer_type();
@@ -135,7 +145,10 @@ impl Compiler {
     }
 
     /// Compile GLSL shader that returns mat3 (9 f32s, column-major)
-    pub fn compile_mat3(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32, f32, f32, f32, f32, f32)>, String> {
+    pub fn compile_mat3(
+        &mut self,
+        source: &str,
+    ) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32, f32, f32, f32, f32, f32)>, String> {
         // Get calling convention and pointer type before compilation
         let call_conv = self.jit.call_conv();
         let pointer_type = self.jit.pointer_type();
@@ -153,12 +166,40 @@ impl Compiler {
                     panic!("Internal error: StructReturn call failed for mat3: {}. This indicates a codegen bug.", e);
                 });
             }
-            (buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8])
+            (
+                buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6],
+                buffer[7], buffer[8],
+            )
         }))
     }
 
     /// Compile GLSL shader that returns mat4 (16 f32s, column-major)
-    pub fn compile_mat4(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32)>, String> {
+    pub fn compile_mat4(
+        &mut self,
+        source: &str,
+    ) -> Result<
+        Box<
+            dyn Fn() -> (
+                f32,
+                f32,
+                f32,
+                f32,
+                f32,
+                f32,
+                f32,
+                f32,
+                f32,
+                f32,
+                f32,
+                f32,
+                f32,
+                f32,
+                f32,
+                f32,
+            ),
+        >,
+        String,
+    > {
         // Get calling convention and pointer type before compilation
         let call_conv = self.jit.call_conv();
         let pointer_type = self.jit.pointer_type();
@@ -177,10 +218,9 @@ impl Compiler {
                 });
             }
             (
-                buffer[0], buffer[1], buffer[2], buffer[3],
-                buffer[4], buffer[5], buffer[6], buffer[7],
-                buffer[8], buffer[9], buffer[10], buffer[11],
-                buffer[12], buffer[13], buffer[14], buffer[15],
+                buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6],
+                buffer[7], buffer[8], buffer[9], buffer[10], buffer[11], buffer[12], buffer[13],
+                buffer[14], buffer[15],
             )
         }))
     }
@@ -198,7 +238,6 @@ impl Default for Compiler {
     }
 }
 
-
 // no_std compiler - compiles GLSL to machine code bytes without JIT module
 #[cfg(not(feature = "std"))]
 pub struct Compiler {
@@ -213,7 +252,7 @@ impl Compiler {
             fixed_point_format: None,
         }
     }
-    
+
     /// Compile GLSL source to machine code bytes for a specific ISA
     /// Returns the compiled machine code that can be executed
     pub fn compile_to_code(
@@ -221,19 +260,20 @@ impl Compiler {
         source: &str,
         isa: &dyn cranelift_codegen::isa::TargetIsa,
     ) -> Result<alloc::vec::Vec<u8>, String> {
-        self.compile_to_code_detailed(source, isa).map_err(|e| String::from(e))
+        self.compile_to_code_detailed(source, isa)
+            .map_err(|e| String::from(e))
     }
-    
+
     /// Compile GLSL source to machine code with detailed error information
     pub fn compile_to_code_detailed(
         &mut self,
         source: &str,
         isa: &dyn cranelift_codegen::isa::TargetIsa,
     ) -> Result<alloc::vec::Vec<u8>, crate::error::GlslError> {
-        use cranelift_codegen::{Context, ir::AbiParam, control::ControlPlane, ir::InstBuilder};
-        use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
         use crate::error::GlslError;
-        
+        use cranelift_codegen::{Context, control::ControlPlane, ir::AbiParam, ir::InstBuilder};
+        use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
+
         // 1. Parse and analyze GLSL
         let semantic_result = crate::pipeline::CompilationPipeline::parse_and_analyze(source)?;
         let typed_ast = semantic_result.typed_ast;
@@ -244,7 +284,11 @@ impl Compiler {
         let triple = isa.triple();
         let mut sig = SignatureBuilder::new_with_triple(triple);
         let pointer_type = isa.pointer_type();
-        SignatureBuilder::add_return_type(&mut sig, &typed_ast.main_function.return_type, pointer_type);
+        SignatureBuilder::add_return_type(
+            &mut sig,
+            &typed_ast.main_function.return_type,
+            pointer_type,
+        );
         ctx.func.signature = sig;
 
         // 4. Build IR
@@ -323,12 +367,15 @@ impl Compiler {
                 _ctx: &mut cranelift_codegen::Context,
                 _ctrl_plane: &mut cranelift_codegen::control::ControlPlane,
             ) -> cranelift_module::ModuleResult<()> {
-                unimplemented!("DummyModule::define_function_with_control_plane should not be called")
+                unimplemented!(
+                    "DummyModule::define_function_with_control_plane should not be called"
+                )
             }
         }
-        
+
         let mut dummy_module = DummyModule;
-        let mut codegen_ctx = crate::codegen::context::CodegenContext::new(builder, &mut dummy_module);
+        let mut codegen_ctx =
+            crate::codegen::context::CodegenContext::new(builder, &mut dummy_module);
 
         // Translate main function body
         for stmt in &typed_ast.main_function.body {
@@ -347,11 +394,13 @@ impl Compiler {
 
         // 6. Compile to machine code
         let mut ctrl_plane = ControlPlane::default();
-        let code_info = ctx
-            .compile(isa, &mut ctrl_plane)
-            .map_err(|e| GlslError::new(ErrorCode::E0400, alloc::format!("code generation failed: {:?}", e)))?;
+        let code_info = ctx.compile(isa, &mut ctrl_plane).map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                alloc::format!("code generation failed: {:?}", e),
+            )
+        })?;
 
         Ok(code_info.buffer.data().to_vec())
     }
 }
-

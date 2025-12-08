@@ -3268,7 +3268,10 @@ name = "lp-glsl-filetests"
 version = "40.0.0"
 dependencies = [
  "anyhow",
+ "cranelift-codegen",
  "lp-glsl",
+ "lp-riscv-tools",
+ "target-lexicon",
 ]
 
 [[package]]
