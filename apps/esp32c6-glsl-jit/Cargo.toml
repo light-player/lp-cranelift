@@ -40,3 +40,15 @@ critical-section = "1.2.0"
 version = "1.11"
 default-features = false
 
+[profile.release]
+# Strip debug symbols - saves ~1-1.5 MB
+strip = true
+# Optimize for size instead of speed - saves ~200-500 KB
+opt-level = "z"
+# Link-time optimization - saves ~100-300 KB
+lto = true
+# Single codegen unit for better dead code elimination - saves ~50-100 KB
+codegen-units = 1
+# Smaller panic handler - saves ~10-20 KB
+panic = "abort"
+

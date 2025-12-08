@@ -229,6 +229,257 @@ impl Compiler {
     pub fn compile_to_clif(&mut self, source: &str) -> Result<String, String> {
         self.jit.compile_to_clif(source)
     }
+
+    /// Compile GLSL source to machine code bytes for a specific ISA
+    ///
+    /// This method compiles GLSL to machine code without allocating executable
+    /// memory, making it suitable for emulator execution or binary generation.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - GLSL source code
+    /// * `isa` - Target ISA to compile for (e.g., riscv32)
+    ///
+    /// # Returns
+    ///
+    /// Vector of machine code bytes ready for execution
+    pub fn compile_to_code_bytes(
+        &mut self,
+        source: &str,
+        isa: &dyn cranelift_codegen::isa::TargetIsa,
+    ) -> Result<std::vec::Vec<u8>, crate::error::GlslError> {
+        use cranelift_codegen::{Context, control::ControlPlane};
+        use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
+        use crate::codegen::signature::SignatureBuilder;
+        use crate::error::{ErrorCode, GlslError};
+        use hashbrown::HashMap;
+        use cranelift_module::{FuncId, Linkage, Module, ModuleDeclarations, ModuleError, ModuleResult};
+
+        // 1. Parse and analyze GLSL
+        let semantic_result = crate::pipeline::CompilationPipeline::parse_and_analyze(source)?;
+        let typed_ast = semantic_result.typed_ast;
+
+        // 2. Setup Cranelift context for main function
+        let mut ctx = Context::new();
+        let triple = isa.triple();
+        let pointer_type = isa.pointer_type();
+        let mut sig = SignatureBuilder::new_with_triple(triple);
+        SignatureBuilder::add_return_type(
+            &mut sig,
+            &typed_ast.main_function.return_type,
+            pointer_type,
+        );
+        ctx.func.signature = sig;
+
+        // 3. Create minimal module stub for function declarations (for user functions)
+        // Store a reference to the ISA (we'll use the parameter directly in methods)
+        struct MinimalModule<'a> {
+            isa: &'a dyn cranelift_codegen::isa::TargetIsa,
+            func_counter: u32,
+            func_ids: HashMap<String, FuncId>,
+            declarations: ModuleDeclarations,
+        }
+
+        impl<'a> Module for MinimalModule<'a> {
+            fn isa(&self) -> &dyn cranelift_codegen::isa::TargetIsa {
+                self.isa
+            }
+
+            fn declarations(&self) -> &ModuleDeclarations {
+                &self.declarations
+            }
+
+            fn declare_function(
+                &mut self,
+                name: &str,
+                _linkage: Linkage,
+                _signature: &cranelift_codegen::ir::Signature,
+            ) -> ModuleResult<FuncId> {
+                // Return existing ID if already declared, otherwise create new one
+                if let Some(&id) = self.func_ids.get(name) {
+                    Ok(id)
+                } else {
+                    let id = FuncId::from_u32(self.func_counter);
+                    self.func_counter += 1;
+                    self.func_ids.insert(String::from(name), id);
+                    Ok(id)
+                }
+            }
+
+            fn declare_data(
+                &mut self,
+                _name: &str,
+                _linkage: Linkage,
+                _writable: bool,
+                _tls: bool,
+            ) -> ModuleResult<cranelift_module::DataId> {
+                #[cfg(feature = "std")]
+                {
+                    use std::io;
+                    Err(ModuleError::Allocation {
+                        message: "Data declarations not supported in binary compilation",
+                        err: io::Error::new(io::ErrorKind::Unsupported, "Data declarations not supported"),
+                    })
+                }
+                #[cfg(not(feature = "std"))]
+                {
+                    Err(ModuleError::Undeclared("Data declarations not supported".to_string()))
+                }
+            }
+
+            fn define_function_bytes(
+                &mut self,
+                _id: FuncId,
+                _alignment: u64,
+                _bytes: &[u8],
+                _relocs: &[cranelift_module::ModuleReloc],
+            ) -> ModuleResult<()> {
+                // No-op for binary compilation - we don't store function bytes
+                Ok(())
+            }
+
+            fn define_function(
+                &mut self,
+                _id: FuncId,
+                _ctx: &mut Context,
+            ) -> ModuleResult<()> {
+                // No-op for binary compilation - we compile directly with Context::compile()
+                Ok(())
+            }
+
+            fn define_data(
+                &mut self,
+                _id: cranelift_module::DataId,
+                _data: &cranelift_module::DataDescription,
+            ) -> ModuleResult<()> {
+                #[cfg(feature = "std")]
+                {
+                    use std::io;
+                    Err(ModuleError::Allocation {
+                        message: "Data definitions not supported in binary compilation",
+                        err: io::Error::new(io::ErrorKind::Unsupported, "Data definitions not supported"),
+                    })
+                }
+                #[cfg(not(feature = "std"))]
+                {
+                    Err(ModuleError::Undeclared("Data definitions not supported".to_string()))
+                }
+            }
+
+            fn declare_anonymous_function(
+                &mut self,
+                _signature: &cranelift_codegen::ir::Signature,
+            ) -> ModuleResult<FuncId> {
+                let id = FuncId::from_u32(self.func_counter);
+                self.func_counter += 1;
+                Ok(id)
+            }
+
+            fn declare_anonymous_data(
+                &mut self,
+                _writable: bool,
+                _tls: bool,
+            ) -> ModuleResult<cranelift_module::DataId> {
+                #[cfg(feature = "std")]
+                {
+                    use std::io;
+                    Err(ModuleError::Allocation {
+                        message: "Data declarations not supported in binary compilation",
+                        err: io::Error::new(io::ErrorKind::Unsupported, "Data declarations not supported"),
+                    })
+                }
+                #[cfg(not(feature = "std"))]
+                {
+                    Err(ModuleError::Undeclared("Data declarations not supported".to_string()))
+                }
+            }
+
+            fn define_function_with_control_plane(
+                &mut self,
+                _id: FuncId,
+                _ctx: &mut Context,
+                _ctrl_plane: &mut ControlPlane,
+            ) -> ModuleResult<()> {
+                // No-op for binary compilation
+                Ok(())
+            }
+        }
+
+        let mut module = MinimalModule {
+            isa,
+            func_counter: 0,
+            func_ids: HashMap::new(),
+            declarations: ModuleDeclarations::default(),
+        };
+
+        // 4. Declare user functions (for function calls in main)
+        let mut func_ids: HashMap<String, FuncId> = HashMap::new();
+        for user_func in &typed_ast.user_functions {
+            let func_id = module.declare_function(
+                &user_func.name,
+                Linkage::Local,
+                &cranelift_codegen::ir::Signature::new(
+                    cranelift_codegen::isa::CallConv::triple_default(triple),
+                ),
+            ).map_err(|e| GlslError::new(
+                ErrorCode::E0400,
+                format!("failed to declare function: {}", e),
+            ))?;
+            func_ids.insert(user_func.name.clone(), func_id);
+        }
+
+        // 5. Build IR for main function
+        let mut builder_context = FunctionBuilderContext::new();
+        let mut builder = FunctionBuilder::new(&mut ctx.func, &mut builder_context);
+        let entry_block = builder.create_block();
+        builder.append_block_params_for_function_params(entry_block);
+        builder.switch_to_block(entry_block);
+        builder.seal_block(entry_block);
+
+        // Create codegen context
+        let mut codegen_ctx = crate::codegen::context::CodegenContext::new(builder, &mut module);
+        codegen_ctx.set_function_ids(&func_ids);
+        codegen_ctx.set_function_registry(&typed_ast.function_registry);
+        codegen_ctx.set_source_text(semantic_result.source);
+        codegen_ctx.set_return_type(typed_ast.main_function.return_type.clone());
+        codegen_ctx.set_entry_block(entry_block);
+
+        // Translate main function body
+        for stmt in &typed_ast.main_function.body {
+            codegen_ctx.translate_statement(stmt)?;
+        }
+
+        // Generate default return if needed
+        crate::jit::JIT::generate_default_return(&mut codegen_ctx, &typed_ast.main_function.return_type)?;
+
+        // Finalize builder
+        codegen_ctx.builder.finalize();
+
+        // 6. Apply fixed-point transformation if needed
+        if let Some(format) = self.jit.fixed_point_format {
+            crate::transform::fixed_point::convert_floats_to_fixed(&mut ctx.func, format)?;
+        }
+
+        // 7. Verify function
+        cranelift_codegen::verify_function(&ctx.func, isa).map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0301,
+                format!("verification error: {}", e),
+            )
+        })?;
+
+        // 8. Compile to machine code
+        let mut ctrl_plane = ControlPlane::default();
+        let compiled = ctx.compile(isa, &mut ctrl_plane).map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("code generation failed: {:?}", e),
+            )
+        })?;
+
+        // 9. Extract code buffer
+        Ok(compiled.code_buffer().to_vec())
+    }
 }
 
 #[cfg(feature = "std")]

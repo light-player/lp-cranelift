@@ -255,7 +255,7 @@ impl JIT {
 
     /// Generate default return statement for a function
     /// Used when function doesn't have explicit return
-    fn generate_default_return(
+    pub fn generate_default_return(
         ctx: &mut crate::codegen::context::CodegenContext,
         return_type: &crate::semantic::types::Type,
     ) -> Result<(), crate::error::GlslError> {

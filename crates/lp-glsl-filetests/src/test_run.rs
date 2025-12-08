@@ -668,21 +668,13 @@ fn execute_riscv32_float(
     fixed_point_format: Option<lp_glsl::FixedPointFormat>,
 ) -> Result<f32> {
     use crate::execution::binary::compile_to_binary;
-    use crate::execution::bootstrap::generate_bootstrap;
     use crate::execution::{
         CompiledCode, EmulatorBackend, EmulatorType, ExecutionBackend, ReturnType,
     };
 
-    // Generate bootstrap code
-    // Test function will be placed after bootstrap, so address is bootstrap length
-    let bootstrap_code = generate_bootstrap(0, ReturnType::Float, fixed_point_format)?;
-    let test_func_addr = bootstrap_code.len() as u32;
-
-    // Regenerate bootstrap with correct test function address
-    let bootstrap_code = generate_bootstrap(test_func_addr, ReturnType::Float, fixed_point_format)?;
-
     // Compile GLSL to binary (bootstrap + test function)
-    let binary = compile_to_binary(glsl_source, fixed_point_format, &bootstrap_code)?;
+    // The compile_to_binary function handles bootstrap generation internally
+    let binary = compile_to_binary(glsl_source, fixed_point_format, &[])?;
 
     // Create compiled code
     let compiled_code = CompiledCode::EmulatorBinary {

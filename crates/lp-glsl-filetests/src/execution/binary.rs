@@ -11,7 +11,7 @@ use lp_glsl::FixedPointFormat;
 pub fn compile_to_binary(
     glsl_source: &str,
     fixed_point_format: Option<FixedPointFormat>,
-    bootstrap_code: &[u8],
+    _bootstrap_code: &[u8], // Will be regenerated with correct address
 ) -> Result<Vec<u8>> {
     // Build riscv32 ISA
     use cranelift_codegen::settings;
@@ -32,18 +32,37 @@ pub fn compile_to_binary(
         .finish(flags)
         .map_err(|e| anyhow::anyhow!("Failed to build ISA: {}", e))?;
 
-    // For now, use a workaround: compile via JIT and extract bytes from function pointer
-    // TODO: Add proper method to lp-glsl to compile to code bytes
-    // This is a temporary solution - ideally we'd use cranelift-object directly
+    // Compile GLSL to code bytes using the new compile_to_code_bytes method
+    let mut compiler = lp_glsl::Compiler::new();
+    compiler.set_fixed_point_format(fixed_point_format);
     
-    // Create a temporary JIT compiler for riscv32
-    // Note: JIT compiler uses native ISA, so we need a different approach
-    // For now, this is a placeholder that will need proper implementation
-    anyhow::bail!(
-        "Binary compilation for riscv32 emulator requires extracting machine code bytes from compilation. \
-         This needs to be implemented by either:\n\
-         1. Adding a compile_to_code_bytes() method to lp-glsl that works in std mode\n\
-         2. Using cranelift-object directly to compile the function\n\
-         3. Refactoring lp-glsl to expose translation logic separately"
-    );
+    let test_func_code = compiler.compile_to_code_bytes(glsl_source, isa.as_ref())
+        .map_err(|e| anyhow::anyhow!("GLSL compilation failed: {}", e))?;
+
+    // Generate initial bootstrap to estimate size
+    use crate::execution::bootstrap::generate_bootstrap;
+    use crate::execution::backend::ReturnType;
+    let initial_bootstrap = generate_bootstrap(0, ReturnType::Float, fixed_point_format)?;
+    
+    // Calculate test function address (after bootstrap, aligned to 4 bytes)
+    let mut test_func_addr = initial_bootstrap.len() as u32;
+    // Align to 4-byte boundary
+    test_func_addr = (test_func_addr + 3) & !3;
+
+    // Regenerate bootstrap with correct test function address
+    let bootstrap_code = generate_bootstrap(test_func_addr, ReturnType::Float, fixed_point_format)?;
+
+    // For now, create a simple binary: bootstrap + test function
+    // TODO: Properly link bootstrap with test function address
+    let mut binary = Vec::new();
+    binary.extend_from_slice(&bootstrap_code);
+
+    // Align test function to 4-byte boundary
+    while binary.len() % 4 != 0 {
+        binary.push(0);
+    }
+
+    binary.extend_from_slice(&test_func_code);
+
+    Ok(binary)
 }
