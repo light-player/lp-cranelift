@@ -497,6 +497,11 @@ fn test_sqrt_scalar() {
 }
 
 #[test]
+fn test_binary_compilation() {
+    test_file("builtins/test_binary_compilation.glsl");
+}
+
+#[test]
 fn test_sqrt_vec3() {
     test_file("builtins/common/sqrt_vec3.glsl");
 }
