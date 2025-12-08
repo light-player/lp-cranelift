@@ -33,6 +33,14 @@ Ensure all math function tests in `crates/lp-glsl-filetests/filetests` use the n
 
 ## Current State
 
+### Known Issues
+
+1. **JIT Initialization**: Tests that use `test compile` directive will fail for riscv32 targets because `test_compile` uses `JIT::new()` which requires native architecture support. For now, riscv32 tests should only use `test run`.
+
+2. **Vector/Matrix Return Types**: Currently only `FloatApprox` return type supports riscv32 emulator execution. Other return types (Vec2, Vec3, Vec4, Mat2, Mat3, Mat4, Int, Bool) still use JIT even for riscv32 targets. These need to be updated to use the execution backend abstraction.
+
+3. **Test Infrastructure**: The test infrastructure needs to be updated to handle riscv32 targets properly for all return types.
+
 ### Math Test Categories
 
 1. **Trigonometric Functions** (`builtins/trigonometric/`, `builtins/sin_*.glsl`, `builtins/cos_*.glsl`, `builtins/tan_*.glsl`)
