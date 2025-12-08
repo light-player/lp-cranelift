@@ -35,15 +35,16 @@ pub fn compile_to_binary(
     // Compile GLSL to code bytes using the new compile_to_code_bytes method
     let mut compiler = lp_glsl::Compiler::new();
     compiler.set_fixed_point_format(fixed_point_format);
-    
-    let test_func_code = compiler.compile_to_code_bytes(glsl_source, isa.as_ref())
+
+    let test_func_code = compiler
+        .compile_to_code_bytes(glsl_source, isa.as_ref())
         .map_err(|e| anyhow::anyhow!("GLSL compilation failed: {}", e))?;
 
     // Generate initial bootstrap to estimate size
-    use crate::execution::bootstrap::generate_bootstrap;
     use crate::execution::backend::ReturnType;
+    use crate::execution::bootstrap::generate_bootstrap;
     let initial_bootstrap = generate_bootstrap(0, ReturnType::Float, fixed_point_format)?;
-    
+
     // Calculate test function address (after bootstrap, aligned to 4 bytes)
     let mut test_func_addr = initial_bootstrap.len() as u32;
     // Align to 4-byte boundary
