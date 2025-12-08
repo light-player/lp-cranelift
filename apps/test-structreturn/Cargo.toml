@@ -1,0 +1,16 @@
+[package]
+name = "test-structreturn"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cranelift-codegen = { path = "../../cranelift/codegen", default-features = false, features = ["riscv32", "arm64"] }
+cranelift-frontend = { path = "../../cranelift/frontend" }
+cranelift-module = { path = "../../cranelift/module" }
+cranelift-jit = { path = "../../cranelift/jit" }
+target-lexicon = { workspace = true }
+
+[features]
+default = []
+asm = []
+

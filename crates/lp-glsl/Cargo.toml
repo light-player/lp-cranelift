@@ -15,6 +15,7 @@ cranelift-jit = { workspace = true, optional = true }
 cranelift-module = { workspace = true }
 cranelift-native = { workspace = true, optional = true }
 hashbrown = { workspace = true }
+target-lexicon = { workspace = true }
 
 [features]
 default = ["std"]

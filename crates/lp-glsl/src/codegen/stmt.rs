@@ -316,7 +316,8 @@ impl<'a> CodegenContext<'a> {
     }
 
     fn translate_return(&mut self, expr: Option<&glsl::syntax::Expr>) -> Result<(), GlslError> {
-        use crate::error::{extract_span_from_expr, source_span_to_location};
+        use crate::error::extract_span_from_expr;
+        use cranelift_codegen::ir::{ArgumentPurpose, InstBuilder, MemFlags};
         
         if let Some(ret_expr) = expr {
             let span = extract_span_from_expr(ret_expr);
@@ -324,13 +325,47 @@ impl<'a> CodegenContext<'a> {
             
             // Validate return type matches function signature
             if let Some(expected_ty) = &self.return_type {
-                // Check if types can be implicitly converted
-                // Note: We check here but the actual error may occur during coercion/verification
-                // The test expects E0400 (codegen error), so we'll let it through to coercion
-                // and catch it there with proper location
+                // Check if function uses StructReturn
+                let uses_struct_return = self.builder.func.signature.uses_special_param(ArgumentPurpose::StructReturn);
                 
-                if expected_ty.is_vector() || expected_ty.is_matrix() {
-                    // For vectors/matrices, return all components with coercion if needed
+                if uses_struct_return {
+                    // Function uses StructReturn - write values to buffer
+                    // Use special_param() method (like cranelift-examples) to get the StructReturn pointer
+                    let struct_ret_ptr = self.builder.func
+                        .special_param(ArgumentPurpose::StructReturn)
+                        .ok_or_else(|| {
+                            GlslError::new(crate::error::ErrorCode::E0400, "StructReturn parameter not found (internal error)")
+                        })?;
+                    
+                    // Coerce and write values to buffer at offsets (4 bytes per f32)
+                    let expected_base = if expected_ty.is_vector() {
+                        expected_ty.vector_base_type().unwrap()
+                    } else {
+                        crate::semantic::types::Type::Float
+                    };
+                    let ret_base = if ret_ty.is_vector() {
+                        ret_ty.vector_base_type().unwrap()
+                    } else if ret_ty.is_matrix() {
+                        crate::semantic::types::Type::Float
+                    } else {
+                        ret_ty.clone()
+                    };
+                    
+                    for (i, val) in ret_vals.iter().enumerate() {
+                        let coerced = if ret_base == expected_base {
+                            *val
+                        } else {
+                            self.coerce_to_type_with_location(*val, &ret_base, &expected_base, Some(span.clone()))?
+                        };
+                        let offset = (i * 4) as i32; // 4 bytes per f32
+                        self.builder.ins().store(MemFlags::trusted(), coerced, struct_ret_ptr, offset);
+                    }
+                    
+                    // Return void for StructReturn functions
+                    self.builder.ins().return_(&[]);
+                } else if expected_ty.is_vector() || expected_ty.is_matrix() {
+                    // For vectors/matrices without StructReturn (shouldn't happen with this plan)
+                    // Keep existing behavior as fallback
                     let expected_base = if expected_ty.is_vector() {
                         expected_ty.vector_base_type().unwrap()
                     } else {
@@ -548,6 +583,9 @@ impl<'a> CodegenContext<'a> {
             TypeSpecifierNonArray::BVec2 => Ok(crate::semantic::types::Type::BVec2),
             TypeSpecifierNonArray::BVec3 => Ok(crate::semantic::types::Type::BVec3),
             TypeSpecifierNonArray::BVec4 => Ok(crate::semantic::types::Type::BVec4),
+            TypeSpecifierNonArray::Mat2 => Ok(crate::semantic::types::Type::Mat2),
+            TypeSpecifierNonArray::Mat3 => Ok(crate::semantic::types::Type::Mat3),
+            TypeSpecifierNonArray::Mat4 => Ok(crate::semantic::types::Type::Mat4),
             _ => Err(GlslError::unsupported_type(format!("{:?}", type_spec.ty.ty))),
         }
     }

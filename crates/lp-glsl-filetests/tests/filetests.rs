@@ -91,85 +91,86 @@ fn test_early_return() {
     test_file("control_flow/early_return.glsl");
 }
 
-// Builtin function tests
+// Interpolation function tests
 #[test]
 fn test_mix_scalar() {
-    test_file("builtins/mix_scalar.glsl");
+    test_file("builtins/interpolation/mix_scalar.glsl");
 }
 
 #[test]
 fn test_mix_vec3() {
-    test_file("builtins/mix_vec3.glsl");
+    test_file("builtins/interpolation/mix_vec3.glsl");
 }
 
 #[test]
 fn test_mix_vec3_scalar_a() {
-    test_file("builtins/mix_vec3_scalar_a.glsl");
+    test_file("builtins/interpolation/mix_vec3_scalar_a.glsl");
 }
 
 #[test]
 fn test_step_scalar() {
-    test_file("builtins/step_scalar.glsl");
+    test_file("builtins/interpolation/step_scalar.glsl");
 }
 
 #[test]
 fn test_step_vec3() {
-    test_file("builtins/step_vec3.glsl");
+    test_file("builtins/interpolation/step_vec3.glsl");
 }
 
 #[test]
 fn test_step_scalar_edge() {
-    test_file("builtins/step_scalar_edge.glsl");
+    test_file("builtins/interpolation/step_scalar_edge.glsl");
 }
 
 #[test]
 fn test_smoothstep_scalar() {
-    test_file("builtins/smoothstep_scalar.glsl");
+    test_file("builtins/interpolation/smoothstep_scalar.glsl");
 }
 
 #[test]
 fn test_smoothstep_vec3() {
-    test_file("builtins/smoothstep_vec3.glsl");
+    test_file("builtins/interpolation/smoothstep_vec3.glsl");
 }
 
 #[test]
 fn test_smoothstep_scalar_edges() {
-    test_file("builtins/smoothstep_scalar_edges.glsl");
+    test_file("builtins/interpolation/smoothstep_scalar_edges.glsl");
 }
 
+// Common function tests (continued)
 #[test]
 fn test_fract_scalar() {
-    test_file("builtins/fract_scalar.glsl");
+    test_file("builtins/common/fract_scalar.glsl");
 }
 
 #[test]
 fn test_fract_vec2() {
-    test_file("builtins/fract_vec2.glsl");
+    test_file("builtins/common/fract_vec2.glsl");
 }
 
 #[test]
 fn test_mod_scalar() {
-    test_file("builtins/mod_scalar.glsl");
+    test_file("builtins/common/mod_scalar.glsl");
 }
 
 #[test]
 fn test_mod_vec3() {
-    test_file("builtins/mod_vec3.glsl");
+    test_file("builtins/common/mod_vec3.glsl");
 }
 
 #[test]
 fn test_mod_vec3_scalar() {
-    test_file("builtins/mod_vec3_scalar.glsl");
+    test_file("builtins/common/mod_vec3_scalar.glsl");
 }
 
 #[test]
 fn test_sign_float() {
-    test_file("builtins/sign_float.glsl");
+    test_file("builtins/common/sign_float.glsl");
 }
 
 #[test]
 fn test_sign_int() {
-    test_file("builtins/sign_int.glsl");
+    test_file("builtins/common/sign_int.glsl");
 }
 
 // Fixed-point transformation tests - SSA level
@@ -428,186 +429,253 @@ fn test_ivec2_component() {
     test_file("vectors/ivec2_component.glsl");
 }
 
-// Built-in function tests
+// Geometric function tests
 #[test]
 fn test_dot_vec3() {
-    test_file("builtins/dot_vec3.glsl");
+    test_file("builtins/geometric/dot_vec3.glsl");
 }
 
 #[test]
 fn test_cross_vec3() {
-    test_file("builtins/cross_vec3.glsl");
+    test_file("builtins/geometric/cross_vec3.glsl");
 }
 
 #[test]
 fn test_length_vec2() {
-    test_file("builtins/length_vec2.glsl");
+    test_file("builtins/geometric/length_vec2.glsl");
 }
 
 #[test]
 fn test_normalize_vec3() {
-    test_file("builtins/normalize_vec3.glsl");
+    test_file("builtins/geometric/normalize_vec3.glsl");
 }
 
 #[test]
 fn test_distance_vec3() {
-    test_file("builtins/distance_vec3.glsl");
+    test_file("builtins/geometric/distance_vec3.glsl");
 }
 
+// Common function tests
 #[test]
 fn test_min_scalars() {
-    test_file("builtins/min_scalars.glsl");
+    test_file("builtins/common/min_scalars.glsl");
 }
 
 #[test]
 fn test_min_vec3_scalar() {
-    test_file("builtins/min_vec3_scalar.glsl");
+    test_file("builtins/common/min_vec3_scalar.glsl");
 }
 
 #[test]
 fn test_max_vec2() {
-    test_file("builtins/max_vec2.glsl");
+    test_file("builtins/common/max_vec2.glsl");
 }
 
 #[test]
 fn test_clamp_scalar() {
-    test_file("builtins/clamp_scalar.glsl");
+    test_file("builtins/common/clamp_scalar.glsl");
 }
 
 #[test]
 fn test_clamp_vec3() {
-    test_file("builtins/clamp_vec3.glsl");
+    test_file("builtins/common/clamp_vec3.glsl");
 }
 
 #[test]
 fn test_abs_float() {
-    test_file("builtins/abs_float.glsl");
+    test_file("builtins/common/abs_float.glsl");
+}
+
+#[test]
+fn test_abs_vec2() {
+    test_file("builtins/common/abs_vec2.glsl");
 }
 
 #[test]
 fn test_sqrt_scalar() {
-    test_file("builtins/sqrt_scalar.glsl");
+    test_file("builtins/common/sqrt_scalar.glsl");
 }
 
-// Angle and Trigonometry Functions
+#[test]
+fn test_sqrt_vec3() {
+    test_file("builtins/common/sqrt_vec3.glsl");
+}
+
+#[test]
+fn test_floor_scalar() {
+    test_file("builtins/common/floor_scalar.glsl");
+}
+
+#[test]
+fn test_floor_vec2() {
+    test_file("builtins/common/floor_vec2.glsl");
+}
+
+#[test]
+fn test_ceil_scalar() {
+    test_file("builtins/common/ceil_scalar.glsl");
+}
+
+#[test]
+fn test_ceil_vec3() {
+    test_file("builtins/common/ceil_vec3.glsl");
+}
+
+#[test]
+fn test_pow_error() {
+    test_file("builtins/common/pow_error.glsl");
+}
+
+// Trigonometric function tests
 #[test]
 fn test_radians_scalar() {
-    test_file("builtins/radians_scalar.glsl");
+    test_file("builtins/trigonometric/radians_scalar.glsl");
 }
 
 #[test]
 fn test_radians_vec2() {
-    test_file("builtins/radians_vec2.glsl");
+    test_file("builtins/trigonometric/radians_vec2.glsl");
 }
 
 #[test]
 fn test_degrees_scalar() {
-    test_file("builtins/degrees_scalar.glsl");
+    test_file("builtins/trigonometric/degrees_scalar.glsl");
 }
 
 #[test]
 fn test_radians_degrees_roundtrip() {
-    test_file("builtins/radians_degrees_roundtrip.glsl");
+    test_file("builtins/trigonometric/radians_degrees_roundtrip.glsl");
 }
 
 #[test]
 fn test_sin_scalar() {
-    test_file("builtins/sin_scalar.glsl");
+    test_file("builtins/trigonometric/sin_scalar.glsl");
 }
 
 #[test]
 fn test_sin_pi_2() {
-    test_file("builtins/sin_pi_2.glsl");
+    test_file("builtins/trigonometric/sin_pi_2.glsl");
 }
 
 #[test]
 fn test_sin_vec3() {
-    test_file("builtins/sin_vec3.glsl");
+    test_file("builtins/trigonometric/sin_vec3.glsl");
 }
 
 #[test]
 fn test_cos_scalar() {
-    test_file("builtins/cos_scalar.glsl");
+    test_file("builtins/trigonometric/cos_scalar.glsl");
 }
 
 #[test]
 fn test_cos_pi() {
-    test_file("builtins/cos_pi.glsl");
+    test_file("builtins/trigonometric/cos_pi.glsl");
 }
 
 #[test]
 fn test_cos_vec2() {
-    test_file("builtins/cos_vec2.glsl");
+    test_file("builtins/trigonometric/cos_vec2.glsl");
 }
 
 #[test]
 fn test_tan_scalar() {
-    test_file("builtins/tan_scalar.glsl");
+    test_file("builtins/trigonometric/tan_scalar.glsl");
 }
 
 #[test]
 fn test_tan_vec3() {
-    test_file("builtins/tan_vec3.glsl");
+    test_file("builtins/trigonometric/tan_vec3.glsl");
 }
 
 #[test]
 fn test_asin_scalar() {
-    test_file("builtins/asin_scalar.glsl");
+    test_file("builtins/trigonometric/asin_scalar.glsl");
 }
 
 #[test]
 fn test_asin_boundary() {
-    test_file("builtins/asin_boundary.glsl");
+    test_file("builtins/trigonometric/asin_boundary.glsl");
 }
 
 #[test]
 fn test_acos_scalar() {
-    test_file("builtins/acos_scalar.glsl");
+    test_file("builtins/trigonometric/acos_scalar.glsl");
 }
 
 #[test]
 fn test_atan_scalar() {
-    test_file("builtins/atan_scalar.glsl");
+    test_file("builtins/trigonometric/atan_scalar.glsl");
 }
 
 #[test]
 fn test_atan2_scalar() {
-    test_file("builtins/atan2_scalar.glsl");
+    test_file("builtins/trigonometric/atan2_scalar.glsl");
 }
 
 #[test]
 fn test_atan2_quadrant() {
-    test_file("builtins/atan2_quadrant.glsl");
+    test_file("builtins/trigonometric/atan2_quadrant.glsl");
 }
 
 #[test]
 fn test_sinh_scalar() {
-    test_file("builtins/sinh_scalar.glsl");
+    test_file("builtins/trigonometric/sinh_scalar.glsl");
 }
 
 #[test]
 fn test_cosh_scalar() {
-    test_file("builtins/cosh_scalar.glsl");
+    test_file("builtins/trigonometric/cosh_scalar.glsl");
 }
 
 #[test]
 fn test_tanh_scalar() {
-    test_file("builtins/tanh_scalar.glsl");
+    test_file("builtins/trigonometric/tanh_scalar.glsl");
 }
 
 #[test]
 fn test_asinh_scalar() {
-    test_file("builtins/asinh_scalar.glsl");
+    test_file("builtins/trigonometric/asinh_scalar.glsl");
 }
 
 #[test]
 fn test_acosh_scalar() {
-    test_file("builtins/acosh_scalar.glsl");
+    test_file("builtins/trigonometric/acosh_scalar.glsl");
 }
 
 #[test]
 fn test_atanh_scalar() {
-    test_file("builtins/atanh_scalar.glsl");
+    test_file("builtins/trigonometric/atanh_scalar.glsl");
+}
+
+// Matrix function tests
+#[test]
+fn test_matrixCompMult_mat2() {
+    test_file("builtins/matrix/matrixCompMult_mat2.glsl");
+}
+
+#[test]
+fn test_outerProduct_vec3() {
+    test_file("builtins/matrix/outerProduct_vec3.glsl");
+}
+
+#[test]
+fn test_transpose_mat3() {
+    test_file("builtins/matrix/transpose_mat3.glsl");
+}
+
+#[test]
+fn test_determinant_mat2() {
+    test_file("builtins/matrix/determinant_mat2.glsl");
+}
+
+#[test]
+fn test_determinant_mat3() {
+    test_file("builtins/matrix/determinant_mat3.glsl");
+}
+
+#[test]
+fn test_inverse_mat2() {
+    test_file("builtins/matrix/inverse_mat2.glsl");
 }
 
 // User function tests
@@ -634,6 +702,31 @@ fn test_function_composition() {
 #[test]
 fn test_implicit_conversion_func() {
     test_file("functions/implicit_conversion.glsl");
+}
+
+#[test]
+fn test_mat2_function() {
+    test_file("functions/mat2_function.glsl");
+}
+
+#[test]
+fn test_mat3_function() {
+    test_file("functions/mat3_function.glsl");
+}
+
+#[test]
+fn test_mat4_function() {
+    test_file("functions/mat4_function.glsl");
+}
+
+#[test]
+fn test_mat3_composition() {
+    test_file("functions/mat3_composition.glsl");
+}
+
+#[test]
+fn test_mat_return_from_builtin() {
+    test_file("functions/mat_return_from_builtin.glsl");
 }
 
 // Type error tests

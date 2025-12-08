@@ -45,6 +45,9 @@ impl JIT {
         flag_builder
             .set("use_colocated_libcalls", "false")
             .expect("set use_colocated_libcalls");
+        flag_builder
+            .set("enable_multi_ret_implicit_sret", "true")
+            .expect("set enable_multi_ret_implicit_sret");
 
         let isa_builder = cranelift_native::builder().unwrap_or_else(|msg| {
             panic!("host machine is not supported: {}", msg);
@@ -207,7 +210,10 @@ impl JIT {
         use crate::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};
 
-        let sig = SignatureBuilder::build(return_type, parameters);
+        let pointer_type = self.module.isa().pointer_type();
+        let triple = self.module.isa().triple();
+        let sig =
+            SignatureBuilder::build_with_triple(return_type, parameters, pointer_type, triple);
 
         // Declare function in module
         self.module
@@ -244,6 +250,8 @@ impl JIT {
 
         if return_type.is_vector() {
             Self::generate_default_vector_return(ctx, return_type)
+        } else if return_type.is_matrix() {
+            Self::generate_default_matrix_return(ctx, return_type)
         } else {
             Self::generate_default_scalar_return(ctx, return_type)
         }
@@ -281,33 +289,151 @@ impl JIT {
     ) -> Result<(), crate::error::GlslError> {
         use crate::error::{ErrorCode, GlslError};
         use crate::semantic::types::Type;
-        use cranelift_codegen::ir::types;
+        use cranelift_codegen::ir::{ArgumentPurpose, MemFlags, types};
 
-        let base_ty = return_type.vector_base_type().ok_or_else(|| {
-            GlslError::new(
-                ErrorCode::E0400,
-                format!("expected vector type, got: {:?}", return_type),
-            )
-        })?;
-        let count = return_type.component_count().unwrap();
-        let mut vals = Vec::new();
+        // Check if function uses StructReturn
+        let uses_struct_return = ctx
+            .builder
+            .func
+            .signature
+            .uses_special_param(ArgumentPurpose::StructReturn);
 
-        for _ in 0..count {
-            let val = match base_ty {
-                Type::Float => ctx.builder.ins().f32const(0.0),
-                Type::Int => ctx.builder.ins().iconst(types::I32, 0),
-                Type::Bool => ctx.builder.ins().iconst(types::I8, 0),
-                _ => {
-                    return Err(GlslError::new(
+        if uses_struct_return {
+            // Write zeros to StructReturn buffer
+            // Use special_param() method (like cranelift-examples) to get the StructReturn pointer
+            let struct_ret_ptr = ctx
+                .builder
+                .func
+                .special_param(ArgumentPurpose::StructReturn)
+                .ok_or_else(|| {
+                    GlslError::new(
                         ErrorCode::E0400,
-                        format!("unsupported vector base type: {:?}", base_ty),
-                    ));
-                }
-            };
-            vals.push(val);
-        }
+                        "StructReturn parameter not found (internal error)",
+                    )
+                })?;
 
-        ctx.builder.ins().return_(&vals);
+            let base_ty = return_type.vector_base_type().ok_or_else(|| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("expected vector type, got: {:?}", return_type),
+                )
+            })?;
+            let count = return_type.component_count().unwrap();
+
+            for i in 0..count {
+                let zero_val = match base_ty {
+                    Type::Float => ctx.builder.ins().f32const(0.0),
+                    Type::Int => ctx.builder.ins().iconst(types::I32, 0),
+                    Type::Bool => ctx.builder.ins().iconst(types::I8, 0),
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            format!("unsupported vector base type: {:?}", base_ty),
+                        ));
+                    }
+                };
+                let offset = (i * 4) as i32; // 4 bytes per f32
+                ctx.builder
+                    .ins()
+                    .store(MemFlags::trusted(), zero_val, struct_ret_ptr, offset);
+            }
+
+            // Return void for StructReturn functions
+            ctx.builder.ins().return_(&[]);
+        } else {
+            // Legacy path (shouldn't happen with this plan, but kept as fallback)
+            let base_ty = return_type.vector_base_type().ok_or_else(|| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("expected vector type, got: {:?}", return_type),
+                )
+            })?;
+            let count = return_type.component_count().unwrap();
+            let mut vals = Vec::new();
+
+            for _ in 0..count {
+                let val = match base_ty {
+                    Type::Float => ctx.builder.ins().f32const(0.0),
+                    Type::Int => ctx.builder.ins().iconst(types::I32, 0),
+                    Type::Bool => ctx.builder.ins().iconst(types::I8, 0),
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            format!("unsupported vector base type: {:?}", base_ty),
+                        ));
+                    }
+                };
+                vals.push(val);
+            }
+
+            ctx.builder.ins().return_(&vals);
+        }
+        Ok(())
+    }
+
+    fn generate_default_matrix_return(
+        ctx: &mut crate::codegen::context::CodegenContext,
+        return_type: &crate::semantic::types::Type,
+    ) -> Result<(), crate::error::GlslError> {
+        use crate::error::{ErrorCode, GlslError};
+        use cranelift_codegen::ir::{ArgumentPurpose, MemFlags};
+
+        // Check if function uses StructReturn
+        let uses_struct_return = ctx
+            .builder
+            .func
+            .signature
+            .uses_special_param(ArgumentPurpose::StructReturn);
+
+        if uses_struct_return {
+            // Write zeros to StructReturn buffer
+            // Use special_param() method (like cranelift-examples) to get the StructReturn pointer
+            let struct_ret_ptr = ctx
+                .builder
+                .func
+                .special_param(ArgumentPurpose::StructReturn)
+                .ok_or_else(|| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        "StructReturn parameter not found (internal error)",
+                    )
+                })?;
+
+            let element_count = return_type.matrix_element_count().ok_or_else(|| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("expected matrix type, got: {:?}", return_type),
+                )
+            })?;
+
+            // Matrices are always float-based, write zero matrix
+            for i in 0..element_count {
+                let zero_val = ctx.builder.ins().f32const(0.0);
+                let offset = (i * 4) as i32; // 4 bytes per f32
+                ctx.builder
+                    .ins()
+                    .store(MemFlags::trusted(), zero_val, struct_ret_ptr, offset);
+            }
+
+            // Return void for StructReturn functions
+            ctx.builder.ins().return_(&[]);
+        } else {
+            // Legacy path (shouldn't happen with this plan, but kept as fallback)
+            let element_count = return_type.matrix_element_count().ok_or_else(|| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("expected matrix type, got: {:?}", return_type),
+                )
+            })?;
+            let mut vals = Vec::new();
+
+            // Matrices are always float-based, return zero matrix
+            for _ in 0..element_count {
+                vals.push(ctx.builder.ins().f32const(0.0));
+            }
+
+            ctx.builder.ins().return_(&vals);
+        }
         Ok(())
     }
 
@@ -324,7 +450,14 @@ impl JIT {
         self.ctx.clear();
 
         // Build signature (same as declaration) and set it on the function
-        let sig = SignatureBuilder::build(&func.return_type, &func.parameters);
+        let pointer_type = self.module.isa().pointer_type();
+        let triple = self.module.isa().triple();
+        let sig = SignatureBuilder::build_with_triple(
+            &func.return_type,
+            &func.parameters,
+            pointer_type,
+            triple,
+        );
         self.ctx.func.signature = sig;
 
         // Create a new FunctionBuilderContext for this function to avoid state pollution
@@ -340,28 +473,47 @@ impl JIT {
         ctx.set_function_ids(func_ids);
         ctx.set_function_registry(func_registry);
         ctx.set_return_type(func.return_type.clone());
+        ctx.set_entry_block(entry_block);
 
         // Declare parameters as variables in the function
         let block_params = ctx.builder.block_params(entry_block).to_vec();
 
         // Validate that we have enough block parameters for all function parameters
+        // Account for StructReturn parameter if present (it's FIRST)
+        let uses_struct_return = ctx
+            .builder
+            .func
+            .signature
+            .uses_special_param(cranelift_codegen::ir::ArgumentPurpose::StructReturn);
         let expected_param_count: usize = func
             .parameters
             .iter()
             .map(|p| SignatureBuilder::count_parameters(&p.ty))
-            .sum();
+            .sum::<usize>()
+            + if uses_struct_return { 1 } else { 0 }; // Add 1 for StructReturn if present
         if block_params.len() < expected_param_count {
             return Err(GlslError::new(
                 ErrorCode::E0400,
                 format!(
-                    "function parameter mismatch: expected {} block parameters, got {}",
+                    "function parameter mismatch: expected {} block parameters (including StructReturn), got {}",
                     expected_param_count,
                     block_params.len()
                 ),
             ));
         }
 
-        let mut param_idx = 0;
+        // Skip StructReturn parameter if present (it's FIRST in the signature)
+        let uses_struct_return = ctx
+            .builder
+            .func
+            .signature
+            .uses_special_param(cranelift_codegen::ir::ArgumentPurpose::StructReturn);
+        let mut param_idx = if uses_struct_return {
+            1 // Skip StructReturn parameter (index 0)
+        } else {
+            0
+        };
+
         for param in &func.parameters {
             let param_vals: Vec<cranelift_codegen::ir::Value> = if param.ty.is_vector() {
                 let count = param.ty.component_count().unwrap();
@@ -453,8 +605,10 @@ impl JIT {
         self.ctx.clear();
 
         // Set up main signature (no parameters, just return type)
-        let mut sig = SignatureBuilder::new();
-        SignatureBuilder::add_return_type(&mut sig, &main_func.return_type);
+        let triple = self.module.isa().triple();
+        let mut sig = SignatureBuilder::new_with_triple(triple);
+        let pointer_type = self.module.isa().pointer_type();
+        SignatureBuilder::add_return_type(&mut sig, &main_func.return_type, pointer_type);
         self.ctx.func.signature = sig;
 
         // Create a new FunctionBuilderContext for the main function to avoid state pollution
@@ -462,15 +616,14 @@ impl JIT {
         // Create function builder
         let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut main_builder_context);
 
-        // Set up entry block (using helper)
-        Self::setup_function_builder(&mut builder);
-
         // Create codegen context with function IDs
+        let entry_block = Self::setup_function_builder(&mut builder);
         let mut ctx = crate::codegen::context::CodegenContext::new(builder, &mut self.module);
         ctx.set_function_ids(func_ids);
         ctx.set_function_registry(func_registry);
         ctx.set_source_text(source_text);
         ctx.set_return_type(main_func.return_type.clone());
+        ctx.set_entry_block(entry_block);
 
         // Translate main function body
         for stmt in &main_func.body {

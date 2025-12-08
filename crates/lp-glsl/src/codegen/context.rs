@@ -39,6 +39,9 @@ pub struct CodegenContext<'a> {
 
     // Current function return type (for return statement validation)
     pub return_type: Option<GlslType>,
+
+    // Entry block for accessing function parameters (including StructReturn)
+    pub entry_block: Option<Block>,
 }
 
 pub struct LoopContext {
@@ -57,7 +60,12 @@ impl<'a> CodegenContext<'a> {
             function_registry: None,
             source_text: None,
             return_type: None,
+            entry_block: None,
         }
+    }
+
+    pub fn set_entry_block(&mut self, entry_block: Block) {
+        self.entry_block = Some(entry_block);
     }
 
     pub fn set_return_type(&mut self, return_type: GlslType) {

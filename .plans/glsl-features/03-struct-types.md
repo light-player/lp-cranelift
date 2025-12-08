@@ -381,6 +381,234 @@ fn translate_struct_member_assignment(
 }
 ```
 
+### 5. JIT Calling Conventions (`codegen/`)
+
+**Struct return values in function signatures:**
+
+Structs must be expanded into multiple return values (one per field, recursively), similar to how matrices are handled.
+
+```rust
+// In codegen/signature.rs - extend add_type_as_returns()
+fn add_type_as_returns(sig: &mut Signature, ty: &Type, struct_registry: &StructRegistry) {
+    if ty.is_vector() {
+        // Vector: return each component
+        let base_ty = ty.vector_base_type().unwrap();
+        let cranelift_ty = base_ty.to_cranelift_type();
+        let count = ty.component_count().unwrap();
+        for _ in 0..count {
+            sig.returns.push(AbiParam::new(cranelift_ty));
+        }
+    } else if ty.is_matrix() {
+        // Matrix: return each element (column-major)
+        let element_count = ty.matrix_element_count().unwrap();
+        let cranelift_ty = Type::Float.to_cranelift_type();
+        for _ in 0..element_count {
+            sig.returns.push(AbiParam::new(cranelift_ty));
+        }
+    } else if let Type::Struct(struct_id) = ty {
+        // Struct: return each field recursively
+        let struct_def = struct_registry.get(*struct_id);
+        for field in &struct_def.fields {
+            Self::add_type_as_returns(sig, &field.ty, struct_registry);
+        }
+    } else if let Type::Array(elem_ty, size) = ty {
+        // Array: return each element recursively
+        for _ in 0..*size {
+            Self::add_type_as_returns(sig, elem_ty, struct_registry);
+        }
+    } else {
+        // Scalar: single return value
+        let cranelift_ty = ty.to_cranelift_type();
+        sig.returns.push(AbiParam::new(cranelift_ty));
+    }
+}
+
+// Also update count_returns() similarly
+pub fn count_returns(ty: &Type, struct_registry: &StructRegistry) -> usize {
+    if ty == &Type::Void {
+        0
+    } else if ty.is_vector() {
+        ty.component_count().unwrap()
+    } else if ty.is_matrix() {
+        ty.matrix_element_count().unwrap()
+    } else if let Type::Struct(struct_id) = ty {
+        let struct_def = struct_registry.get(*struct_id);
+        struct_def.fields.iter()
+            .map(|f| Self::count_returns(&f.ty, struct_registry))
+            .sum()
+    } else if let Type::Array(elem_ty, size) = ty {
+        Self::count_returns(elem_ty, struct_registry) * size
+    } else {
+        1
+    }
+}
+```
+
+**Struct return statement handling:**
+
+```rust
+// In codegen/stmt.rs - extend return statement handling
+if expected_ty.is_vector() || expected_ty.is_matrix() {
+    // ... existing vector/matrix handling ...
+} else if expected_ty.is_struct() || expected_ty.is_array() {
+    // For structs/arrays, flatten all values recursively
+    let flattened_vals = flatten_struct_or_array_values(
+        ctx, ret_vals, &ret_ty, expected_ty, struct_registry
+    )?;
+    self.builder.ins().return_(&flattened_vals);
+} else {
+    // ... existing scalar handling ...
+}
+
+// Helper function to flatten struct/array values
+fn flatten_struct_or_array_values(
+    ctx: &mut CodegenContext,
+    values: Vec<Value>,
+    ret_ty: &GlslType,
+    expected_ty: &GlslType,
+    struct_registry: &StructRegistry,
+) -> Result<Vec<Value>, GlslError> {
+    match (ret_ty, expected_ty) {
+        (GlslType::Struct(ret_id), GlslType::Struct(expected_id)) => {
+            if ret_id != expected_id {
+                return Err(GlslError::new(ErrorCode::E0106,
+                    format!("struct type mismatch in return")));
+            }
+            let struct_def = struct_registry.get(*ret_id);
+            // values[0] is pointer to struct
+            let struct_ptr = values[0];
+            let mut flattened = Vec::new();
+            
+            for field in &struct_def.fields {
+                let field_vals = load_at_offset(ctx, struct_ptr, field.offset, &field.ty)?;
+                let field_flattened = flatten_struct_or_array_values(
+                    ctx, field_vals, &field.ty, &field.ty, struct_registry
+                )?;
+                flattened.extend(field_flattened);
+            }
+            Ok(flattened)
+        }
+        (GlslType::Array(ret_elem, ret_size), GlslType::Array(expected_elem, expected_size)) => {
+            if ret_size != expected_size {
+                return Err(GlslError::new(ErrorCode::E0106,
+                    format!("array size mismatch in return")));
+            }
+            // values[0] is pointer to array
+            let array_ptr = values[0];
+            let elem_size = ret_elem.size();
+            let mut flattened = Vec::new();
+            
+            for i in 0..*ret_size {
+                let offset = i * elem_size;
+                let elem_vals = load_at_offset(ctx, array_ptr, offset, ret_elem)?;
+                let elem_flattened = flatten_struct_or_array_values(
+                    ctx, elem_vals, ret_elem, expected_elem, struct_registry
+                )?;
+                flattened.extend(elem_flattened);
+            }
+            Ok(flattened)
+        }
+        _ => {
+            // Already scalar/vector/matrix, return as-is
+            Ok(values)
+        }
+    }
+}
+```
+
+**Default struct return generation:**
+
+```rust
+// In jit.rs - add generate_default_struct_return()
+fn generate_default_struct_return(
+    ctx: &mut crate::codegen::context::CodegenContext,
+    return_type: &crate::semantic::types::Type,
+    struct_registry: &crate::semantic::structs::StructRegistry,
+) -> Result<(), crate::error::GlslError> {
+    use crate::error::{ErrorCode, GlslError};
+    
+    if let Type::Struct(struct_id) = return_type {
+        let struct_def = struct_registry.get(*struct_id);
+        let mut vals = Vec::new();
+        
+        // Generate default value for each field recursively
+        for field in &struct_def.fields {
+            let field_vals = generate_default_return_value(
+                ctx, &field.ty, struct_registry
+            )?;
+            vals.extend(field_vals);
+        }
+        
+        ctx.builder.ins().return_(&vals);
+        Ok(())
+    } else {
+        Err(GlslError::new(
+            ErrorCode::E0400,
+            format!("expected struct type, got: {:?}", return_type),
+        ))
+    }
+}
+
+// Helper to generate default return for any type
+fn generate_default_return_value(
+    ctx: &mut crate::codegen::context::CodegenContext,
+    ty: &crate::semantic::types::Type,
+    struct_registry: &crate::semantic::structs::StructRegistry,
+) -> Result<Vec<cranelift_codegen::ir::Value>, crate::error::GlslError> {
+    match ty {
+        Type::Float => Ok(vec![ctx.builder.ins().f32const(0.0)]),
+        Type::Int => Ok(vec![ctx.builder.ins().iconst(types::I32, 0)]),
+        Type::Bool => Ok(vec![ctx.builder.ins().iconst(types::I8, 0)]),
+        Type::Struct(struct_id) => {
+            let struct_def = struct_registry.get(*struct_id);
+            let mut vals = Vec::new();
+            for field in &struct_def.fields {
+                let field_vals = generate_default_return_value(ctx, &field.ty, struct_registry)?;
+                vals.extend(field_vals);
+            }
+            Ok(vals)
+        }
+        Type::Array(elem_ty, size) => {
+            let mut vals = Vec::new();
+            for _ in 0..*size {
+                let elem_vals = generate_default_return_value(ctx, elem_ty, struct_registry)?;
+                vals.extend(elem_vals);
+            }
+            Ok(vals)
+        }
+        _ => {
+            // Delegate to existing vector/matrix handlers
+            // ...
+        }
+    }
+}
+```
+
+**Function call return handling:**
+
+```rust
+// In codegen/expr/function.rs - extend return value packaging
+// Package return value(s)
+if func_sig.return_type == GlslType::Void {
+    Ok((vec![], GlslType::Void))
+} else if func_sig.return_type.is_vector() {
+    let count = func_sig.return_type.component_count().unwrap();
+    Ok((return_vals[0..count].to_vec(), func_sig.return_type.clone()))
+} else if func_sig.return_type.is_matrix() {
+    let count = func_sig.return_type.matrix_element_count().unwrap();
+    Ok((return_vals[0..count].to_vec(), func_sig.return_type.clone()))
+} else if func_sig.return_type.is_struct() || func_sig.return_type.is_array() {
+    // For structs/arrays, all values are already returned flattened
+    // We need to reconstruct the pointer representation
+    // For now, return all values and let caller handle reconstruction
+    // TODO: May need to allocate and store, then return pointer
+    let count = SignatureBuilder::count_returns(&func_sig.return_type, struct_registry);
+    Ok((return_vals[0..count].to_vec(), func_sig.return_type.clone()))
+} else {
+    Ok((vec![return_vals[0]], func_sig.return_type.clone()))
+}
+```
+
 ## Testing Strategy
 
 ### Functionality Tests
@@ -472,6 +700,44 @@ vec3 main() {
 // run: == vec3(1.0, 0.5, 0.3)
 ```
 
+**Struct Return from Function:**
+```glsl
+// Test: struct_return_function.glsl
+// Spec: variables.adoc:814-914
+struct Point {
+    float x;
+    float y;
+};
+
+Point makePoint(float x, float y) {
+    return Point(x, y);
+}
+
+Point main() {
+    return makePoint(3.0, 4.0);
+}
+// run: == Point(3.0, 4.0)  // Returns flattened: 3.0, 4.0
+```
+
+**Struct Return with Nested:**
+```glsl
+// Test: struct_return_nested.glsl
+// Spec: variables.adoc:814-914
+struct Inner {
+    float value;
+};
+
+struct Outer {
+    Inner inner;
+    float extra;
+};
+
+Outer main() {
+    return Outer(Inner(5.0), 10.0);
+}
+// run: == Outer(Inner(5.0), 10.0)  // Returns flattened: 5.0, 10.0
+```
+
 ### Error Handling Tests
 
 **Location:** `crates/lp-glsl-filetests/filetests/type_errors/`
@@ -532,7 +798,11 @@ struct Empty {
 - [ ] Member assignment works
 - [ ] Nested structs supported
 - [ ] Structs with vectors/matrices work
-- [ ] Minimum 8 functionality tests pass
+- [ ] Struct return values expanded correctly in function signatures
+- [ ] Struct return statements flatten values correctly
+- [ ] Default struct return generation works
+- [ ] Function calls with struct returns work
+- [ ] Minimum 8 functionality tests pass (including struct return tests)
 - [ ] Minimum 5 error handling tests pass
 - [ ] Code follows existing patterns and structure
 - [ ] No regressions in existing tests
@@ -550,4 +820,5 @@ struct Empty {
 - Memory layout follows std140 rules (can be simplified for local structs)
 - Consider struct value vs struct pointer representation
 - May need to handle large structs differently (pass by reference)
+- JIT calling conventions: Structs are flattened into multiple return values (one per field, recursively), following the same pattern as matrices. This allows test functions to return structs and have their values verified.
 

@@ -2,9 +2,9 @@
 use crate::jit::JIT;
 
 #[cfg(feature = "std")]
-use std::string::String;
+use std::{boxed::Box, string::String};
 #[cfg(not(feature = "std"))]
-use alloc::string::String;
+use alloc::{boxed::Box, string::String};
 
 /// High-level compiler interface
 #[cfg(feature = "std")]
@@ -42,21 +42,74 @@ impl Compiler {
     }
 
     /// Compile GLSL shader that returns vec2 (2 f32s)
-    pub fn compile_vec2(&mut self, source: &str) -> Result<fn() -> (f32, f32), String> {
+    pub fn compile_vec2(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32)>, String> {
         let code_ptr = self.jit.compile(source)?;
-        Ok(unsafe { std::mem::transmute(code_ptr) })
+        let func: fn(*mut [f32; 2]) -> () = unsafe { std::mem::transmute(code_ptr) };
+        Ok(Box::new(move || {
+            let mut buffer = [0.0f32; 2];
+            func(&mut buffer as *mut _);
+            (buffer[0], buffer[1])
+        }))
     }
 
     /// Compile GLSL shader that returns vec3 (3 f32s)
-    pub fn compile_vec3(&mut self, source: &str) -> Result<fn() -> (f32, f32, f32), String> {
+    pub fn compile_vec3(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32)>, String> {
         let code_ptr = self.jit.compile(source)?;
-        Ok(unsafe { std::mem::transmute(code_ptr) })
+        let func: fn(*mut [f32; 3]) -> () = unsafe { std::mem::transmute(code_ptr) };
+        Ok(Box::new(move || {
+            let mut buffer = [0.0f32; 3];
+            func(&mut buffer as *mut _);
+            (buffer[0], buffer[1], buffer[2])
+        }))
     }
 
     /// Compile GLSL shader that returns vec4 (4 f32s)
-    pub fn compile_vec4(&mut self, source: &str) -> Result<fn() -> (f32, f32, f32, f32), String> {
+    pub fn compile_vec4(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32)>, String> {
         let code_ptr = self.jit.compile(source)?;
-        Ok(unsafe { std::mem::transmute(code_ptr) })
+        let func: fn(*mut [f32; 4]) -> () = unsafe { std::mem::transmute(code_ptr) };
+        Ok(Box::new(move || {
+            let mut buffer = [0.0f32; 4];
+            func(&mut buffer as *mut _);
+            (buffer[0], buffer[1], buffer[2], buffer[3])
+        }))
+    }
+
+    /// Compile GLSL shader that returns mat2 (4 f32s, column-major)
+    pub fn compile_mat2(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32)>, String> {
+        let code_ptr = self.jit.compile(source)?;
+        let func: fn(*mut [f32; 4]) -> () = unsafe { std::mem::transmute(code_ptr) };
+        Ok(Box::new(move || {
+            let mut buffer = [0.0f32; 4];
+            func(&mut buffer as *mut _);
+            (buffer[0], buffer[1], buffer[2], buffer[3])
+        }))
+    }
+
+    /// Compile GLSL shader that returns mat3 (9 f32s, column-major)
+    pub fn compile_mat3(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32, f32, f32, f32, f32, f32)>, String> {
+        let code_ptr = self.jit.compile(source)?;
+        let func: fn(*mut [f32; 9]) -> () = unsafe { std::mem::transmute(code_ptr) };
+        Ok(Box::new(move || {
+            let mut buffer = [0.0f32; 9];
+            func(&mut buffer as *mut _);
+            (buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8])
+        }))
+    }
+
+    /// Compile GLSL shader that returns mat4 (16 f32s, column-major)
+    pub fn compile_mat4(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32)>, String> {
+        let code_ptr = self.jit.compile(source)?;
+        let func: fn(*mut [f32; 16]) -> () = unsafe { std::mem::transmute(code_ptr) };
+        Ok(Box::new(move || {
+            let mut buffer = [0.0f32; 16];
+            func(&mut buffer as *mut _);
+            (
+                buffer[0], buffer[1], buffer[2], buffer[3],
+                buffer[4], buffer[5], buffer[6], buffer[7],
+                buffer[8], buffer[9], buffer[10], buffer[11],
+                buffer[12], buffer[13], buffer[14], buffer[15],
+            )
+        }))
     }
 
     /// Compile to CLIF IR for debugging/testing
@@ -71,6 +124,7 @@ impl Default for Compiler {
         Self::new()
     }
 }
+
 
 // no_std compiler - compiles GLSL to machine code bytes without JIT module
 #[cfg(not(feature = "std"))]
@@ -114,8 +168,10 @@ impl Compiler {
         // 3. Setup Cranelift context
         use crate::codegen::signature::SignatureBuilder;
         let mut ctx = Context::new();
-        let mut sig = SignatureBuilder::new();
-        SignatureBuilder::add_return_type(&mut sig, &typed_ast.main_function.return_type);
+        let triple = isa.triple();
+        let mut sig = SignatureBuilder::new_with_triple(triple);
+        let pointer_type = isa.pointer_type();
+        SignatureBuilder::add_return_type(&mut sig, &typed_ast.main_function.return_type, pointer_type);
         ctx.func.signature = sig;
 
         // 4. Build IR

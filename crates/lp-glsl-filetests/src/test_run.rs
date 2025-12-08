@@ -219,6 +219,138 @@ pub fn run_test(
                     );
                 }
             }
+            ExpectedType::Mat2Approx { expected, tolerance } => {
+                let mut compiler = lp_glsl::Compiler::new();
+                compiler.set_fixed_point_format(fixed_point_format);
+                let func = compiler
+                    .compile_mat2(glsl_source)
+                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                let result = func();
+
+                let result_mat = [result.0, result.1, result.2, result.3];
+                let mut max_diff = 0.0f32;
+                for i in 0..4 {
+                    let diff = (result_mat[i] - expected[i]).abs();
+                    max_diff = max_diff.max(diff);
+                }
+
+                if max_diff > tolerance {
+                    if crate::file_update::is_bless_enabled() {
+                        let new_directive = format!("≈ mat2({}, {}, {}, {}) (tolerance: {})", result_mat[0], result_mat[1], result_mat[2], result_mat[3], tolerance);
+                        crate::file_update::update_run_directive(path, &new_directive)?;
+                        return Ok(());
+                    }
+
+                    anyhow::bail!(
+                        "Run test failed: expected mat2({}, {}, {}, {}) (tolerance {}), got mat2({}, {}, {}, {}) (max diff: {})\n\
+                         \n\
+                         This test assertion can be automatically updated by setting the\n\
+                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
+                        expected[0], expected[1], expected[2], expected[3], tolerance,
+                        result_mat[0], result_mat[1], result_mat[2], result_mat[3], max_diff
+                    );
+                }
+            }
+            ExpectedType::Mat3Approx { expected, tolerance } => {
+                let mut compiler = lp_glsl::Compiler::new();
+                compiler.set_fixed_point_format(fixed_point_format);
+                let func = compiler
+                    .compile_mat3(glsl_source)
+                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                let result = func();
+
+                let result_mat = [
+                    result.0, result.1, result.2,
+                    result.3, result.4, result.5,
+                    result.6, result.7, result.8,
+                ];
+                let mut max_diff = 0.0f32;
+                for i in 0..9 {
+                    let diff = (result_mat[i] - expected[i]).abs();
+                    max_diff = max_diff.max(diff);
+                }
+
+                if max_diff > tolerance {
+                    if crate::file_update::is_bless_enabled() {
+                        let new_directive = format!(
+                            "≈ mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance: {})",
+                            result_mat[0], result_mat[1], result_mat[2],
+                            result_mat[3], result_mat[4], result_mat[5],
+                            result_mat[6], result_mat[7], result_mat[8],
+                            tolerance
+                        );
+                        crate::file_update::update_run_directive(path, &new_directive)?;
+                        return Ok(());
+                    }
+
+                    anyhow::bail!(
+                        "Run test failed: expected mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance {}), got mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (max diff: {})\n\
+                         \n\
+                         This test assertion can be automatically updated by setting the\n\
+                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
+                        expected[0], expected[1], expected[2],
+                        expected[3], expected[4], expected[5],
+                        expected[6], expected[7], expected[8],
+                        tolerance,
+                        result_mat[0], result_mat[1], result_mat[2],
+                        result_mat[3], result_mat[4], result_mat[5],
+                        result_mat[6], result_mat[7], result_mat[8],
+                        max_diff
+                    );
+                }
+            }
+            ExpectedType::Mat4Approx { expected, tolerance } => {
+                let mut compiler = lp_glsl::Compiler::new();
+                compiler.set_fixed_point_format(fixed_point_format);
+                let func = compiler
+                    .compile_mat4(glsl_source)
+                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                let result = func();
+
+                let result_mat = [
+                    result.0, result.1, result.2, result.3,
+                    result.4, result.5, result.6, result.7,
+                    result.8, result.9, result.10, result.11,
+                    result.12, result.13, result.14, result.15,
+                ];
+                let mut max_diff = 0.0f32;
+                for i in 0..16 {
+                    let diff = (result_mat[i] - expected[i]).abs();
+                    max_diff = max_diff.max(diff);
+                }
+
+                if max_diff > tolerance {
+                    if crate::file_update::is_bless_enabled() {
+                        let new_directive = format!(
+                            "≈ mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance: {})",
+                            result_mat[0], result_mat[1], result_mat[2], result_mat[3],
+                            result_mat[4], result_mat[5], result_mat[6], result_mat[7],
+                            result_mat[8], result_mat[9], result_mat[10], result_mat[11],
+                            result_mat[12], result_mat[13], result_mat[14], result_mat[15],
+                            tolerance
+                        );
+                        crate::file_update::update_run_directive(path, &new_directive)?;
+                        return Ok(());
+                    }
+
+                    anyhow::bail!(
+                        "Run test failed: expected mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance {}), got mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (max diff: {})\n\
+                         \n\
+                         This test assertion can be automatically updated by setting the\n\
+                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
+                        expected[0], expected[1], expected[2], expected[3],
+                        expected[4], expected[5], expected[6], expected[7],
+                        expected[8], expected[9], expected[10], expected[11],
+                        expected[12], expected[13], expected[14], expected[15],
+                        tolerance,
+                        result_mat[0], result_mat[1], result_mat[2], result_mat[3],
+                        result_mat[4], result_mat[5], result_mat[6], result_mat[7],
+                        result_mat[8], result_mat[9], result_mat[10], result_mat[11],
+                        result_mat[12], result_mat[13], result_mat[14], result_mat[15],
+                        max_diff
+                    );
+                }
+            }
         }
     }
 
@@ -236,6 +368,9 @@ enum ExpectedType {
     Vec2Approx { expected: [f32; 2], tolerance: f32 },
     Vec3Approx { expected: [f32; 3], tolerance: f32 },
     Vec4Approx { expected: [f32; 4], tolerance: f32 },
+    Mat2Approx { expected: [f32; 4], tolerance: f32 },
+    Mat3Approx { expected: [f32; 9], tolerance: f32 },
+    Mat4Approx { expected: [f32; 16], tolerance: f32 },
 }
 
 fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
@@ -313,6 +448,77 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
                             directives.push(RunDirective {
                                 expected_type: ExpectedType::Vec4Approx {
                                     expected: [values[0], values[1], values[2], values[3]],
+                                    tolerance,
+                                },
+                            });
+                            continue;
+                        }
+                    } else if let Some(mat_str) = approx_str.strip_prefix("mat2(") {
+                        if let Some((values_str, tolerance_part)) = mat_str.split_once(") (tolerance:") {
+                            let values: Vec<f32> = values_str
+                                .split(',')
+                                .map(|s| s.trim().parse::<f32>())
+                                .collect::<Result<Vec<_>, _>>()
+                                .map_err(|_| anyhow::anyhow!("Failed to parse mat2 values: {}", values_str))?;
+                            if values.len() != 4 {
+                                anyhow::bail!("mat2 expects 4 values, got {}", values.len());
+                            }
+                            let tolerance_str = tolerance_part.trim().trim_end_matches(')').trim();
+                            let tolerance = tolerance_str.parse::<f32>().map_err(|_| {
+                                anyhow::anyhow!("Failed to parse tolerance: {}", tolerance_str)
+                            })?;
+                            directives.push(RunDirective {
+                                expected_type: ExpectedType::Mat2Approx {
+                                    expected: [values[0], values[1], values[2], values[3]],
+                                    tolerance,
+                                },
+                            });
+                            continue;
+                        }
+                    } else if let Some(mat_str) = approx_str.strip_prefix("mat3(") {
+                        if let Some((values_str, tolerance_part)) = mat_str.split_once(") (tolerance:") {
+                            let values: Vec<f32> = values_str
+                                .split(',')
+                                .map(|s| s.trim().parse::<f32>())
+                                .collect::<Result<Vec<_>, _>>()
+                                .map_err(|_| anyhow::anyhow!("Failed to parse mat3 values: {}", values_str))?;
+                            if values.len() != 9 {
+                                anyhow::bail!("mat3 expects 9 values, got {}", values.len());
+                            }
+                            let tolerance_str = tolerance_part.trim().trim_end_matches(')').trim();
+                            let tolerance = tolerance_str.parse::<f32>().map_err(|_| {
+                                anyhow::anyhow!("Failed to parse tolerance: {}", tolerance_str)
+                            })?;
+                            directives.push(RunDirective {
+                                expected_type: ExpectedType::Mat3Approx {
+                                    expected: [values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8]],
+                                    tolerance,
+                                },
+                            });
+                            continue;
+                        }
+                    } else if let Some(mat_str) = approx_str.strip_prefix("mat4(") {
+                        if let Some((values_str, tolerance_part)) = mat_str.split_once(") (tolerance:") {
+                            let values: Vec<f32> = values_str
+                                .split(',')
+                                .map(|s| s.trim().parse::<f32>())
+                                .collect::<Result<Vec<_>, _>>()
+                                .map_err(|_| anyhow::anyhow!("Failed to parse mat4 values: {}", values_str))?;
+                            if values.len() != 16 {
+                                anyhow::bail!("mat4 expects 16 values, got {}", values.len());
+                            }
+                            let tolerance_str = tolerance_part.trim().trim_end_matches(')').trim();
+                            let tolerance = tolerance_str.parse::<f32>().map_err(|_| {
+                                anyhow::anyhow!("Failed to parse tolerance: {}", tolerance_str)
+                            })?;
+                            directives.push(RunDirective {
+                                expected_type: ExpectedType::Mat4Approx {
+                                    expected: [
+                                        values[0], values[1], values[2], values[3],
+                                        values[4], values[5], values[6], values[7],
+                                        values[8], values[9], values[10], values[11],
+                                        values[12], values[13], values[14], values[15],
+                                    ],
                                     tolerance,
                                 },
                             });
