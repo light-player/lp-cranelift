@@ -1,5 +1,6 @@
 //! Filetest infrastructure for lp-glsl
 
+pub mod execution;
 pub mod filetest;
 pub mod file_update;
 pub mod test_compile;

@@ -3269,7 +3269,12 @@ version = "40.0.0"
 dependencies = [
  "anyhow",
  "cranelift-codegen",
+ "cranelift-frontend",
+ "cranelift-module",
+ "cranelift-native",
+ "cranelift-object",
  "lp-glsl",
+ "lp-jit-util",
  "lp-riscv-tools",
  "target-lexicon",
 ]

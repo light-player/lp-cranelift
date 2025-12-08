@@ -70,309 +70,404 @@ pub fn run_test(
     for target in targets {
         // Compile and execute for this target
         for directive in &run_directives {
-        match directive.expected_type {
-            ExpectedType::Int(expected) => {
-                let mut compiler = lp_glsl::Compiler::new();
-                // Note: Int tests don't use fixed-point format
-                let func = compiler
-                    .compile_int(glsl_source)
-                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                let result = func();
+            match directive.expected_type {
+                ExpectedType::Int(expected) => {
+                    let mut compiler = lp_glsl::Compiler::new();
+                    // Note: Int tests don't use fixed-point format
+                    let func = compiler
+                        .compile_int(glsl_source)
+                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                    let result = func();
 
-                if result != expected {
-                    // If BLESS mode is enabled, update the test file
-                    if crate::file_update::is_bless_enabled() {
-                        let new_directive = format!("== {}", result);
-                        crate::file_update::update_run_directive(path, &new_directive)?;
-                        return Ok(());
-                    }
+                    if result != expected {
+                        // If BLESS mode is enabled, update the test file
+                        if crate::file_update::is_bless_enabled() {
+                            let new_directive = format!("== {}", result);
+                            crate::file_update::update_run_directive(path, &new_directive)?;
+                            return Ok(());
+                        }
 
-                    anyhow::bail!(
-                        "Run test failed: expected {}, got {}\n\
+                        anyhow::bail!(
+                            "Run test failed: expected {}, got {}\n\
                          \n\
                          This test assertion can be automatically updated by setting the\n\
                          CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
-                        expected, result
-                    );
-                }
-            }
-            ExpectedType::Bool(expected) => {
-                let fixed_point_format = target.fixed_point_format();
-                let mut compiler = lp_glsl::Compiler::new();
-                compiler.set_fixed_point_format(fixed_point_format);
-                let func = compiler
-                    .compile_bool(glsl_source)
-                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                let result = func();
-                let expected_val = if expected { 1 } else { 0 };
-
-                if result != expected_val {
-                    // If BLESS mode is enabled, update the test file
-                    if crate::file_update::is_bless_enabled() {
-                        let new_directive = format!("== {}", result != 0);
-                        crate::file_update::update_run_directive(path, &new_directive)?;
-                        return Ok(());
+                            expected,
+                            result
+                        );
                     }
-
-                    anyhow::bail!(
-                        "Run test failed: expected {}, got {}\n\
-                         \n\
-                         This test assertion can be automatically updated by setting the\n\
-                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
-                        expected,
-                        result != 0
-                    );
                 }
-            }
-            ExpectedType::FloatApprox { expected } => {
-                let tolerance = get_tolerance_default(target);
-                let fixed_point_format = target.fixed_point_format();
-
-                let result_float = if target.is_riscv32() {
-                    // Use riscv32 emulator
-                    execute_riscv32_float(glsl_source, fixed_point_format)?
-                } else {
-                    // Use native JIT
+                ExpectedType::Bool(expected) => {
+                    let fixed_point_format = target.fixed_point_format();
                     let mut compiler = lp_glsl::Compiler::new();
                     compiler.set_fixed_point_format(fixed_point_format);
-                    
-                    if let Some(format) = fixed_point_format {
-                        match format {
-                            lp_glsl::FixedPointFormat::Fixed16x16 => {
-                                let func = compiler
-                                    .compile_int(glsl_source)
-                                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                                func() as f32 / 65536.0
-                            }
-                            lp_glsl::FixedPointFormat::Fixed32x32 => {
-                                let func = compiler
-                                    .compile_i64(glsl_source)
-                                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                                (func() as f64 / 4294967296.0) as f32
-                            }
+                    let func = compiler
+                        .compile_bool(glsl_source)
+                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                    let result = func();
+                    let expected_val = if expected { 1 } else { 0 };
+
+                    if result != expected_val {
+                        // If BLESS mode is enabled, update the test file
+                        if crate::file_update::is_bless_enabled() {
+                            let new_directive = format!("== {}", result != 0);
+                            crate::file_update::update_run_directive(path, &new_directive)?;
+                            return Ok(());
                         }
-                    } else {
-                        let func = compiler
-                            .compile_float(glsl_source)
-                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                        func()
-                    }
-                };
 
-                let diff = (result_float - expected).abs();
-                if diff > tolerance {
-                    // If BLESS mode is enabled, update the test file
-                    if crate::file_update::is_bless_enabled() {
-                        let new_directive = format!("~= {}", result_float);
-                        crate::file_update::update_run_directive(path, &new_directive)?;
-                        return Ok(());
-                    }
-
-                    anyhow::bail!(
-                        "Run test failed: expected {} (tolerance {}), got {} (diff: {})\n\
+                        anyhow::bail!(
+                            "Run test failed: expected {}, got {}\n\
                          \n\
                          This test assertion can be automatically updated by setting the\n\
                          CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
-                        expected, tolerance, result_float, diff
-                    );
+                            expected,
+                            result != 0
+                        );
+                    }
+                }
+                ExpectedType::FloatApprox { expected } => {
+                    let tolerance = get_tolerance_default(target);
+                    let fixed_point_format = target.fixed_point_format();
+
+                    let result_float = if target.is_riscv32() {
+                        // Use riscv32 emulator
+                        execute_riscv32_float(glsl_source, fixed_point_format)?
+                    } else {
+                        // Use native JIT
+                        let mut compiler = lp_glsl::Compiler::new();
+                        compiler.set_fixed_point_format(fixed_point_format);
+
+                        if let Some(format) = fixed_point_format {
+                            match format {
+                                lp_glsl::FixedPointFormat::Fixed16x16 => {
+                                    let func = compiler.compile_int(glsl_source).map_err(|e| {
+                                        anyhow::anyhow!("Failed to compile for run test: {}", e)
+                                    })?;
+                                    func() as f32 / 65536.0
+                                }
+                                lp_glsl::FixedPointFormat::Fixed32x32 => {
+                                    let func = compiler.compile_i64(glsl_source).map_err(|e| {
+                                        anyhow::anyhow!("Failed to compile for run test: {}", e)
+                                    })?;
+                                    (func() as f64 / 4294967296.0) as f32
+                                }
+                            }
+                        } else {
+                            let func = compiler.compile_float(glsl_source).map_err(|e| {
+                                anyhow::anyhow!("Failed to compile for run test: {}", e)
+                            })?;
+                            func()
+                        }
+                    };
+
+                    let diff = (result_float - expected).abs();
+                    if diff > tolerance {
+                        // If BLESS mode is enabled, update the test file
+                        if crate::file_update::is_bless_enabled() {
+                            let new_directive = format!("~= {}", result_float);
+                            crate::file_update::update_run_directive(path, &new_directive)?;
+                            return Ok(());
+                        }
+
+                        anyhow::bail!(
+                            "Run test failed: expected {} (tolerance {}), got {} (diff: {})\n\
+                         \n\
+                         This test assertion can be automatically updated by setting the\n\
+                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
+                            expected,
+                            tolerance,
+                            result_float,
+                            diff
+                        );
+                    }
+                }
+                ExpectedType::Vec2Approx { expected } => {
+                    let tolerance = get_tolerance_default(target);
+                    let fixed_point_format = target.fixed_point_format();
+                    let mut compiler = lp_glsl::Compiler::new();
+                    compiler.set_fixed_point_format(fixed_point_format);
+                    let func = compiler
+                        .compile_vec2(glsl_source)
+                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                    let result = func();
+
+                    let result_vec = [result.0, result.1];
+                    compare_approx_array(
+                        path,
+                        &expected,
+                        &result_vec,
+                        tolerance,
+                        "vec2",
+                        |actual, _| format!("≈ vec2({}, {})", actual[0], actual[1]),
+                        |expected, actual, tol, max_diff| {
+                            format!(
+                                "Run test failed: expected vec2({}, {}) (tolerance {}), got vec2({}, {}) (max diff: {})",
+                                expected[0], expected[1], tol, actual[0], actual[1], max_diff
+                            )
+                        },
+                    )?;
+                }
+                ExpectedType::Vec3Approx { expected } => {
+                    let tolerance = get_tolerance_default(target);
+                    let fixed_point_format = target.fixed_point_format();
+                    let mut compiler = lp_glsl::Compiler::new();
+                    compiler.set_fixed_point_format(fixed_point_format);
+                    let func = compiler
+                        .compile_vec3(glsl_source)
+                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                    let result = func();
+
+                    let result_vec = [result.0, result.1, result.2];
+                    compare_approx_array(
+                        path,
+                        &expected,
+                        &result_vec,
+                        tolerance,
+                        "vec3",
+                        |actual, _tol| {
+                            format!("≈ vec3({}, {}, {})", actual[0], actual[1], actual[2])
+                        },
+                        |expected, actual, tol, max_diff| {
+                            format!(
+                                "Run test failed: expected vec3({}, {}, {}) (tolerance {}), got vec3({}, {}, {}) (max diff: {})",
+                                expected[0],
+                                expected[1],
+                                expected[2],
+                                tol,
+                                actual[0],
+                                actual[1],
+                                actual[2],
+                                max_diff
+                            )
+                        },
+                    )?;
+                }
+                ExpectedType::Vec4Approx { expected } => {
+                    let tolerance = get_tolerance_default(target);
+                    let fixed_point_format = target.fixed_point_format();
+                    let mut compiler = lp_glsl::Compiler::new();
+                    compiler.set_fixed_point_format(fixed_point_format);
+                    let func = compiler
+                        .compile_vec4(glsl_source)
+                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                    let result = func();
+
+                    let result_vec = [result.0, result.1, result.2, result.3];
+                    compare_approx_array(
+                        path,
+                        &expected,
+                        &result_vec,
+                        tolerance,
+                        "vec4",
+                        |actual, _tol| {
+                            format!(
+                                "≈ vec4({}, {}, {}, {})",
+                                actual[0], actual[1], actual[2], actual[3]
+                            )
+                        },
+                        |expected, actual, tol, max_diff| {
+                            format!(
+                                "Run test failed: expected vec4({}, {}, {}, {}) (tolerance {}), got vec4({}, {}, {}, {}) (max diff: {})",
+                                expected[0],
+                                expected[1],
+                                expected[2],
+                                expected[3],
+                                tol,
+                                actual[0],
+                                actual[1],
+                                actual[2],
+                                actual[3],
+                                max_diff
+                            )
+                        },
+                    )?;
+                }
+                ExpectedType::Mat2Approx { expected } => {
+                    let tolerance = get_tolerance_default(target);
+                    let fixed_point_format = target.fixed_point_format();
+                    let mut compiler = lp_glsl::Compiler::new();
+                    compiler.set_fixed_point_format(fixed_point_format);
+                    let func = compiler
+                        .compile_mat2(glsl_source)
+                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                    let result = func();
+
+                    let result_mat = [result.0, result.1, result.2, result.3];
+                    compare_approx_array(
+                        path,
+                        &expected,
+                        &result_mat,
+                        tolerance,
+                        "mat2",
+                        |actual, _tol| {
+                            format!(
+                                "≈ mat2({}, {}, {}, {})",
+                                actual[0], actual[1], actual[2], actual[3]
+                            )
+                        },
+                        |expected, actual, tol, max_diff| {
+                            format!(
+                                "Run test failed: expected mat2({}, {}, {}, {}) (tolerance {}), got mat2({}, {}, {}, {}) (max diff: {})",
+                                expected[0],
+                                expected[1],
+                                expected[2],
+                                expected[3],
+                                tol,
+                                actual[0],
+                                actual[1],
+                                actual[2],
+                                actual[3],
+                                max_diff
+                            )
+                        },
+                    )?;
+                }
+                ExpectedType::Mat3Approx { expected } => {
+                    let tolerance = get_tolerance_default(target);
+                    let fixed_point_format = target.fixed_point_format();
+                    let mut compiler = lp_glsl::Compiler::new();
+                    compiler.set_fixed_point_format(fixed_point_format);
+                    let func = compiler
+                        .compile_mat3(glsl_source)
+                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                    let result = func();
+
+                    let result_mat = [
+                        result.0, result.1, result.2, result.3, result.4, result.5, result.6,
+                        result.7, result.8,
+                    ];
+                    compare_approx_array(
+                        path,
+                        &expected,
+                        &result_mat,
+                        tolerance,
+                        "mat3",
+                        |actual, _tol| {
+                            format!(
+                                "≈ mat3({}, {}, {}, {}, {}, {}, {}, {}, {})",
+                                actual[0],
+                                actual[1],
+                                actual[2],
+                                actual[3],
+                                actual[4],
+                                actual[5],
+                                actual[6],
+                                actual[7],
+                                actual[8]
+                            )
+                        },
+                        |expected, actual, tol, max_diff| {
+                            format!(
+                                "Run test failed: expected mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance {}), got mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (max diff: {})",
+                                expected[0],
+                                expected[1],
+                                expected[2],
+                                expected[3],
+                                expected[4],
+                                expected[5],
+                                expected[6],
+                                expected[7],
+                                expected[8],
+                                tol,
+                                actual[0],
+                                actual[1],
+                                actual[2],
+                                actual[3],
+                                actual[4],
+                                actual[5],
+                                actual[6],
+                                actual[7],
+                                actual[8],
+                                max_diff
+                            )
+                        },
+                    )?;
+                }
+                ExpectedType::Mat4Approx { expected } => {
+                    let tolerance = get_tolerance_default(target);
+                    let fixed_point_format = target.fixed_point_format();
+                    let mut compiler = lp_glsl::Compiler::new();
+                    compiler.set_fixed_point_format(fixed_point_format);
+                    let func = compiler
+                        .compile_mat4(glsl_source)
+                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                    let result = func();
+
+                    let result_mat = [
+                        result.0, result.1, result.2, result.3, result.4, result.5, result.6,
+                        result.7, result.8, result.9, result.10, result.11, result.12, result.13,
+                        result.14, result.15,
+                    ];
+                    compare_approx_array(
+                        path,
+                        &expected,
+                        &result_mat,
+                        tolerance,
+                        "mat4",
+                        |actual, _tol| {
+                            format!(
+                                "≈ mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
+                                actual[0],
+                                actual[1],
+                                actual[2],
+                                actual[3],
+                                actual[4],
+                                actual[5],
+                                actual[6],
+                                actual[7],
+                                actual[8],
+                                actual[9],
+                                actual[10],
+                                actual[11],
+                                actual[12],
+                                actual[13],
+                                actual[14],
+                                actual[15]
+                            )
+                        },
+                        |expected, actual, tol, max_diff| {
+                            format!(
+                                "Run test failed: expected mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance {}), got mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (max diff: {})",
+                                expected[0],
+                                expected[1],
+                                expected[2],
+                                expected[3],
+                                expected[4],
+                                expected[5],
+                                expected[6],
+                                expected[7],
+                                expected[8],
+                                expected[9],
+                                expected[10],
+                                expected[11],
+                                expected[12],
+                                expected[13],
+                                expected[14],
+                                expected[15],
+                                tol,
+                                actual[0],
+                                actual[1],
+                                actual[2],
+                                actual[3],
+                                actual[4],
+                                actual[5],
+                                actual[6],
+                                actual[7],
+                                actual[8],
+                                actual[9],
+                                actual[10],
+                                actual[11],
+                                actual[12],
+                                actual[13],
+                                actual[14],
+                                actual[15],
+                                max_diff
+                            )
+                        },
+                    )?;
                 }
             }
-            ExpectedType::Vec2Approx { expected } => {
-                let tolerance = get_tolerance_default(target);
-                let fixed_point_format = target.fixed_point_format();
-                let mut compiler = lp_glsl::Compiler::new();
-                compiler.set_fixed_point_format(fixed_point_format);
-                let func = compiler
-                    .compile_vec2(glsl_source)
-                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                let result = func();
-
-                let result_vec = [result.0, result.1];
-                compare_approx_array(
-                    path,
-                    &expected,
-                    &result_vec,
-                    tolerance,
-                    "vec2",
-                    |actual, _| format!("≈ vec2({}, {})", actual[0], actual[1]),
-                    |expected, actual, tol, max_diff| {
-                        format!(
-                            "Run test failed: expected vec2({}, {}) (tolerance {}), got vec2({}, {}) (max diff: {})",
-                            expected[0], expected[1], tol, actual[0], actual[1], max_diff
-                        )
-                    },
-                )?;
-            }
-            ExpectedType::Vec3Approx { expected } => {
-                let tolerance = get_tolerance_default(target);
-                let fixed_point_format = target.fixed_point_format();
-                let mut compiler = lp_glsl::Compiler::new();
-                compiler.set_fixed_point_format(fixed_point_format);
-                let func = compiler
-                    .compile_vec3(glsl_source)
-                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                let result = func();
-
-                let result_vec = [result.0, result.1, result.2];
-                compare_approx_array(
-                    path,
-                    &expected,
-                    &result_vec,
-                    tolerance,
-                    "vec3",
-                    |actual, _tol| format!("≈ vec3({}, {}, {})", actual[0], actual[1], actual[2]),
-                    |expected, actual, tol, max_diff| {
-                        format!(
-                            "Run test failed: expected vec3({}, {}, {}) (tolerance {}), got vec3({}, {}, {}) (max diff: {})",
-                            expected[0], expected[1], expected[2], tol, actual[0], actual[1], actual[2], max_diff
-                        )
-                    },
-                )?;
-            }
-            ExpectedType::Vec4Approx { expected } => {
-                let tolerance = get_tolerance_default(target);
-                let fixed_point_format = target.fixed_point_format();
-                let mut compiler = lp_glsl::Compiler::new();
-                compiler.set_fixed_point_format(fixed_point_format);
-                let func = compiler
-                    .compile_vec4(glsl_source)
-                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                let result = func();
-
-                let result_vec = [result.0, result.1, result.2, result.3];
-                compare_approx_array(
-                    path,
-                    &expected,
-                    &result_vec,
-                    tolerance,
-                    "vec4",
-                    |actual, _tol| format!("≈ vec4({}, {}, {}, {})", actual[0], actual[1], actual[2], actual[3]),
-                    |expected, actual, tol, max_diff| {
-                        format!(
-                            "Run test failed: expected vec4({}, {}, {}, {}) (tolerance {}), got vec4({}, {}, {}, {}) (max diff: {})",
-                            expected[0], expected[1], expected[2], expected[3], tol,
-                            actual[0], actual[1], actual[2], actual[3], max_diff
-                        )
-                    },
-                )?;
-            }
-            ExpectedType::Mat2Approx { expected } => {
-                let tolerance = get_tolerance_default(target);
-                let fixed_point_format = target.fixed_point_format();
-                let mut compiler = lp_glsl::Compiler::new();
-                compiler.set_fixed_point_format(fixed_point_format);
-                let func = compiler
-                    .compile_mat2(glsl_source)
-                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                let result = func();
-
-                let result_mat = [result.0, result.1, result.2, result.3];
-                compare_approx_array(
-                    path,
-                    &expected,
-                    &result_mat,
-                    tolerance,
-                    "mat2",
-                    |actual, _tol| format!("≈ mat2({}, {}, {}, {})", actual[0], actual[1], actual[2], actual[3]),
-                    |expected, actual, tol, max_diff| {
-                        format!(
-                            "Run test failed: expected mat2({}, {}, {}, {}) (tolerance {}), got mat2({}, {}, {}, {}) (max diff: {})",
-                            expected[0], expected[1], expected[2], expected[3], tol,
-                            actual[0], actual[1], actual[2], actual[3], max_diff
-                        )
-                    },
-                )?;
-            }
-            ExpectedType::Mat3Approx { expected } => {
-                let tolerance = get_tolerance_default(target);
-                let fixed_point_format = target.fixed_point_format();
-                let mut compiler = lp_glsl::Compiler::new();
-                compiler.set_fixed_point_format(fixed_point_format);
-                let func = compiler
-                    .compile_mat3(glsl_source)
-                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                let result = func();
-
-                let result_mat = [
-                    result.0, result.1, result.2,
-                    result.3, result.4, result.5,
-                    result.6, result.7, result.8,
-                ];
-                compare_approx_array(
-                    path,
-                    &expected,
-                    &result_mat,
-                    tolerance,
-                    "mat3",
-                    |actual, _tol| format!(
-                        "≈ mat3({}, {}, {}, {}, {}, {}, {}, {}, {})",
-                        actual[0], actual[1], actual[2],
-                        actual[3], actual[4], actual[5],
-                        actual[6], actual[7], actual[8]
-                    ),
-                    |expected, actual, tol, max_diff| {
-                        format!(
-                            "Run test failed: expected mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance {}), got mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (max diff: {})",
-                            expected[0], expected[1], expected[2],
-                            expected[3], expected[4], expected[5],
-                            expected[6], expected[7], expected[8],
-                            tol,
-                            actual[0], actual[1], actual[2],
-                            actual[3], actual[4], actual[5],
-                            actual[6], actual[7], actual[8],
-                            max_diff
-                        )
-                    },
-                )?;
-            }
-            ExpectedType::Mat4Approx { expected } => {
-                let tolerance = get_tolerance_default(target);
-                let fixed_point_format = target.fixed_point_format();
-                let mut compiler = lp_glsl::Compiler::new();
-                compiler.set_fixed_point_format(fixed_point_format);
-                let func = compiler
-                    .compile_mat4(glsl_source)
-                    .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                let result = func();
-
-                let result_mat = [
-                    result.0, result.1, result.2, result.3,
-                    result.4, result.5, result.6, result.7,
-                    result.8, result.9, result.10, result.11,
-                    result.12, result.13, result.14, result.15,
-                ];
-                compare_approx_array(
-                    path,
-                    &expected,
-                    &result_mat,
-                    tolerance,
-                    "mat4",
-                    |actual, _tol| format!(
-                        "≈ mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
-                        actual[0], actual[1], actual[2], actual[3],
-                        actual[4], actual[5], actual[6], actual[7],
-                        actual[8], actual[9], actual[10], actual[11],
-                        actual[12], actual[13], actual[14], actual[15]
-                    ),
-                    |expected, actual, tol, max_diff| {
-                        format!(
-                            "Run test failed: expected mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance {}), got mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (max diff: {})",
-                            expected[0], expected[1], expected[2], expected[3],
-                            expected[4], expected[5], expected[6], expected[7],
-                            expected[8], expected[9], expected[10], expected[11],
-                            expected[12], expected[13], expected[14], expected[15],
-                            tol,
-                            actual[0], actual[1], actual[2], actual[3],
-                            actual[4], actual[5], actual[6], actual[7],
-                            actual[8], actual[9], actual[10], actual[11],
-                            actual[12], actual[13], actual[14], actual[15],
-                            max_diff
-                        )
-                    },
-                )?;
-            }
         }
-    }
     }
 
     Ok(())
@@ -414,7 +509,9 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
                                 .split(',')
                                 .map(|s| s.trim().parse::<f32>())
                                 .collect::<Result<Vec<_>, _>>()
-                                .map_err(|_| anyhow::anyhow!("Failed to parse vec2 values: {}", values_str))?;
+                                .map_err(|_| {
+                                    anyhow::anyhow!("Failed to parse vec2 values: {}", values_str)
+                                })?;
                             if values.len() != 2 {
                                 anyhow::bail!("vec2 expects 2 values, got {}", values.len());
                             }
@@ -431,7 +528,9 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
                                 .split(',')
                                 .map(|s| s.trim().parse::<f32>())
                                 .collect::<Result<Vec<_>, _>>()
-                                .map_err(|_| anyhow::anyhow!("Failed to parse vec3 values: {}", values_str))?;
+                                .map_err(|_| {
+                                    anyhow::anyhow!("Failed to parse vec3 values: {}", values_str)
+                                })?;
                             if values.len() != 3 {
                                 anyhow::bail!("vec3 expects 3 values, got {}", values.len());
                             }
@@ -448,7 +547,9 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
                                 .split(',')
                                 .map(|s| s.trim().parse::<f32>())
                                 .collect::<Result<Vec<_>, _>>()
-                                .map_err(|_| anyhow::anyhow!("Failed to parse vec4 values: {}", values_str))?;
+                                .map_err(|_| {
+                                    anyhow::anyhow!("Failed to parse vec4 values: {}", values_str)
+                                })?;
                             if values.len() != 4 {
                                 anyhow::bail!("vec4 expects 4 values, got {}", values.len());
                             }
@@ -465,7 +566,9 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
                                 .split(',')
                                 .map(|s| s.trim().parse::<f32>())
                                 .collect::<Result<Vec<_>, _>>()
-                                .map_err(|_| anyhow::anyhow!("Failed to parse mat2 values: {}", values_str))?;
+                                .map_err(|_| {
+                                    anyhow::anyhow!("Failed to parse mat2 values: {}", values_str)
+                                })?;
                             if values.len() != 4 {
                                 anyhow::bail!("mat2 expects 4 values, got {}", values.len());
                             }
@@ -482,13 +585,18 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
                                 .split(',')
                                 .map(|s| s.trim().parse::<f32>())
                                 .collect::<Result<Vec<_>, _>>()
-                                .map_err(|_| anyhow::anyhow!("Failed to parse mat3 values: {}", values_str))?;
+                                .map_err(|_| {
+                                    anyhow::anyhow!("Failed to parse mat3 values: {}", values_str)
+                                })?;
                             if values.len() != 9 {
                                 anyhow::bail!("mat3 expects 9 values, got {}", values.len());
                             }
                             directives.push(RunDirective {
                                 expected_type: ExpectedType::Mat3Approx {
-                                    expected: [values[0], values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8]],
+                                    expected: [
+                                        values[0], values[1], values[2], values[3], values[4],
+                                        values[5], values[6], values[7], values[8],
+                                    ],
                                 },
                             });
                             continue;
@@ -499,17 +607,19 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
                                 .split(',')
                                 .map(|s| s.trim().parse::<f32>())
                                 .collect::<Result<Vec<_>, _>>()
-                                .map_err(|_| anyhow::anyhow!("Failed to parse mat4 values: {}", values_str))?;
+                                .map_err(|_| {
+                                    anyhow::anyhow!("Failed to parse mat4 values: {}", values_str)
+                                })?;
                             if values.len() != 16 {
                                 anyhow::bail!("mat4 expects 16 values, got {}", values.len());
                             }
                             directives.push(RunDirective {
                                 expected_type: ExpectedType::Mat4Approx {
                                     expected: [
-                                        values[0], values[1], values[2], values[3],
-                                        values[4], values[5], values[6], values[7],
-                                        values[8], values[9], values[10], values[11],
-                                        values[12], values[13], values[14], values[15],
+                                        values[0], values[1], values[2], values[3], values[4],
+                                        values[5], values[6], values[7], values[8], values[9],
+                                        values[10], values[11], values[12], values[13], values[14],
+                                        values[15],
                                     ],
                                 },
                             });
@@ -519,13 +629,11 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
                 }
                 // Parse "~= <value>" for approximate float comparison (tolerance removed - uses target defaults)
                 if let Some(value_str) = spec.strip_prefix("~=").map(str::trim) {
-                    let value = value_str
-                        .parse::<f32>()
-                        .map_err(|_| anyhow::anyhow!("Failed to parse float value: {}", value_str))?;
+                    let value = value_str.parse::<f32>().map_err(|_| {
+                        anyhow::anyhow!("Failed to parse float value: {}", value_str)
+                    })?;
                     directives.push(RunDirective {
-                        expected_type: ExpectedType::FloatApprox {
-                            expected: value,
-                        },
+                        expected_type: ExpectedType::FloatApprox { expected: value },
                     });
                 }
                 // Parse "== <value>"
@@ -556,15 +664,33 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
 
 /// Execute GLSL code in riscv32 emulator and return float result
 fn execute_riscv32_float(
-    _glsl_source: &str,
-    _fixed_point_format: Option<lp_glsl::FixedPointFormat>,
+    glsl_source: &str,
+    fixed_point_format: Option<lp_glsl::FixedPointFormat>,
 ) -> Result<f32> {
-    // For riscv32, we need machine code bytes
-    // TODO: Implement proper code extraction from JIT module or use no_std compiler path
-    // The implementation should:
-    // 1. Compile GLSL to machine code bytes for riscv32 ISA
-    // 2. Create Riscv32Emulator with code and RAM
-    // 3. Call function via emulator.call_function()
-    // 4. Convert result based on fixed-point format (i32/i64 -> f32)
-    anyhow::bail!("riscv32 emulator execution not yet fully implemented - need to extract machine code bytes from compilation");
+    use crate::execution::binary::compile_to_binary;
+    use crate::execution::bootstrap::generate_bootstrap;
+    use crate::execution::{
+        CompiledCode, EmulatorBackend, EmulatorType, ExecutionBackend, ReturnType,
+    };
+
+    // Generate bootstrap code
+    // Test function will be placed after bootstrap, so address is bootstrap length
+    let bootstrap_code = generate_bootstrap(0, ReturnType::Float, fixed_point_format)?;
+    let test_func_addr = bootstrap_code.len() as u32;
+
+    // Regenerate bootstrap with correct test function address
+    let bootstrap_code = generate_bootstrap(test_func_addr, ReturnType::Float, fixed_point_format)?;
+
+    // Compile GLSL to binary (bootstrap + test function)
+    let binary = compile_to_binary(glsl_source, fixed_point_format, &bootstrap_code)?;
+
+    // Create compiled code
+    let compiled_code = CompiledCode::EmulatorBinary {
+        binary,
+        return_type: ReturnType::Float,
+    };
+
+    // Execute using emulator backend
+    let backend = EmulatorBackend::new(EmulatorType::Riscv32);
+    backend.execute_float(&compiled_code, fixed_point_format)
 }

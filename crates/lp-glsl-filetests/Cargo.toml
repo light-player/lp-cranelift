@@ -10,8 +10,13 @@ workspace = true
 [dependencies]
 lp-glsl = { path = "../lp-glsl", features = ["std"] }
 lp-riscv-tools = { path = "../lp-riscv-tools", features = ["std"] }
+lp-jit-util = { path = "../lp-jit-util" }
 anyhow = { workspace = true }
 cranelift-codegen = { workspace = true }
+cranelift-module = { workspace = true }
+cranelift-object = { workspace = true }
+cranelift-frontend = { workspace = true }
+cranelift-native = { workspace = true }
 target-lexicon = { workspace = true }
 
 [[test]]
