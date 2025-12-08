@@ -64,7 +64,7 @@ pub fn float_to_fixed16x16(f: f32) -> i32 {
     // Clamp to representable range
     let clamped = f.clamp(-32768.0, 32767.9999847412109375);
     // Convert to fixed-point (round to nearest)
-    let scaled = clamped * 65536.0;
+    let scaled = clamped * crate::codegen::constants::FIXED16X16_SCALE;
     let rounded = if scaled >= 0.0 {
         (scaled + 0.5) as i32
     } else {
@@ -76,7 +76,7 @@ pub fn float_to_fixed16x16(f: f32) -> i32 {
 /// Convert fixed16x16 back to float32 (for debugging/constants).
 #[allow(dead_code)]
 pub fn fixed16x16_to_float(fixed: i32) -> f32 {
-    fixed as f32 / 65536.0
+    fixed as f32 / crate::codegen::constants::FIXED16X16_SCALE
 }
 
 /// Convert a float32 value to fixed32x32 representation.

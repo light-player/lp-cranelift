@@ -68,7 +68,7 @@ impl JIT {
             .expect("set enable_multi_ret_implicit_sret");
 
         let isa_builder = cranelift_native::builder().unwrap_or_else(|msg| {
-            panic!("host machine is not supported: {}", msg);
+            panic!("JIT initialization failed: host machine architecture is not supported. Error: {}. This is a configuration error, not a runtime error.", msg);
         });
 
         let isa = isa_builder
@@ -331,7 +331,7 @@ impl JIT {
 
         for i in 0..element_count {
             let zero_val = ctx.builder.ins().f32const(0.0);
-            let offset = (i * 4) as i32; // 4 bytes per f32
+            let offset = (i * crate::codegen::constants::F32_SIZE_BYTES) as i32;
             ctx.builder
                 .ins()
                 .store(MemFlags::trusted(), zero_val, struct_ret_ptr, offset);
@@ -394,7 +394,7 @@ impl JIT {
                     // For int/bool vectors, write each component individually
                     for i in 0..count {
                         let zero_val = Self::create_zero_value(ctx, &base_ty)?;
-                        let offset = (i * 4) as i32; // 4 bytes per element
+                        let offset = (i * crate::codegen::constants::F32_SIZE_BYTES) as i32;
                         ctx.builder.ins().store(
                             MemFlags::trusted(),
                             zero_val,
@@ -567,7 +567,7 @@ impl JIT {
             };
 
             // Declare parameter as variable and initialize
-            let vars = ctx.declare_variable(param.name.clone(), param.ty.clone());
+            let vars = ctx.declare_variable(param.name.clone(), param.ty.clone())?;
             for (var, val) in vars.iter().zip(param_vals) {
                 ctx.builder.def_var(*var, val);
             }

@@ -77,7 +77,7 @@ impl SignatureBuilder {
         if ty.is_vector() {
             // Vector: pass each component as separate parameter
             let base_ty = ty.vector_base_type().unwrap();
-            let cranelift_ty = base_ty.to_cranelift_type();
+            let cranelift_ty = base_ty.to_cranelift_type().expect("vector base type should be convertible");
             let count = ty.component_count().unwrap();
             for _ in 0..count {
                 sig.params.push(AbiParam::new(cranelift_ty));
@@ -85,13 +85,13 @@ impl SignatureBuilder {
         } else if ty.is_matrix() {
             // Matrix: pass each element as separate parameter (column-major)
             let element_count = ty.matrix_element_count().unwrap();
-            let cranelift_ty = Type::Float.to_cranelift_type();
+            let cranelift_ty = Type::Float.to_cranelift_type().expect("Float type should be convertible");
             for _ in 0..element_count {
                 sig.params.push(AbiParam::new(cranelift_ty));
             }
         } else {
             // Scalar: single parameter
-            let cranelift_ty = ty.to_cranelift_type();
+            let cranelift_ty = ty.to_cranelift_type().expect("scalar type should be convertible");
             sig.params.push(AbiParam::new(cranelift_ty));
         }
     }
@@ -114,7 +114,7 @@ impl SignatureBuilder {
             sig.returns.clear();
         } else {
             // Scalar: single return value (no StructReturn)
-            let cranelift_ty = ty.to_cranelift_type();
+            let cranelift_ty = ty.to_cranelift_type().expect("scalar return type should be convertible");
             sig.returns.push(AbiParam::new(cranelift_ty));
         }
     }

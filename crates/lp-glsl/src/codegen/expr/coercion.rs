@@ -29,13 +29,8 @@ pub fn coerce_to_type_with_location(
             Ok(ctx.builder.ins().fcvt_from_sint(types::F32, val))
         }
         _ => {
-            // For return type mismatches, match the verification error message format
-            let error_msg = if span.is_some() {
-                format!("code generation failed: Compilation error: Verifier errors")
-            } else {
-                format!("code generation failed: cannot implicitly convert {:?} to {:?}", from_ty, to_ty)
-            };
-            let mut error = GlslError::new(ErrorCode::E0400, error_msg);
+            let error_msg = format!("cannot implicitly convert {:?} to {:?}", from_ty, to_ty);
+            let mut error = GlslError::new(ErrorCode::E0103, error_msg);
             if let Some(s) = span {
                 error = error.with_location(source_span_to_location(&s));
             }

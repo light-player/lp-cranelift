@@ -90,7 +90,7 @@ impl<'a> CodegenContext<'a> {
         add_span_text_to_error(error, self.source_text, span)
     }
 
-    pub fn declare_variable(&mut self, name: String, glsl_ty: GlslType) -> Vec<Variable> {
+    pub fn declare_variable(&mut self, name: String, glsl_ty: GlslType) -> Result<Vec<Variable>, crate::error::GlslError> {
         let component_count = if glsl_ty.is_vector() {
             glsl_ty.component_count().unwrap()
         } else if glsl_ty.is_matrix() {
@@ -107,7 +107,11 @@ impl<'a> CodegenContext<'a> {
             glsl_ty.clone()
         };
 
-        let cranelift_ty = base_ty.to_cranelift_type();
+        let cranelift_ty = base_ty.to_cranelift_type()
+            .map_err(|e| crate::error::GlslError::new(
+                crate::error::ErrorCode::E0400,
+                format!("Failed to convert type to Cranelift type: {}", e.message)
+            ))?;
 
         let mut vars = Vec::new();
         for _ in 0..component_count {
@@ -122,7 +126,7 @@ impl<'a> CodegenContext<'a> {
             },
         );
 
-        vars
+        Ok(vars)
     }
 
     pub fn lookup_variable(&self, name: &str) -> Option<Variable> {

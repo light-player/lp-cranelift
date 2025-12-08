@@ -1,7 +1,7 @@
-#[cfg(feature = "std")]
-use std::boxed::Box;
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
+#[cfg(feature = "std")]
+use std::boxed::Box;
 
 /// GLSL type system
 /// Phase 1: Only Int and Bool are fully supported
@@ -42,8 +42,7 @@ impl Type {
     pub fn is_numeric(&self) -> bool {
         match self {
             Type::Int | Type::Float => true,
-            Type::Vec2 | Type::Vec3 | Type::Vec4 |
-            Type::IVec2 | Type::IVec3 | Type::IVec4 => true,
+            Type::Vec2 | Type::Vec3 | Type::Vec4 | Type::IVec2 | Type::IVec3 | Type::IVec4 => true,
             _ => false,
         }
     }
@@ -55,10 +54,17 @@ impl Type {
 
     /// Returns true if this type is a vector
     pub fn is_vector(&self) -> bool {
-        matches!(self, 
-            Type::Vec2 | Type::Vec3 | Type::Vec4 |
-            Type::IVec2 | Type::IVec3 | Type::IVec4 |
-            Type::BVec2 | Type::BVec3 | Type::BVec4
+        matches!(
+            self,
+            Type::Vec2
+                | Type::Vec3
+                | Type::Vec4
+                | Type::IVec2
+                | Type::IVec3
+                | Type::IVec4
+                | Type::BVec2
+                | Type::BVec3
+                | Type::BVec4
         )
     }
 
@@ -134,19 +140,29 @@ impl Type {
     }
 
     /// Get the corresponding Cranelift type
-    pub fn to_cranelift_type(&self) -> cranelift_codegen::ir::Type {
+    ///
+    /// Returns an error if the type cannot be converted to a Cranelift type
+    /// (e.g., Void type or unsupported types).
+    pub fn to_cranelift_type(
+        &self,
+    ) -> Result<cranelift_codegen::ir::Type, crate::error::GlslError> {
         match self {
-            Type::Bool => cranelift_codegen::ir::types::I8,
-            Type::Int => cranelift_codegen::ir::types::I32,
-            Type::Float => cranelift_codegen::ir::types::F32,
-            Type::Void => panic!("Void type has no Cranelift representation"),
+            Type::Bool => Ok(cranelift_codegen::ir::types::I8),
+            Type::Int => Ok(cranelift_codegen::ir::types::I32),
+            Type::Float => Ok(cranelift_codegen::ir::types::F32),
+            Type::Void => Err(crate::error::GlslError::new(
+                crate::error::ErrorCode::E0109,
+                "Void type has no Cranelift representation",
+            )),
             Type::Mat2 | Type::Mat3 | Type::Mat4 => {
                 // Matrices are stored as arrays of F32 on the stack
                 // We return F32 as the base type, actual storage handled in codegen
-                cranelift_codegen::ir::types::F32
-            },
-            _ => panic!("Type not yet supported: {:?}", self),
+                Ok(cranelift_codegen::ir::types::F32)
+            }
+            _ => Err(crate::error::GlslError::new(
+                crate::error::ErrorCode::E0109,
+                format!("Type not yet supported for codegen: {:?}", self),
+            )),
         }
     }
 }
-

@@ -1,3 +1,18 @@
+//! Expression code generation
+//!
+//! This module handles translation of GLSL expressions to Cranelift IR.
+//! Each expression type has its own module:
+//! - `literal`: Integer, float, and boolean literals
+//! - `variable`: Variable references
+//! - `binary`: Binary operations (+, -, *, /, ==, !=, etc.)
+//! - `unary`: Unary operations (-, !)
+//! - `function`: Function calls (built-in and user-defined)
+//! - `constructor`: Type constructors (vec3(), mat2(), etc.)
+//! - `vector`: Vector operations
+//! - `matrix`: Matrix operations
+//! - `component`: Component access and swizzling
+//! - `coercion`: Type coercion and implicit conversions
+
 pub mod literal;
 pub mod variable;
 pub mod binary;

@@ -91,13 +91,11 @@ fn translate_builtin_call_expr(
     }
 }
 
-fn translate_user_function_call(
+/// Prepare function call arguments by translating expressions
+fn prepare_function_arguments(
     ctx: &mut CodegenContext,
-    name: &str,
     args: &[glsl::syntax::Expr],
-    call_span: glsl::syntax::SourceSpan,
-) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {
-    // Translate arguments and collect types first (requires mutable borrow)
+) -> Result<(Vec<cranelift_codegen::ir::Value>, Vec<GlslType>), GlslError> {
     let mut arg_vals_flat = Vec::new();
     let mut arg_types = Vec::new();
 
@@ -107,7 +105,22 @@ fn translate_user_function_call(
         arg_types.push(ty);
     }
 
-    // Now get function IDs and registry (immutable borrow)
+    Ok((arg_vals_flat, arg_types))
+}
+
+/// Lookup function ID and signature from registry
+fn lookup_function_signature(
+    ctx: &CodegenContext,
+    name: &str,
+    arg_types: &[GlslType],
+    call_span: &glsl::syntax::SourceSpan,
+) -> Result<
+    (
+        cranelift_module::FuncId,
+        crate::semantic::functions::FunctionSignature,
+    ),
+    GlslError,
+> {
     let func_ids = ctx
         .function_ids
         .as_ref()
@@ -119,29 +132,37 @@ fn translate_user_function_call(
         )
     })?;
 
-    // Lookup function signature - this will return E0114 if no match
     let func_id = func_ids.get(name).ok_or_else(|| {
         let error = GlslError::undefined_function(name);
         if error.location.is_none() {
-            error.with_location(crate::error::source_span_to_location(&call_span))
+            error.with_location(crate::error::source_span_to_location(call_span))
         } else {
             error
         }
     })?;
-    let func_sig = match func_registry.lookup_function(name, &arg_types) {
-        Ok(sig) => sig,
+
+    let func_sig = match func_registry.lookup_function(name, arg_types) {
+        Ok(sig) => sig.clone(),
         Err(mut error) => {
-            // Ensure error has location
             if error.location.is_none() {
-                error = error.with_location(crate::error::source_span_to_location(&call_span));
+                error = error.with_location(crate::error::source_span_to_location(call_span));
             }
-            return Err(ctx.add_span_to_error(error, &call_span));
+            return Err(ctx.add_span_to_error(error, call_span));
         }
     };
 
-    // Validate that all arguments can be coerced BEFORE declaring the function
-    // This prevents function context pollution if coercion fails
-    for (param, arg_ty) in func_sig.parameters.iter().zip(&arg_types) {
+    Ok((*func_id, func_sig))
+}
+
+/// Validate that function call arguments can be coerced to parameter types
+fn validate_function_call(
+    ctx: &CodegenContext,
+    func_sig: &crate::semantic::functions::FunctionSignature,
+    arg_types: &[GlslType],
+    name: &str,
+    call_span: &glsl::syntax::SourceSpan,
+) -> Result<(), GlslError> {
+    for (param, arg_ty) in func_sig.parameters.iter().zip(arg_types) {
         let arg_base = if arg_ty.is_vector() {
             arg_ty.vector_base_type().unwrap()
         } else {
@@ -153,11 +174,9 @@ fn translate_user_function_call(
             param.ty.clone()
         };
 
-        // Check if coercion is possible
         if arg_base != param_base
             && !crate::semantic::type_check::can_implicitly_convert(&arg_base, &param_base)
         {
-            // Calculate expected parameter count for error message
             let expected_count: usize = func_sig
                 .parameters
                 .iter()
@@ -176,90 +195,83 @@ fn translate_user_function_call(
                     expected_count
                 ),
             )
-            .with_location(crate::error::source_span_to_location(&call_span))
+            .with_location(crate::error::source_span_to_location(call_span))
             .with_note(format!(
                 "function `{}` expects parameter of type `{:?}`, got `{:?}`",
                 name, param.ty, arg_ty
             ));
-            return Err(ctx.add_span_to_error(error, &call_span));
+            return Err(ctx.add_span_to_error(error, call_span));
         }
     }
+    Ok(())
+}
 
-    // Import the function into the current function to get a FuncRef
-    let func_ref = ctx.module.declare_func_in_func(*func_id, ctx.builder.func);
+/// Setup StructReturn buffer if the function uses it
+fn setup_struct_return_buffer(
+    ctx: &mut CodegenContext,
+    func_sig: &crate::semantic::functions::FunctionSignature,
+    func_ref: cranelift_codegen::ir::FuncRef,
+) -> Result<Option<cranelift_codegen::ir::Value>, GlslError> {
+    let ext_func_data = &ctx.builder.func.dfg.ext_funcs[func_ref];
+    let callee_sig_ref = ext_func_data.signature;
+    let callee_sig = &ctx.builder.func.dfg.signatures[callee_sig_ref];
 
-    // Get the callee signature and check if it uses StructReturn
-    // Extract all needed information before any mutations
-    let (uses_struct_return, buffer_size_opt, pointer_type) = {
-        let ext_func_data = &ctx.builder.func.dfg.ext_funcs[func_ref];
-        let callee_sig_ref = ext_func_data.signature;
-        let callee_sig = &ctx.builder.func.dfg.signatures[callee_sig_ref];
+    let uses_sret = callee_sig
+        .params
+        .iter()
+        .any(|p| p.purpose == cranelift_codegen::ir::ArgumentPurpose::StructReturn);
 
-        let uses_sret = callee_sig
-            .params
-            .iter()
-            .any(|p| p.purpose == cranelift_codegen::ir::ArgumentPurpose::StructReturn);
+    if !uses_sret {
+        return Ok(None);
+    }
 
-        // Calculate buffer size if needed
-        let buf_size = if uses_sret {
-            let element_count = if func_sig.return_type.is_vector() {
-                func_sig.return_type.component_count().unwrap()
-            } else if func_sig.return_type.is_matrix() {
-                func_sig.return_type.matrix_element_count().unwrap()
-            } else {
-                0 // Shouldn't happen
-            };
-            Some((element_count * 4) as u32) // 4 bytes per f32
-        } else {
-            None
-        };
-
-        let ptr_ty = ctx.module.isa().pointer_type();
-
-        (uses_sret, buf_size, ptr_ty)
-    };
-
-    // If StructReturn, allocate stack slot for return buffer (now we can mutate)
-    let return_buffer_ptr = if let Some(buffer_size) = buffer_size_opt {
-        // Use 4-byte alignment for f32 values (align_shift: 2, since 2^2 = 4)
-        // This ensures proper alignment for f32 loads/stores
-        let slot =
-            ctx.builder
-                .func
-                .create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
-                    cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
-                    buffer_size,
-                    2u8, // align_shift: 2 = 4-byte alignment (for f32)
-                ));
-        Some(ctx.builder.ins().stack_addr(pointer_type, slot, 0))
+    let element_count = if func_sig.return_type.is_vector() {
+        func_sig.return_type.component_count().unwrap()
+    } else if func_sig.return_type.is_matrix() {
+        func_sig.return_type.matrix_element_count().unwrap()
     } else {
-        None
+        return Err(GlslError::new(
+            ErrorCode::E0400,
+            "StructReturn used but return type is not composite",
+        ));
     };
 
-    // Type check and prepare arguments (with implicit conversions)
-    // Build call args according to callee signature (which includes StructReturn if used)
-    // Note: StructReturn is added FIRST in our signature builder (like cranelift-examples)
+    let buffer_size = (element_count * crate::codegen::constants::F32_SIZE_BYTES) as u32;
+    let pointer_type = ctx.module.isa().pointer_type();
+
+    let slot = ctx
+        .builder
+        .func
+        .create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
+            cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
+            buffer_size,
+            crate::codegen::constants::F32_ALIGN_SHIFT,
+        ));
+
+    Ok(Some(ctx.builder.ins().stack_addr(pointer_type, slot, 0)))
+}
+
+/// Prepare call arguments with coercion
+fn prepare_call_arguments(
+    ctx: &mut CodegenContext,
+    func_sig: &crate::semantic::functions::FunctionSignature,
+    arg_vals_flat: &[cranelift_codegen::ir::Value],
+    arg_types: &[GlslType],
+    return_buffer_ptr: Option<cranelift_codegen::ir::Value>,
+    call_span: &glsl::syntax::SourceSpan,
+) -> Result<Vec<cranelift_codegen::ir::Value>, GlslError> {
     let mut call_args = Vec::new();
 
-    // First, add StructReturn parameter if present (it's FIRST in the signature)
-    if uses_struct_return {
-        if let Some(buffer_ptr) = return_buffer_ptr {
-            call_args.push(buffer_ptr);
-        } else {
-            return Err(GlslError::new(
-                ErrorCode::E0400,
-                "StructReturn parameter required but no buffer allocated",
-            ));
-        }
+    // Add StructReturn parameter first if present
+    if let Some(buffer_ptr) = return_buffer_ptr {
+        call_args.push(buffer_ptr);
     }
 
-    // Then add all normal parameters (expanded from GLSL params)
+    // Add all normal parameters (expanded from GLSL params)
     let mut arg_val_idx = 0;
-    // Iterate through GLSL parameters and expand them to match the callee signature
     for (glsl_param_idx, param) in func_sig.parameters.iter().enumerate() {
         let arg_ty = &arg_types[glsl_param_idx];
 
-        // Get the component count for this parameter
         let component_count = if param.ty.is_vector() {
             param.ty.component_count().unwrap()
         } else if param.ty.is_matrix() {
@@ -268,7 +280,6 @@ fn translate_user_function_call(
             1
         };
 
-        // Get base types for coercion
         let arg_base = if arg_ty.is_vector() {
             arg_ty.vector_base_type().unwrap()
         } else {
@@ -280,7 +291,6 @@ fn translate_user_function_call(
             param.ty.clone()
         };
 
-        // Process each component of this parameter
         for _ in 0..component_count {
             if arg_val_idx >= arg_vals_flat.len() {
                 return Err(GlslError::new(
@@ -305,13 +315,20 @@ fn translate_user_function_call(
         }
     }
 
-    // Make the function call
-    let call_inst = ctx.builder.ins().call(func_ref, &call_args);
+    Ok(call_args)
+}
 
-    // Get return values or load from buffer
-    let return_vals = if uses_struct_return {
-        // Load values from return buffer
-        let buffer_ptr = return_buffer_ptr.unwrap();
+/// Execute function call and get return values
+fn execute_function_call(
+    ctx: &mut CodegenContext,
+    func_ref: cranelift_codegen::ir::FuncRef,
+    call_args: &[cranelift_codegen::ir::Value],
+    func_sig: &crate::semantic::functions::FunctionSignature,
+    return_buffer_ptr: Option<cranelift_codegen::ir::Value>,
+) -> Result<Vec<cranelift_codegen::ir::Value>, GlslError> {
+    let call_inst = ctx.builder.ins().call(func_ref, call_args);
+
+    if let Some(buffer_ptr) = return_buffer_ptr {
         let element_count = if func_sig.return_type.is_vector() {
             func_sig.return_type.component_count().unwrap()
         } else if func_sig.return_type.is_matrix() {
@@ -322,9 +339,10 @@ fn translate_user_function_call(
                 "StructReturn used but return type is not composite",
             ));
         };
+
         let mut loaded_vals = Vec::new();
         for i in 0..element_count {
-            let offset = (i * 4) as i32; // 4 bytes per f32
+            let offset = (i * crate::codegen::constants::F32_SIZE_BYTES) as i32;
             let val = ctx.builder.ins().load(
                 cranelift_codegen::ir::types::F32,
                 cranelift_codegen::ir::MemFlags::trusted(),
@@ -333,22 +351,63 @@ fn translate_user_function_call(
             );
             loaded_vals.push(val);
         }
-        loaded_vals
+        Ok(loaded_vals)
     } else {
-        // Get return values from call instruction
-        ctx.builder.inst_results(call_inst).to_vec()
-    };
-
-    // Package return value(s)
-    if func_sig.return_type == GlslType::Void {
-        Ok((vec![], GlslType::Void))
-    } else if func_sig.return_type.is_vector() {
-        let count = func_sig.return_type.component_count().unwrap();
-        Ok((return_vals[0..count].to_vec(), func_sig.return_type.clone()))
-    } else if func_sig.return_type.is_matrix() {
-        let count = func_sig.return_type.matrix_element_count().unwrap();
-        Ok((return_vals[0..count].to_vec(), func_sig.return_type.clone()))
-    } else {
-        Ok((vec![return_vals[0]], func_sig.return_type.clone()))
+        Ok(ctx.builder.inst_results(call_inst).to_vec())
     }
+}
+
+/// Package return values according to return type
+fn package_return_values(
+    return_vals: Vec<cranelift_codegen::ir::Value>,
+    return_type: &GlslType,
+) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {
+    if *return_type == GlslType::Void {
+        Ok((vec![], GlslType::Void))
+    } else if return_type.is_vector() {
+        let count = return_type.component_count().unwrap();
+        Ok((return_vals[0..count].to_vec(), return_type.clone()))
+    } else if return_type.is_matrix() {
+        let count = return_type.matrix_element_count().unwrap();
+        Ok((return_vals[0..count].to_vec(), return_type.clone()))
+    } else {
+        Ok((vec![return_vals[0]], return_type.clone()))
+    }
+}
+
+fn translate_user_function_call(
+    ctx: &mut CodegenContext,
+    name: &str,
+    args: &[glsl::syntax::Expr],
+    call_span: glsl::syntax::SourceSpan,
+) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {
+    // Step 1: Prepare arguments
+    let (arg_vals_flat, arg_types) = prepare_function_arguments(ctx, args)?;
+
+    // Step 2: Lookup function signature
+    let (func_id, func_sig) = lookup_function_signature(ctx, name, &arg_types, &call_span)?;
+
+    // Step 3: Validate call
+    validate_function_call(ctx, &func_sig, &arg_types, name, &call_span)?;
+
+    // Step 4: Import function and setup StructReturn if needed
+    let func_ref = ctx.module.declare_func_in_func(func_id, ctx.builder.func);
+    let return_buffer_ptr = setup_struct_return_buffer(ctx, &func_sig, func_ref)?;
+
+    // Step 5: Prepare call arguments
+    let call_args = prepare_call_arguments(
+        ctx,
+        &func_sig,
+        &arg_vals_flat,
+        &arg_types,
+        return_buffer_ptr,
+        &call_span,
+    )?;
+
+    // Step 6: Execute call
+    let return_vals =
+        execute_function_call(ctx, func_ref, &call_args, &func_sig, return_buffer_ptr)?;
+
+    // Step 7: Package return values
+    package_return_values(return_vals, &func_sig.return_type)
 }

@@ -60,7 +60,7 @@ impl Compiler {
                     call_conv,
                     pointer_type,
                 ).unwrap_or_else(|e| {
-                    panic!("StructReturn call failed for vec2: {}", e);
+                    panic!("Internal error: StructReturn call failed for vec2: {}. This indicates a codegen bug.", e);
                 });
             }
             (buffer[0], buffer[1])
@@ -83,7 +83,7 @@ impl Compiler {
                     call_conv,
                     pointer_type,
                 ).unwrap_or_else(|e| {
-                    panic!("StructReturn call failed for vec3: {}", e);
+                    panic!("Internal error: StructReturn call failed for vec3: {}. This indicates a codegen bug.", e);
                 });
             }
             (buffer[0], buffer[1], buffer[2])
@@ -127,7 +127,7 @@ impl Compiler {
                     call_conv,
                     pointer_type,
                 ).unwrap_or_else(|e| {
-                    panic!("StructReturn call failed for mat2: {}", e);
+                    panic!("Internal error: StructReturn call failed for mat2: {}. This indicates a codegen bug.", e);
                 });
             }
             (buffer[0], buffer[1], buffer[2], buffer[3])
@@ -150,7 +150,7 @@ impl Compiler {
                     call_conv,
                     pointer_type,
                 ).unwrap_or_else(|e| {
-                    panic!("StructReturn call failed for mat3: {}", e);
+                    panic!("Internal error: StructReturn call failed for mat3: {}. This indicates a codegen bug.", e);
                 });
             }
             (buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8])
@@ -173,7 +173,7 @@ impl Compiler {
                     call_conv,
                     pointer_type,
                 ).unwrap_or_else(|e| {
-                    panic!("StructReturn call failed for mat4: {}", e);
+                    panic!("Internal error: StructReturn call failed for mat4: {}. This indicates a codegen bug.", e);
                 });
             }
             (

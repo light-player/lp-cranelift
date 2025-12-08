@@ -357,7 +357,7 @@ impl<'a> CodegenContext<'a> {
                         } else {
                             self.coerce_to_type_with_location(*val, &ret_base, &expected_base, Some(span.clone()))?
                         };
-                        let offset = (i * 4) as i32; // 4 bytes per f32
+                        let offset = (i * crate::codegen::constants::F32_SIZE_BYTES) as i32;
                         self.builder.ins().store(MemFlags::trusted(), coerced, struct_ret_ptr, offset);
                     }
                     
@@ -460,7 +460,7 @@ impl<'a> CodegenContext<'a> {
 
                 // Handle the head declaration
                 if let Some(name) = &list.head.name {
-                    let vars = self.declare_variable(name.name.clone(), ty.clone());
+                    let vars = self.declare_variable(name.name.clone(), ty.clone())?;
 
                     // Handle initializer if present
                     if let Some(init) = &list.head.initializer {
@@ -518,7 +518,7 @@ impl<'a> CodegenContext<'a> {
 
                 // Handle tail declarations (same type, different names)
                 for declarator in &list.tail {
-                    let vars = self.declare_variable(declarator.ident.ident.name.clone(), ty.clone());
+                    let vars = self.declare_variable(declarator.ident.ident.name.clone(), ty.clone())?;
 
                     if let Some(init) = &declarator.initializer {
                         let (init_vals, init_ty) = self.translate_initializer(init)?;

@@ -4,6 +4,41 @@
 use anyhow::Result;
 use std::path::Path;
 
+/// Helper function to compare approximate float arrays and handle bless mode
+fn compare_approx_array<const N: usize>(
+    path: &Path,
+    expected: &[f32; N],
+    actual: &[f32; N],
+    tolerance: f32,
+    type_name: &str,
+    format_bless: impl Fn(&[f32; N], f32) -> String,
+    format_error: impl Fn(&[f32; N], &[f32; N], f32, f32) -> String,
+) -> Result<()> {
+    let mut max_diff = 0.0f32;
+    for i in 0..N {
+        let diff = (actual[i] - expected[i]).abs();
+        max_diff = max_diff.max(diff);
+    }
+
+    if max_diff > tolerance {
+        if crate::file_update::is_bless_enabled() {
+            let new_directive = format_bless(actual, tolerance);
+            crate::file_update::update_run_directive(path, &new_directive)?;
+            return Ok(());
+        }
+
+        anyhow::bail!(
+            "{}\n\
+             \n\
+             This test assertion can be automatically updated by setting the\n\
+             CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
+            format_error(expected, actual, tolerance, max_diff)
+        );
+    }
+
+    Ok(())
+}
+
 pub fn run_test(
     path: &Path,
     _full_source: &str,
@@ -22,7 +57,7 @@ pub fn run_test(
         match directive.expected_type {
             ExpectedType::Int(expected) => {
                 let mut compiler = lp_glsl::Compiler::new();
-                //compiler.set_fixed_point_format(_fixed_point_format);
+                // Note: Int tests don't use fixed-point format
                 let func = compiler
                     .compile_int(glsl_source)
                     .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
@@ -133,27 +168,20 @@ pub fn run_test(
                 let result = func();
 
                 let result_vec = [result.0, result.1];
-                let mut max_diff = 0.0f32;
-                for i in 0..2 {
-                    let diff = (result_vec[i] - expected[i]).abs();
-                    max_diff = max_diff.max(diff);
-                }
-
-                if max_diff > tolerance {
-                    if crate::file_update::is_bless_enabled() {
-                        let new_directive = format!("≈ vec2({}, {}) (tolerance: {})", result_vec[0], result_vec[1], tolerance);
-                        crate::file_update::update_run_directive(path, &new_directive)?;
-                        return Ok(());
-                    }
-
-                    anyhow::bail!(
-                        "Run test failed: expected vec2({}, {}) (tolerance {}), got vec2({}, {}) (max diff: {})\n\
-                         \n\
-                         This test assertion can be automatically updated by setting the\n\
-                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
-                        expected[0], expected[1], tolerance, result_vec[0], result_vec[1], max_diff
-                    );
-                }
+                compare_approx_array(
+                    path,
+                    &expected,
+                    &result_vec,
+                    tolerance,
+                    "vec2",
+                    |actual, tol| format!("≈ vec2({}, {}) (tolerance: {})", actual[0], actual[1], tol),
+                    |expected, actual, tol, max_diff| {
+                        format!(
+                            "Run test failed: expected vec2({}, {}) (tolerance {}), got vec2({}, {}) (max diff: {})",
+                            expected[0], expected[1], tol, actual[0], actual[1], max_diff
+                        )
+                    },
+                )?;
             }
             ExpectedType::Vec3Approx { expected, tolerance } => {
                 let mut compiler = lp_glsl::Compiler::new();
@@ -164,28 +192,20 @@ pub fn run_test(
                 let result = func();
 
                 let result_vec = [result.0, result.1, result.2];
-                let mut max_diff = 0.0f32;
-                for i in 0..3 {
-                    let diff = (result_vec[i] - expected[i]).abs();
-                    max_diff = max_diff.max(diff);
-                }
-
-                if max_diff > tolerance {
-                    if crate::file_update::is_bless_enabled() {
-                        let new_directive = format!("≈ vec3({}, {}, {}) (tolerance: {})", result_vec[0], result_vec[1], result_vec[2], tolerance);
-                        crate::file_update::update_run_directive(path, &new_directive)?;
-                        return Ok(());
-                    }
-
-                    anyhow::bail!(
-                        "Run test failed: expected vec3({}, {}, {}) (tolerance {}), got vec3({}, {}, {}) (max diff: {})\n\
-                         \n\
-                         This test assertion can be automatically updated by setting the\n\
-                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
-                        expected[0], expected[1], expected[2], tolerance,
-                        result_vec[0], result_vec[1], result_vec[2], max_diff
-                    );
-                }
+                compare_approx_array(
+                    path,
+                    &expected,
+                    &result_vec,
+                    tolerance,
+                    "vec3",
+                    |actual, tol| format!("≈ vec3({}, {}, {}) (tolerance: {})", actual[0], actual[1], actual[2], tol),
+                    |expected, actual, tol, max_diff| {
+                        format!(
+                            "Run test failed: expected vec3({}, {}, {}) (tolerance {}), got vec3({}, {}, {}) (max diff: {})",
+                            expected[0], expected[1], expected[2], tol, actual[0], actual[1], actual[2], max_diff
+                        )
+                    },
+                )?;
             }
             ExpectedType::Vec4Approx { expected, tolerance } => {
                 let mut compiler = lp_glsl::Compiler::new();
@@ -196,28 +216,21 @@ pub fn run_test(
                 let result = func();
 
                 let result_vec = [result.0, result.1, result.2, result.3];
-                let mut max_diff = 0.0f32;
-                for i in 0..4 {
-                    let diff = (result_vec[i] - expected[i]).abs();
-                    max_diff = max_diff.max(diff);
-                }
-
-                if max_diff > tolerance {
-                    if crate::file_update::is_bless_enabled() {
-                        let new_directive = format!("≈ vec4({}, {}, {}, {}) (tolerance: {})", result_vec[0], result_vec[1], result_vec[2], result_vec[3], tolerance);
-                        crate::file_update::update_run_directive(path, &new_directive)?;
-                        return Ok(());
-                    }
-
-                    anyhow::bail!(
-                        "Run test failed: expected vec4({}, {}, {}, {}) (tolerance {}), got vec4({}, {}, {}, {}) (max diff: {})\n\
-                         \n\
-                         This test assertion can be automatically updated by setting the\n\
-                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
-                        expected[0], expected[1], expected[2], expected[3], tolerance,
-                        result_vec[0], result_vec[1], result_vec[2], result_vec[3], max_diff
-                    );
-                }
+                compare_approx_array(
+                    path,
+                    &expected,
+                    &result_vec,
+                    tolerance,
+                    "vec4",
+                    |actual, tol| format!("≈ vec4({}, {}, {}, {}) (tolerance: {})", actual[0], actual[1], actual[2], actual[3], tol),
+                    |expected, actual, tol, max_diff| {
+                        format!(
+                            "Run test failed: expected vec4({}, {}, {}, {}) (tolerance {}), got vec4({}, {}, {}, {}) (max diff: {})",
+                            expected[0], expected[1], expected[2], expected[3], tol,
+                            actual[0], actual[1], actual[2], actual[3], max_diff
+                        )
+                    },
+                )?;
             }
             ExpectedType::Mat2Approx { expected, tolerance } => {
                 let mut compiler = lp_glsl::Compiler::new();
@@ -228,28 +241,21 @@ pub fn run_test(
                 let result = func();
 
                 let result_mat = [result.0, result.1, result.2, result.3];
-                let mut max_diff = 0.0f32;
-                for i in 0..4 {
-                    let diff = (result_mat[i] - expected[i]).abs();
-                    max_diff = max_diff.max(diff);
-                }
-
-                if max_diff > tolerance {
-                    if crate::file_update::is_bless_enabled() {
-                        let new_directive = format!("≈ mat2({}, {}, {}, {}) (tolerance: {})", result_mat[0], result_mat[1], result_mat[2], result_mat[3], tolerance);
-                        crate::file_update::update_run_directive(path, &new_directive)?;
-                        return Ok(());
-                    }
-
-                    anyhow::bail!(
-                        "Run test failed: expected mat2({}, {}, {}, {}) (tolerance {}), got mat2({}, {}, {}, {}) (max diff: {})\n\
-                         \n\
-                         This test assertion can be automatically updated by setting the\n\
-                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
-                        expected[0], expected[1], expected[2], expected[3], tolerance,
-                        result_mat[0], result_mat[1], result_mat[2], result_mat[3], max_diff
-                    );
-                }
+                compare_approx_array(
+                    path,
+                    &expected,
+                    &result_mat,
+                    tolerance,
+                    "mat2",
+                    |actual, tol| format!("≈ mat2({}, {}, {}, {}) (tolerance: {})", actual[0], actual[1], actual[2], actual[3], tol),
+                    |expected, actual, tol, max_diff| {
+                        format!(
+                            "Run test failed: expected mat2({}, {}, {}, {}) (tolerance {}), got mat2({}, {}, {}, {}) (max diff: {})",
+                            expected[0], expected[1], expected[2], expected[3], tol,
+                            actual[0], actual[1], actual[2], actual[3], max_diff
+                        )
+                    },
+                )?;
             }
             ExpectedType::Mat3Approx { expected, tolerance } => {
                 let mut compiler = lp_glsl::Compiler::new();
@@ -264,40 +270,33 @@ pub fn run_test(
                     result.3, result.4, result.5,
                     result.6, result.7, result.8,
                 ];
-                let mut max_diff = 0.0f32;
-                for i in 0..9 {
-                    let diff = (result_mat[i] - expected[i]).abs();
-                    max_diff = max_diff.max(diff);
-                }
-
-                if max_diff > tolerance {
-                    if crate::file_update::is_bless_enabled() {
-                        let new_directive = format!(
-                            "≈ mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance: {})",
-                            result_mat[0], result_mat[1], result_mat[2],
-                            result_mat[3], result_mat[4], result_mat[5],
-                            result_mat[6], result_mat[7], result_mat[8],
-                            tolerance
-                        );
-                        crate::file_update::update_run_directive(path, &new_directive)?;
-                        return Ok(());
-                    }
-
-                    anyhow::bail!(
-                        "Run test failed: expected mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance {}), got mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (max diff: {})\n\
-                         \n\
-                         This test assertion can be automatically updated by setting the\n\
-                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
-                        expected[0], expected[1], expected[2],
-                        expected[3], expected[4], expected[5],
-                        expected[6], expected[7], expected[8],
-                        tolerance,
-                        result_mat[0], result_mat[1], result_mat[2],
-                        result_mat[3], result_mat[4], result_mat[5],
-                        result_mat[6], result_mat[7], result_mat[8],
-                        max_diff
-                    );
-                }
+                compare_approx_array(
+                    path,
+                    &expected,
+                    &result_mat,
+                    tolerance,
+                    "mat3",
+                    |actual, tol| format!(
+                        "≈ mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance: {})",
+                        actual[0], actual[1], actual[2],
+                        actual[3], actual[4], actual[5],
+                        actual[6], actual[7], actual[8],
+                        tol
+                    ),
+                    |expected, actual, tol, max_diff| {
+                        format!(
+                            "Run test failed: expected mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance {}), got mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (max diff: {})",
+                            expected[0], expected[1], expected[2],
+                            expected[3], expected[4], expected[5],
+                            expected[6], expected[7], expected[8],
+                            tol,
+                            actual[0], actual[1], actual[2],
+                            actual[3], actual[4], actual[5],
+                            actual[6], actual[7], actual[8],
+                            max_diff
+                        )
+                    },
+                )?;
             }
             ExpectedType::Mat4Approx { expected, tolerance } => {
                 let mut compiler = lp_glsl::Compiler::new();
@@ -313,43 +312,36 @@ pub fn run_test(
                     result.8, result.9, result.10, result.11,
                     result.12, result.13, result.14, result.15,
                 ];
-                let mut max_diff = 0.0f32;
-                for i in 0..16 {
-                    let diff = (result_mat[i] - expected[i]).abs();
-                    max_diff = max_diff.max(diff);
-                }
-
-                if max_diff > tolerance {
-                    if crate::file_update::is_bless_enabled() {
-                        let new_directive = format!(
-                            "≈ mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance: {})",
-                            result_mat[0], result_mat[1], result_mat[2], result_mat[3],
-                            result_mat[4], result_mat[5], result_mat[6], result_mat[7],
-                            result_mat[8], result_mat[9], result_mat[10], result_mat[11],
-                            result_mat[12], result_mat[13], result_mat[14], result_mat[15],
-                            tolerance
-                        );
-                        crate::file_update::update_run_directive(path, &new_directive)?;
-                        return Ok(());
-                    }
-
-                    anyhow::bail!(
-                        "Run test failed: expected mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance {}), got mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (max diff: {})\n\
-                         \n\
-                         This test assertion can be automatically updated by setting the\n\
-                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
-                        expected[0], expected[1], expected[2], expected[3],
-                        expected[4], expected[5], expected[6], expected[7],
-                        expected[8], expected[9], expected[10], expected[11],
-                        expected[12], expected[13], expected[14], expected[15],
-                        tolerance,
-                        result_mat[0], result_mat[1], result_mat[2], result_mat[3],
-                        result_mat[4], result_mat[5], result_mat[6], result_mat[7],
-                        result_mat[8], result_mat[9], result_mat[10], result_mat[11],
-                        result_mat[12], result_mat[13], result_mat[14], result_mat[15],
-                        max_diff
-                    );
-                }
+                compare_approx_array(
+                    path,
+                    &expected,
+                    &result_mat,
+                    tolerance,
+                    "mat4",
+                    |actual, tol| format!(
+                        "≈ mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance: {})",
+                        actual[0], actual[1], actual[2], actual[3],
+                        actual[4], actual[5], actual[6], actual[7],
+                        actual[8], actual[9], actual[10], actual[11],
+                        actual[12], actual[13], actual[14], actual[15],
+                        tol
+                    ),
+                    |expected, actual, tol, max_diff| {
+                        format!(
+                            "Run test failed: expected mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance {}), got mat4({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) (max diff: {})",
+                            expected[0], expected[1], expected[2], expected[3],
+                            expected[4], expected[5], expected[6], expected[7],
+                            expected[8], expected[9], expected[10], expected[11],
+                            expected[12], expected[13], expected[14], expected[15],
+                            tol,
+                            actual[0], actual[1], actual[2], actual[3],
+                            actual[4], actual[5], actual[6], actual[7],
+                            actual[8], actual[9], actual[10], actual[11],
+                            actual[12], actual[13], actual[14], actual[15],
+                            max_diff
+                        )
+                    },
+                )?;
             }
         }
     }
