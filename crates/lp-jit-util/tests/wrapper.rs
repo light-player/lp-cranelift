@@ -55,7 +55,7 @@ fn test_wrapper_clone() {
         ).unwrap()
     };
     let cloned = wrapper.clone();
-    assert_eq!(wrapper.buffer_size, cloned.buffer_size);
+    assert_eq!(wrapper.buffer_size(), cloned.buffer_size());
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn test_wrap_function() {
         func_ptr,
         3,
         CallConv::AppleAarch64,
-        Type::I64,
+        types::I64,
     );
     assert!(wrapped.is_ok());
 }

@@ -8,6 +8,12 @@ use std::marker::PhantomData;
 ///
 /// This wrapper handles buffer allocation and calling convention details,
 /// presenting a simple `Fn() -> Vec<T>` interface.
+///
+/// # Note
+/// This wrapper is provided as a convenience API for users who want a higher-level
+/// interface to StructReturn functions. The main `lp-glsl` crate uses the lower-level
+/// `call_structreturn` function directly for performance reasons, but this wrapper
+/// can be useful for applications that prefer a simpler API.
 pub struct StructReturnWrapper<T> {
     func_ptr: *const u8,
     buffer_size: usize,
@@ -60,10 +66,17 @@ where
                 self.buffer_size,
                 self.call_conv,
                 self.pointer_type,
-            ).expect("StructReturn call failed");
+            ).unwrap_or_else(|e| {
+                panic!("StructReturn call failed in wrapper: {}", e);
+            });
         }
         
         buffer
+    }
+
+    /// Get the buffer size for this wrapper.
+    pub fn buffer_size(&self) -> usize {
+        self.buffer_size
     }
 }
 
@@ -82,6 +95,11 @@ impl<T> Clone for StructReturnWrapper<T> {
 /// Convenience function to create a boxed closure from a StructReturn function.
 ///
 /// This is the primary API for wrapping StructReturn functions.
+///
+/// # Note
+/// This function is provided as a convenience API. The main `lp-glsl` crate uses
+/// `call_structreturn` directly for performance, but this wrapper can be useful
+/// for applications that prefer a simpler, higher-level interface.
 pub fn wrap_structreturn_function<T>(
     func_ptr: *const u8,
     buffer_size: usize,

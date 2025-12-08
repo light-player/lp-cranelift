@@ -8,8 +8,6 @@ use alloc::{boxed::Box, string::String};
 
 #[cfg(feature = "std")]
 use lp_jit_util::call_structreturn;
-use cranelift_codegen::isa::CallConv;
-use cranelift_codegen::ir::types;
 
 /// High-level compiler interface
 #[cfg(feature = "std")]
@@ -61,7 +59,9 @@ impl Compiler {
                     2,
                     call_conv,
                     pointer_type,
-                ).expect("StructReturn call failed");
+                ).unwrap_or_else(|e| {
+                    panic!("StructReturn call failed for vec2: {}", e);
+                });
             }
             (buffer[0], buffer[1])
         }))
@@ -82,7 +82,9 @@ impl Compiler {
                     3,
                     call_conv,
                     pointer_type,
-                ).expect("StructReturn call failed");
+                ).unwrap_or_else(|e| {
+                    panic!("StructReturn call failed for vec3: {}", e);
+                });
             }
             (buffer[0], buffer[1], buffer[2])
         }))
@@ -124,7 +126,9 @@ impl Compiler {
                     4,
                     call_conv,
                     pointer_type,
-                ).expect("StructReturn call failed");
+                ).unwrap_or_else(|e| {
+                    panic!("StructReturn call failed for mat2: {}", e);
+                });
             }
             (buffer[0], buffer[1], buffer[2], buffer[3])
         }))
@@ -145,7 +149,9 @@ impl Compiler {
                     9,
                     call_conv,
                     pointer_type,
-                ).expect("StructReturn call failed");
+                ).unwrap_or_else(|e| {
+                    panic!("StructReturn call failed for mat3: {}", e);
+                });
             }
             (buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8])
         }))
@@ -153,11 +159,23 @@ impl Compiler {
 
     /// Compile GLSL shader that returns mat4 (16 f32s, column-major)
     pub fn compile_mat4(&mut self, source: &str) -> Result<Box<dyn Fn() -> (f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32)>, String> {
+        // Get calling convention and pointer type before compilation
+        let call_conv = self.jit.call_conv();
+        let pointer_type = self.jit.pointer_type();
         let code_ptr = self.jit.compile(source)?;
-        let func: fn(*mut [f32; 16]) -> () = unsafe { std::mem::transmute(code_ptr) };
         Ok(Box::new(move || {
             let mut buffer = [0.0f32; 16];
-            func(&mut buffer as *mut _);
+            unsafe {
+                call_structreturn(
+                    code_ptr,
+                    buffer.as_mut_ptr(),
+                    16,
+                    call_conv,
+                    pointer_type,
+                ).unwrap_or_else(|e| {
+                    panic!("StructReturn call failed for mat4: {}", e);
+                });
+            }
             (
                 buffer[0], buffer[1], buffer[2], buffer[3],
                 buffer[4], buffer[5], buffer[6], buffer[7],
