@@ -255,32 +255,38 @@ CORDIC uses iterative rotations to compute trigonometric functions. Each iterati
 ### Phase 1: Get `sin_pi_2.glsl` Test Passing (CURRENT FOCUS)
 
 **Step 1.1**: Debug function name detection
+
 - [ ] Verify `get_math_libcall` creates TestCase name correctly for binary compilation
 - [ ] Add debug logging to see what ExternalName type is created
 - [ ] Verify `convert_call` can access function name from TestCase
 
 **Step 1.2**: Fix CORDIC replacement
+
 - [ ] Verify `convert_call` detects sin calls correctly
 - [ ] Ensure `generate_sin_fixed` is called and succeeds
 - [ ] Verify old call instruction is removed
 - [ ] Check generated CLIF shows CORDIC code, not `call fn0`
 
 **Step 1.3**: Fix bootstrap memory address
+
 - [ ] Debug why address 0x80000 is being accessed instead of 0x80001000
 - [ ] Verify `encode_lui` and `encode_addi` work correctly
 - [ ] Test bootstrap code in isolation if needed
 
 **Step 1.4**: Verify end-to-end
+
 - [ ] Run `test_sin_pi_2` and verify it passes
 - [ ] Check CLIF output shows CORDIC implementation
 - [ ] Verify result is approximately 1.0
 
 ### Phase 2: Expand to Other Tests (AFTER Phase 1 Success)
+
 - Add cos implementation and `cos_pi.glsl` test
 - Add remaining sin/cos scalar tests
 - Add vector sin/cos tests
 
 ### Phase 3: Add Remaining Functions
+
 - tan, atan, atan2, asin, acos
 - Hyperbolic functions
 
@@ -303,11 +309,13 @@ CORDIC uses iterative rotations to compute trigonometric functions. Each iterati
 **Primary Goal**: Get `sin_pi_2.glsl` test passing for `riscv32.fixed32` and `riscv32.fixed64` targets.
 
 **Test Details**:
+
 - **File**: `crates/lp-glsl-filetests/filetests/builtins/trigonometric/sin_pi_2.glsl`
 - **Function**: `sin(π/2)` should return ≈ 1.0
 - **Targets**: `riscv32.fixed32`, `riscv32.fixed64`
 
 **Success Criteria**:
+
 - ✅ Test compiles without errors (no missing external function errors)
 - ✅ CORDIC sin implementation is actually used (verify in CLIF output - no `call fn0` for sin)
 - ✅ Test runs successfully in emulator (no runtime/memory errors)
@@ -315,11 +323,13 @@ CORDIC uses iterative rotations to compute trigonometric functions. Each iterati
 - ✅ No floating-point operations in generated IR for sin call (pure integer CORDIC)
 
 **Current Status**:
+
 - ⚠️ CORDIC code implemented but not being detected/replaced
 - ⚠️ Memory access error at runtime (address 0x80000 instead of 0x80001000)
 - ⚠️ Function name detection may not be working (TestCase vs User names)
 
 **Blocking Issues to Resolve**:
+
 1. **Function Detection**: Verify TestCase name is created correctly in `get_math_libcall`
 2. **CORDIC Replacement**: Ensure `convert_call` successfully replaces sin calls with CORDIC
 3. **Bootstrap Address**: Fix memory address encoding in bootstrap code
