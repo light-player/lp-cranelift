@@ -235,22 +235,33 @@ float main() {
 //     v224 = iconst.i32 1
 //     v225 = imul v216, v224  ; v224 = 1
 //     v226 = isub v214, v225
-//     v227 = iconst.i32 0
-//     v228 = iconst.i32 1
-//     v229 = iconst.i32 2
-//     v230 = iconst.i32 3
-//     v231 = icmp eq v29, v227  ; v227 = 0
-//     v232 = icmp eq v29, v228  ; v228 = 1
-//     v233 = icmp eq v29, v229  ; v229 = 2
-//     v234 = icmp eq v29, v230  ; v230 = 3
-//     v235 = ineg v223
-//     v236 = select v233, v235, v223
-//     v237 = select v234, v235, v236
-//     v238 = select v232, v223, v237
-//     v239 = select v231, v223, v238
-//     return v239
+//     v227 = iconst.i32 0x0001_a592
+//     v228 = sextend.i64 v223
+//     v229 = sextend.i64 v227  ; v227 = 0x0001_a592
+//     v230 = imul v228, v229
+//     v231 = iconst.i64 16
+//     v232 = sshr v230, v231  ; v231 = 16
+//     v233 = ireduce.i32 v232
+//     v234 = sextend.i64 v220
+//     v235 = imul v234, v229
+//     v236 = sshr v235, v231  ; v231 = 16
+//     v237 = ireduce.i32 v236
+//     v238 = iconst.i32 0
+//     v239 = iconst.i32 1
+//     v240 = iconst.i32 2
+//     v241 = iconst.i32 3
+//     v242 = icmp eq v29, v238  ; v238 = 0
+//     v243 = icmp eq v29, v239  ; v239 = 1
+//     v244 = icmp eq v29, v240  ; v240 = 2
+//     v245 = icmp eq v29, v241  ; v241 = 3
+//     v246 = ineg v233
+//     v247 = select v244, v246, v233
+//     v248 = select v245, v246, v247
+//     v249 = select v243, v233, v248
+//     v250 = select v242, v233, v249
+//     return v250
 //
 // block1:
-//     v240 = iconst.i32 0
-//     return v240  ; v240 = 0
+//     v251 = iconst.i32 0
+//     return v251  ; v251 = 0
 // }

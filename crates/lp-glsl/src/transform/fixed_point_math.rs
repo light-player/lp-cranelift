@@ -168,8 +168,50 @@ fn cordic_rotation_mode(
         z = z_new;
     }
     
-    // Results: sin = y, cos = x (gain already included in initial x)
-    Ok((y, x))
+    // After CORDIC: x = K*cos(angle), y = K*sin(angle)
+    // Need to divide by K to get sin and cos
+    // Use multiply by 1/K for efficiency: result = (value * (1/K)) >> shift_amount
+    let inv_k = generate_gain_factor_inverse(format);
+    let shift_amount = format.shift_amount();
+    
+    match format {
+        FixedPointFormat::Fixed16x16 => {
+            // For 16.16: sin = (y * (1/K)) >> 16
+            let inv_k_const = cursor.ins().iconst(cranelift_codegen::ir::types::I32, inv_k);
+            let y_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, y);
+            let inv_k_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, inv_k_const);
+            let mul_y = cursor.ins().imul(y_ext, inv_k_ext);
+            let shift_const = cursor.ins().iconst(cranelift_codegen::ir::types::I64, shift_amount);
+            let sin_result = cursor.ins().sshr(mul_y, shift_const);
+            let sin = cursor.ins().ireduce(cranelift_codegen::ir::types::I32, sin_result);
+            
+            // cos = (x * (1/K)) >> 16
+            let x_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, x);
+            let mul_x = cursor.ins().imul(x_ext, inv_k_ext);
+            let cos_result = cursor.ins().sshr(mul_x, shift_const);
+            let cos = cursor.ins().ireduce(cranelift_codegen::ir::types::I32, cos_result);
+            
+            Ok((sin, cos))
+        }
+        FixedPointFormat::Fixed32x32 => {
+            // For 32.32: sin = (y * (1/K)) >> 32
+            let inv_k_const = cursor.ins().iconst(cranelift_codegen::ir::types::I64, inv_k);
+            let y_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I128, y);
+            let inv_k_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I128, inv_k_const);
+            let mul_y = cursor.ins().imul(y_ext, inv_k_ext);
+            let shift_const = cursor.ins().iconst(cranelift_codegen::ir::types::I64, shift_amount);
+            let sin_result = cursor.ins().sshr(mul_y, shift_const);
+            let sin = cursor.ins().ireduce(cranelift_codegen::ir::types::I64, sin_result);
+            
+            // cos = (x * (1/K)) >> 32
+            let x_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I128, x);
+            let mul_x = cursor.ins().imul(x_ext, inv_k_ext);
+            let cos_result = cursor.ins().sshr(mul_x, shift_const);
+            let cos = cursor.ins().ireduce(cranelift_codegen::ir::types::I64, cos_result);
+            
+            Ok((sin, cos))
+        }
+    }
 }
 
 /// Reduce angle to [0, π/2] range and return quadrant info
