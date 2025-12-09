@@ -1,11 +1,12 @@
 // test compile
 // test run
+// target riscv32
 
 int main() {
     return 42;
 }
 
-// function u0:0() -> i32 apple_aarch64 {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v0 = iconst.i32 42
 //     return v0  ; v0 = 42

@@ -1,5 +1,6 @@
 // test compile
 
+// target riscv32
 mat4 identity() {
     return mat4(1.0);
 }
@@ -8,13 +9,13 @@ mat4 main() {
     return identity();
 }
 
-// function u0:0(i64 sret) apple_aarch64 {
+// function u0:0(i32 sret) system_v {
 //     ss0 = explicit_slot 64, align = 4
-//     sig0 = (i64 sret) apple_aarch64
+//     sig0 = (i32 sret) system_v
 //     fn0 = colocated u0:0 sig0
 //
-// block0(v0: i64):
-//     v1 = stack_addr.i64 ss0
+// block0(v0: i32):
+//     v1 = stack_addr.i32 ss0
 //     call fn0(v1)
 //     v2 = load.f32 notrap aligned v1
 //     v3 = load.f32 notrap aligned v1+4

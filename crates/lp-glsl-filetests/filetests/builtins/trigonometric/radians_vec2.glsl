@@ -1,13 +1,14 @@
 // test compile
 // test run
+// target riscv32
 
 vec2 main() {
     vec2 deg = vec2(90.0, 45.0);
     return radians(deg);
 }
 
-// function u0:0(i64 sret) apple_aarch64 {
-// block0(v0: i64):
+// function u0:0(i32 sret) system_v {
+// block0(v0: i32):
 //     v1 = f32const 0x1.680000p6
 //     v2 = f32const 0x1.680000p5
 //     v3 = f32const 0x1.1df46ap-6

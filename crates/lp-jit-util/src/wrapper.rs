@@ -2,7 +2,16 @@ use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::ir::Type;
 use crate::call::call_structreturn;
 use crate::error::JitCallError;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, vec::Vec};
+
+#[cfg(feature = "std")]
+use std::{boxed::Box, vec::Vec};
 
 /// A wrapper for a StructReturn function that provides a Rust-friendly interface.
 ///
@@ -57,7 +66,8 @@ where
     
     /// Call the wrapped function and return the result.
     pub fn call(&self) -> Vec<T> {
-        let mut buffer = vec![T::default(); self.buffer_size];
+        let mut buffer = Vec::new();
+        buffer.resize(self.buffer_size, T::default());
         
         unsafe {
             call_structreturn(

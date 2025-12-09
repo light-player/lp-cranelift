@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 float square(float x) {
     return x * x;

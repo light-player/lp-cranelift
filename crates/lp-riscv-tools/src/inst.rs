@@ -106,6 +106,86 @@ pub enum Inst {
     /// SRAI: rd = rs1 >> imm (arithmetic right shift immediate)
     Srai { rd: Gpr, rs1: Gpr, imm: i32 },
 
+    // Zbs: Single-bit instructions (immediate)
+    /// BCLRI: rd = rs1 with bit imm cleared
+    Bclri { rd: Gpr, rs1: Gpr, imm: i32 },
+    /// BSETI: rd = rs1 with bit imm set
+    Bseti { rd: Gpr, rs1: Gpr, imm: i32 },
+    /// BINVI: rd = rs1 with bit imm inverted
+    Binvi { rd: Gpr, rs1: Gpr, imm: i32 },
+    /// BEXTI: rd = (rs1 >> imm) & 1 (extract bit imm)
+    Bexti { rd: Gpr, rs1: Gpr, imm: i32 },
+
+    // Zbs: Single-bit instructions (register)
+    /// BCLR: rd = rs1 with bit rs2[4:0] cleared
+    Bclr { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// BSET: rd = rs1 with bit rs2[4:0] set
+    Bset { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// BINV: rd = rs1 with bit rs2[4:0] inverted
+    Binv { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// BEXT: rd = (rs1 >> rs2[4:0]) & 1 (extract bit)
+    Bext { rd: Gpr, rs1: Gpr, rs2: Gpr },
+
+    // Zbb: Basic bit-manipulation (count operations)
+    /// CLZ: rd = count leading zeros in rs1
+    Clz { rd: Gpr, rs1: Gpr },
+    /// CTZ: rd = count trailing zeros in rs1
+    Ctz { rd: Gpr, rs1: Gpr },
+    /// CPOP: rd = count population (number of set bits) in rs1
+    Cpop { rd: Gpr, rs1: Gpr },
+
+    // Zbb: Sign/zero extend
+    /// SEXTB: rd = sign-extend byte from rs1[7:0]
+    Sextb { rd: Gpr, rs1: Gpr },
+    /// SEXTH: rd = sign-extend halfword from rs1[15:0]
+    Sexth { rd: Gpr, rs1: Gpr },
+    /// ZEXTH: rd = zero-extend halfword from rs1[15:0]
+    Zexth { rd: Gpr, rs1: Gpr },
+
+    // Zbb: Rotate instructions
+    /// RORI: rd = rs1 rotated right by imm[4:0]
+    Rori { rd: Gpr, rs1: Gpr, imm: i32 },
+    /// ROL: rd = rs1 rotated left by rs2[4:0]
+    Rol { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// ROR: rd = rs1 rotated right by rs2[4:0]
+    Ror { rd: Gpr, rs1: Gpr, rs2: Gpr },
+
+    // Zbb: Byte reverse
+    /// REV8: rd = byte-reverse rs1
+    Rev8 { rd: Gpr, rs1: Gpr },
+    /// BREV8: rd = bit-reverse within bytes of rs1
+    Brev8 { rd: Gpr, rs1: Gpr },
+    /// ORCB: rd = or-combine bytes of rs1
+    Orcb { rd: Gpr, rs1: Gpr },
+
+    // Zbb: Min/Max
+    /// MIN: rd = min(rs1, rs2) signed
+    Min { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// MINU: rd = min(rs1, rs2) unsigned
+    Minu { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// MAX: rd = max(rs1, rs2) signed
+    Max { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// MAXU: rd = max(rs1, rs2) unsigned
+    Maxu { rd: Gpr, rs1: Gpr, rs2: Gpr },
+
+    // Zbb: Logical operations
+    /// ANDN: rd = rs1 & ~rs2
+    Andn { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// ORN: rd = rs1 | ~rs2
+    Orn { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// XNOR: rd = rs1 ^ ~rs2 (or ~(rs1 ^ rs2))
+    Xnor { rd: Gpr, rs1: Gpr, rs2: Gpr },
+
+    // Zba: Address generation
+    /// SH1ADD: rd = (rs1 << 1) + rs2
+    Sh1add { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// SH2ADD: rd = (rs1 << 2) + rs2
+    Sh2add { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// SH3ADD: rd = (rs1 << 3) + rs2
+    Sh3add { rd: Gpr, rs1: Gpr, rs2: Gpr },
+    /// SLLIUW: rd = (rs1[31:0] << imm[4:0]) zero-extended to 64 bits (RV32: just shift)
+    SlliUw { rd: Gpr, rs1: Gpr, imm: i32 },
+
     // Immediate generation
     /// LUI: rd = imm << 12
     /// LUI: rd = imm
@@ -248,6 +328,46 @@ impl Inst {
             Inst::Srli { rd, rs1, imm } => srli(*rd, *rs1, *imm),
             Inst::Sra { rd, rs1, rs2 } => sra(*rd, *rs1, *rs2),
             Inst::Srai { rd, rs1, imm } => srai(*rd, *rs1, *imm),
+            // Zbs: Single-bit instructions (immediate)
+            Inst::Bclri { rd, rs1, imm } => bclri(*rd, *rs1, *imm),
+            Inst::Bseti { rd, rs1, imm } => bseti(*rd, *rs1, *imm),
+            Inst::Binvi { rd, rs1, imm } => binvi(*rd, *rs1, *imm),
+            Inst::Bexti { rd, rs1, imm } => bexti(*rd, *rs1, *imm),
+            // Zbs: Single-bit instructions (register)
+            Inst::Bclr { rd, rs1, rs2 } => bclr(*rd, *rs1, *rs2),
+            Inst::Bset { rd, rs1, rs2 } => bset(*rd, *rs1, *rs2),
+            Inst::Binv { rd, rs1, rs2 } => binv(*rd, *rs1, *rs2),
+            Inst::Bext { rd, rs1, rs2 } => bext(*rd, *rs1, *rs2),
+            // Zbb: Count operations
+            Inst::Clz { rd, rs1 } => clz(*rd, *rs1),
+            Inst::Ctz { rd, rs1 } => ctz(*rd, *rs1),
+            Inst::Cpop { rd, rs1 } => cpop(*rd, *rs1),
+            // Zbb: Sign/zero extend
+            Inst::Sextb { rd, rs1 } => sextb(*rd, *rs1),
+            Inst::Sexth { rd, rs1 } => sexth(*rd, *rs1),
+            Inst::Zexth { rd, rs1 } => zexth(*rd, *rs1),
+            // Zbb: Rotate instructions
+            Inst::Rori { rd, rs1, imm } => rori(*rd, *rs1, *imm),
+            Inst::Rol { rd, rs1, rs2 } => rol(*rd, *rs1, *rs2),
+            Inst::Ror { rd, rs1, rs2 } => ror(*rd, *rs1, *rs2),
+            // Zbb: Byte reverse
+            Inst::Rev8 { rd, rs1 } => rev8(*rd, *rs1),
+            Inst::Brev8 { rd, rs1 } => brev8(*rd, *rs1),
+            Inst::Orcb { rd, rs1 } => orcb(*rd, *rs1),
+            // Zbb: Min/Max
+            Inst::Min { rd, rs1, rs2 } => min(*rd, *rs1, *rs2),
+            Inst::Minu { rd, rs1, rs2 } => minu(*rd, *rs1, *rs2),
+            Inst::Max { rd, rs1, rs2 } => max(*rd, *rs1, *rs2),
+            Inst::Maxu { rd, rs1, rs2 } => maxu(*rd, *rs1, *rs2),
+            // Zbb: Logical operations
+            Inst::Andn { rd, rs1, rs2 } => andn(*rd, *rs1, *rs2),
+            Inst::Orn { rd, rs1, rs2 } => orn(*rd, *rs1, *rs2),
+            Inst::Xnor { rd, rs1, rs2 } => xnor(*rd, *rs1, *rs2),
+            // Zba: Address generation
+            Inst::Sh1add { rd, rs1, rs2 } => sh1add(*rd, *rs1, *rs2),
+            Inst::Sh2add { rd, rs1, rs2 } => sh2add(*rd, *rs1, *rs2),
+            Inst::Sh3add { rd, rs1, rs2 } => sh3add(*rd, *rs1, *rs2),
+            Inst::SlliUw { rd, rs1, imm } => slli_uw(*rd, *rs1, *imm),
             Inst::Lui { rd, imm } => lui(*rd, *imm),
             Inst::Auipc { rd, imm } => auipc(*rd, *imm),
             Inst::Ecall => ecall(),

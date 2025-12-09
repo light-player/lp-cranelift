@@ -1,5 +1,6 @@
 // test compile
 
+// target riscv32
 float main() {
     vec4 color = vec4(0.5, 0.6, 0.7, 1.0);
     float red = color.r;
@@ -7,7 +8,7 @@ float main() {
     return red + alpha;  // 1.5
 }
 
-// function u0:0() -> f32 apple_aarch64 {
+// function u0:0() -> f32 system_v {
 // block0:
 //     v0 = f32const 0x1.000000p-1
 //     v1 = f32const 0x1.333334p-1

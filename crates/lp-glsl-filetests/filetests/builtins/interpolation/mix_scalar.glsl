@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 bool main() {
     float result = mix(0.0, 10.0, 0.5);  // Should return 5.0: 0*(1-0.5) + 10*0.5
@@ -7,7 +8,7 @@ bool main() {
     return result > 4.99 && result < 5.01;
 }
 
-// function u0:0() -> i8 apple_aarch64 {
+// function u0:0() -> i8 system_v {
 // block0:
 //     v0 = f32const 0.0
 //     v1 = f32const 0x1.400000p3

@@ -11,7 +11,7 @@ use lp_glsl::FixedPointFormat;
 pub fn compile_to_binary(
     glsl_source: &str,
     fixed_point_format: Option<FixedPointFormat>,
-    _bootstrap_code: &[u8], // Will be regenerated with correct address
+    return_type: crate::execution::backend::ReturnType,
 ) -> Result<Vec<u8>> {
     // Build riscv32 ISA
     use cranelift_codegen::settings;
@@ -41,9 +41,8 @@ pub fn compile_to_binary(
         .map_err(|e| anyhow::anyhow!("GLSL compilation failed: {}", e))?;
 
     // Generate initial bootstrap to estimate size
-    use crate::execution::backend::ReturnType;
     use crate::execution::bootstrap::generate_bootstrap;
-    let initial_bootstrap = generate_bootstrap(0, ReturnType::Float, fixed_point_format)?;
+    let initial_bootstrap = generate_bootstrap(0, return_type, fixed_point_format)?;
 
     // Calculate test function address (after bootstrap, aligned to 4 bytes)
     let mut test_func_addr = initial_bootstrap.len() as u32;
@@ -51,7 +50,7 @@ pub fn compile_to_binary(
     test_func_addr = (test_func_addr + 3) & !3;
 
     // Regenerate bootstrap with correct test function address
-    let bootstrap_code = generate_bootstrap(test_func_addr, ReturnType::Float, fixed_point_format)?;
+    let bootstrap_code = generate_bootstrap(test_func_addr, return_type, fixed_point_format)?;
 
     // For now, create a simple binary: bootstrap + test function
     // TODO: Properly link bootstrap with test function address

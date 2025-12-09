@@ -1,5 +1,7 @@
 // test compile
 // test run
+// target riscv32.fixed32
+// target riscv32.fixed64
 
 float main() {
     return atan(1.0);
@@ -18,4 +20,4 @@ float main() {
 //     v2 = f32const 0.0
 //     return v2  ; v2 = 0.0
 // }
-// run: ~= 0.785398 (tolerance: 0.001)  // π/4
+// run: ~= 0.785398  // π/4

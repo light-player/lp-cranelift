@@ -18,7 +18,7 @@ pub const STACK_BASE: u32 = 0x80010000; // Top of stack (grows downward)
 pub fn generate_bootstrap(
     test_func_addr: u32,
     return_type: ReturnType,
-    _fixed_point_format: Option<FixedPointFormat>,
+    fixed_point_format: Option<FixedPointFormat>,
 ) -> Result<Vec<u8>> {
     let mut code = Vec::new();
 
@@ -31,7 +31,7 @@ pub fn generate_bootstrap(
     // 2. Call test function: jal ra, test_func_addr
     // Use jalr with absolute address (auipc + addi + jalr)
     // auipc t0, (test_func_addr >> 12)
-    code.extend_from_slice(&encode_auipc(5, (test_func_addr >> 12))); // t0 = x5
+    code.extend_from_slice(&encode_auipc(5, test_func_addr >> 12)); // t0 = x5
     // addi t0, t0, (test_func_addr & 0xFFF)
     code.extend_from_slice(&encode_addi(5, 5, (test_func_addr & 0xFFF) as i32));
     // jalr ra, t0, 0
@@ -48,11 +48,28 @@ pub fn generate_bootstrap(
             code.extend_from_slice(&encode_sw(5, 10, 0)); // sw a0, 0(t0)
         }
         ReturnType::Float => {
-            // Result is in fa0 (f32), store it
-            // fsw fa0, RESULT_ADDR(t0)
-            code.extend_from_slice(&encode_lui(5, RESULT_ADDR >> 12));
-            code.extend_from_slice(&encode_addi(5, 5, (RESULT_ADDR & 0xFFF) as i32));
-            code.extend_from_slice(&encode_fsw(5, 10, 0)); // fsw fa0, 0(t0)
+            match fixed_point_format {
+                Some(FixedPointFormat::Fixed16x16) => {
+                    // Result is in a0 (i32 fixed-point), store it
+                    code.extend_from_slice(&encode_lui(5, RESULT_ADDR >> 12));
+                    code.extend_from_slice(&encode_addi(5, 5, (RESULT_ADDR & 0xFFF) as i32));
+                    code.extend_from_slice(&encode_sw(5, 10, 0)); // sw a0, 0(t0)
+                }
+                Some(FixedPointFormat::Fixed32x32) => {
+                    // Result is in a0 (low) and a1 (high), store both
+                    code.extend_from_slice(&encode_lui(5, RESULT_ADDR >> 12));
+                    code.extend_from_slice(&encode_addi(5, 5, (RESULT_ADDR & 0xFFF) as i32));
+                    code.extend_from_slice(&encode_sw(5, 10, 0)); // sw a0, 0(t0) - low
+                    code.extend_from_slice(&encode_sw(5, 11, 4)); // sw a1, 4(t0) - high
+                }
+                None => {
+                    // Result is in fa0 (f32), store it
+                    // fsw fa0, RESULT_ADDR(t0)
+                    code.extend_from_slice(&encode_lui(5, RESULT_ADDR >> 12));
+                    code.extend_from_slice(&encode_addi(5, 5, (RESULT_ADDR & 0xFFF) as i32));
+                    code.extend_from_slice(&encode_fsw(5, 10, 0)); // fsw fa0, 0(t0)
+                }
+            }
         }
         ReturnType::I64 => {
             // Result is in a0 (low) and a1 (high), store both

@@ -8,7 +8,7 @@ float main() {
     return (a + b) * c - 1.5;
 }
 
-// function u0:0() -> i32 apple_aarch64 {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v8 = iconst.i32 0x0002_0000
 //     v9 = iconst.i32 0x0003_0000

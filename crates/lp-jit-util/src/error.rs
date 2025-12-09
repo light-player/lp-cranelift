@@ -1,6 +1,15 @@
 use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::ir::Type;
-use std::fmt;
+use core::fmt;
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+
+#[cfg(feature = "std")]
+use std::string::String;
 
 #[derive(Debug, Clone)]
 pub enum JitCallError {
@@ -47,5 +56,9 @@ impl fmt::Display for JitCallError {
     }
 }
 
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(feature = "std")]
 impl std::error::Error for JitCallError {}
 

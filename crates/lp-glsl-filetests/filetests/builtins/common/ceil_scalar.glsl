@@ -1,5 +1,7 @@
 // test compile
 // test run
+// target riscv32.fixed32
+// target riscv32.fixed64
 
 float main() {
     return ceil(3.2);  // Should return 4.0
@@ -15,4 +17,4 @@ float main() {
 //     v2 = f32const 0.0
 //     return v2  ; v2 = 0.0
 // }
-// run: ~= 4.0 (tolerance: 0.01)
+// run: ~= 4.0

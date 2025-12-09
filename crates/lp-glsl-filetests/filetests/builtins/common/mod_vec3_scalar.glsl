@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 bool main() {
     vec3 result = mod(vec3(7.0, 8.0, 9.0), 3.0);  // (1.0, 2.0, 0.0)
@@ -8,7 +9,7 @@ bool main() {
     return sum > 2.99 && sum < 3.01;
 }
 
-// function u0:0() -> i8 apple_aarch64 {
+// function u0:0() -> i8 system_v {
 // block0:
 //     v0 = f32const 0x1.c00000p2
 //     v1 = f32const 0x1.000000p3

@@ -1,5 +1,6 @@
 // test compile
 
+// target riscv32
 float double_it(float x) {
     return x * 2.0;
 }

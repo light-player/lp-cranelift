@@ -816,7 +816,7 @@ pub fn execute_instruction(
             let imm_u32 = imm as u32;
             // Extract upper 20 bits: (imm_u32 >> 12) & 0xfffff, then shift left by 12
             let upper_20_bits = (imm_u32 >> 12) & 0xfffff;
-            let value = ((upper_20_bits as u32) << 12) as i32;
+            let value = (upper_20_bits << 12) as i32;
             let rd_old = read_reg(regs, rd);
             if rd.num() != 0 {
                 regs[rd.num() as usize] = value;
@@ -1152,6 +1152,702 @@ pub fn execute_instruction(
                 rd_new: result,
             }
         }
+
+        // ====================================================================
+        // Zbs: Single-bit instructions (immediate)
+        // ====================================================================
+
+        Inst::Bclri { rd, rs1, imm } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let bit_pos = (imm & 0x1f) as u32; // Only use bottom 5 bits
+            let mask = !(1u32 << bit_pos);
+            let result = ((val1 as u32) & mask) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Bseti { rd, rs1, imm } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let bit_pos = (imm & 0x1f) as u32; // Only use bottom 5 bits
+            let mask = 1u32 << bit_pos;
+            let result = ((val1 as u32) | mask) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Binvi { rd, rs1, imm } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let bit_pos = (imm & 0x1f) as u32; // Only use bottom 5 bits
+            let mask = 1u32 << bit_pos;
+            let result = ((val1 as u32) ^ mask) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Bexti { rd, rs1, imm } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let bit_pos = (imm & 0x1f) as u32; // Only use bottom 5 bits
+            let result = (((val1 as u32) >> bit_pos) & 1) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        // ====================================================================
+        // Zbs: Single-bit instructions (register)
+        // ====================================================================
+
+        Inst::Bclr { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let bit_pos = ((val2 as u32) & 0x1f) as u32; // Only use bottom 5 bits
+            let mask = !(1u32 << bit_pos);
+            let result = ((val1 as u32) & mask) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Bset { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let bit_pos = ((val2 as u32) & 0x1f) as u32; // Only use bottom 5 bits
+            let mask = 1u32 << bit_pos;
+            let result = ((val1 as u32) | mask) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Binv { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let bit_pos = ((val2 as u32) & 0x1f) as u32; // Only use bottom 5 bits
+            let mask = 1u32 << bit_pos;
+            let result = ((val1 as u32) ^ mask) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Bext { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let bit_pos = ((val2 as u32) & 0x1f) as u32; // Only use bottom 5 bits
+            let result = (((val1 as u32) >> bit_pos) & 1) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        // ====================================================================
+        // Zbb: Count operations
+        // ====================================================================
+
+        Inst::Clz { rd, rs1 } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let val_u = val1 as u32;
+            let result = if val_u == 0 {
+                32
+            } else {
+                val_u.leading_zeros() as i32
+            };
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Ctz { rd, rs1 } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let val_u = val1 as u32;
+            let result = if val_u == 0 {
+                32
+            } else {
+                val_u.trailing_zeros() as i32
+            };
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Cpop { rd, rs1 } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let val_u = val1 as u32;
+            let result = val_u.count_ones() as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        // ====================================================================
+        // Zbb: Sign/zero extend
+        // ====================================================================
+
+        Inst::Sextb { rd, rs1 } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let result = ((val1 as u8) as i8) as i32; // Sign-extend byte
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Sexth { rd, rs1 } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let result = ((val1 as u16) as i16) as i32; // Sign-extend halfword
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Zexth { rd, rs1 } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let result = ((val1 as u32) & 0xffff) as i32; // Zero-extend halfword
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        // ====================================================================
+        // Zbb: Rotate instructions
+        // ====================================================================
+
+        Inst::Rori { rd, rs1, imm } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let shift_amount = (imm & 0x1f) as u32; // Only use bottom 5 bits
+            let val_u = val1 as u32;
+            let result = (val_u.rotate_right(shift_amount)) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Rol { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let shift_amount = ((val2 as u32) & 0x1f) as u32; // Only use bottom 5 bits
+            let val_u = val1 as u32;
+            let result = (val_u.rotate_left(shift_amount)) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Ror { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let shift_amount = ((val2 as u32) & 0x1f) as u32; // Only use bottom 5 bits
+            let val_u = val1 as u32;
+            let result = (val_u.rotate_right(shift_amount)) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        // ====================================================================
+        // Zbb: Byte reverse
+        // ====================================================================
+
+        Inst::Rev8 { rd, rs1 } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let val_u = val1 as u32;
+            // Reverse bytes: swap byte 0<->3, 1<->2
+            let result = ((val_u << 24) | ((val_u & 0xff00) << 8) | ((val_u & 0xff0000) >> 8) | (val_u >> 24)) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Brev8 { rd, rs1 } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let val_u = val1 as u32;
+            // Bit-reverse within each byte
+            let mut result = 0u32;
+            for i in 0..4 {
+                let byte = ((val_u >> (i * 8)) & 0xff) as u8;
+                let reversed = byte.reverse_bits();
+                result |= (reversed as u32) << (i * 8);
+            }
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result as i32;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result as i32,
+            }
+        }
+
+        Inst::Orcb { rd, rs1 } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let val_u = val1 as u32;
+            // OR-combine bytes: each byte becomes 0x00 if byte is 0, 0xFF otherwise
+            let mut result = 0u32;
+            for i in 0..4 {
+                let byte = ((val_u >> (i * 8)) & 0xff) as u8;
+                if byte != 0 {
+                    result |= 0xffu32 << (i * 8);
+                }
+            }
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result as i32;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result as i32,
+            }
+        }
+
+        // ====================================================================
+        // Zbb: Min/Max
+        // ====================================================================
+
+        Inst::Min { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let result = val1.min(val2);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Minu { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let val1_u = val1 as u32;
+            let val2_u = val2 as u32;
+            let result = (val1_u.min(val2_u)) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Max { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let result = val1.max(val2);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Maxu { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let val1_u = val1 as u32;
+            let val2_u = val2 as u32;
+            let result = (val1_u.max(val2_u)) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        // ====================================================================
+        // Zbb: Logical operations
+        // ====================================================================
+
+        Inst::Andn { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let result = val1 & !val2;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Orn { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let result = val1 | !val2;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Xnor { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let result = !(val1 ^ val2);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        // ====================================================================
+        // Zba: Address generation
+        // ====================================================================
+
+        Inst::Sh1add { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let result = (val1 << 1).wrapping_add(val2);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Sh2add { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let result = (val1 << 2).wrapping_add(val2);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::Sh3add { rd, rs1, rs2 } => {
+            let val1 = read_reg(regs, rs1);
+            let val2 = read_reg(regs, rs2);
+            let rd_old = read_reg(regs, rd);
+            let result = (val1 << 3).wrapping_add(val2);
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: Some(val2),
+                rd_old,
+                rd_new: result,
+            }
+        }
+
+        Inst::SlliUw { rd, rs1, imm } => {
+            let val1 = read_reg(regs, rs1);
+            let rd_old = read_reg(regs, rd);
+            let shift_amount = (imm & 0x1f) as u32; // Only use bottom 5 bits
+            // On RV32, this is just a left shift (zero-extend is a no-op)
+            let result = ((val1 as u32).wrapping_shl(shift_amount)) as i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::Arithmetic {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                rd,
+                rs1_val: val1,
+                rs2_val: None,
+                rd_old,
+                rd_new: result,
+            }
+        }
+
         Inst::Ecall => {
             syscall = true;
             InstLog::System {

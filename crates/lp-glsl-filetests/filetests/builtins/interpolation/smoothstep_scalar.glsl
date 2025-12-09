@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 bool main() {
     // smoothstep(0, 10, 5): t = 0.5, result = t²(3-2t) = 0.25*2 = 0.5
@@ -7,7 +8,7 @@ bool main() {
     return result > 0.49 && result < 0.51;
 }
 
-// function u0:0() -> i8 apple_aarch64 {
+// function u0:0() -> i8 system_v {
 // block0:
 //     v0 = f32const 0.0
 //     v1 = f32const 0x1.400000p3

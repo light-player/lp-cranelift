@@ -1822,6 +1822,14 @@
     (LoadOP.Ld)
     (mem_flags_trusted)))
 
+;; Fallback rule for any type/value combination not handled above.
+;; This prevents "no rule matched" errors for edge cases.
+(rule -2 (imm ty c)
+  (gen_load
+    (gen_const_amode (emit_u64_le_const c))
+    (load_op ty)
+    (mem_flags_trusted)))
+
 ;; Imm12 Rules
 
 (decl pure imm12_zero () Imm12)

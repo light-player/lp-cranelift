@@ -1,11 +1,12 @@
 // test compile
 
+// target riscv32
 int main() {
     vec3 v = vec3(5.0);  // All components = 5.0
     return 1;
 }
 
-// function u0:0() -> i32 apple_aarch64 {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v0 = f32const 0x1.400000p2
 //     v1 = iconst.i32 1

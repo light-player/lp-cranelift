@@ -1,5 +1,6 @@
 // test compile
 
+// target riscv32
 int main() {
     ivec2 v = ivec2(10, 20);
     int x = v.x;
@@ -7,7 +8,7 @@ int main() {
     return x + y;  // 30
 }
 
-// function u0:0() -> i32 apple_aarch64 {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v0 = iconst.i32 10
 //     v1 = iconst.i32 20

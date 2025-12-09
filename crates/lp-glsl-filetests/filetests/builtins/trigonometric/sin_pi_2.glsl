@@ -1,22 +1,30 @@
 // test compile
 // test run
+// target riscv32.fixed32
+// target riscv32.fixed64
 
 float main() {
     float pi_2 = 1.570796327;  // π/2
     return sin(pi_2);
 }
 
-// function u0:0() -> f32 apple_aarch64 {
+// function u0:0() -> i32 system_v {
 //     sig0 = (f32) -> f32 system_v
 //     fn0 = u0:0 sig0
 //
 // block0:
-//     v0 = f32const 0x1.921fb6p0
-//     v1 = call fn0(v0)  ; v0 = 0x1.921fb6p0
-//     return v1
+//     v3 = iconst.i32 0x0001_9220
+//     v4 = f32const 0x1.000000p16
+//     v5 = fcvt_from_sint.f32 v3  ; v3 = 0x0001_9220
+//     v6 = fdiv v5, v4  ; v4 = 0x1.000000p16
+//     v7 = call fn0(v6)
+//     v8 = f32const 0x1.000000p16
+//     v9 = fmul v7, v8  ; v8 = 0x1.000000p16
+//     v10 = fcvt_to_sint.i32 v9
+//     return v10
 //
 // block1:
-//     v2 = f32const 0.0
-//     return v2  ; v2 = 0.0
+//     v11 = iconst.i32 0
+//     return v11  ; v11 = 0
 // }
-// run: ~= 1 (tolerance: 0.001)
+// run: ~= 1 

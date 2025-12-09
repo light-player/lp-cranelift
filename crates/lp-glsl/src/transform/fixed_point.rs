@@ -574,6 +574,117 @@ fn convert_store(
     Ok(())
 }
 
+/// Convert Call instruction: convert fixed-point args to float, call F32 function, convert result back
+fn convert_call(
+    func: &mut Function,
+    inst: Inst,
+    format: FixedPointFormat,
+    value_map: &mut ValueMap<Value, Value>,
+) -> Result<(), GlslError> {
+    use cranelift_codegen::ir::{InstructionData, FuncRef};
+    use cranelift_codegen::cursor::{Cursor, FuncCursor};
+    
+    // Extract data before creating cursor to avoid borrow conflicts
+    let func_ref = if let InstructionData::Call { func_ref, .. } = &func.dfg.insts[inst] {
+        *func_ref
+    } else {
+        return Ok(());
+    };
+    
+    // Get the function signature and extract needed info
+    let sig_ref = func.dfg.ext_funcs[func_ref].signature;
+    let param_types: Vec<cranelift_codegen::ir::Type> = func.dfg.signatures[sig_ref].params.iter().map(|p| p.value_type).collect();
+    let return_types: Vec<cranelift_codegen::ir::Type> = func.dfg.signatures[sig_ref].returns.iter().map(|r| r.value_type).collect();
+    
+    // Check if this call needs conversion (has F32 params or returns)
+    let needs_conversion = param_types.iter().any(|&t| t == cranelift_codegen::ir::types::F32)
+        || return_types.iter().any(|&t| t == cranelift_codegen::ir::types::F32);
+    
+    if !needs_conversion {
+        return Ok(()); // No F32 types, skip conversion
+    }
+    
+    // Collect data before creating cursor to avoid borrow conflicts
+    let args: Vec<Value> = func.dfg.inst_args(inst).iter().copied().collect();
+    let old_results: Vec<Value> = func.dfg.inst_results(inst).iter().copied().collect();
+    
+    {
+        // Scope for cursor
+        if let InstructionData::Call { .. } = &func.dfg.insts[inst] {
+        
+        let mut cursor = FuncCursor::new(func).at_inst(inst);
+        let mut converted_args = Vec::new();
+        
+        // Convert arguments: fixed-point -> float
+        for (i, &arg_val) in args.iter().enumerate() {
+            let param_type = param_types[i];
+            if param_type == cranelift_codegen::ir::types::F32 {
+                // Convert fixed-point argument to float
+                let fixed_val = *value_map.get(&arg_val).unwrap_or(&arg_val);
+                let float_val = match format {
+                    FixedPointFormat::Fixed16x16 => {
+                        // Convert i32 fixed-point to f32: (i32 as f32) / 65536.0
+                        let scale = cursor.ins().f32const(65536.0);
+                        let fixed_f32 = cursor.ins().fcvt_from_sint(cranelift_codegen::ir::types::F32, fixed_val);
+                        cursor.ins().fdiv(fixed_f32, scale)
+                    }
+                    FixedPointFormat::Fixed32x32 => {
+                        // Convert i64 fixed-point to f32: (i64 as f64) / 4294967296.0, then to f32
+                        let scale = cursor.ins().f64const(4294967296.0);
+                        let fixed_f64 = cursor.ins().fcvt_from_sint(cranelift_codegen::ir::types::F64, fixed_val);
+                        let div_f64 = cursor.ins().fdiv(fixed_f64, scale);
+                        cursor.ins().fdemote(cranelift_codegen::ir::types::F64, div_f64)
+                    }
+                };
+                converted_args.push(float_val);
+            } else {
+                // Non-F32 argument, use mapped value if available
+                converted_args.push(*value_map.get(&arg_val).unwrap_or(&arg_val));
+            }
+        }
+        
+        // Create the call with converted arguments
+        let call_inst = cursor.ins().call(func_ref, &converted_args);
+        let call_results: Vec<Value> = cursor.func.dfg.inst_results(call_inst).iter().copied().collect();
+        
+        // Convert return values: float -> fixed-point
+        for (i, &old_result) in old_results.iter().enumerate() {
+            let return_type = return_types[i];
+            if return_type == cranelift_codegen::ir::types::F32 {
+                // Convert float result to fixed-point
+                let float_result = call_results[i];
+                let fixed_result = match format {
+                    FixedPointFormat::Fixed16x16 => {
+                        // Convert f32 to i32 fixed-point: (f32 * 65536.0) as i32
+                        let scale = cursor.ins().f32const(65536.0);
+                        let scaled = cursor.ins().fmul(float_result, scale);
+                        cursor.ins().fcvt_to_sint(cranelift_codegen::ir::types::I32, scaled)
+                    }
+                    FixedPointFormat::Fixed32x32 => {
+                        // Convert f32 to i64 fixed-point: (f32 as f64 * 4294967296.0) as i64
+                        let scale = cursor.ins().f64const(4294967296.0);
+                        let float_f64 = cursor.ins().fpromote(cranelift_codegen::ir::types::F32, float_result);
+                        let scaled = cursor.ins().fmul(float_f64, scale);
+                        cursor.ins().fcvt_to_sint(cranelift_codegen::ir::types::I64, scaled)
+                    }
+                };
+                value_map.insert(old_result, fixed_result);
+            } else {
+                // Non-F32 return, use as-is
+                value_map.insert(old_result, call_results[i]);
+            }
+        }
+        
+            // Remove the old call instruction
+            cursor.func.dfg.detach_inst_results(inst);
+            cursor.goto_inst(inst);
+            cursor.remove_inst();
+        }
+    }
+    
+    Ok(())
+}
+
 /// Convert a single instruction
 fn convert_instruction(
     func: &mut Function,
@@ -595,6 +706,7 @@ fn convert_instruction(
         Opcode::Fneg => convert_fneg(func, inst, format, value_map)?,
         Opcode::Load => convert_load(func, inst, format, value_map)?,
         Opcode::Store => convert_store(func, inst, format, value_map)?,
+        Opcode::Call => convert_call(func, inst, format, value_map)?,
         _ => {
             // Other instructions don't need conversion
         }

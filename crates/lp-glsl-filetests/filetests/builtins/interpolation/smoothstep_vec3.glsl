@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 bool main() {
     vec3 edge0 = vec3(0.0, 0.0, 0.0);

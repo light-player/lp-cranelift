@@ -7,7 +7,7 @@ float main() {
     return ((x * 2.0) + (y / 2.0)) - 0.5;
 }
 
-// function u0:0() -> i32 apple_aarch64 {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v10 = iconst.i32 0x0001_8000
 //     v11 = iconst.i32 0x0002_8000

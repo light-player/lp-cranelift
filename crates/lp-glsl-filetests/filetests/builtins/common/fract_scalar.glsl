@@ -1,12 +1,13 @@
 // test compile
 // test run
+// target riscv32
 
 bool main() {
     float result = fract(3.75);  // 3.75 - floor(3.75) = 3.75 - 3.0 = 0.75
     return result > 0.74 && result < 0.76;
 }
 
-// function u0:0() -> i8 apple_aarch64 {
+// function u0:0() -> i8 system_v {
 // block0:
 //     v0 = f32const 0x1.e00000p1
 //     v1 = floor v0  ; v0 = 0x1.e00000p1

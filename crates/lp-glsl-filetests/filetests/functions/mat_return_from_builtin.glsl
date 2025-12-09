@@ -1,5 +1,6 @@
 // test compile
 
+// target riscv32
 mat3 transpose_mat(mat3 m) {
     return transpose(m);
 }
@@ -9,12 +10,12 @@ mat3 main() {
     return transpose_mat(m);
 }
 
-// function u0:0(i64 sret) apple_aarch64 {
+// function u0:0(i32 sret) system_v {
 //     ss0 = explicit_slot 36, align = 4
-//     sig0 = (i64 sret, f32, f32, f32, f32, f32, f32, f32, f32, f32) apple_aarch64
+//     sig0 = (i32 sret, f32, f32, f32, f32, f32, f32, f32, f32, f32) system_v
 //     fn0 = colocated u0:0 sig0
 //
-// block0(v0: i64):
+// block0(v0: i32):
 //     v1 = f32const 0x1.000000p0
 //     v2 = f32const 0x1.000000p1
 //     v3 = f32const 0x1.800000p1
@@ -24,7 +25,7 @@ mat3 main() {
 //     v7 = f32const 0x1.c00000p2
 //     v8 = f32const 0x1.000000p3
 //     v9 = f32const 0x1.200000p3
-//     v10 = stack_addr.i64 ss0
+//     v10 = stack_addr.i32 ss0
 //     call fn0(v10, v1, v2, v3, v4, v5, v6, v7, v8, v9)  ; v1 = 0x1.000000p0, v2 = 0x1.000000p1, v3 = 0x1.800000p1, v4 = 0x1.000000p2, v5 = 0x1.400000p2, v6 = 0x1.800000p2, v7 = 0x1.c00000p2, v8 = 0x1.000000p3, v9 = 0x1.200000p3
 //     v11 = load.f32 notrap aligned v10
 //     v12 = load.f32 notrap aligned v10+4

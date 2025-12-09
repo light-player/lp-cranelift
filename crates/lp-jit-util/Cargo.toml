@@ -9,3 +9,7 @@ license.workspace = true
 cranelift-codegen = { workspace = true, default-features = false }
 target-lexicon = { workspace = true }
 
+[features]
+default = ["std"]
+std = []
+

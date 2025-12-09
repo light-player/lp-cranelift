@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 vec3 main() {
     vec3 angles = vec3(0.0, 0.785398163, 1.570796327); // 0, π/4, π/2

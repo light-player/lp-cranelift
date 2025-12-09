@@ -1,5 +1,7 @@
 // test compile
 // test run
+// target riscv32.fixed32
+// target riscv32.fixed64
 
 float main() {
     vec2 v = vec2(3.0, 4.0);
@@ -20,4 +22,4 @@ float main() {
 //     v6 = f32const 0.0
 //     return v6  ; v6 = 0.0
 // }
-// run: ~= 5 (tolerance: 0.01)
+// run: ~= 5

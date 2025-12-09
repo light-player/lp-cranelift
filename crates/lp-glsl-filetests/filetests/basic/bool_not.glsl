@@ -1,12 +1,13 @@
 // test compile
 // test run
+// target riscv32
 
 bool main() {
     bool t = true;
     return !t;
 }
 
-// function u0:0() -> i8 apple_aarch64 {
+// function u0:0() -> i8 system_v {
 // block0:
 //     v0 = iconst.i8 1
 //     v1 = iconst.i8 0

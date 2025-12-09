@@ -1,12 +1,13 @@
 // test compile
 // test run
+// target riscv32
 
 bool main() {
     float result = step(5.0, 10.0);  // x(10.0) >= edge(5.0), returns 1.0
     return result > 0.99;
 }
 
-// function u0:0() -> i8 apple_aarch64 {
+// function u0:0() -> i8 system_v {
 // block0:
 //     v0 = f32const 0x1.400000p2
 //     v1 = f32const 0x1.400000p3

@@ -18,7 +18,18 @@ pub fn run_test(path: &Path, full_source: &str, glsl_source: &str) -> Result<()>
     let expectations = extract_error_expectations(full_source)?;
 
     // Compile and expect failure - use JIT directly to get detailed error
-    let mut jit = lp_glsl::JIT::new();
+    // Try to use host ISA, but fall back to riscv32 if host isn't available
+    let mut jit =
+        match crate::filetest::build_isa_for_target(crate::filetest::TestTarget::Host(None)) {
+            Ok(isa) => lp_glsl::JIT::new_with_isa(isa),
+            Err(_) => {
+                // Host ISA not available, use riscv32 instead
+                let isa = crate::filetest::build_isa_for_target(
+                    crate::filetest::TestTarget::Riscv32(None),
+                )?;
+                lp_glsl::JIT::new_with_isa(isa)
+            }
+        };
     match jit.compile_detailed(glsl_source) {
         Ok(_) => {
             bail!("Expected compilation to fail, but it succeeded");

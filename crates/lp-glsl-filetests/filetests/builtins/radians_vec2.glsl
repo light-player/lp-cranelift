@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 vec2 main() {
     vec2 deg = vec2(90.0, 45.0);

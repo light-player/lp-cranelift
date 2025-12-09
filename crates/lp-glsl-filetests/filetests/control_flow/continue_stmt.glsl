@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 int main() {
     int sum = 0;
@@ -12,7 +13,7 @@ int main() {
     return sum;
 }
 
-// function u0:0() -> i32 apple_aarch64 {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v0 = iconst.i32 0
 //     v1 = iconst.i32 0

@@ -1,12 +1,13 @@
 // test compile
 // test run
+// target riscv32
 
 vec2 main() {
     return abs(vec2(-1.5, 2.3));  // Should return (1.5, 2.3)
 }
 
-// function u0:0(i64 sret) apple_aarch64 {
-// block0(v0: i64):
+// function u0:0(i32 sret) system_v {
+// block0(v0: i32):
 //     v1 = f32const 0x1.800000p0
 //     v2 = fneg v1  ; v1 = 0x1.800000p0
 //     v3 = f32const 0x1.266666p1

@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 float main() {
     int a = 3;
@@ -8,7 +9,7 @@ float main() {
     return c;
 }
 
-// function u0:0() -> f32 apple_aarch64 {
+// function u0:0() -> f32 system_v {
 // block0:
 //     v0 = iconst.i32 3
 //     v1 = f32const 0x1.000000p1

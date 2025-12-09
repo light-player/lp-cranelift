@@ -1,5 +1,7 @@
 // test compile
 // test run
+// target riscv32.fixed32
+// target riscv32.fixed64
 
 float main() {
     float deg = 180.0;
@@ -20,4 +22,4 @@ float main() {
 //     v5 = f32const 0.0
 //     return v5  ; v5 = 0.0
 // }
-// run: ~= 180 (tolerance: 0.1)
+// run: ~= 180

@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 bool main() {
     vec3 result = smoothstep(0.0, 10.0, vec3(0.0, 5.0, 10.0));

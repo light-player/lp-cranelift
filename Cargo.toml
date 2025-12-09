@@ -676,6 +676,27 @@ opt-level = 's'
 inherits = "bench"
 debug = "line-tables-only"
 
+# NOTE: Build issue with minimal-lexical v0.2.1 for no_std targets
+# The glsl parser (via nom/nom_locate) pulls in minimal-lexical which has no_std bugs.
+# The minimal-lexical crate v0.2.1 doesn't properly support no_std compilation.
+# 
+# Solutions to fix this:
+# 1. Fork the glsl parser repo and fix its Cargo.toml to not enable nom_locate's std feature
+# 2. Fork minimal-lexical and fix its no_std support (add missing trait impls)
+# 3. Use a different GLSL parser that properly supports no_std
+# 4. Wait for upstream fixes to minimal-lexical or nom
+#
+# For now, the build will fail until one of these solutions is implemented.
+[patch.crates-io]
+
+[profile.release.package.esp32c6-glsl-jit]
+# Strip debug symbols - saves ~1-1.5 MB
+strip = true
+# Optimize for size instead of speed - saves ~200-500 KB
+opt-level = "z"
+# Single codegen unit for better dead code elimination - saves ~50-100 KB
+codegen-units = 1
+
 [profile.fastest-runtime]
 inherits = "release"
 codegen-units = 1

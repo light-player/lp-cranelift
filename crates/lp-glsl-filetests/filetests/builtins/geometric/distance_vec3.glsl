@@ -1,12 +1,13 @@
 // test compile
 
+// target riscv32
 float main() {
     vec3 p0 = vec3(0.0, 0.0, 0.0);
     vec3 p1 = vec3(1.0, 2.0, 2.0);
     return distance(p0, p1);  // sqrt(1 + 4 + 4) = 3.0
 }
 
-// function u0:0() -> f32 apple_aarch64 {
+// function u0:0() -> f32 system_v {
 // block0:
 //     v0 = f32const 0.0
 //     v1 = f32const 0.0

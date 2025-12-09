@@ -1,5 +1,6 @@
 // test compile
 
+// target riscv32
 int main() {
     vec3 a = vec3(1.0, 2.0, 3.0);
     vec3 b = vec3(2.0, 2.0, 2.0);

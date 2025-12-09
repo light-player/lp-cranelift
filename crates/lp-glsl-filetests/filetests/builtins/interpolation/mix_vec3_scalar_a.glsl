@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 bool main() {
     vec3 a = vec3(0.0, 0.0, 0.0);
@@ -10,7 +11,7 @@ bool main() {
     return sum > 14.99 && sum < 15.01;
 }
 
-// function u0:0() -> i8 apple_aarch64 {
+// function u0:0() -> i8 system_v {
 // block0:
 //     v0 = f32const 0.0
 //     v1 = f32const 0.0

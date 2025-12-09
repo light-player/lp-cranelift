@@ -511,8 +511,9 @@ impl Compiler {
         source: &str,
         isa: &dyn cranelift_codegen::isa::TargetIsa,
     ) -> Result<alloc::vec::Vec<u8>, String> {
+        use alloc::string::ToString;
         self.compile_to_code_detailed(source, isa)
-            .map_err(|e| String::from(e))
+            .map_err(|e| e.to_string())
     }
 
     /// Compile GLSL source to machine code with detailed error information
@@ -634,6 +635,12 @@ impl Compiler {
         }
 
         // Add default return
+        use crate::semantic::types::Type as GlslType;
+        let return_type = typed_ast.main_function.return_type.to_cranelift_type()
+            .unwrap_or_else(|_| {
+                // Fallback to i32 if conversion fails
+                cranelift_codegen::ir::types::I32
+            });
         let return_val = codegen_ctx.builder.ins().iconst(return_type, 0);
         codegen_ctx.builder.ins().return_(&[return_val]);
         codegen_ctx.builder.finalize();
@@ -645,6 +652,7 @@ impl Compiler {
 
         // 6. Compile to machine code
         let mut ctrl_plane = ControlPlane::default();
+        use crate::error::ErrorCode;
         let code_info = ctx.compile(isa, &mut ctrl_plane).map_err(|e| {
             GlslError::new(
                 ErrorCode::E0400,

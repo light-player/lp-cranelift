@@ -7,6 +7,15 @@ use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::ir::{Type, types};
 use crate::error::JitCallError;
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+
+#[cfg(feature = "std")]
+use std::string::String;
+
 /// Call a JIT-compiled function that uses StructReturn.
 ///
 /// # Safety
@@ -73,7 +82,7 @@ unsafe fn call_structreturn_arm64_apple(
     buffer: *mut u8,
     _buffer_size: usize,
 ) -> Result<(), JitCallError> {
-    use std::arch::asm;
+    use core::arch::asm;
     
     // On AppleAarch64, StructReturn uses x8 register
     // We need to use inline assembly to pass the parameter in x8
@@ -113,7 +122,7 @@ unsafe fn call_structreturn_riscv32(
     // RISC-V32 SystemV uses first argument register (a0) for StructReturn
     // This matches Rust's extern "C" calling convention
     unsafe {
-        let func: extern "C" fn(*mut u8) = std::mem::transmute(func_ptr);
+        let func: extern "C" fn(*mut u8) = core::mem::transmute(func_ptr);
         func(buffer);
     }
     Ok(())
@@ -151,7 +160,7 @@ fn validate_call_args(
         types::I64 if cfg!(target_pointer_width = "64") => Ok(()),
         _ => Err(JitCallError::PointerTypeMismatch {
             expected: pointer_type,
-            actual_pointer_width: actual_width.to_string(),
+            actual_pointer_width: String::from(actual_width),
         }),
     }
 }

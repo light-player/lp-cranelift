@@ -1,12 +1,13 @@
 // test compile
 // test run
+// target riscv32
 
 int main() {
     vec3 v = vec3(1.0, 2.0, 3.0);
     return 1;  // Just test construction succeeds
 }
 
-// function u0:0() -> i32 apple_aarch64 {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v0 = f32const 0x1.000000p0
 //     v1 = f32const 0x1.000000p1

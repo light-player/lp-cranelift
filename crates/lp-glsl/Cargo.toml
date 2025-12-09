@@ -16,13 +16,14 @@ cranelift-module = { workspace = true }
 cranelift-native = { workspace = true, optional = true }
 hashbrown = { workspace = true }
 target-lexicon = { workspace = true }
-lp-jit-util = { path = "../lp-jit-util" }
+lp-jit-util = { path = "../lp-jit-util", default-features = false }
 
 [features]
 default = ["std"]
 std = [
     "glsl/std",
     "cranelift-codegen/std",
+    "cranelift-codegen/host-arch",
     "cranelift-frontend/std",
     "cranelift-module/std",
     "cranelift-jit",

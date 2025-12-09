@@ -52,6 +52,27 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
                 (0x1, 0x0) => Ok(Inst::Sll { rd, rs1, rs2 }),
                 (0x5, 0x0) => Ok(Inst::Srl { rd, rs1, rs2 }),
                 (0x5, 0x20) => Ok(Inst::Sra { rd, rs1, rs2 }),
+                // Zbb: Rotate instructions
+                (0x1, 0x30) => Ok(Inst::Rol { rd, rs1, rs2 }),
+                (0x5, 0x30) => Ok(Inst::Ror { rd, rs1, rs2 }),
+                // Zbb: Logical operations
+                (0x7, 0x20) => Ok(Inst::Andn { rd, rs1, rs2 }),
+                (0x6, 0x20) => Ok(Inst::Orn { rd, rs1, rs2 }),
+                (0x4, 0x20) => Ok(Inst::Xnor { rd, rs1, rs2 }),
+                // Zbb: Min/Max instructions
+                (0x4, 0x05) => Ok(Inst::Min { rd, rs1, rs2 }),
+                (0x5, 0x05) => Ok(Inst::Minu { rd, rs1, rs2 }),
+                (0x6, 0x05) => Ok(Inst::Max { rd, rs1, rs2 }),
+                (0x7, 0x05) => Ok(Inst::Maxu { rd, rs1, rs2 }),
+                // Zbs: Bit manipulation instructions
+                (0x1, 0x24) => Ok(Inst::Bclr { rd, rs1, rs2 }),
+                (0x5, 0x24) => Ok(Inst::Bext { rd, rs1, rs2 }),
+                (0x1, 0x34) => Ok(Inst::Binv { rd, rs1, rs2 }),
+                (0x1, 0x14) => Ok(Inst::Bset { rd, rs1, rs2 }),
+                // Zba: Address generation instructions
+                (0x2, 0x10) => Ok(Inst::Sh1add { rd, rs1, rs2 }),
+                (0x4, 0x10) => Ok(Inst::Sh2add { rd, rs1, rs2 }),
+                (0x6, 0x10) => Ok(Inst::Sh3add { rd, rs1, rs2 }),
                 _ => Err(format!(
                     "Unknown R-type instruction: funct3=0x{:x}, funct7=0x{:x}",
                     funct3, funct7
@@ -82,11 +103,20 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
                     rs1,
                     imm: imm_i,
                 }),
-                0x4 => Ok(Inst::Xori {
-                    rd,
-                    rs1,
-                    imm: imm_i,
-                }),
+                0x4 => {
+                    // XORI and ZEXTH
+                    // Check for ZEXTH (funct12=0x080)
+                    let funct12 = ((inst >> 20) & 0xfff) as u16;
+                    if funct12 == 0x080 {
+                        Ok(Inst::Zexth { rd, rs1 })
+                    } else {
+                        Ok(Inst::Xori {
+                            rd,
+                            rs1,
+                            imm: imm_i,
+                        })
+                    }
+                }
                 0x6 => Ok(Inst::Ori {
                     rd,
                     rs1,
@@ -98,22 +128,76 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
                     imm: imm_i,
                 }),
                 0x1 => {
-                    // SLLI
-                    if funct7 == 0 {
-                        Ok(Inst::Slli {
-                            rd,
-                            rs1,
-                            imm: imm_i,
-                        })
-                    } else {
-                        Err(format!(
-                            "Unknown I-type shift instruction: funct3=0x{:x}, funct7=0x{:x}",
-                            funct3, funct7
-                        ))
+                    // SLLI and other funct3=0x1 instructions
+                    // Extract funct6 from bits [31:26] and imm[5:0] from bits [25:20]
+                    let funct6 = ((inst >> 26) & 0x3f) as u8;
+                    let imm_5_0 = ((inst >> 20) & 0x3f) as u8;
+                    
+                    match funct6 {
+                        0x00 => {
+                            // SLLI: funct6=0x00
+                            Ok(Inst::Slli {
+                                rd,
+                                rs1,
+                                imm: imm_i,
+                            })
+                        }
+                        0x12 => {
+                            // BSETI: funct6=0b001010 (0x12)
+                            Ok(Inst::Bseti {
+                                rd,
+                                rs1,
+                                imm: imm_5_0 as i32,
+                            })
+                        }
+                        0x1a => {
+                            // BINVI: funct6=0b011010 (0x1a)
+                            Ok(Inst::Binvi {
+                                rd,
+                                rs1,
+                                imm: imm_5_0 as i32,
+                            })
+                        }
+                        0x09 => {
+                            // BCLRI: funct6=0b010010 (0x09)
+                            Ok(Inst::Bclri {
+                                rd,
+                                rs1,
+                                imm: imm_5_0 as i32,
+                            })
+                        }
+                        0x02 => {
+                            // SLLIUW: funct6=0b000010 (0x02)
+                            Ok(Inst::SlliUw {
+                                rd,
+                                rs1,
+                                imm: imm_5_0 as i32,
+                            })
+                        }
+                        _ => {
+                            // Check for funct12 encodings (CLZ, CTZ, CPOP, SEXTB, SEXTH)
+                            let funct12 = ((inst >> 20) & 0xfff) as u16;
+                            match funct12 {
+                                0x600 => Ok(Inst::Clz { rd, rs1 }),
+                                0x601 => Ok(Inst::Ctz { rd, rs1 }),
+                                0x602 => Ok(Inst::Cpop { rd, rs1 }),
+                                0x604 => Ok(Inst::Sextb { rd, rs1 }),
+                                0x605 => Ok(Inst::Sexth { rd, rs1 }),
+                                _ => Err(format!(
+                                    "Unknown I-type instruction: funct3=0x{:x}, funct6=0x{:x}, funct12=0x{:x}",
+                                    funct3, funct6, funct12
+                                )),
+                            }
+                        }
                     }
                 }
                 0x5 => {
-                    // SRLI/SRAI
+                    // SRLI/SRAI and other funct3=0x5 instructions
+                    // Extract funct6 from bits [31:26] and imm[5:0] from bits [25:20]
+                    let funct6 = ((inst >> 26) & 0x3f) as u8;
+                    let imm_5_0 = ((inst >> 20) & 0x3f) as u8;
+                    
+                    // Check for standard SRLI/SRAI first (funct7 encoding)
                     if funct7 == 0 {
                         Ok(Inst::Srli {
                             rd,
@@ -121,16 +205,53 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
                             imm: imm_i,
                         })
                     } else if funct7 == 0x20 {
+                        // SRAI with funct7 encoding (standard)
                         Ok(Inst::Srai {
                             rd,
                             rs1,
                             imm: imm_i,
                         })
+                    } else if funct6 == 0x10 {
+                        // SRAI with funct6 encoding (Cranelift style)
+                        // funct6=0x10 (0b010000), imm[5:0] contains shift amount
+                        Ok(Inst::Srai {
+                            rd,
+                            rs1,
+                            imm: imm_5_0 as i32,
+                        })
                     } else {
-                        Err(format!(
-                            "Unknown I-type shift instruction: funct3=0x{:x}, funct7=0x{:x}",
-                            funct3, funct7
-                        ))
+                        // Check for other funct6 encoded instructions
+                        match funct6 {
+                            0x18 => {
+                                // RORI: funct6=0b011000 (0x18)
+                                Ok(Inst::Rori {
+                                    rd,
+                                    rs1,
+                                    imm: imm_5_0 as i32,
+                                })
+                            }
+                            0x09 => {
+                                // BEXTI: funct6=0b010010 (0x09)
+                                Ok(Inst::Bexti {
+                                    rd,
+                                    rs1,
+                                    imm: imm_5_0 as i32,
+                                })
+                            }
+                            _ => {
+                                // Check for funct12 encodings (REV8, ORCB, BREV8)
+                                let funct12 = ((inst >> 20) & 0xfff) as u16;
+                                match funct12 {
+                                    0x6b8 => Ok(Inst::Rev8 { rd, rs1 }),
+                                    0x287 => Ok(Inst::Orcb { rd, rs1 }),
+                                    0x687 => Ok(Inst::Brev8 { rd, rs1 }),
+                                    _ => Err(format!(
+                                        "Unknown I-type instruction: funct3=0x{:x}, funct7=0x{:x}, funct6=0x{:x}, funct12=0x{:x}",
+                                        funct3, funct7, funct6, funct12
+                                    )),
+                                }
+                            }
+                        }
                     }
                 }
                 _ => Err(format!(
@@ -194,7 +315,49 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
                     rs2,
                     imm: s.imm,
                 }),
+                0x3 => {
+                    // FSD: Floating-point store double (RV32: treat as SW)
+                    // On RV32, FSD doesn't exist, but treat it as a word store
+                    Ok(Inst::Sw {
+                        rs1,
+                        rs2,
+                        imm: s.imm,
+                    })
+                }
                 _ => Err(format!("Unknown store instruction: funct3=0x{:x}", s.func)),
+            }
+        }
+        0x27 => {
+            // S-type (floating-point store: FSH, FSW, FSD)
+            let s = TypeS::from_riscv(inst);
+            let rs1 = Gpr::new(s.rs1);
+            let rs2 = Gpr::new(s.rs2);
+            match s.func {
+                0x1 => {
+                    // FSH: Floating-point store halfword (treat as SH)
+                    Ok(Inst::Sh {
+                        rs1,
+                        rs2,
+                        imm: s.imm,
+                    })
+                }
+                0x2 => {
+                    // FSW: Floating-point store word (treat as SW)
+                    Ok(Inst::Sw {
+                        rs1,
+                        rs2,
+                        imm: s.imm,
+                    })
+                }
+                0x3 => {
+                    // FSD: Floating-point store double (RV32: treat as SW)
+                    Ok(Inst::Sw {
+                        rs1,
+                        rs2,
+                        imm: s.imm,
+                    })
+                }
+                _ => Err(format!("Unknown floating-point store instruction: funct3=0x{:x}", s.func)),
             }
         }
         0x37 => {

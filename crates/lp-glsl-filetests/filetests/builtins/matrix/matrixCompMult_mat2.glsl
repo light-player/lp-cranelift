@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 mat2 main() {
     mat2 a = mat2(1.0, 2.0, 3.0, 4.0);
@@ -7,8 +8,8 @@ mat2 main() {
     return matrixCompMult(a, b);
 }
 
-// function u0:0(i64 sret) apple_aarch64 {
-// block0(v0: i64):
+// function u0:0(i32 sret) system_v {
+// block0(v0: i32):
 //     v1 = f32const 0x1.000000p0
 //     v2 = f32const 0x1.000000p1
 //     v3 = f32const 0x1.800000p1

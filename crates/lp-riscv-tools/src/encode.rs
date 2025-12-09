@@ -332,6 +332,163 @@ fn encode_i_with_imm_hi(opcode: u8, rd: Gpr, rs1: Gpr, imm_lo: i32, imm_hi: u8, 
     opcode | (rd << 7) | (funct3 << 12) | (rs1 << 15) | (imm_lo << 20) | (imm_hi << 25)
 }
 
+/// Encode an I-type instruction with funct6 encoding (for Zbs/Zbb instructions)
+/// funct6 is in bits [31:26], imm[5:0] is in bits [25:20]
+fn encode_i_with_funct6(opcode: u8, rd: Gpr, rs1: Gpr, imm: i32, funct6: u8, funct3: u8) -> u32 {
+    let opcode = opcode as u32;
+    let rd = rd.num() as u32;
+    let funct3 = funct3 as u32;
+    let rs1 = rs1.num() as u32;
+    let imm_5_0 = (imm as u32) & 0x3f; // bits [5:0]
+    let funct6_u32 = funct6 as u32;
+
+    opcode | (rd << 7) | (funct3 << 12) | (rs1 << 15) | (imm_5_0 << 20) | (funct6_u32 << 26)
+}
+
+/// Encode an I-type instruction with funct12 encoding (for CLZ, CTZ, etc.)
+fn encode_i_with_funct12(opcode: u8, rd: Gpr, rs1: Gpr, funct12: u16, funct3: u8) -> u32 {
+    let opcode = opcode as u32;
+    let rd = rd.num() as u32;
+    let funct3 = funct3 as u32;
+    let rs1 = rs1.num() as u32;
+    let funct12_u32 = funct12 as u32;
+
+    opcode | (rd << 7) | (funct3 << 12) | (rs1 << 15) | (funct12_u32 << 20)
+}
+
+// Zbs: Single-bit instructions (immediate)
+pub fn bclri(rd: Gpr, rs1: Gpr, imm: i32) -> u32 {
+    encode_i_with_funct6(0x13, rd, rs1, imm, 0b010010, 0x1)
+}
+
+pub fn bseti(rd: Gpr, rs1: Gpr, imm: i32) -> u32 {
+    encode_i_with_funct6(0x13, rd, rs1, imm, 0b001010, 0x1)
+}
+
+pub fn binvi(rd: Gpr, rs1: Gpr, imm: i32) -> u32 {
+    encode_i_with_funct6(0x13, rd, rs1, imm, 0b011010, 0x1)
+}
+
+pub fn bexti(rd: Gpr, rs1: Gpr, imm: i32) -> u32 {
+    encode_i_with_funct6(0x13, rd, rs1, imm, 0b010010, 0x5)
+}
+
+// Zbs: Single-bit instructions (register)
+pub fn bclr(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x1, 0x24)
+}
+
+pub fn bset(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x1, 0x14)
+}
+
+pub fn binv(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x1, 0x34)
+}
+
+pub fn bext(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x5, 0x24)
+}
+
+// Zbb: Count operations
+pub fn clz(rd: Gpr, rs1: Gpr) -> u32 {
+    encode_i_with_funct12(0x13, rd, rs1, 0x600, 0x1)
+}
+
+pub fn ctz(rd: Gpr, rs1: Gpr) -> u32 {
+    encode_i_with_funct12(0x13, rd, rs1, 0x601, 0x1)
+}
+
+pub fn cpop(rd: Gpr, rs1: Gpr) -> u32 {
+    encode_i_with_funct12(0x13, rd, rs1, 0x602, 0x1)
+}
+
+// Zbb: Sign/zero extend
+pub fn sextb(rd: Gpr, rs1: Gpr) -> u32 {
+    encode_i_with_funct12(0x13, rd, rs1, 0x604, 0x1)
+}
+
+pub fn sexth(rd: Gpr, rs1: Gpr) -> u32 {
+    encode_i_with_funct12(0x13, rd, rs1, 0x605, 0x1)
+}
+
+pub fn zexth(rd: Gpr, rs1: Gpr) -> u32 {
+    encode_i_with_funct12(0x13, rd, rs1, 0x080, 0x4)
+}
+
+// Zbb: Rotate instructions
+pub fn rori(rd: Gpr, rs1: Gpr, imm: i32) -> u32 {
+    encode_i_with_funct6(0x13, rd, rs1, imm, 0b011000, 0x5)
+}
+
+pub fn rol(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x1, 0x30)
+}
+
+pub fn ror(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x5, 0x30)
+}
+
+// Zbb: Byte reverse
+pub fn rev8(rd: Gpr, rs1: Gpr) -> u32 {
+    encode_i_with_funct12(0x13, rd, rs1, 0x6b8, 0x5)
+}
+
+pub fn brev8(rd: Gpr, rs1: Gpr) -> u32 {
+    encode_i_with_funct12(0x13, rd, rs1, 0x687, 0x5)
+}
+
+pub fn orcb(rd: Gpr, rs1: Gpr) -> u32 {
+    encode_i_with_funct12(0x13, rd, rs1, 0x287, 0x5)
+}
+
+// Zbb: Min/Max
+pub fn min(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x4, 0x05)
+}
+
+pub fn minu(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x5, 0x05)
+}
+
+pub fn max(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x6, 0x05)
+}
+
+pub fn maxu(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x7, 0x05)
+}
+
+// Zbb: Logical operations
+pub fn andn(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x7, 0x20)
+}
+
+pub fn orn(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x6, 0x20)
+}
+
+pub fn xnor(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x4, 0x20)
+}
+
+// Zba: Address generation
+pub fn sh1add(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x2, 0x10)
+}
+
+pub fn sh2add(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x4, 0x10)
+}
+
+pub fn sh3add(rd: Gpr, rs1: Gpr, rs2: Gpr) -> u32 {
+    encode_r(0x33, rd, rs1, rs2, 0x6, 0x10)
+}
+
+pub fn slli_uw(rd: Gpr, rs1: Gpr, imm: i32) -> u32 {
+    encode_i_with_funct6(0x13, rd, rs1, imm, 0b000010, 0x1)
+}
+
 // Immediate generation
 
 /// LUI: rd = imm

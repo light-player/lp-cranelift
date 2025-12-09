@@ -1,12 +1,13 @@
 // test compile
 
+// target riscv32
 float main() {
     vec3 v = vec3(1.0, 2.0, 3.0);
     v.y = 5.0;  // v = (1.0, 5.0, 3.0)
     return v.y;  // 5.0
 }
 
-// function u0:0() -> f32 apple_aarch64 {
+// function u0:0() -> f32 system_v {
 // block0:
 //     v0 = f32const 0x1.000000p0
 //     v1 = f32const 0x1.000000p1

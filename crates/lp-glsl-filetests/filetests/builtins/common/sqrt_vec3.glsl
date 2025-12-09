@@ -1,12 +1,13 @@
 // test compile
 // test run
+// target riscv32
 
 vec3 main() {
     return sqrt(vec3(4.0, 9.0, 16.0));  // Should return (2.0, 3.0, 4.0)
 }
 
-// function u0:0(i64 sret) apple_aarch64 {
-// block0(v0: i64):
+// function u0:0(i32 sret) system_v {
+// block0(v0: i32):
 //     v1 = f32const 0x1.000000p2
 //     v2 = f32const 0x1.200000p3
 //     v3 = f32const 0x1.000000p4

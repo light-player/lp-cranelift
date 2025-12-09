@@ -27,6 +27,55 @@ impl TestTarget {
     }
 }
 
+/// Build an ISA for the given test target
+pub fn build_isa_for_target(target: TestTarget) -> Result<cranelift_codegen::isa::OwnedTargetIsa> {
+    use cranelift_codegen::settings;
+    use cranelift_codegen::settings::Configurable;
+    use cranelift_codegen::isa::lookup;
+    use target_lexicon::Triple;
+
+    let mut flag_builder = settings::builder();
+    flag_builder.set("is_pic", "false").expect("set is_pic");
+    flag_builder
+        .set("use_colocated_libcalls", "false")
+        .expect("set use_colocated_libcalls");
+    flag_builder
+        .set("enable_multi_ret_implicit_sret", "true")
+        .expect("set enable_multi_ret_implicit_sret");
+    let flags = settings::Flags::new(flag_builder);
+
+    match target {
+        TestTarget::Host(_) => {
+            let isa_builder = cranelift_native::builder().map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to build native ISA: {}. This is a configuration error, not a runtime error.",
+                    e
+                )
+            })?;
+            Ok(isa_builder.finish(flags).map_err(|e| {
+                anyhow::anyhow!("Failed to finish native ISA builder: {}", e)
+            })?)
+        }
+        TestTarget::Riscv32(_) => {
+            let triple = Triple {
+                architecture: target_lexicon::Architecture::Riscv32(
+                    target_lexicon::Riscv32Architecture::Riscv32imac,
+                ),
+                vendor: target_lexicon::Vendor::Unknown,
+                operating_system: target_lexicon::OperatingSystem::None_,
+                environment: target_lexicon::Environment::Unknown,
+                binary_format: target_lexicon::BinaryFormat::Elf,
+            };
+            let isa_builder = lookup(triple).map_err(|e| {
+                anyhow::anyhow!("Failed to lookup riscv32 ISA: {:?}", e)
+            })?;
+            Ok(isa_builder.finish(flags).map_err(|e| {
+                anyhow::anyhow!("Failed to finish riscv32 ISA builder: {}", e)
+            })?)
+        }
+    }
+}
+
 pub fn run_filetest(path: &Path) -> Result<()> {
     let source =
         fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))?;
@@ -87,7 +136,7 @@ pub fn run_filetest(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn parse_target_directives(source: &str) -> Result<Vec<TestTarget>> {
+pub fn parse_target_directives(source: &str) -> Result<Vec<TestTarget>> {
     let mut targets = Vec::new();
 
     for line in source.lines() {

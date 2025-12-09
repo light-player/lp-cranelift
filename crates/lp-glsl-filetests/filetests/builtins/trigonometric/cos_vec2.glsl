@@ -1,16 +1,17 @@
 // test compile
 // test run
+// target riscv32
 
 vec2 main() {
     vec2 angles = vec2(0.0, 3.141592654); // 0, π
     return cos(angles);
 }
 
-// function u0:0(i64 sret) apple_aarch64 {
+// function u0:0(i32 sret) system_v {
 //     sig0 = (f32) -> f32 system_v
 //     fn0 = u0:0 sig0
 //
-// block0(v0: i64):
+// block0(v0: i32):
 //     v1 = f32const 0.0
 //     v2 = f32const 0x1.921fb6p1
 //     v3 = call fn0(v1)  ; v1 = 0.0

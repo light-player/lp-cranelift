@@ -1,5 +1,7 @@
 // test compile
 // test run
+// target riscv32.fixed32
+// target riscv32.fixed64
 
 float main() {
     float deg = 180.0;
@@ -7,17 +9,27 @@ float main() {
     return degrees(rad);
 }
 
-// function u0:0() -> f32 apple_aarch64 {
+// function u0:0() -> i32 system_v {
 // block0:
-//     v0 = f32const 0x1.680000p7
-//     v1 = f32const 0x1.1df46ap-6
-//     v2 = fmul v0, v1  ; v0 = 0x1.680000p7, v1 = 0x1.1df46ap-6
-//     v3 = f32const 0x1.ca5dc2p5
-//     v4 = fmul v2, v3  ; v3 = 0x1.ca5dc2p5
-//     return v4
+//     v6 = iconst.i32 0x00b4_0000
+//     v7 = iconst.i32 1144
+//     v8 = sextend.i64 v6  ; v6 = 0x00b4_0000
+//     v9 = sextend.i64 v7  ; v7 = 1144
+//     v10 = imul v8, v9
+//     v11 = iconst.i64 16
+//     v12 = sshr v10, v11  ; v11 = 16
+//     v13 = ireduce.i32 v12
+//     v14 = iconst.i32 0x0039_4bb8
+//     v15 = sextend.i64 v13
+//     v16 = sextend.i64 v14  ; v14 = 0x0039_4bb8
+//     v17 = imul v15, v16
+//     v18 = iconst.i64 16
+//     v19 = sshr v17, v18  ; v18 = 16
+//     v20 = ireduce.i32 v19
+//     return v20
 //
 // block1:
-//     v5 = f32const 0.0
-//     return v5  ; v5 = 0.0
+//     v21 = iconst.i32 0
+//     return v21  ; v21 = 0
 // }
-// run: ~= 180 (tolerance: 0.1)
+// run: ~= 180 

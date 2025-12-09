@@ -1,5 +1,7 @@
 // test compile
 // test run
+// target riscv32.fixed32
+// target riscv32.fixed64
 
 float main() {
     // atan(1.0, 0.0) should be π/2 (90 degrees)
@@ -20,4 +22,4 @@ float main() {
 //     v3 = f32const 0.0
 //     return v3  ; v3 = 0.0
 // }
-// run: ~= 0 (tolerance: 0.001)
+// run: ~= 0

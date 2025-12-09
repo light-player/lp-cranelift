@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 int main() {
     int x = 10;

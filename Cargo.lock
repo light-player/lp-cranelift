@@ -2405,7 +2405,7 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 [[package]]
 name = "glsl"
 version = "7.0.0"
-source = "git+https://github.com/Yona-Appletree/glsl-parser.git?branch=feature%2Fspans#8dbbc91ca16448a18b65812560d294170a330d00"
+source = "git+https://github.com/Yona-Appletree/glsl-parser.git?branch=feature%2Fspans#1a499c8b7da54339af43cb4ca745963ac6c045da"
 dependencies = [
  "nom",
  "nom_locate",
@@ -3276,6 +3276,7 @@ dependencies = [
  "lp-glsl",
  "lp-jit-util",
  "lp-riscv-tools",
+ "regex",
  "target-lexicon",
 ]
 

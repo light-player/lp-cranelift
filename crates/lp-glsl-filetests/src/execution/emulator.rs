@@ -22,7 +22,7 @@ impl EmulatorBackend {
         Self { emulator_type }
     }
 
-    fn extract_result(
+    fn extract_result_float(
         &self,
         emu: &Riscv32Emulator,
         return_type: ReturnType,
@@ -42,11 +42,34 @@ impl EmulatorBackend {
                 }
             }
             ReturnType::Float => {
-                // F32 is stored as i32 bits, read and convert
-                let bits = memory
-                    .read_word(RESULT_ADDR)
-                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
-                Ok(f32::from_bits(bits as u32))
+                match fixed_point_format {
+                    Some(FixedPointFormat::Fixed16x16) => {
+                        // Result is stored as i32 fixed-point, read and convert
+                        let value = memory
+                            .read_word(RESULT_ADDR)
+                            .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                        Ok(value as f32 / 65536.0)
+                    }
+                    Some(FixedPointFormat::Fixed32x32) => {
+                        // Result is stored as i64 fixed-point (two words), read and convert
+                        let low = memory
+                            .read_word(RESULT_ADDR)
+                            .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                        let high = memory
+                            .read_word(RESULT_ADDR + 4)
+                            .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                        let value = ((high as u32 as u64) << 32) | (low as u32 as u64);
+                        let i64_value = value as i64;
+                        Ok((i64_value as f64 / 4294967296.0) as f32)
+                    }
+                    None => {
+                        // F32 is stored as i32 bits, read and convert
+                        let bits = memory
+                            .read_word(RESULT_ADDR)
+                            .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                        Ok(f32::from_bits(bits as u32))
+                    }
+                }
             }
             ReturnType::I64 => {
                 // Read two words (low and high)
@@ -66,7 +89,37 @@ impl EmulatorBackend {
                     _ => anyhow::bail!("Unsupported fixed-point format for i64 return"),
                 }
             }
-            _ => anyhow::bail!("Unsupported return type for emulator: {:?}", return_type),
+            _ => anyhow::bail!("Unsupported return type for extract_result_float: {:?}", return_type),
+        }
+    }
+
+    fn run_emulator(&self, binary: &[u8]) -> Result<Riscv32Emulator> {
+        match self.emulator_type {
+            EmulatorType::Riscv32 => {
+                let ram_size = 64 * 1024; // 64KB RAM
+                let mut emu = Riscv32Emulator::new(binary.to_vec(), vec![0; ram_size])
+                    .with_max_instructions(10_000_000);
+
+                // Set stack pointer
+                emu.set_register(lp_riscv_tools::Gpr::Sp, STACK_BASE as i32);
+
+                // Set PC to entry point (0, or _start address)
+                emu.set_pc(0);
+
+                // Run until EBREAK
+                loop {
+                    match emu.step() {
+                        Ok(lp_riscv_tools::StepResult::Halted) => break,
+                        Ok(lp_riscv_tools::StepResult::Continue) => continue,
+                        Ok(lp_riscv_tools::StepResult::Syscall(_)) => {
+                            anyhow::bail!("Unexpected syscall during execution");
+                        }
+                        Err(e) => anyhow::bail!("Emulator error: {:?}", e),
+                    }
+                }
+
+                Ok(emu)
+            }
         }
     }
 }
@@ -82,37 +135,8 @@ impl ExecutionBackend for EmulatorBackend {
                 binary,
                 return_type,
             } => {
-                match self.emulator_type {
-                    EmulatorType::Riscv32 => {
-                        // Create emulator with binary as code
-                        let ram_size = 64 * 1024; // 64KB RAM
-                        let mut emu = Riscv32Emulator::new(binary.clone(), vec![0; ram_size])
-                            .with_max_instructions(10_000_000);
-
-                        // Set stack pointer
-                        emu.set_register(lp_riscv_tools::Gpr::Sp, STACK_BASE as i32);
-
-                        // Set PC to entry point (0, or _start address)
-                        emu.set_pc(0);
-
-                        // Run until EBREAK
-                        loop {
-                            match emu.step() {
-                                Ok(lp_riscv_tools::StepResult::Halted) => break,
-                                Ok(lp_riscv_tools::StepResult::Continue) => continue,
-                                Ok(lp_riscv_tools::StepResult::Syscall(_)) => {
-                                    anyhow::bail!("Unexpected syscall during execution");
-                                }
-                                Err(e) => anyhow::bail!("Emulator error: {:?}", e),
-                            }
-                        }
-
-                        // Extract result from memory
-                        // TODO: Add read_memory method to Riscv32Emulator
-                        // For now, use workaround
-                        self.extract_result(&emu, *return_type, fixed_point_format)
-                    }
-                }
+                let emu = self.run_emulator(binary)?;
+                self.extract_result_float(&emu, *return_type, fixed_point_format)
             }
             _ => anyhow::bail!("EmulatorBackend requires EmulatorBinary compiled code"),
         }
@@ -120,72 +144,184 @@ impl ExecutionBackend for EmulatorBackend {
 
     fn execute_int(
         &self,
-        _code: &CompiledCode,
+        code: &CompiledCode,
         _fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<i32> {
-        // Similar to execute_float but extract i32
-        anyhow::bail!("execute_int not yet implemented for emulator");
+        match code {
+            CompiledCode::EmulatorBinary { binary, .. } => {
+                let emu = self.run_emulator(binary)?;
+                let memory = emu.memory();
+                let value = memory
+                    .read_word(RESULT_ADDR)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                Ok(value as i32)
+            }
+            _ => anyhow::bail!("EmulatorBackend requires EmulatorBinary compiled code"),
+        }
     }
 
     fn execute_i64(
         &self,
-        _code: &CompiledCode,
+        code: &CompiledCode,
         _fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<i64> {
-        anyhow::bail!("execute_i64 not yet implemented for emulator");
+        match code {
+            CompiledCode::EmulatorBinary { binary, .. } => {
+                let emu = self.run_emulator(binary)?;
+                let memory = emu.memory();
+                let low = memory
+                    .read_word(RESULT_ADDR)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                let high = memory
+                    .read_word(RESULT_ADDR + 4)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                let value = ((high as u32 as u64) << 32) | (low as u32 as u64);
+                Ok(value as i64)
+            }
+            _ => anyhow::bail!("EmulatorBackend requires EmulatorBinary compiled code"),
+        }
     }
 
     fn execute_bool(
         &self,
-        _code: &CompiledCode,
+        code: &CompiledCode,
         _fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<i8> {
-        anyhow::bail!("execute_bool not yet implemented for emulator");
+        match code {
+            CompiledCode::EmulatorBinary { binary, .. } => {
+                let emu = self.run_emulator(binary)?;
+                let memory = emu.memory();
+                let value = memory
+                    .read_word(RESULT_ADDR)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                Ok((value & 0xFF) as i8)
+            }
+            _ => anyhow::bail!("EmulatorBackend requires EmulatorBinary compiled code"),
+        }
     }
 
     fn execute_vec2(
         &self,
-        _code: &CompiledCode,
+        code: &CompiledCode,
         _fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<(f32, f32)> {
-        anyhow::bail!("execute_vec2 not yet implemented for emulator");
+        match code {
+            CompiledCode::EmulatorBinary { binary, .. } => {
+                let emu = self.run_emulator(binary)?;
+                let memory = emu.memory();
+                // Read 2 f32 values from RESULT_ADDR
+                let bits0 = memory
+                    .read_word(RESULT_ADDR)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                let bits1 = memory
+                    .read_word(RESULT_ADDR + 4)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                Ok((f32::from_bits(bits0 as u32), f32::from_bits(bits1 as u32)))
+            }
+            _ => anyhow::bail!("EmulatorBackend requires EmulatorBinary compiled code"),
+        }
     }
 
     fn execute_vec3(
         &self,
-        _code: &CompiledCode,
+        code: &CompiledCode,
         _fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<(f32, f32, f32)> {
-        anyhow::bail!("execute_vec3 not yet implemented for emulator");
+        match code {
+            CompiledCode::EmulatorBinary { binary, .. } => {
+                let emu = self.run_emulator(binary)?;
+                let memory = emu.memory();
+                // Read 3 f32 values from RESULT_ADDR
+                let bits0 = memory
+                    .read_word(RESULT_ADDR)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                let bits1 = memory
+                    .read_word(RESULT_ADDR + 4)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                let bits2 = memory
+                    .read_word(RESULT_ADDR + 8)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                Ok((
+                    f32::from_bits(bits0 as u32),
+                    f32::from_bits(bits1 as u32),
+                    f32::from_bits(bits2 as u32),
+                ))
+            }
+            _ => anyhow::bail!("EmulatorBackend requires EmulatorBinary compiled code"),
+        }
     }
 
     fn execute_vec4(
         &self,
-        _code: &CompiledCode,
+        code: &CompiledCode,
         _fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<(f32, f32, f32, f32)> {
-        anyhow::bail!("execute_vec4 not yet implemented for emulator");
+        match code {
+            CompiledCode::EmulatorBinary { binary, .. } => {
+                let emu = self.run_emulator(binary)?;
+                let memory = emu.memory();
+                // Read 4 f32 values from RESULT_ADDR
+                let bits0 = memory
+                    .read_word(RESULT_ADDR)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                let bits1 = memory
+                    .read_word(RESULT_ADDR + 4)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                let bits2 = memory
+                    .read_word(RESULT_ADDR + 8)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                let bits3 = memory
+                    .read_word(RESULT_ADDR + 12)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                Ok((
+                    f32::from_bits(bits0 as u32),
+                    f32::from_bits(bits1 as u32),
+                    f32::from_bits(bits2 as u32),
+                    f32::from_bits(bits3 as u32),
+                ))
+            }
+            _ => anyhow::bail!("EmulatorBackend requires EmulatorBinary compiled code"),
+        }
     }
 
     fn execute_mat2(
         &self,
-        _code: &CompiledCode,
+        code: &CompiledCode,
         _fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<(f32, f32, f32, f32)> {
-        anyhow::bail!("execute_mat2 not yet implemented for emulator");
+        // Mat2 is 4 f32 values, same as vec4
+        self.execute_vec4(code, _fixed_point_format)
     }
 
     fn execute_mat3(
         &self,
-        _code: &CompiledCode,
+        code: &CompiledCode,
         _fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<(f32, f32, f32, f32, f32, f32, f32, f32, f32)> {
-        anyhow::bail!("execute_mat3 not yet implemented for emulator");
+        match code {
+            CompiledCode::EmulatorBinary { binary, .. } => {
+                let emu = self.run_emulator(binary)?;
+                let memory = emu.memory();
+                // Read 9 f32 values from RESULT_ADDR
+                let mut values = Vec::new();
+                for i in 0..9 {
+                    let bits = memory
+                        .read_word(RESULT_ADDR + (i * 4) as u32)
+                        .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                    values.push(f32::from_bits(bits as u32));
+                }
+                Ok((
+                    values[0], values[1], values[2], values[3], values[4],
+                    values[5], values[6], values[7], values[8],
+                ))
+            }
+            _ => anyhow::bail!("EmulatorBackend requires EmulatorBinary compiled code"),
+        }
     }
 
     fn execute_mat4(
         &self,
-        _code: &CompiledCode,
+        code: &CompiledCode,
         _fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<(
         f32,
@@ -205,6 +341,26 @@ impl ExecutionBackend for EmulatorBackend {
         f32,
         f32,
     )> {
-        anyhow::bail!("execute_mat4 not yet implemented for emulator");
+        match code {
+            CompiledCode::EmulatorBinary { binary, .. } => {
+                let emu = self.run_emulator(binary)?;
+                let memory = emu.memory();
+                // Read 16 f32 values from RESULT_ADDR
+                let mut values = Vec::new();
+                for i in 0..16 {
+                    let bits = memory
+                        .read_word(RESULT_ADDR + (i * 4) as u32)
+                        .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                    values.push(f32::from_bits(bits as u32));
+                }
+                Ok((
+                    values[0], values[1], values[2], values[3],
+                    values[4], values[5], values[6], values[7],
+                    values[8], values[9], values[10], values[11],
+                    values[12], values[13], values[14], values[15],
+                ))
+            }
+            _ => anyhow::bail!("EmulatorBackend requires EmulatorBinary compiled code"),
+        }
     }
 }

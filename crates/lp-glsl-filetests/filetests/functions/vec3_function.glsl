@@ -1,5 +1,6 @@
 // test compile
 // test run
+// target riscv32
 
 vec3 scale(vec3 v, float s) {
     return v * s;

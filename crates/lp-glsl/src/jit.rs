@@ -67,13 +67,26 @@ impl JIT {
             .set("enable_multi_ret_implicit_sret", "true")
             .expect("set enable_multi_ret_implicit_sret");
 
-        let isa_builder = cranelift_native::builder().unwrap_or_else(|msg| {
-            panic!("JIT initialization failed: host machine architecture is not supported. Error: {}. This is a configuration error, not a runtime error.", msg);
-        });
+        let flags = settings::Flags::new(flag_builder);
 
-        let isa = isa_builder
-            .finish(settings::Flags::new(flag_builder))
+        // Use host ISA - this should always be available when running on the host
+        let isa = cranelift_native::builder()
+            .map_err(|e| {
+                panic!(
+                    "Failed to create host ISA (this should never happen): {:?}",
+                    e
+                );
+            })
+            .unwrap()
+            .finish(flags)
             .unwrap();
+        Self::new_with_isa(isa)
+    }
+
+    /// Create a new JIT instance with a specific ISA
+    /// This allows targeting architectures other than the host
+    /// The ISA should be created with appropriate flags (is_pic=false, use_colocated_libcalls=false, enable_multi_ret_implicit_sret=true)
+    pub fn new_with_isa(isa: cranelift_codegen::isa::OwnedTargetIsa) -> Self {
         let builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
         let module = JITModule::new(builder);
 

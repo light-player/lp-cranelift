@@ -5,6 +5,7 @@ use anyhow::Result;
 use std::path::Path;
 
 use crate::filetest::TestTarget;
+use crate::execution::backend::ReturnType;
 
 /// Get tolerance default based on target
 fn get_tolerance_default(target: &TestTarget) -> f32 {
@@ -72,12 +73,21 @@ pub fn run_test(
         for directive in &run_directives {
             match directive.expected_type {
                 ExpectedType::Int(expected) => {
-                    let mut compiler = lp_glsl::Compiler::new();
-                    // Note: Int tests don't use fixed-point format
-                    let func = compiler
-                        .compile_int(glsl_source)
-                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                    let result = func();
+                    let result = if target.is_riscv32() {
+                        use crate::execution::ExecutionBackend;
+                        execute_riscv32(
+                            glsl_source,
+                            None, // Int tests don't use fixed-point format
+                            ReturnType::Int,
+                            |backend, code, _| backend.execute_int(code, None),
+                        )?
+                    } else {
+                        let mut compiler = lp_glsl::Compiler::new();
+                        let func = compiler
+                            .compile_int(glsl_source)
+                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        func()
+                    };
 
                     if result != expected {
                         // If BLESS mode is enabled, update the test file
@@ -99,12 +109,22 @@ pub fn run_test(
                 }
                 ExpectedType::Bool(expected) => {
                     let fixed_point_format = target.fixed_point_format();
-                    let mut compiler = lp_glsl::Compiler::new();
-                    compiler.set_fixed_point_format(fixed_point_format);
-                    let func = compiler
-                        .compile_bool(glsl_source)
-                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                    let result = func();
+                    let result = if target.is_riscv32() {
+                        use crate::execution::ExecutionBackend;
+                        execute_riscv32(
+                            glsl_source,
+                            fixed_point_format,
+                            ReturnType::Bool,
+                            |backend, code, fmt| backend.execute_bool(code, fmt),
+                        )?
+                    } else {
+                        let mut compiler = lp_glsl::Compiler::new();
+                        compiler.set_fixed_point_format(fixed_point_format);
+                        let func = compiler
+                            .compile_bool(glsl_source)
+                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        func()
+                    };
                     let expected_val = if expected { 1 } else { 0 };
 
                     if result != expected_val {
@@ -184,12 +204,22 @@ pub fn run_test(
                 ExpectedType::Vec2Approx { expected } => {
                     let tolerance = get_tolerance_default(target);
                     let fixed_point_format = target.fixed_point_format();
-                    let mut compiler = lp_glsl::Compiler::new();
-                    compiler.set_fixed_point_format(fixed_point_format);
-                    let func = compiler
-                        .compile_vec2(glsl_source)
-                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                    let result = func();
+                    let result = if target.is_riscv32() {
+                        use crate::execution::ExecutionBackend;
+                        execute_riscv32(
+                            glsl_source,
+                            fixed_point_format,
+                            ReturnType::Vec2,
+                            |backend, code, fmt| backend.execute_vec2(code, fmt),
+                        )?
+                    } else {
+                        let mut compiler = lp_glsl::Compiler::new();
+                        compiler.set_fixed_point_format(fixed_point_format);
+                        let func = compiler
+                            .compile_vec2(glsl_source)
+                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        func()
+                    };
 
                     let result_vec = [result.0, result.1];
                     compare_approx_array(
@@ -210,12 +240,22 @@ pub fn run_test(
                 ExpectedType::Vec3Approx { expected } => {
                     let tolerance = get_tolerance_default(target);
                     let fixed_point_format = target.fixed_point_format();
-                    let mut compiler = lp_glsl::Compiler::new();
-                    compiler.set_fixed_point_format(fixed_point_format);
-                    let func = compiler
-                        .compile_vec3(glsl_source)
-                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                    let result = func();
+                    let result = if target.is_riscv32() {
+                        use crate::execution::ExecutionBackend;
+                        execute_riscv32(
+                            glsl_source,
+                            fixed_point_format,
+                            ReturnType::Vec3,
+                            |backend, code, fmt| backend.execute_vec3(code, fmt),
+                        )?
+                    } else {
+                        let mut compiler = lp_glsl::Compiler::new();
+                        compiler.set_fixed_point_format(fixed_point_format);
+                        let func = compiler
+                            .compile_vec3(glsl_source)
+                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        func()
+                    };
 
                     let result_vec = [result.0, result.1, result.2];
                     compare_approx_array(
@@ -245,12 +285,22 @@ pub fn run_test(
                 ExpectedType::Vec4Approx { expected } => {
                     let tolerance = get_tolerance_default(target);
                     let fixed_point_format = target.fixed_point_format();
-                    let mut compiler = lp_glsl::Compiler::new();
-                    compiler.set_fixed_point_format(fixed_point_format);
-                    let func = compiler
-                        .compile_vec4(glsl_source)
-                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                    let result = func();
+                    let result = if target.is_riscv32() {
+                        use crate::execution::ExecutionBackend;
+                        execute_riscv32(
+                            glsl_source,
+                            fixed_point_format,
+                            ReturnType::Vec4,
+                            |backend, code, fmt| backend.execute_vec4(code, fmt),
+                        )?
+                    } else {
+                        let mut compiler = lp_glsl::Compiler::new();
+                        compiler.set_fixed_point_format(fixed_point_format);
+                        let func = compiler
+                            .compile_vec4(glsl_source)
+                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        func()
+                    };
 
                     let result_vec = [result.0, result.1, result.2, result.3];
                     compare_approx_array(
@@ -285,12 +335,22 @@ pub fn run_test(
                 ExpectedType::Mat2Approx { expected } => {
                     let tolerance = get_tolerance_default(target);
                     let fixed_point_format = target.fixed_point_format();
-                    let mut compiler = lp_glsl::Compiler::new();
-                    compiler.set_fixed_point_format(fixed_point_format);
-                    let func = compiler
-                        .compile_mat2(glsl_source)
-                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                    let result = func();
+                    let result = if target.is_riscv32() {
+                        use crate::execution::ExecutionBackend;
+                        execute_riscv32(
+                            glsl_source,
+                            fixed_point_format,
+                            ReturnType::Mat2,
+                            |backend, code, fmt| backend.execute_mat2(code, fmt),
+                        )?
+                    } else {
+                        let mut compiler = lp_glsl::Compiler::new();
+                        compiler.set_fixed_point_format(fixed_point_format);
+                        let func = compiler
+                            .compile_mat2(glsl_source)
+                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        func()
+                    };
 
                     let result_mat = [result.0, result.1, result.2, result.3];
                     compare_approx_array(
@@ -325,12 +385,22 @@ pub fn run_test(
                 ExpectedType::Mat3Approx { expected } => {
                     let tolerance = get_tolerance_default(target);
                     let fixed_point_format = target.fixed_point_format();
-                    let mut compiler = lp_glsl::Compiler::new();
-                    compiler.set_fixed_point_format(fixed_point_format);
-                    let func = compiler
-                        .compile_mat3(glsl_source)
-                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                    let result = func();
+                    let result = if target.is_riscv32() {
+                        use crate::execution::ExecutionBackend;
+                        execute_riscv32(
+                            glsl_source,
+                            fixed_point_format,
+                            ReturnType::Mat3,
+                            |backend, code, fmt| backend.execute_mat3(code, fmt),
+                        )?
+                    } else {
+                        let mut compiler = lp_glsl::Compiler::new();
+                        compiler.set_fixed_point_format(fixed_point_format);
+                        let func = compiler
+                            .compile_mat3(glsl_source)
+                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        func()
+                    };
 
                     let result_mat = [
                         result.0, result.1, result.2, result.3, result.4, result.5, result.6,
@@ -386,12 +456,22 @@ pub fn run_test(
                 ExpectedType::Mat4Approx { expected } => {
                     let tolerance = get_tolerance_default(target);
                     let fixed_point_format = target.fixed_point_format();
-                    let mut compiler = lp_glsl::Compiler::new();
-                    compiler.set_fixed_point_format(fixed_point_format);
-                    let func = compiler
-                        .compile_mat4(glsl_source)
-                        .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
-                    let result = func();
+                    let result = if target.is_riscv32() {
+                        use crate::execution::ExecutionBackend;
+                        execute_riscv32(
+                            glsl_source,
+                            fixed_point_format,
+                            ReturnType::Mat4,
+                            |backend, code, fmt| backend.execute_mat4(code, fmt),
+                        )?
+                    } else {
+                        let mut compiler = lp_glsl::Compiler::new();
+                        compiler.set_fixed_point_format(fixed_point_format);
+                        let func = compiler
+                            .compile_mat4(glsl_source)
+                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        func()
+                    };
 
                     let result_mat = [
                         result.0, result.1, result.2, result.3, result.4, result.5, result.6,
@@ -662,27 +742,42 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
     Ok(directives)
 }
 
+/// Execute GLSL code in riscv32 emulator for a given return type
+fn execute_riscv32<T>(
+    glsl_source: &str,
+    fixed_point_format: Option<lp_glsl::FixedPointFormat>,
+    return_type: ReturnType,
+    execute_fn: impl FnOnce(&crate::execution::EmulatorBackend, &crate::execution::backend::CompiledCode, Option<lp_glsl::FixedPointFormat>) -> Result<T>,
+) -> Result<T> {
+    use crate::execution::binary::compile_to_binary;
+    use crate::execution::{
+        CompiledCode, EmulatorBackend, EmulatorType,
+    };
+
+    // Compile GLSL to binary (bootstrap + test function)
+    let binary = compile_to_binary(glsl_source, fixed_point_format, return_type)?;
+
+    // Create compiled code
+    let compiled_code = CompiledCode::EmulatorBinary {
+        binary,
+        return_type,
+    };
+
+    // Execute using emulator backend
+    let backend = EmulatorBackend::new(EmulatorType::Riscv32);
+    execute_fn(&backend, &compiled_code, fixed_point_format)
+}
+
 /// Execute GLSL code in riscv32 emulator and return float result
 fn execute_riscv32_float(
     glsl_source: &str,
     fixed_point_format: Option<lp_glsl::FixedPointFormat>,
 ) -> Result<f32> {
-    use crate::execution::binary::compile_to_binary;
-    use crate::execution::{
-        CompiledCode, EmulatorBackend, EmulatorType, ExecutionBackend, ReturnType,
-    };
-
-    // Compile GLSL to binary (bootstrap + test function)
-    // The compile_to_binary function handles bootstrap generation internally
-    let binary = compile_to_binary(glsl_source, fixed_point_format, &[])?;
-
-    // Create compiled code
-    let compiled_code = CompiledCode::EmulatorBinary {
-        binary,
-        return_type: ReturnType::Float,
-    };
-
-    // Execute using emulator backend
-    let backend = EmulatorBackend::new(EmulatorType::Riscv32);
-    backend.execute_float(&compiled_code, fixed_point_format)
+    use crate::execution::ExecutionBackend;
+    execute_riscv32(
+        glsl_source,
+        fixed_point_format,
+        ReturnType::Float,
+        |backend, code, fmt| backend.execute_float(code, fmt),
+    )
 }
