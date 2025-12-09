@@ -45,28 +45,28 @@ impl EmulatorBackend {
                 match fixed_point_format {
                     Some(FixedPointFormat::Fixed16x16) => {
                         // Result is stored as i32 fixed-point, read and convert
-                        let value = memory
-                            .read_word(RESULT_ADDR)
-                            .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                        let value = memory.read_word(RESULT_ADDR).map_err(|e| {
+                            anyhow::anyhow!("Failed to read result from memory: {:?}", e)
+                        })?;
                         Ok(value as f32 / 65536.0)
                     }
                     Some(FixedPointFormat::Fixed32x32) => {
                         // Result is stored as i64 fixed-point (two words), read and convert
-                        let low = memory
-                            .read_word(RESULT_ADDR)
-                            .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
-                        let high = memory
-                            .read_word(RESULT_ADDR + 4)
-                            .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                        let low = memory.read_word(RESULT_ADDR).map_err(|e| {
+                            anyhow::anyhow!("Failed to read result from memory: {:?}", e)
+                        })?;
+                        let high = memory.read_word(RESULT_ADDR + 4).map_err(|e| {
+                            anyhow::anyhow!("Failed to read result from memory: {:?}", e)
+                        })?;
                         let value = ((high as u32 as u64) << 32) | (low as u32 as u64);
                         let i64_value = value as i64;
                         Ok((i64_value as f64 / 4294967296.0) as f32)
                     }
                     None => {
                         // F32 is stored as i32 bits, read and convert
-                        let bits = memory
-                            .read_word(RESULT_ADDR)
-                            .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                        let bits = memory.read_word(RESULT_ADDR).map_err(|e| {
+                            anyhow::anyhow!("Failed to read result from memory: {:?}", e)
+                        })?;
                         Ok(f32::from_bits(bits as u32))
                     }
                 }
@@ -89,7 +89,10 @@ impl EmulatorBackend {
                     _ => anyhow::bail!("Unsupported fixed-point format for i64 return"),
                 }
             }
-            _ => anyhow::bail!("Unsupported return type for extract_result_float: {:?}", return_type),
+            _ => anyhow::bail!(
+                "Unsupported return type for extract_result_float: {:?}",
+                return_type
+            ),
         }
     }
 
@@ -307,12 +310,14 @@ impl ExecutionBackend for EmulatorBackend {
                 for i in 0..9 {
                     let bits = memory
                         .read_word(RESULT_ADDR + (i * 4) as u32)
-                        .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                        .map_err(|e| {
+                            anyhow::anyhow!("Failed to read result from memory: {:?}", e)
+                        })?;
                     values.push(f32::from_bits(bits as u32));
                 }
                 Ok((
-                    values[0], values[1], values[2], values[3], values[4],
-                    values[5], values[6], values[7], values[8],
+                    values[0], values[1], values[2], values[3], values[4], values[5], values[6],
+                    values[7], values[8],
                 ))
             }
             _ => anyhow::bail!("EmulatorBackend requires EmulatorBinary compiled code"),
@@ -350,14 +355,15 @@ impl ExecutionBackend for EmulatorBackend {
                 for i in 0..16 {
                     let bits = memory
                         .read_word(RESULT_ADDR + (i * 4) as u32)
-                        .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                        .map_err(|e| {
+                            anyhow::anyhow!("Failed to read result from memory: {:?}", e)
+                        })?;
                     values.push(f32::from_bits(bits as u32));
                 }
                 Ok((
-                    values[0], values[1], values[2], values[3],
-                    values[4], values[5], values[6], values[7],
-                    values[8], values[9], values[10], values[11],
-                    values[12], values[13], values[14], values[15],
+                    values[0], values[1], values[2], values[3], values[4], values[5], values[6],
+                    values[7], values[8], values[9], values[10], values[11], values[12],
+                    values[13], values[14], values[15],
                 ))
             }
             _ => anyhow::bail!("EmulatorBackend requires EmulatorBinary compiled code"),
