@@ -250,28 +250,39 @@ CORDIC uses iterative rotations to compute trigonometric functions. Each iterati
    - Fixed16x16 should match f32 precision (~16 bits)
    - Fixed32x32 should match f64 precision (~32 bits)
 
-## Implementation Order
+## Implementation Order - Focused on `sin_pi_2.glsl`
 
-1. **Phase 1**: Create `fixed_point_math.rs` module with CORDIC infrastructure
+### Phase 1: Get `sin_pi_2.glsl` Test Passing (CURRENT FOCUS)
 
-   - Generate precomputed angle tables
-   - Implement core CORDIC rotation/vectoring logic
-   - Implement sin/cos using CORDIC rotation mode
+**Step 1.1**: Debug function name detection
+- [ ] Verify `get_math_libcall` creates TestCase name correctly for binary compilation
+- [ ] Add debug logging to see what ExternalName type is created
+- [ ] Verify `convert_call` can access function name from TestCase
 
-2. **Phase 2**: Update `convert_call` to detect and replace sinf/cosf calls
+**Step 1.2**: Fix CORDIC replacement
+- [ ] Verify `convert_call` detects sin calls correctly
+- [ ] Ensure `generate_sin_fixed` is called and succeeds
+- [ ] Verify old call instruction is removed
+- [ ] Check generated CLIF shows CORDIC code, not `call fn0`
 
-   - Test with existing GLSL filetests
-   - Verify accuracy matches expected fixed-point precision
+**Step 1.3**: Fix bootstrap memory address
+- [ ] Debug why address 0x80000 is being accessed instead of 0x80001000
+- [ ] Verify `encode_lui` and `encode_addi` work correctly
+- [ ] Test bootstrap code in isolation if needed
 
-3. **Phase 3**: Add remaining trigonometric functions
+**Step 1.4**: Verify end-to-end
+- [ ] Run `test_sin_pi_2` and verify it passes
+- [ ] Check CLIF output shows CORDIC implementation
+- [ ] Verify result is approximately 1.0
 
-   - tan (using sin/cos division)
-   - atan and atan2 (using CORDIC vectoring mode)
-   - asin and acos (using atan with sqrt)
+### Phase 2: Expand to Other Tests (AFTER Phase 1 Success)
+- Add cos implementation and `cos_pi.glsl` test
+- Add remaining sin/cos scalar tests
+- Add vector sin/cos tests
 
-4. **Phase 4**: Add hyperbolic functions (sinh, cosh, tanh, asinh, acosh, atanh)
-   - Can use CORDIC hyperbolic mode or implement via exponential functions
-   - May require additional precomputed tables
+### Phase 3: Add Remaining Functions
+- tan, atan, atan2, asin, acos
+- Hyperbolic functions
 
 ## Files to Modify
 
@@ -287,19 +298,32 @@ CORDIC uses iterative rotations to compute trigonometric functions. Each iterati
 
 ## Success Criteria
 
-### Phase 1 Success (sin/cos implementation)
+### Phase 1 Success - Single Test Focus: `sin_pi_2.glsl`
 
-- ✅ All trigonometric math tests pass for `riscv32.fixed32` and `riscv32.fixed64` targets:
-  - `sin_pi_2.glsl` - sin(π/2) ≈ 1.0
-  - `sin_scalar.glsl` - basic sin tests
-  - `cos_pi.glsl` - cos(π) ≈ -1.0
-  - `cos_scalar.glsl` - basic cos tests
-  - `sin_vec3.glsl` - vector sin operations
-  - `cos_vec2.glsl` - vector cos operations
-- ✅ Tests compile without errors (no missing external function errors)
-- ✅ Tests run successfully in emulator (no runtime errors)
-- ✅ Results match expected values within fixed-point precision tolerances
-- ✅ No floating-point operations in generated IR (pure integer arithmetic)
+**Primary Goal**: Get `sin_pi_2.glsl` test passing for `riscv32.fixed32` and `riscv32.fixed64` targets.
+
+**Test Details**:
+- **File**: `crates/lp-glsl-filetests/filetests/builtins/trigonometric/sin_pi_2.glsl`
+- **Function**: `sin(π/2)` should return ≈ 1.0
+- **Targets**: `riscv32.fixed32`, `riscv32.fixed64`
+
+**Success Criteria**:
+- ✅ Test compiles without errors (no missing external function errors)
+- ✅ CORDIC sin implementation is actually used (verify in CLIF output - no `call fn0` for sin)
+- ✅ Test runs successfully in emulator (no runtime/memory errors)
+- ✅ Result matches expected value (~= 1.0) within fixed-point precision tolerances
+- ✅ No floating-point operations in generated IR for sin call (pure integer CORDIC)
+
+**Current Status**:
+- ⚠️ CORDIC code implemented but not being detected/replaced
+- ⚠️ Memory access error at runtime (address 0x80000 instead of 0x80001000)
+- ⚠️ Function name detection may not be working (TestCase vs User names)
+
+**Blocking Issues to Resolve**:
+1. **Function Detection**: Verify TestCase name is created correctly in `get_math_libcall`
+2. **CORDIC Replacement**: Ensure `convert_call` successfully replaces sin calls with CORDIC
+3. **Bootstrap Address**: Fix memory address encoding in bootstrap code
+4. **CLIF Verification**: Confirm generated CLIF shows CORDIC code, not float conversion
 
 ### Phase 2 Success (tan, atan, atan2)
 
