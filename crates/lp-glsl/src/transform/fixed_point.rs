@@ -574,15 +574,16 @@ fn convert_store(
     Ok(())
 }
 
-/// Convert Call instruction: convert fixed-point args to float, call F32 function, convert result back
+/// Convert Call instruction: detect math functions and replace with CORDIC, or convert fixed-point -> float -> call -> float -> fixed-point
 fn convert_call(
     func: &mut Function,
     inst: Inst,
     format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
 ) -> Result<(), GlslError> {
-    use cranelift_codegen::ir::{InstructionData, FuncRef};
+    use cranelift_codegen::ir::{InstructionData, FuncRef, types};
     use cranelift_codegen::cursor::{Cursor, FuncCursor};
+    use crate::transform::fixed_point_math::{generate_sin_fixed, generate_cos_fixed};
     
     // Extract data before creating cursor to avoid borrow conflicts
     let func_ref = if let InstructionData::Call { func_ref, .. } = &func.dfg.insts[inst] {
@@ -597,8 +598,8 @@ fn convert_call(
     let return_types: Vec<cranelift_codegen::ir::Type> = func.dfg.signatures[sig_ref].returns.iter().map(|r| r.value_type).collect();
     
     // Check if this call needs conversion (has F32 params or returns)
-    let needs_conversion = param_types.iter().any(|&t| t == cranelift_codegen::ir::types::F32)
-        || return_types.iter().any(|&t| t == cranelift_codegen::ir::types::F32);
+    let needs_conversion = param_types.iter().any(|&t| t == types::F32)
+        || return_types.iter().any(|&t| t == types::F32);
     
     if !needs_conversion {
         return Ok(()); // No F32 types, skip conversion
@@ -608,32 +609,98 @@ fn convert_call(
     let args: Vec<Value> = func.dfg.inst_args(inst).iter().copied().collect();
     let old_results: Vec<Value> = func.dfg.inst_results(inst).iter().copied().collect();
     
+    // Detect math functions by signature: (f32) -> f32 for sin/cos/tan/etc, (f32, f32) -> f32 for atan2
+    let is_math_function = param_types.len() == 1 
+        && param_types[0] == types::F32 
+        && return_types.len() == 1 
+        && return_types[0] == types::F32;
+    
+    let is_atan2 = param_types.len() == 2
+        && param_types[0] == types::F32
+        && param_types[1] == types::F32
+        && return_types.len() == 1
+        && return_types[0] == types::F32;
+    
+    // Try to identify which math function this is (extract before creating cursor)
+    let ext_func = &func.dfg.ext_funcs[func_ref];
+    let func_name_opt: Option<&[u8]> = match &ext_func.name {
+        cranelift_codegen::ir::ExternalName::TestCase(name) => {
+            // TestCase names contain the function name as bytes
+            Some(name.raw())
+        }
+        cranelift_codegen::ir::ExternalName::User(_) => {
+            // For User names, we can't easily get the string name
+            // These are created when module supports imports
+            // Fall back to float conversion for these
+            None
+        }
+        _ => None,
+    };
+    
+    // Try to match function name
+    let is_sin = func_name_opt.map_or(false, |name| name == b"sinf");
+    let is_cos = func_name_opt.map_or(false, |name| name == b"cosf");
+    let is_tan = func_name_opt.map_or(false, |name| name == b"tanf");
+    
     {
         // Scope for cursor
-        if let InstructionData::Call { .. } = &func.dfg.insts[inst] {
-        
         let mut cursor = FuncCursor::new(func).at_inst(inst);
+        
+        if is_math_function && args.len() == 1 {
+            // Get the fixed-point argument
+            let fixed_arg = *value_map.get(&args[0]).unwrap_or(&args[0]);
+            
+            // Try to generate the appropriate fixed-point function
+            let result_opt = if is_sin {
+                generate_sin_fixed(&mut cursor, fixed_arg, format).ok()
+            } else if is_cos {
+                generate_cos_fixed(&mut cursor, fixed_arg, format).ok()
+            } else if is_tan {
+                // tan(x) = sin(x) / cos(x)
+                // TODO: Implement tan using sin/cos division with fixed-point math
+                // For now, fall through to float conversion
+                None
+            } else {
+                // Unknown function - fall through to float conversion
+                None
+            };
+            
+            if let Some(result) = result_opt {
+                // Successfully generated fixed-point function - use it
+                if !old_results.is_empty() {
+                    value_map.insert(old_results[0], result);
+                }
+                
+                // Remove the old call instruction
+                cursor.func.dfg.detach_inst_results(inst);
+                cursor.goto_inst(inst);
+                cursor.remove_inst();
+                return Ok(());
+            }
+        }
+        
+        // Fall back to original conversion logic (fixed-point -> float -> call -> float -> fixed-point)
         let mut converted_args = Vec::new();
         
         // Convert arguments: fixed-point -> float
         for (i, &arg_val) in args.iter().enumerate() {
             let param_type = param_types[i];
-            if param_type == cranelift_codegen::ir::types::F32 {
+            if param_type == types::F32 {
                 // Convert fixed-point argument to float
                 let fixed_val = *value_map.get(&arg_val).unwrap_or(&arg_val);
                 let float_val = match format {
                     FixedPointFormat::Fixed16x16 => {
                         // Convert i32 fixed-point to f32: (i32 as f32) / 65536.0
                         let scale = cursor.ins().f32const(65536.0);
-                        let fixed_f32 = cursor.ins().fcvt_from_sint(cranelift_codegen::ir::types::F32, fixed_val);
+                        let fixed_f32 = cursor.ins().fcvt_from_sint(types::F32, fixed_val);
                         cursor.ins().fdiv(fixed_f32, scale)
                     }
                     FixedPointFormat::Fixed32x32 => {
                         // Convert i64 fixed-point to f32: (i64 as f64) / 4294967296.0, then to f32
                         let scale = cursor.ins().f64const(4294967296.0);
-                        let fixed_f64 = cursor.ins().fcvt_from_sint(cranelift_codegen::ir::types::F64, fixed_val);
+                        let fixed_f64 = cursor.ins().fcvt_from_sint(types::F64, fixed_val);
                         let div_f64 = cursor.ins().fdiv(fixed_f64, scale);
-                        cursor.ins().fdemote(cranelift_codegen::ir::types::F64, div_f64)
+                        cursor.ins().fdemote(types::F64, div_f64)
                     }
                 };
                 converted_args.push(float_val);
@@ -650,7 +717,7 @@ fn convert_call(
         // Convert return values: float -> fixed-point
         for (i, &old_result) in old_results.iter().enumerate() {
             let return_type = return_types[i];
-            if return_type == cranelift_codegen::ir::types::F32 {
+            if return_type == types::F32 {
                 // Convert float result to fixed-point
                 let float_result = call_results[i];
                 let fixed_result = match format {
@@ -658,14 +725,14 @@ fn convert_call(
                         // Convert f32 to i32 fixed-point: (f32 * 65536.0) as i32
                         let scale = cursor.ins().f32const(65536.0);
                         let scaled = cursor.ins().fmul(float_result, scale);
-                        cursor.ins().fcvt_to_sint(cranelift_codegen::ir::types::I32, scaled)
+                        cursor.ins().fcvt_to_sint(types::I32, scaled)
                     }
                     FixedPointFormat::Fixed32x32 => {
                         // Convert f32 to i64 fixed-point: (f32 as f64 * 4294967296.0) as i64
                         let scale = cursor.ins().f64const(4294967296.0);
-                        let float_f64 = cursor.ins().fpromote(cranelift_codegen::ir::types::F32, float_result);
+                        let float_f64 = cursor.ins().fpromote(types::F32, float_result);
                         let scaled = cursor.ins().fmul(float_f64, scale);
-                        cursor.ins().fcvt_to_sint(cranelift_codegen::ir::types::I64, scaled)
+                        cursor.ins().fcvt_to_sint(types::I64, scaled)
                     }
                 };
                 value_map.insert(old_result, fixed_result);
@@ -675,11 +742,10 @@ fn convert_call(
             }
         }
         
-            // Remove the old call instruction
-            cursor.func.dfg.detach_inst_results(inst);
-            cursor.goto_inst(inst);
-            cursor.remove_inst();
-        }
+        // Remove the old call instruction
+        cursor.func.dfg.detach_inst_results(inst);
+        cursor.goto_inst(inst);
+        cursor.remove_inst();
     }
     
     Ok(())

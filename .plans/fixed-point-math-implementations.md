@@ -288,6 +288,7 @@ CORDIC uses iterative rotations to compute trigonometric functions. Each iterati
 ## Success Criteria
 
 ### Phase 1 Success (sin/cos implementation)
+
 - ✅ All trigonometric math tests pass for `riscv32.fixed32` and `riscv32.fixed64` targets:
   - `sin_pi_2.glsl` - sin(π/2) ≈ 1.0
   - `sin_scalar.glsl` - basic sin tests
@@ -301,6 +302,7 @@ CORDIC uses iterative rotations to compute trigonometric functions. Each iterati
 - ✅ No floating-point operations in generated IR (pure integer arithmetic)
 
 ### Phase 2 Success (tan, atan, atan2)
+
 - ✅ All inverse trigonometric tests pass:
   - `tan_scalar.glsl`, `tan_vec3.glsl`
   - `atan_scalar.glsl`
@@ -308,17 +310,20 @@ CORDIC uses iterative rotations to compute trigonometric functions. Each iterati
 - ✅ All tests compile and run on riscv32 fixed-point targets
 
 ### Phase 3 Success (asin, acos)
+
 - ✅ All remaining trigonometric tests pass:
   - `asin_scalar.glsl`, `asin_boundary.glsl`
   - `acos_scalar.glsl`
 - ✅ Edge cases handled correctly (boundary values, domain restrictions)
 
 ### Phase 4 Success (hyperbolic functions)
+
 - ✅ All hyperbolic function tests pass:
   - `sinh_scalar.glsl`, `cosh_scalar.glsl`, `tanh_scalar.glsl`
   - `asinh_scalar.glsl`, `acosh_scalar.glsl`, `atanh_scalar.glsl`
 
 ### Overall Success Criteria
+
 - ✅ **All math tests pass**: `cargo test --package lp-glsl-filetests` passes for riscv32 fixed-point targets
 - ✅ **No external dependencies**: Tests run without libc or floating-point hardware
 - ✅ **Production quality**: Accuracy matches or exceeds fixed-point format precision

@@ -25,19 +25,23 @@ impl<'a> CodegenContext<'a> {
                 )
             })?;
 
-        // Check if the function was actually added to the declarations
-        // Some module types (e.g., riscv32 binary compilation) don't support imports
-        if !self.module.declarations().functions.is_valid(func_id) {
-            // Module doesn't support imports - this is OK for riscv32 with fixed-point
-            // The fixed-point transformation will convert the calls anyway
-            // Create a local function stub that will be converted by fixed-point transformation
-            return Err(GlslError::new(
-                ErrorCode::E0400,
-                format!(
-                    "module does not support importing external function {} (this is expected for riscv32 with fixed-point)",
-                    func_name
-                ),
-            ));
+        // Check if function declaration actually exists (some modules don't support imports)
+        // For binary compilation (riscv32), module doesn't support imports, so we create
+        // the function directly in DFG with TestCase name for fixed-point transformation
+        let decls = self.module.declarations();
+        let func_exists = decls.get_functions().any(|(id, _)| id == func_id);
+        
+        if !func_exists {
+            // Module doesn't support imports - create function directly in DFG with TestCase name
+            // This allows the fixed-point transformation to detect the function name
+            let sig_ref = self.builder.func.import_signature(sig);
+            let ext_name = cranelift_codegen::ir::ExternalName::testcase(func_name.as_bytes());
+            let ext_func = cranelift_codegen::ir::ExtFuncData {
+                name: ext_name,
+                signature: sig_ref,
+                colocated: false,
+            };
+            return Ok(self.builder.func.import_function(ext_func));
         }
 
         // Import into current function

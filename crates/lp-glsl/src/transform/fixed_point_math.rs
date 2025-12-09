@@ -134,14 +134,16 @@ fn cordic_rotation_mode(
     let mut y = cursor.ins().iconst(target_type, 0);
     let mut z = angle;
     
+    // Pre-create constants used in loop
+    let zero = cursor.ins().iconst(target_type, 0);
+    let minus_one = cursor.ins().iconst(target_type, -1);
+    let one = cursor.ins().iconst(target_type, 1);
+    
     // CORDIC iterations
     for i in 0..iterations {
         // Determine rotation direction: d = sign(z)
-        let zero = cursor.ins().iconst(target_type, 0);
         let z_lt_zero = cursor.ins().icmp(IntCC::SignedLessThan, z, zero);
-        let d = cursor.ins().select(z_lt_zero, 
-            cursor.ins().iconst(target_type, -1),
-            cursor.ins().iconst(target_type, 1));
+        let d = cursor.ins().select(z_lt_zero, minus_one, one);
         
         // Shift amount: 2^-i = right shift by i
         let shift_amount_val = cursor.ins().iconst(target_type, i as i64);
