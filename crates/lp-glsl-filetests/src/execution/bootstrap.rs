@@ -43,7 +43,8 @@ pub fn generate_bootstrap(
             // Result is in a0 (x10), store it
             // sw a0, RESULT_ADDR(t0) - but we need a base register
             // Use t0 as base: lui t0, (RESULT_ADDR >> 12); addi t0, t0, (RESULT_ADDR & 0xFFF)
-            code.extend_from_slice(&encode_lui(5, RESULT_ADDR >> 12));
+            // encode_lui already shifts by 12, so pass full address
+            code.extend_from_slice(&encode_lui(5, RESULT_ADDR));
             code.extend_from_slice(&encode_addi(5, 5, (RESULT_ADDR & 0xFFF) as i32));
             code.extend_from_slice(&encode_sw(5, 10, 0)); // sw a0, 0(t0)
         }
@@ -51,13 +52,15 @@ pub fn generate_bootstrap(
             match fixed_point_format {
                 Some(FixedPointFormat::Fixed16x16) => {
                     // Result is in a0 (i32 fixed-point), store it
-                    code.extend_from_slice(&encode_lui(5, RESULT_ADDR >> 12));
+                    // encode_lui already shifts by 12, so pass full address
+                    code.extend_from_slice(&encode_lui(5, RESULT_ADDR));
                     code.extend_from_slice(&encode_addi(5, 5, (RESULT_ADDR & 0xFFF) as i32));
                     code.extend_from_slice(&encode_sw(5, 10, 0)); // sw a0, 0(t0)
                 }
                 Some(FixedPointFormat::Fixed32x32) => {
                     // Result is in a0 (low) and a1 (high), store both
-                    code.extend_from_slice(&encode_lui(5, RESULT_ADDR >> 12));
+                    // encode_lui already shifts by 12, so pass full address
+                    code.extend_from_slice(&encode_lui(5, RESULT_ADDR));
                     code.extend_from_slice(&encode_addi(5, 5, (RESULT_ADDR & 0xFFF) as i32));
                     code.extend_from_slice(&encode_sw(5, 10, 0)); // sw a0, 0(t0) - low
                     code.extend_from_slice(&encode_sw(5, 11, 4)); // sw a1, 4(t0) - high
@@ -65,7 +68,8 @@ pub fn generate_bootstrap(
                 None => {
                     // Result is in fa0 (f32), store it
                     // fsw fa0, RESULT_ADDR(t0)
-                    code.extend_from_slice(&encode_lui(5, RESULT_ADDR >> 12));
+                    // encode_lui already shifts by 12, so pass full address
+                    code.extend_from_slice(&encode_lui(5, RESULT_ADDR));
                     code.extend_from_slice(&encode_addi(5, 5, (RESULT_ADDR & 0xFFF) as i32));
                     code.extend_from_slice(&encode_fsw(5, 10, 0)); // fsw fa0, 0(t0)
                 }
@@ -73,7 +77,8 @@ pub fn generate_bootstrap(
         }
         ReturnType::I64 => {
             // Result is in a0 (low) and a1 (high), store both
-            code.extend_from_slice(&encode_lui(5, RESULT_ADDR >> 12));
+            // encode_lui already shifts by 12, so pass full address
+            code.extend_from_slice(&encode_lui(5, RESULT_ADDR));
             code.extend_from_slice(&encode_addi(5, 5, (RESULT_ADDR & 0xFFF) as i32));
             code.extend_from_slice(&encode_sw(5, 10, 0)); // sw a0, 0(t0) - low
             code.extend_from_slice(&encode_sw(5, 11, 4)); // sw a1, 4(t0) - high

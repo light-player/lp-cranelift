@@ -30,7 +30,7 @@ impl<'a> CodegenContext<'a> {
         // the function directly in DFG with TestCase name for fixed-point transformation
         let decls = self.module.declarations();
         let func_exists = decls.get_functions().any(|(id, _)| id == func_id);
-        
+
         if !func_exists {
             // Module doesn't support imports - create function directly in DFG with TestCase name
             // This allows the fixed-point transformation to detect the function name
