@@ -318,22 +318,27 @@ CORDIC uses iterative rotations to compute trigonometric functions. Each iterati
 
 - ✅ Test compiles without errors (no missing external function errors)
 - ✅ CORDIC sin implementation is actually used (verify in CLIF output - no `call fn0` for sin)
-- ✅ Test runs successfully in emulator (no runtime/memory errors)
-- ✅ Result matches expected value (~= 1.0) within fixed-point precision tolerances
+- ⚠️ Test runs successfully in emulator (no runtime/memory errors) - **BLOCKED by bootstrap address bug**
+- ⚠️ Result matches expected value (~= 1.0) within fixed-point precision tolerances - **BLOCKED by bootstrap address bug**
 - ✅ No floating-point operations in generated IR for sin call (pure integer CORDIC)
 
 **Current Status**:
 
-- ⚠️ CORDIC code implemented but not being detected/replaced
-- ⚠️ Memory access error at runtime (address 0x80000 instead of 0x80001000)
-- ⚠️ Function name detection may not be working (TestCase vs User names)
+- ✅ CORDIC code implemented and working correctly
+- ✅ Function name detection working (always use TestCase names in `get_math_libcall`)
+- ✅ CORDIC replacement verified in CLIF output (`sin_16x16.glsl` test passes, shows full CORDIC implementation)
+- ✅ CLIF shows pure integer CORDIC code (16 iterations, quadrant handling, no float operations)
+- ⚠️ Memory access error at runtime (address 0x80000 instead of 0x80001000) - **separate bootstrap issue, not related to CORDIC**
 
-**Blocking Issues to Resolve**:
+**Completed**:
 
-1. **Function Detection**: Verify TestCase name is created correctly in `get_math_libcall`
-2. **CORDIC Replacement**: Ensure `convert_call` successfully replaces sin calls with CORDIC
-3. **Bootstrap Address**: Fix memory address encoding in bootstrap code
-4. **CLIF Verification**: Confirm generated CLIF shows CORDIC code, not float conversion
+1. ✅ **Function Detection**: Always use TestCase names in `get_math_libcall` for both JIT and binary compilation
+2. ✅ **CORDIC Replacement**: `convert_call` successfully detects and replaces sin calls with CORDIC
+3. ✅ **CLIF Verification**: Created `sin_16x16.glsl` filetest - verified full CORDIC implementation in CLIF output
+
+**Remaining Issues**:
+
+4. ⚠️ **Bootstrap Address**: Fix memory address encoding in bootstrap code (0x80000 vs 0x80001000) - this is a separate bootstrap issue, not related to the CORDIC math implementation
 
 ### Phase 2 Success (tan, atan, atan2)
 

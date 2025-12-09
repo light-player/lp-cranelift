@@ -8,7 +8,7 @@ use cranelift_module::Linkage;
 
 impl<'a> CodegenContext<'a> {
     /// Helper to declare and get FuncRef for external math library function
-    /// 
+    ///
     /// Always uses TestCase names (even when imports are supported) so that
     /// the fixed-point transformation can detect and replace math functions.
     pub fn get_math_libcall(&mut self, func_name: &str) -> Result<FuncRef, GlslError> {
