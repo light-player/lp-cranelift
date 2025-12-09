@@ -235,6 +235,11 @@ fn test_fixed_range_limits_16x16() {
 }
 
 #[test]
+fn test_fixed_sin_16x16() {
+    test_file("fixed_point/sin_16x16.glsl");
+}
+
+#[test]
 fn test_fixed_const_32x32() {
     test_file("fixed_point/const_32x32.glsl");
 }
