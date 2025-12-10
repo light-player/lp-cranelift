@@ -410,6 +410,11 @@ fn test_fixed32_floor() {
     test_file("fixed32/floor.glsl");
 }
 
+#[test]
+fn test_fixed32_sqrt() {
+    test_file("fixed32/sqrt.glsl");
+}
+
 // Fixed32 conversion tests
 #[test]
 fn test_fixed32_int_to_float() {

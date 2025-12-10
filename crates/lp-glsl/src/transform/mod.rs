@@ -8,9 +8,9 @@ pub mod fixed32;
 pub use fixed32::{FixedPointFormat, convert_floats_to_fixed};
 
 #[cfg(feature = "std")]
-use crate::pipeline::{TransformationPass, SemanticResult};
-#[cfg(feature = "std")]
 use crate::error::GlslError;
+#[cfg(feature = "std")]
+use crate::pipeline::{SemanticResult, TransformationPass};
 
 /// Fixed-point transformation pass
 ///
@@ -64,4 +64,3 @@ impl TransformationPass for FixedPointTransformation {
         "fixed32"
     }
 }
-

@@ -17,11 +17,11 @@ use crate::isa::unwind::UnwindInst;
 use crate::settings;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use alloc::{vec, format};
+use alloc::{format, vec};
 use regalloc2::{MachineEnv, PReg, PRegSet};
 
-use smallvec::{SmallVec, smallvec};
 use alloc::borrow::ToOwned;
+use smallvec::{SmallVec, smallvec};
 #[cfg(feature = "std")]
 use std::sync::OnceLock;
 
@@ -621,21 +621,23 @@ impl ABIMachineSpec for Riscv32MachineDeps {
 
     #[cfg(not(feature = "std"))]
     fn get_machine_env(_flags: &settings::Flags, _call_conv: isa::CallConv) -> &MachineEnv {
-        use core::sync::atomic::{AtomicBool, Ordering};
         use core::ptr::addr_of_mut;
-        
+        use core::sync::atomic::{AtomicBool, Ordering};
+
         // For no_std, we use a static with atomic initialization guard
         static INIT: AtomicBool = AtomicBool::new(false);
-        static mut MACHINE_ENV: core::mem::MaybeUninit<MachineEnv> = core::mem::MaybeUninit::uninit();
-        
+        static mut MACHINE_ENV: core::mem::MaybeUninit<MachineEnv> =
+            core::mem::MaybeUninit::uninit();
+
         // Simple once-initialization pattern for no_std
         if !INIT.load(Ordering::Acquire) {
             unsafe {
-                addr_of_mut!(MACHINE_ENV).write(core::mem::MaybeUninit::new(create_reg_environment()));
+                addr_of_mut!(MACHINE_ENV)
+                    .write(core::mem::MaybeUninit::new(create_reg_environment()));
             }
             INIT.store(true, Ordering::Release);
         }
-        
+
         unsafe { (*addr_of_mut!(MACHINE_ENV)).assume_init_ref() }
     }
 

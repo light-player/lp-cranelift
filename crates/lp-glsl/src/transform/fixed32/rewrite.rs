@@ -578,6 +578,11 @@ fn convert_instruction(
                 old_func, old_inst, builder, value_map, format, block_map,
             )?;
         }
+        Opcode::Sqrt => {
+            converters::math::convert_sqrt(
+                old_func, old_inst, builder, value_map, format, block_map,
+            )?;
+        }
         Opcode::FcvtFromSint => {
             converters::conversions::convert_fcvt_from_sint(
                 old_func, old_inst, builder, value_map, format, block_map,

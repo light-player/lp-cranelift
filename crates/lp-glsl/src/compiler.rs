@@ -62,8 +62,7 @@ impl Compiler {
         let code_ptr = self.jit.compile(source)?;
         Ok(Box::new(move || {
             if let Some(FixedPointFormat::Fixed16x16) = fixed_point_format {
-                // Fixed-point: read as i32 and convert to f32
-                // Use Vec to ensure proper memory allocation and alignment
+                // Fixed-point: use Vec<i32> buffer (like native.rs)
                 let mut buffer = vec![0i32; 2];
                 unsafe {
                     call_structreturn(
@@ -111,8 +110,7 @@ impl Compiler {
         let code_ptr = self.jit.compile(source)?;
         Ok(Box::new(move || {
             if let Some(FixedPointFormat::Fixed16x16) = fixed_point_format {
-                // Fixed-point: read as i32 and convert to f32
-                // Use Vec to ensure proper memory allocation and alignment
+                // Fixed-point: use Vec<i32> buffer (like native.rs)
                 let mut buffer = vec![0i32; 3];
                 unsafe {
                     call_structreturn(
@@ -161,12 +159,13 @@ impl Compiler {
         let code_ptr = self.jit.compile(source)?;
         Ok(Box::new(move || {
             if let Some(FixedPointFormat::Fixed16x16) = fixed_point_format {
-                // Fixed-point: read as i32 and convert to f32
-                // Use Vec to ensure proper memory allocation and alignment
+                // Fixed-point: use Vec<i32> buffer (like native.rs)
                 let mut buffer = vec![0i32; 4];
                 unsafe {
                     call_structreturn(code_ptr, buffer.as_mut_ptr(), 4, call_conv, pointer_type)
-                        .expect("StructReturn call failed");
+                        .unwrap_or_else(|e| {
+                            panic!("Internal error: StructReturn call failed for vec4: {}. This indicates a codegen bug.", e);
+                        });
                 }
                 (
                     buffer[0] as f32 / crate::codegen::constants::FIXED16X16_SCALE,

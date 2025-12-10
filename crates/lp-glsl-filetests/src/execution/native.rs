@@ -81,7 +81,7 @@ impl ExecutionBackend for NativeJitBackend {
     fn execute_vec2(
         &self,
         code: &CompiledCode,
-        _fixed_point_format: Option<FixedPointFormat>,
+        fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<(f32, f32)> {
         match code {
             CompiledCode::NativeJit {
@@ -98,11 +98,33 @@ impl ExecutionBackend for NativeJitBackend {
                 );
                 let pointer_type = cranelift_codegen::ir::types::I64; // Assume 64-bit host
 
-                let mut buffer = [0.0f32; 2];
-                unsafe {
-                    call_structreturn(*code_ptr, buffer.as_mut_ptr(), 2, call_conv, pointer_type)?;
+                if let Some(FixedPointFormat::Fixed16x16) = fixed_point_format {
+                    // Fixed-point: use Vec<i32> like test-structreturn uses Vec<f32>
+                    let mut buffer = vec![0i32; 2];
+                    unsafe {
+                        call_structreturn(
+                            *code_ptr,
+                            buffer.as_mut_ptr(),
+                            2,
+                            call_conv,
+                            pointer_type,
+                        )?;
+                    }
+                    Ok((buffer[0] as f32 / 65536.0, buffer[1] as f32 / 65536.0))
+                } else {
+                    // Normal floating-point: use f32 buffer
+                    let mut buffer = [0.0f32; 2];
+                    unsafe {
+                        call_structreturn(
+                            *code_ptr,
+                            buffer.as_mut_ptr(),
+                            2,
+                            call_conv,
+                            pointer_type,
+                        )?;
+                    }
+                    Ok((buffer[0], buffer[1]))
                 }
-                Ok((buffer[0], buffer[1]))
             }
             _ => anyhow::bail!("NativeJitBackend requires NativeJit compiled code"),
         }
@@ -111,7 +133,7 @@ impl ExecutionBackend for NativeJitBackend {
     fn execute_vec3(
         &self,
         code: &CompiledCode,
-        _fixed_point_format: Option<FixedPointFormat>,
+        fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<(f32, f32, f32)> {
         match code {
             CompiledCode::NativeJit { code_ptr, .. } => {
@@ -125,11 +147,37 @@ impl ExecutionBackend for NativeJitBackend {
                 );
                 let pointer_type = cranelift_codegen::ir::types::I64;
 
-                let mut buffer = [0.0f32; 3];
-                unsafe {
-                    call_structreturn(*code_ptr, buffer.as_mut_ptr(), 3, call_conv, pointer_type)?;
+                if let Some(FixedPointFormat::Fixed16x16) = fixed_point_format {
+                    // Fixed-point: use Vec<i32> like test-structreturn uses Vec<f32>
+                    let mut buffer = vec![0i32; 3];
+                    unsafe {
+                        call_structreturn(
+                            *code_ptr,
+                            buffer.as_mut_ptr(),
+                            3,
+                            call_conv,
+                            pointer_type,
+                        )?;
+                    }
+                    Ok((
+                        buffer[0] as f32 / 65536.0,
+                        buffer[1] as f32 / 65536.0,
+                        buffer[2] as f32 / 65536.0,
+                    ))
+                } else {
+                    // Normal floating-point: use f32 buffer
+                    let mut buffer = [0.0f32; 3];
+                    unsafe {
+                        call_structreturn(
+                            *code_ptr,
+                            buffer.as_mut_ptr(),
+                            3,
+                            call_conv,
+                            pointer_type,
+                        )?;
+                    }
+                    Ok((buffer[0], buffer[1], buffer[2]))
                 }
-                Ok((buffer[0], buffer[1], buffer[2]))
             }
             _ => anyhow::bail!("NativeJitBackend requires NativeJit compiled code"),
         }
@@ -138,7 +186,7 @@ impl ExecutionBackend for NativeJitBackend {
     fn execute_vec4(
         &self,
         code: &CompiledCode,
-        _fixed_point_format: Option<FixedPointFormat>,
+        fixed_point_format: Option<FixedPointFormat>,
     ) -> Result<(f32, f32, f32, f32)> {
         match code {
             CompiledCode::NativeJit { code_ptr, .. } => {
@@ -152,11 +200,38 @@ impl ExecutionBackend for NativeJitBackend {
                 );
                 let pointer_type = cranelift_codegen::ir::types::I64;
 
-                let mut buffer = [0.0f32; 4];
-                unsafe {
-                    call_structreturn(*code_ptr, buffer.as_mut_ptr(), 4, call_conv, pointer_type)?;
+                if let Some(FixedPointFormat::Fixed16x16) = fixed_point_format {
+                    // Fixed-point: use Vec<i32> like test-structreturn uses Vec<f32>
+                    let mut buffer = vec![0i32; 4];
+                    unsafe {
+                        call_structreturn(
+                            *code_ptr,
+                            buffer.as_mut_ptr(),
+                            4,
+                            call_conv,
+                            pointer_type,
+                        )?;
+                    }
+                    Ok((
+                        buffer[0] as f32 / 65536.0,
+                        buffer[1] as f32 / 65536.0,
+                        buffer[2] as f32 / 65536.0,
+                        buffer[3] as f32 / 65536.0,
+                    ))
+                } else {
+                    // Normal floating-point: use f32 buffer
+                    let mut buffer = [0.0f32; 4];
+                    unsafe {
+                        call_structreturn(
+                            *code_ptr,
+                            buffer.as_mut_ptr(),
+                            4,
+                            call_conv,
+                            pointer_type,
+                        )?;
+                    }
+                    Ok((buffer[0], buffer[1], buffer[2], buffer[3]))
                 }
-                Ok((buffer[0], buffer[1], buffer[2], buffer[3]))
             }
             _ => anyhow::bail!("NativeJitBackend requires NativeJit compiled code"),
         }

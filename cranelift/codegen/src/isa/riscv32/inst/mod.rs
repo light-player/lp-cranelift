@@ -1,7 +1,7 @@
 //! This module defines riscv32-specific machine instruction types.
 
-use super::lower::isle::generated_code::{VecAMode, VecElementWidth};
 use super::inst::vector::VecOpMasking;
+use super::lower::isle::generated_code::{VecAMode, VecElementWidth};
 use crate::binemit::{Addend, CodeOffset, Reloc};
 pub use crate::ir::condcodes::IntCC;
 use crate::ir::types::{self, F16, F32, F64, F128, I8, I8X16, I16, I32, I64, I128};
@@ -13,13 +13,13 @@ use crate::{CodegenError, CodegenResult, settings};
 
 pub use crate::ir::condcodes::FloatCC;
 
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use alloc::{vec, format};
+use alloc::{format, vec};
+use core::fmt::Write;
 use regalloc2::RegClass;
 use smallvec::{SmallVec, smallvec};
-use alloc::boxed::Box;
-use core::fmt::Write;
-use alloc::string::{String, ToString};
 
 pub mod regs;
 pub use self::regs::*;
@@ -828,9 +828,15 @@ impl MachInst for Inst {
             F32 => Ok((&[RegClass::Float], &[F32])),
             F64 => Ok((&[RegClass::Float], &[F64])),
             // On RV32, I128 requires 4 x 32-bit registers
-            I128 => Ok((&[RegClass::Int, RegClass::Int, RegClass::Int, RegClass::Int], &[I32, I32, I32, I32])),
+            I128 => Ok((
+                &[RegClass::Int, RegClass::Int, RegClass::Int, RegClass::Int],
+                &[I32, I32, I32, I32],
+            )),
             // FIXME(#8312): Add support for Q extension
-            F128 => Ok((&[RegClass::Int, RegClass::Int, RegClass::Int, RegClass::Int], &[I32, I32, I32, I32])),
+            F128 => Ok((
+                &[RegClass::Int, RegClass::Int, RegClass::Int, RegClass::Int],
+                &[I32, I32, I32, I32],
+            )),
             _ if ty.is_vector() => {
                 debug_assert!(ty.bits() <= 512);
 
