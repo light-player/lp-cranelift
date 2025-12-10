@@ -105,6 +105,8 @@ pub fn run_test(path: &Path, full_source: &str, glsl_source: &str) -> Result<()>
         ExpectedType::Int(_) => ReturnType::Int,
         ExpectedType::Bool(_) => ReturnType::Bool,
     };
+    
+    let fixed_point_format = Some(lp_glsl::FixedPointFormat::Fixed16x16);
 
     // Compile to binary
     let binary = compile_to_binary(
@@ -122,9 +124,30 @@ pub fn run_test(path: &Path, full_source: &str, glsl_source: &str) -> Result<()>
     let backend = EmulatorBackend::new(EmulatorType::Riscv32);
 
     // Execute and verify results
-    // For fixed-point vectors, we need to read i32 values and convert to f32
+    // For fixed-point, we need to read i32 values and convert to f32
     for directive in &run_directives {
         match &directive.expected_type {
+            ExpectedType::FloatApprox { expected } => {
+                // Scalar float: read i32 from memory and convert to f32
+                let emu = match &compiled_code {
+                    CompiledCode::EmulatorBinary { binary, .. } => backend.run_emulator(binary)?,
+                    _ => bail!("EmulatorBackend requires EmulatorBinary compiled code"),
+                };
+                let memory = emu.memory();
+                use crate::execution::bootstrap::RESULT_ADDR;
+                let val = memory
+                    .read_word(RESULT_ADDR)
+                    .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                let result_float = val as f32 / 65536.0;
+                let tolerance = 0.001;
+                let diff = (result_float - expected).abs();
+                if diff > tolerance {
+                    bail!(
+                        "Run test failed: expected {} (tolerance {}), got {} (diff: {})",
+                        expected, tolerance, result_float, diff
+                    );
+                }
+            }
             ExpectedType::Vec2Approx { expected } => {
                 // Read i32 values from memory and convert to f32
                 let emu = match &compiled_code {
@@ -243,6 +266,95 @@ pub fn run_test(path: &Path, full_source: &str, glsl_source: &str) -> Result<()>
                         result_vec[2],
                         result_vec[3],
                         max_diff
+                    );
+                }
+            }
+            ExpectedType::Mat2Approx { expected } => {
+                let emu = match &compiled_code {
+                    CompiledCode::EmulatorBinary { binary, .. } => backend.run_emulator(binary)?,
+                    _ => bail!("EmulatorBackend requires EmulatorBinary compiled code"),
+                };
+                let memory = emu.memory();
+                use crate::execution::bootstrap::RESULT_ADDR;
+                let mut result_mat = [0.0f32; 4];
+                for i in 0..4 {
+                    let val = memory
+                        .read_word(RESULT_ADDR + (i * 4) as u32)
+                        .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                    result_mat[i] = val as f32 / 65536.0;
+                }
+                let tolerance = 0.001;
+                let mut max_diff = 0.0f32;
+                for i in 0..4 {
+                    let diff = (result_mat[i] - expected[i]).abs();
+                    max_diff = max_diff.max(diff);
+                }
+                if max_diff > tolerance {
+                    bail!(
+                        "Run test failed: expected mat2({}, {}, {}, {}) (tolerance {}), got mat2({}, {}, {}, {}) (max diff: {})",
+                        expected[0], expected[1], expected[2], expected[3],
+                        tolerance,
+                        result_mat[0], result_mat[1], result_mat[2], result_mat[3],
+                        max_diff
+                    );
+                }
+            }
+            ExpectedType::Mat3Approx { expected } => {
+                let emu = match &compiled_code {
+                    CompiledCode::EmulatorBinary { binary, .. } => backend.run_emulator(binary)?,
+                    _ => bail!("EmulatorBackend requires EmulatorBinary compiled code"),
+                };
+                let memory = emu.memory();
+                use crate::execution::bootstrap::RESULT_ADDR;
+                let mut result_mat = [0.0f32; 9];
+                for i in 0..9 {
+                    let val = memory
+                        .read_word(RESULT_ADDR + (i * 4) as u32)
+                        .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                    result_mat[i] = val as f32 / 65536.0;
+                }
+                let tolerance = 0.001;
+                let mut max_diff = 0.0f32;
+                for i in 0..9 {
+                    let diff = (result_mat[i] - expected[i]).abs();
+                    max_diff = max_diff.max(diff);
+                }
+                if max_diff > tolerance {
+                    bail!(
+                        "Run test failed: expected mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (tolerance {}), got mat3({}, {}, {}, {}, {}, {}, {}, {}, {}) (max diff: {})",
+                        expected[0], expected[1], expected[2], expected[3], expected[4],
+                        expected[5], expected[6], expected[7], expected[8],
+                        tolerance,
+                        result_mat[0], result_mat[1], result_mat[2], result_mat[3], result_mat[4],
+                        result_mat[5], result_mat[6], result_mat[7], result_mat[8],
+                        max_diff
+                    );
+                }
+            }
+            ExpectedType::Mat4Approx { expected } => {
+                let emu = match &compiled_code {
+                    CompiledCode::EmulatorBinary { binary, .. } => backend.run_emulator(binary)?,
+                    _ => bail!("EmulatorBackend requires EmulatorBinary compiled code"),
+                };
+                let memory = emu.memory();
+                use crate::execution::bootstrap::RESULT_ADDR;
+                let mut result_mat = [0.0f32; 16];
+                for i in 0..16 {
+                    let val = memory
+                        .read_word(RESULT_ADDR + (i * 4) as u32)
+                        .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
+                    result_mat[i] = val as f32 / 65536.0;
+                }
+                let tolerance = 0.001;
+                let mut max_diff = 0.0f32;
+                for i in 0..16 {
+                    let diff = (result_mat[i] - expected[i]).abs();
+                    max_diff = max_diff.max(diff);
+                }
+                if max_diff > tolerance {
+                    bail!(
+                        "Run test failed: expected mat4 (tolerance {}), got mat4 (max diff: {})",
+                        tolerance, max_diff
                     );
                 }
             }

@@ -339,7 +339,135 @@ fn test_vec3_add() {
 
 #[test]
 fn test_vec2_add_fixed32() {
-    test_file("fixed32/vec2_add.glsl");
+    test_file("fixed32/vec2.glsl");
+}
+
+// Fixed32 arithmetic tests
+#[test]
+fn test_fixed32_add() {
+    test_file("fixed32/add.glsl");
+}
+
+#[test]
+fn test_fixed32_sub() {
+    test_file("fixed32/sub.glsl");
+}
+
+#[test]
+fn test_fixed32_mul() {
+    test_file("fixed32/mul.glsl");
+}
+
+#[test]
+fn test_fixed32_div() {
+    test_file("fixed32/div.glsl");
+}
+
+#[test]
+fn test_fixed32_neg() {
+    test_file("fixed32/neg.glsl");
+}
+
+#[test]
+fn test_fixed32_abs() {
+    test_file("fixed32/abs.glsl");
+}
+
+// Fixed32 comparison tests
+#[test]
+fn test_fixed32_cmp_eq() {
+    test_file("fixed32/cmp_eq.glsl");
+}
+
+#[test]
+fn test_fixed32_cmp_lt() {
+    test_file("fixed32/cmp_lt.glsl");
+}
+
+#[test]
+fn test_fixed32_cmp_gt() {
+    test_file("fixed32/cmp_gt.glsl");
+}
+
+#[test]
+fn test_fixed32_max() {
+    test_file("fixed32/max.glsl");
+}
+
+#[test]
+fn test_fixed32_min() {
+    test_file("fixed32/min.glsl");
+}
+
+// Fixed32 math function tests
+#[test]
+fn test_fixed32_ceil() {
+    test_file("fixed32/ceil.glsl");
+}
+
+#[test]
+fn test_fixed32_floor() {
+    test_file("fixed32/floor.glsl");
+}
+
+// Fixed32 conversion tests
+#[test]
+fn test_fixed32_int_to_float() {
+    test_file("fixed32/int_to_float.glsl");
+}
+
+#[test]
+fn test_fixed32_const() {
+    test_file("fixed32/const.glsl");
+}
+
+// Fixed32 edge case tests
+#[test]
+fn test_fixed32_div_zero() {
+    test_file("fixed32/div_zero.glsl");
+}
+
+#[test]
+fn test_fixed32_div_zero_zero() {
+    test_file("fixed32/div_zero_zero.glsl");
+}
+
+#[test]
+fn test_fixed32_overflow() {
+    test_file("fixed32/overflow.glsl");
+}
+
+#[test]
+fn test_fixed32_underflow() {
+    test_file("fixed32/underflow.glsl");
+}
+
+// Fixed32 vector tests
+#[test]
+fn test_fixed32_vec3() {
+    test_file("fixed32/vec3.glsl");
+}
+
+#[test]
+fn test_fixed32_vec4() {
+    test_file("fixed32/vec4.glsl");
+}
+
+// Fixed32 matrix tests
+#[test]
+fn test_fixed32_mat2() {
+    test_file("fixed32/mat2.glsl");
+}
+
+#[test]
+fn test_fixed32_mat3() {
+    test_file("fixed32/mat3.glsl");
+}
+
+#[test]
+#[ignore] // Known issue: Cranelift riscv32 ABI assertion failure for large StructReturn (64 bytes)
+fn test_fixed32_mat4() {
+    test_file("fixed32/mat4.glsl");
 }
 
 #[test]
