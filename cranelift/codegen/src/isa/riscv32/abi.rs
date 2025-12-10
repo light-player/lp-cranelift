@@ -118,7 +118,7 @@ impl ABIMachineSpec for Riscv32MachineDeps {
             next_x_reg += 1;
             Some(ABIArg::reg(
                 x_reg(x_start).to_real_reg().unwrap(),
-                I64,
+                Self::word_type(),
                 ir::ArgumentExtension::None,
                 ir::ArgumentPurpose::Normal,
             ))

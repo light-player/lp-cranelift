@@ -719,7 +719,7 @@ impl MachInst for Inst {
 
     fn canonical_type_for_rc(rc: RegClass) -> Type {
         match rc {
-            regalloc2::RegClass::Int => I64,
+            regalloc2::RegClass::Int => I32,
             regalloc2::RegClass::Float => F64,
             regalloc2::RegClass::Vector => I8X16,
         }

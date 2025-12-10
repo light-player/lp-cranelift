@@ -465,7 +465,6 @@ fn test_fixed32_mat3() {
 }
 
 #[test]
-#[ignore] // Known issue: Cranelift riscv32 ABI assertion failure for large StructReturn (64 bytes)
 fn test_fixed32_mat4() {
     test_file("fixed32/mat4.glsl");
 }
