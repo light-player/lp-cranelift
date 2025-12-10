@@ -253,7 +253,8 @@ impl Compiler {
         use cranelift_codegen::{Context, control::ControlPlane};
         use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
         use cranelift_module::{
-            FuncId, Linkage, Module, ModuleDeclarations, ModuleError, ModuleResult,
+            FuncId, FuncOrDataId, FunctionDeclaration, Linkage, Module, ModuleDeclarations,
+            ModuleError, ModuleResult,
         };
         use hashbrown::HashMap;
 
@@ -503,7 +504,7 @@ impl Compiler {
 
         // 6. Apply fixed-point transformation if needed
         if let Some(format) = self.jit.fixed_point_format {
-            crate::transform::fixed_point::convert_floats_to_fixed(&mut ctx.func, format)?;
+            crate::transform::fixed32::convert_floats_to_fixed(&mut ctx.func, format)?;
         }
 
         // 7. Verify function
@@ -689,7 +690,7 @@ impl Compiler {
 
         // 5.5. Apply fixed-point transformation if enabled
         if let Some(format) = self.fixed_point_format {
-            crate::transform::fixed_point::convert_floats_to_fixed(&mut ctx.func, format)?;
+            crate::transform::fixed32::convert_floats_to_fixed(&mut ctx.func, format)?;
         }
 
         // 6. Compile to machine code

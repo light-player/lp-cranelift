@@ -3,11 +3,9 @@
 //! This module contains various transformation passes that can be applied
 //! to Cranelift IR after initial code generation.
 
-pub mod fixed_point;
-pub mod fixed_point_math;
+pub mod fixed32;
 
-pub use fixed_point::{FixedPointFormat, convert_floats_to_fixed};
-pub use fixed_point_math::generate_tanh_fixed;
+pub use fixed32::{FixedPointFormat, convert_floats_to_fixed};
 
 #[cfg(feature = "std")]
 use crate::pipeline::{TransformationPass, SemanticResult};
@@ -63,7 +61,7 @@ impl TransformationPass for FixedPointTransformation {
     }
 
     fn name(&self) -> &str {
-        "fixed_point"
+        "fixed32"
     }
 }
 

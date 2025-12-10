@@ -123,7 +123,7 @@ impl JIT {
 
         // 3.5. Apply fixed-point transformation if enabled
         if let Some(format) = self.fixed_point_format {
-            crate::transform::fixed_point::convert_floats_to_fixed(&mut self.ctx.func, format)?;
+            crate::transform::fixed32::convert_floats_to_fixed(&mut self.ctx.func, format)?;
         }
 
         // 4. Verify the function
@@ -193,7 +193,7 @@ impl JIT {
         // 3.5. Apply fixed-point transformation if enabled and requested
         if apply_fixed_point {
             if let Some(format) = self.fixed_point_format {
-                crate::transform::fixed_point::convert_floats_to_fixed(&mut self.ctx.func, format)?;
+                crate::transform::fixed32::convert_floats_to_fixed(&mut self.ctx.func, format)?;
             }
         }
 
