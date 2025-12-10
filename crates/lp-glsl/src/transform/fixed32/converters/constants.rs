@@ -6,8 +6,6 @@ use crate::transform::fixed32::types::{FixedPointFormat, float_to_fixed16x16};
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData, Value};
 use cranelift_frontend::FunctionBuilder;
 
-use super::super::rewrite::map_value;
-
 /// Convert F32const to iconst with fixed-point value.
 pub(crate) fn convert_f32const(
     old_func: &Function,

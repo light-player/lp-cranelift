@@ -49,8 +49,16 @@ pub(crate) fn convert_fcmp(
             FloatCC::UnorderedOrGreaterThanOrEqual => IntCC::SignedGreaterThanOrEqual,
         };
 
-        // Emit icmp
-        let new_result = builder.ins().icmp(int_cond, arg1, arg2);
+        // Emit icmp (returns i8)
+        let cmp_result = builder.ins().icmp(int_cond, arg1, arg2);
+
+        // Always convert i8 to i32 for fcmp results
+        // fcmp returns i8, but since we're converting from F32 operations,
+        // the function signature will expect I32 (F32 -> I32 conversion)
+        // So we always convert i8 to i32 to match
+        let new_result = builder
+            .ins()
+            .sextend(cranelift_codegen::ir::types::I32, cmp_result);
 
         // Map result
         let old_result = old_func.dfg.first_result(old_inst);
@@ -132,4 +140,3 @@ pub(crate) fn convert_fmin(
 
     Ok(())
 }
-

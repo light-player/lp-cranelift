@@ -294,16 +294,12 @@ impl Compiler {
 
             fn declarations(&self) -> &ModuleDeclarations {
                 // This is a bit of a hack - we can't return a reference to a constructed ModuleDeclarations
-                // because it has private fields. Instead, we'll use a static empty one for now.
+                // because it has private fields. Instead, we'll use a lazy static empty one.
                 // The real issue is that declare_func_in_func needs the declarations to be populated.
                 // We'll need to fix this by ensuring functions are added to declarations when declared.
-                static EMPTY: ModuleDeclarations = ModuleDeclarations {
-                    _version_marker: cranelift_codegen::ir::function::VersionMarker::default(),
-                    names: HashMap::new(),
-                    functions: PrimaryMap::new(),
-                    data_objects: PrimaryMap::new(),
-                };
-                &EMPTY
+                use std::sync::OnceLock;
+                static EMPTY: OnceLock<ModuleDeclarations> = OnceLock::new();
+                EMPTY.get_or_init(|| ModuleDeclarations::default())
             }
 
             fn declare_function(
@@ -322,14 +318,14 @@ impl Compiler {
 
                     // Add to internal declarations
                     let decl = FunctionDeclaration {
-                        name: Some(name.to_owned()),
+                        name: Some(String::from(name)),
                         linkage,
                         signature: signature.clone(),
                     };
                     self.functions.borrow_mut().push(decl);
                     self.names
                         .borrow_mut()
-                        .insert(name.to_owned(), FuncOrDataId::Func(id));
+                        .insert(String::from(name), FuncOrDataId::Func(id));
 
                     Ok(id)
                 }
@@ -449,7 +445,8 @@ impl Compiler {
             isa,
             func_counter: 0,
             func_ids: HashMap::new(),
-            declarations: ModuleDeclarations::default(),
+            functions: RefCell::new(PrimaryMap::new()),
+            names: RefCell::new(HashMap::new()),
         };
 
         // 4. Declare user functions (for function calls in main)

@@ -4,9 +4,9 @@ use crate::error::{ErrorCode, GlslError};
 use crate::transform::fixed32::types::FixedPointFormat;
 
 #[cfg(not(feature = "std"))]
-use alloc::{string::String, vec::Vec};
+use alloc::vec::Vec;
 #[cfg(feature = "std")]
-use std::{string::String, vec::Vec};
+use std::vec::Vec;
 
 use cranelift_codegen::ir::{
     ExtFuncData, FuncRef, Function, Inst, InstBuilder, InstructionData, SigRef, Value,

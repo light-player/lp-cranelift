@@ -681,6 +681,22 @@ fn copy_instruction_as_is(
             }
         }
         InstructionData::NullAry { .. } => InstructionData::NullAry { opcode },
+        InstructionData::IntCompare { cond, .. } => {
+            if mapped_args.len() != 2 {
+                return Err(GlslError::new(
+                    ErrorCode::E0301,
+                    format!(
+                        "IntCompare instruction requires 2 arguments, got {}",
+                        mapped_args.len()
+                    ),
+                ));
+            }
+            InstructionData::IntCompare {
+                opcode,
+                cond: *cond,
+                args: [mapped_args[0], mapped_args[1]],
+            }
+        }
         _ => {
             // For other instruction formats, return an error
             // These should be handled by explicit converters
