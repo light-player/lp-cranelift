@@ -4,7 +4,7 @@ use crate::error::{ErrorCode, GlslError};
 use crate::transform::fixed32::types::FixedPointFormat;
 
 use cranelift_codegen::ir::{
-    Function, Inst, InstBuilder, InstructionData, Value, condcodes::IntCC,
+    Function, Inst, InstBuilder, InstructionData, Value, condcodes::IntCC, types,
 };
 use cranelift_frontend::FunctionBuilder;
 
@@ -96,11 +96,20 @@ pub(crate) fn convert_fmul(
     let shift_amount = format.shift_amount();
 
     // Fixed-point multiplication: (a * b) >> shift_amount
-    let mul_result = builder.ins().imul(arg1, arg2);
-
+    // Use i64 intermediate to avoid overflow when multiplying two i32 fixed-point numbers
+    // Sign-extend both operands to i64
+    let arg1_wide = builder.ins().sextend(types::I64, arg1);
+    let arg2_wide = builder.ins().sextend(types::I64, arg2);
+    
+    // Multiply in i64
+    let mul_result_wide = builder.ins().imul(arg1_wide, arg2_wide);
+    
     // Right shift to scale back
-    let shift_const = builder.ins().iconst(target_type, shift_amount as i64);
-    let new_result = builder.ins().sshr(mul_result, shift_const);
+    let shift_const = builder.ins().iconst(types::I64, shift_amount as i64);
+    let shifted_wide = builder.ins().sshr(mul_result_wide, shift_const);
+    
+    // Truncate back to i32
+    let new_result = builder.ins().ireduce(target_type, shifted_wide);
 
     let old_result = old_func.dfg.first_result(old_inst);
     value_map.insert(old_result, new_result);
@@ -132,12 +141,22 @@ pub(crate) fn convert_fdiv(
     let shift_amount = format.shift_amount();
 
     // Fixed-point division: (a << shift_amount) / b
-    // Left shift numerator first
-    let shift_const = builder.ins().iconst(target_type, shift_amount as i64);
-    let shifted_numerator = builder.ins().ishl(arg1, shift_const);
-
-    // Divide
-    let new_result = builder.ins().sdiv(shifted_numerator, arg2);
+    // Use i64 intermediate to avoid overflow when shifting i32 left by 16
+    // Sign-extend numerator to i64
+    let arg1_wide = builder.ins().sextend(types::I64, arg1);
+    
+    // Left shift numerator in i64
+    let shift_const = builder.ins().iconst(types::I64, shift_amount as i64);
+    let shifted_numerator_wide = builder.ins().ishl(arg1_wide, shift_const);
+    
+    // Sign-extend denominator to i64
+    let arg2_wide = builder.ins().sextend(types::I64, arg2);
+    
+    // Divide in i64
+    let div_result_wide = builder.ins().sdiv(shifted_numerator_wide, arg2_wide);
+    
+    // Truncate back to i32
+    let new_result = builder.ins().ireduce(target_type, div_result_wide);
 
     let old_result = old_func.dfg.first_result(old_inst);
     value_map.insert(old_result, new_result);
