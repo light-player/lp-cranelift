@@ -166,14 +166,21 @@ impl JIT {
 
     /// Compile and return CLIF IR as string (for filetests)
     pub fn compile_to_clif(&mut self, glsl_source: &str) -> Result<String, String> {
-        self.compile_to_clif_detailed(glsl_source)
+        self.compile_to_clif_detailed(glsl_source, true)
             .map_err(|e| e.to_simple_string())
     }
 
     /// Compile to CLIF IR with detailed error information
+    ///
+    /// # Arguments
+    ///
+    /// * `glsl_source` - The GLSL source code to compile
+    /// * `apply_fixed_point` - If `true`, apply fixed-point transformation if `fixed_point_format` is set.
+    ///                         If `false`, return CLIF before fixed-point transformation (target-agnostic).
     pub fn compile_to_clif_detailed(
         &mut self,
         glsl_source: &str,
+        apply_fixed_point: bool,
     ) -> Result<String, crate::error::GlslError> {
         self.ctx.clear();
 
@@ -183,9 +190,11 @@ impl JIT {
         // 2. Generate Cranelift IR
         self.translate(semantic_result.typed_ast, semantic_result.source)?;
 
-        // 3.5. Apply fixed-point transformation if enabled
-        if let Some(format) = self.fixed_point_format {
-            crate::transform::fixed_point::convert_floats_to_fixed(&mut self.ctx.func, format)?;
+        // 3.5. Apply fixed-point transformation if enabled and requested
+        if apply_fixed_point {
+            if let Some(format) = self.fixed_point_format {
+                crate::transform::fixed_point::convert_floats_to_fixed(&mut self.ctx.func, format)?;
+            }
         }
 
         // 4. Return as string

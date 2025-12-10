@@ -132,7 +132,7 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
                     // Extract funct6 from bits [31:26] and imm[5:0] from bits [25:20]
                     let funct6 = ((inst >> 26) & 0x3f) as u8;
                     let imm_5_0 = ((inst >> 20) & 0x3f) as u8;
-                    
+
                     match funct6 {
                         0x00 => {
                             // SLLI: funct6=0x00
@@ -196,7 +196,7 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
                     // Extract funct6 from bits [31:26] and imm[5:0] from bits [25:20]
                     let funct6 = ((inst >> 26) & 0x3f) as u8;
                     let imm_5_0 = ((inst >> 20) & 0x3f) as u8;
-                    
+
                     // Check for standard SRLI/SRAI first (funct7 encoding)
                     if funct7 == 0 {
                         Ok(Inst::Srli {
@@ -357,7 +357,10 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
                         imm: s.imm,
                     })
                 }
-                _ => Err(format!("Unknown floating-point store instruction: funct3=0x{:x}", s.func)),
+                _ => Err(format!(
+                    "Unknown floating-point store instruction: funct3=0x{:x}",
+                    s.func
+                )),
             }
         }
         0x37 => {
@@ -438,7 +441,7 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
             let imm = ((inst >> 20) & 0xfff) as u16;
             let rs1 = ((inst >> 15) & 0x1f) as u8;
             let rd = ((inst >> 7) & 0x1f) as u8;
-            
+
             if funct3 == 0x1 && imm == 0x001 && rs1 == 0 && rd == 0 {
                 // FENCE.I: funct3=0x1, imm[11:0]=0x001, rs1=0, rd=0
                 Ok(Inst::FenceI)
@@ -454,7 +457,52 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
             } else if inst == 0x00100073 {
                 Ok(Inst::Ebreak)
             } else {
-                Err(format!("Unknown system instruction: 0x{:08x}", inst))
+                // CSR instructions: CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI
+                // Format: [31:20]=csr, [19:15]=rs1/imm, [14:12]=funct3, [11:7]=rd, [6:0]=opcode(0x73)
+                let funct3 = ((inst >> 12) & 0x7) as u8;
+                let rd = ((inst >> 7) & 0x1f) as u8;
+                let rs1_or_imm = ((inst >> 15) & 0x1f) as u8;
+                let csr = ((inst >> 20) & 0xfff) as u16;
+
+                // Decode CSR instruction based on funct3
+                // 0b001 = CSRRW, 0b010 = CSRRS, 0b011 = CSRRC
+                // 0b101 = CSRRWI, 0b110 = CSRRSI, 0b111 = CSRRCI
+                match funct3 {
+                    0b001 => Ok(Inst::Csrrw {
+                        rd: Gpr::new(rd),
+                        rs1: Gpr::new(rs1_or_imm),
+                        csr,
+                    }),
+                    0b010 => Ok(Inst::Csrrs {
+                        rd: Gpr::new(rd),
+                        rs1: Gpr::new(rs1_or_imm),
+                        csr,
+                    }),
+                    0b011 => Ok(Inst::Csrrc {
+                        rd: Gpr::new(rd),
+                        rs1: Gpr::new(rs1_or_imm),
+                        csr,
+                    }),
+                    0b101 => Ok(Inst::Csrrwi {
+                        rd: Gpr::new(rd),
+                        imm: rs1_or_imm as i32,
+                        csr,
+                    }),
+                    0b110 => Ok(Inst::Csrrsi {
+                        rd: Gpr::new(rd),
+                        imm: rs1_or_imm as i32,
+                        csr,
+                    }),
+                    0b111 => Ok(Inst::Csrrci {
+                        rd: Gpr::new(rd),
+                        imm: rs1_or_imm as i32,
+                        csr,
+                    }),
+                    _ => Err(format!(
+                        "Unknown CSR instruction: funct3=0x{:x}, inst=0x{:08x}",
+                        funct3, inst
+                    )),
+                }
             }
         }
         0x2f => {
@@ -642,7 +690,7 @@ mod tests {
         // Encode FENCE.I
         let encoded = fence_i();
         assert_eq!(encoded, 0x0000100f);
-        
+
         // Decode it back
         let decoded = decode_instruction(encoded).expect("Failed to decode");
         match decoded {

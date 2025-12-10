@@ -1,6 +1,6 @@
 // test compile
 
-// target riscv32
+// target riscv32.fixed32
 int main() {
     ivec2 a = ivec2(10, 20);
     ivec2 b = ivec2(3, 7);

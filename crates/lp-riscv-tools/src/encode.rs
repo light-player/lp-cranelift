@@ -533,6 +533,42 @@ pub fn fence_i() -> u32 {
     0x0000100f
 }
 
+/// Encode CSRRW instruction: rd = CSR; CSR = rs1
+/// Format: opcode=0x73, funct3=0b001, rd, rs1, csr[11:0]
+pub fn csrrw(rd: Gpr, rs1: Gpr, csr: u16) -> u32 {
+    encode_i(0x73, rd, rs1, csr as i32, 0b001)
+}
+
+/// Encode CSRRS instruction: rd = CSR; CSR = CSR | rs1
+/// Format: opcode=0x73, funct3=0b010, rd, rs1, csr[11:0]
+pub fn csrrs(rd: Gpr, rs1: Gpr, csr: u16) -> u32 {
+    encode_i(0x73, rd, rs1, csr as i32, 0b010)
+}
+
+/// Encode CSRRC instruction: rd = CSR; CSR = CSR & ~rs1
+/// Format: opcode=0x73, funct3=0b011, rd, rs1, csr[11:0]
+pub fn csrrc(rd: Gpr, rs1: Gpr, csr: u16) -> u32 {
+    encode_i(0x73, rd, rs1, csr as i32, 0b011)
+}
+
+/// Encode CSRRWI instruction: rd = CSR; CSR = imm
+/// Format: opcode=0x73, funct3=0b101, rd, imm[4:0], csr[11:0]
+pub fn csrrwi(rd: Gpr, imm: i32, csr: u16) -> u32 {
+    encode_i(0x73, rd, Gpr::new((imm & 0x1f) as u8), csr as i32, 0b101)
+}
+
+/// Encode CSRRSI instruction: rd = CSR; CSR = CSR | imm
+/// Format: opcode=0x73, funct3=0b110, rd, imm[4:0], csr[11:0]
+pub fn csrrsi(rd: Gpr, imm: i32, csr: u16) -> u32 {
+    encode_i(0x73, rd, Gpr::new((imm & 0x1f) as u8), csr as i32, 0b110)
+}
+
+/// Encode CSRRCI instruction: rd = CSR; CSR = CSR & ~imm
+/// Format: opcode=0x73, funct3=0b111, rd, imm[4:0], csr[11:0]
+pub fn csrrci(rd: Gpr, imm: i32, csr: u16) -> u32 {
+    encode_i(0x73, rd, Gpr::new((imm & 0x1f) as u8), csr as i32, 0b111)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -9,7 +9,7 @@ float main() {
 
 // function u0:0() -> i32 system_v {
 //     sig0 = (f32) -> f32 system_v
-//     fn0 = u0:0 sig0
+//     fn0 = %asinhf sig0
 //
 // block0:
 //     v3 = iconst.i32 0

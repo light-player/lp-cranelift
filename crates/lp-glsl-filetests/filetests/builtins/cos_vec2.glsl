@@ -1,6 +1,6 @@
 // test compile
 // test run
-// target riscv32
+// target riscv32.fixed32
 
 vec2 main() {
     vec2 angles = vec2(0.0, 3.141592654); // 0, π

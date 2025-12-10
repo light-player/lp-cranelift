@@ -1,6 +1,6 @@
 // test compile
 
-// target riscv32
+// target riscv32.fixed32
 float add_floats(float a, float b) {
     return a + b;
 }

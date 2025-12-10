@@ -1,6 +1,6 @@
 // test compile
 // test run
-// target riscv32
+// target riscv32.fixed32
 
 float main() {
     float a = 2.0;
@@ -8,15 +8,20 @@ float main() {
     return a * b;
 }
 
-// function u0:0() -> f32 system_v {
+// function u0:0() -> i32 system_v {
 // block0:
-//     v0 = f32const 0x1.000000p1
-//     v1 = f32const 0x1.c00000p1
-//     v2 = fmul v0, v1  ; v0 = 0x1.000000p1, v1 = 0x1.c00000p1
-//     return v2
+//     v4 = iconst.i32 0x0002_0000
+//     v5 = iconst.i32 0x0003_8000
+//     v6 = sextend.i64 v4  ; v4 = 0x0002_0000
+//     v7 = sextend.i64 v5  ; v5 = 0x0003_8000
+//     v8 = imul v6, v7
+//     v9 = iconst.i64 16
+//     v10 = sshr v8, v9  ; v9 = 16
+//     v11 = ireduce.i32 v10
+//     return v11
 //
 // block1:
-//     v3 = f32const 0.0
-//     return v3  ; v3 = 0.0
+//     v12 = iconst.i32 0
+//     return v12  ; v12 = 0
 // }
 // run: ~= 7 (tolerance: 0.01)

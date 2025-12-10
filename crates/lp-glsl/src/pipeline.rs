@@ -169,6 +169,6 @@ impl<'a> Backend for CLIFBackend<'a> {
     type Error = crate::error::GlslError;
 
     fn compile(&mut self, shader: CompiledShader) -> Result<Self::Output, Self::Error> {
-        self.jit.compile_to_clif_detailed(&shader.source)
+        self.jit.compile_to_clif_detailed(&shader.source, true)
     }
 }

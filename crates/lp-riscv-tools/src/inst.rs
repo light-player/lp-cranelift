@@ -204,6 +204,18 @@ pub enum Inst {
     Fence,
     /// FENCE.I: Instruction cache synchronization (no-op in emulator)
     FenceI,
+    /// CSRRW: Atomic Read/Write CSR (rd = CSR; CSR = rs1)
+    Csrrw { rd: Gpr, rs1: Gpr, csr: u16 },
+    /// CSRRS: Atomic Read and Set Bits in CSR (rd = CSR; CSR = CSR | rs1)
+    Csrrs { rd: Gpr, rs1: Gpr, csr: u16 },
+    /// CSRRC: Atomic Read and Clear Bits in CSR (rd = CSR; CSR = CSR & ~rs1)
+    Csrrc { rd: Gpr, rs1: Gpr, csr: u16 },
+    /// CSRRWI: Atomic Read/Write CSR (Immediate) (rd = CSR; CSR = imm)
+    Csrrwi { rd: Gpr, imm: i32, csr: u16 },
+    /// CSRRSI: Atomic Read and Set Bits in CSR (Immediate) (rd = CSR; CSR = CSR | imm)
+    Csrrsi { rd: Gpr, imm: i32, csr: u16 },
+    /// CSRRCI: Atomic Read and Clear Bits in CSR (Immediate) (rd = CSR; CSR = CSR & ~imm)
+    Csrrci { rd: Gpr, imm: i32, csr: u16 },
 
     // Atomic instructions (A extension)
     /// LR.W: Load reserved word
@@ -223,7 +235,6 @@ pub enum Inst {
 
     // Compressed instructions (RVC extension)
     // These expand to standard instruction forms
-
     /// C.ADDI: rd = rd + imm (expands to ADDI rd, rd, imm)
     CAddi { rd: Gpr, imm: i32 },
     /// C.LI: rd = imm (expands to ADDI rd, x0, imm)
@@ -374,15 +385,21 @@ impl Inst {
             Inst::Ebreak => ebreak(),
             Inst::Fence => 0x0000000f, // fence (no-op encoding)
             Inst::FenceI => super::encode::fence_i(),
+            Inst::Csrrw { rd, rs1, csr } => super::encode::csrrw(*rd, *rs1, *csr),
+            Inst::Csrrs { rd, rs1, csr } => super::encode::csrrs(*rd, *rs1, *csr),
+            Inst::Csrrc { rd, rs1, csr } => super::encode::csrrc(*rd, *rs1, *csr),
+            Inst::Csrrwi { rd, imm, csr } => super::encode::csrrwi(*rd, *imm, *csr),
+            Inst::Csrrsi { rd, imm, csr } => super::encode::csrrsi(*rd, *imm, *csr),
+            Inst::Csrrci { rd, imm, csr } => super::encode::csrrci(*rd, *imm, *csr),
 
             // Atomic instructions - encode as placeholders (not typically needed)
-            Inst::LrW { .. } => 0x1000202f, // lr.w a0, (zero)
-            Inst::ScW { .. } => 0x1800202f, // sc.w a0, zero, (zero)
+            Inst::LrW { .. } => 0x1000202f,      // lr.w a0, (zero)
+            Inst::ScW { .. } => 0x1800202f,      // sc.w a0, zero, (zero)
             Inst::AmoswapW { .. } => 0x0800202f, // amoswap.w a0, zero, (zero)
-            Inst::AmoaddW { .. } => 0x0000202f, // amoadd.w a0, zero, (zero)
-            Inst::AmoxorW { .. } => 0x2000202f, // amoxor.w a0, zero, (zero)
-            Inst::AmoandW { .. } => 0x6000202f, // amoand.w a0, zero, (zero)
-            Inst::AmoorW { .. } => 0x4000202f, // amoor.w a0, zero, (zero)
+            Inst::AmoaddW { .. } => 0x0000202f,  // amoadd.w a0, zero, (zero)
+            Inst::AmoxorW { .. } => 0x2000202f,  // amoxor.w a0, zero, (zero)
+            Inst::AmoandW { .. } => 0x6000202f,  // amoand.w a0, zero, (zero)
+            Inst::AmoorW { .. } => 0x4000202f,   // amoor.w a0, zero, (zero)
 
             // Compressed instructions - encode as their expanded forms
             Inst::CAddi { rd, imm } => addi(*rd, *rd, *imm),

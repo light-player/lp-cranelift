@@ -1,21 +1,21 @@
 // test compile
 
-// target riscv32
+// target riscv32.fixed32
 float main() {
     vec3 v = vec3(1.0, 2.0, 3.0);
     v.y = 5.0;  // v = (1.0, 5.0, 3.0)
     return v.y;  // 5.0
 }
 
-// function u0:0() -> f32 system_v {
+// function u0:0() -> i32 system_v {
 // block0:
-//     v0 = f32const 0x1.000000p0
-//     v1 = f32const 0x1.000000p1
-//     v2 = f32const 0x1.800000p1
-//     v3 = f32const 0x1.400000p2
-//     return v3  ; v3 = 0x1.400000p2
+//     v5 = iconst.i32 0x0001_0000
+//     v6 = iconst.i32 0x0002_0000
+//     v7 = iconst.i32 0x0003_0000
+//     v8 = iconst.i32 0x0005_0000
+//     return v8  ; v8 = 0x0005_0000
 //
 // block1:
-//     v4 = f32const 0.0
-//     return v4  ; v4 = 0.0
+//     v9 = iconst.i32 0
+//     return v9  ; v9 = 0
 // }

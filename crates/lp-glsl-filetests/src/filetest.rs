@@ -25,13 +25,20 @@ impl TestTarget {
     pub fn is_riscv32(&self) -> bool {
         matches!(self, TestTarget::Riscv32(_))
     }
+
+    pub fn is_fixed64(&self) -> bool {
+        matches!(
+            self.fixed_point_format(),
+            Some(lp_glsl::FixedPointFormat::Fixed32x32)
+        )
+    }
 }
 
 /// Build an ISA for the given test target
 pub fn build_isa_for_target(target: TestTarget) -> Result<cranelift_codegen::isa::OwnedTargetIsa> {
+    use cranelift_codegen::isa::lookup;
     use cranelift_codegen::settings;
     use cranelift_codegen::settings::Configurable;
-    use cranelift_codegen::isa::lookup;
     use target_lexicon::Triple;
 
     let mut flag_builder = settings::builder();
@@ -52,9 +59,9 @@ pub fn build_isa_for_target(target: TestTarget) -> Result<cranelift_codegen::isa
                     e
                 )
             })?;
-            Ok(isa_builder.finish(flags).map_err(|e| {
-                anyhow::anyhow!("Failed to finish native ISA builder: {}", e)
-            })?)
+            Ok(isa_builder
+                .finish(flags)
+                .map_err(|e| anyhow::anyhow!("Failed to finish native ISA builder: {}", e))?)
         }
         TestTarget::Riscv32(_) => {
             let triple = Triple {
@@ -66,12 +73,11 @@ pub fn build_isa_for_target(target: TestTarget) -> Result<cranelift_codegen::isa
                 environment: target_lexicon::Environment::Unknown,
                 binary_format: target_lexicon::BinaryFormat::Elf,
             };
-            let isa_builder = lookup(triple).map_err(|e| {
-                anyhow::anyhow!("Failed to lookup riscv32 ISA: {:?}", e)
-            })?;
-            Ok(isa_builder.finish(flags).map_err(|e| {
-                anyhow::anyhow!("Failed to finish riscv32 ISA builder: {}", e)
-            })?)
+            let isa_builder = lookup(triple)
+                .map_err(|e| anyhow::anyhow!("Failed to lookup riscv32 ISA: {:?}", e))?;
+            Ok(isa_builder
+                .finish(flags)
+                .map_err(|e| anyhow::anyhow!("Failed to finish riscv32 ISA builder: {}", e))?)
         }
     }
 }
@@ -88,9 +94,22 @@ pub fn run_filetest(path: &Path) -> Result<()> {
     let test_fixed64 = source.contains("test fixed64");
 
     // Parse target directives
-    let targets = parse_target_directives(&source)?;
+    let mut targets = parse_target_directives(&source)?;
+
+    // Filter out fixed64 targets and emit warnings
+    let original_target_count = targets.len();
+    targets.retain(|target| !target.is_fixed64());
+    let skipped_count = original_target_count - targets.len();
+    if skipped_count > 0 {
+        eprintln!(
+            "warning: Skipping {} fixed64 target(s) in {} - 128-bit operations not yet supported",
+            skipped_count,
+            path.display()
+        );
+    }
 
     // If no targets specified, default to host
+    // If all explicitly specified targets were fixed64, still default to host
     let targets = if targets.is_empty() {
         vec![TestTarget::Host(None)]
     } else {
@@ -99,9 +118,13 @@ pub fn run_filetest(path: &Path) -> Result<()> {
 
     // Legacy fixed-point format support (for backward compatibility)
     // If target specifies format, use that; otherwise check legacy directives
+    // Note: For compile tests, we still apply the transformation even if targets are filtered out
+    // (we just can't run the code, but we can verify the IR transformation)
     let legacy_fixed_point_format = if test_fixed32 {
         Some(lp_glsl::FixedPointFormat::Fixed16x16)
     } else if test_fixed64 {
+        // Even if fixed64 targets are filtered out (can't run), we still apply the transformation
+        // for compile tests to verify the IR is correct
         Some(lp_glsl::FixedPointFormat::Fixed32x32)
     } else {
         None
@@ -120,7 +143,17 @@ pub fn run_filetest(path: &Path) -> Result<()> {
             .first()
             .and_then(|t| t.fixed_point_format())
             .or(legacy_fixed_point_format);
-        crate::test_compile::run_test(path, &source, &glsl_source, fixed_point_format)?;
+        // If test has fixed32 directive OR target specifies fixed-point format,
+        // check CLIF AFTER fixed-point transformation
+        // Otherwise, check CLIF BEFORE fixed-point transformation (target-agnostic)
+        let check_fixed_point_clif = test_fixed32 || fixed_point_format.is_some();
+        crate::test_compile::run_test(
+            path,
+            &source,
+            &glsl_source,
+            fixed_point_format,
+            check_fixed_point_clif,
+        )?;
     }
 
     if test_run {

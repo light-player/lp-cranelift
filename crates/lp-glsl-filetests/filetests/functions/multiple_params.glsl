@@ -1,6 +1,6 @@
 // test compile
 
-// target riscv32
+// target riscv32.fixed32
 float add3(float a, float b, float c) {
     return a + b + c;
 }

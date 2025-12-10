@@ -4,8 +4,8 @@
 use anyhow::Result;
 use std::path::Path;
 
-use crate::filetest::TestTarget;
 use crate::execution::backend::ReturnType;
+use crate::filetest::TestTarget;
 
 /// Get tolerance default based on target
 fn get_tolerance_default(target: &TestTarget) -> f32 {
@@ -83,9 +83,9 @@ pub fn run_test(
                         )?
                     } else {
                         let mut compiler = lp_glsl::Compiler::new();
-                        let func = compiler
-                            .compile_int(glsl_source)
-                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        let func = compiler.compile_int(glsl_source).map_err(|e| {
+                            anyhow::anyhow!("Failed to compile for run test: {}", e)
+                        })?;
                         func()
                     };
 
@@ -120,9 +120,9 @@ pub fn run_test(
                     } else {
                         let mut compiler = lp_glsl::Compiler::new();
                         compiler.set_fixed_point_format(fixed_point_format);
-                        let func = compiler
-                            .compile_bool(glsl_source)
-                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        let func = compiler.compile_bool(glsl_source).map_err(|e| {
+                            anyhow::anyhow!("Failed to compile for run test: {}", e)
+                        })?;
                         func()
                     };
                     let expected_val = if expected { 1 } else { 0 };
@@ -215,9 +215,9 @@ pub fn run_test(
                     } else {
                         let mut compiler = lp_glsl::Compiler::new();
                         compiler.set_fixed_point_format(fixed_point_format);
-                        let func = compiler
-                            .compile_vec2(glsl_source)
-                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        let func = compiler.compile_vec2(glsl_source).map_err(|e| {
+                            anyhow::anyhow!("Failed to compile for run test: {}", e)
+                        })?;
                         func()
                     };
 
@@ -251,9 +251,9 @@ pub fn run_test(
                     } else {
                         let mut compiler = lp_glsl::Compiler::new();
                         compiler.set_fixed_point_format(fixed_point_format);
-                        let func = compiler
-                            .compile_vec3(glsl_source)
-                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        let func = compiler.compile_vec3(glsl_source).map_err(|e| {
+                            anyhow::anyhow!("Failed to compile for run test: {}", e)
+                        })?;
                         func()
                     };
 
@@ -296,9 +296,9 @@ pub fn run_test(
                     } else {
                         let mut compiler = lp_glsl::Compiler::new();
                         compiler.set_fixed_point_format(fixed_point_format);
-                        let func = compiler
-                            .compile_vec4(glsl_source)
-                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        let func = compiler.compile_vec4(glsl_source).map_err(|e| {
+                            anyhow::anyhow!("Failed to compile for run test: {}", e)
+                        })?;
                         func()
                     };
 
@@ -346,9 +346,9 @@ pub fn run_test(
                     } else {
                         let mut compiler = lp_glsl::Compiler::new();
                         compiler.set_fixed_point_format(fixed_point_format);
-                        let func = compiler
-                            .compile_mat2(glsl_source)
-                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        let func = compiler.compile_mat2(glsl_source).map_err(|e| {
+                            anyhow::anyhow!("Failed to compile for run test: {}", e)
+                        })?;
                         func()
                     };
 
@@ -396,9 +396,9 @@ pub fn run_test(
                     } else {
                         let mut compiler = lp_glsl::Compiler::new();
                         compiler.set_fixed_point_format(fixed_point_format);
-                        let func = compiler
-                            .compile_mat3(glsl_source)
-                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        let func = compiler.compile_mat3(glsl_source).map_err(|e| {
+                            anyhow::anyhow!("Failed to compile for run test: {}", e)
+                        })?;
                         func()
                     };
 
@@ -467,9 +467,9 @@ pub fn run_test(
                     } else {
                         let mut compiler = lp_glsl::Compiler::new();
                         compiler.set_fixed_point_format(fixed_point_format);
-                        let func = compiler
-                            .compile_mat4(glsl_source)
-                            .map_err(|e| anyhow::anyhow!("Failed to compile for run test: {}", e))?;
+                        let func = compiler.compile_mat4(glsl_source).map_err(|e| {
+                            anyhow::anyhow!("Failed to compile for run test: {}", e)
+                        })?;
                         func()
                     };
 
@@ -584,43 +584,55 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
                 if let Some(approx_str) = spec.strip_prefix("≈").map(str::trim) {
                     // Try to parse as vector
                     if let Some(vec_str) = approx_str.strip_prefix("vec2(") {
-                        if let Some(values_str) = vec_str.strip_suffix(')') {
-                            let values: Vec<f32> = values_str
-                                .split(',')
-                                .map(|s| s.trim().parse::<f32>())
-                                .collect::<Result<Vec<_>, _>>()
-                                .map_err(|_| {
-                                    anyhow::anyhow!("Failed to parse vec2 values: {}", values_str)
-                                })?;
-                            if values.len() != 2 {
-                                anyhow::bail!("vec2 expects 2 values, got {}", values.len());
-                            }
-                            directives.push(RunDirective {
-                                expected_type: ExpectedType::Vec2Approx {
-                                    expected: [values[0], values[1]],
-                                },
-                            });
-                            continue;
+                        // Strip tolerance suffix if present: "1.5, 2.3) (tolerance: 0.01" -> "1.5, 2.3"
+                        let values_str = if let Some(idx) = vec_str.find(") (tolerance:") {
+                            &vec_str[..idx]
+                        } else if vec_str.ends_with(')') {
+                            &vec_str[..vec_str.len() - 1]
+                        } else {
+                            vec_str
+                        };
+                        let values: Vec<f32> = values_str
+                            .split(',')
+                            .map(|s| s.trim().parse::<f32>())
+                            .collect::<Result<Vec<_>, _>>()
+                            .map_err(|_| {
+                                anyhow::anyhow!("Failed to parse vec2 values: {}", values_str)
+                            })?;
+                        if values.len() != 2 {
+                            anyhow::bail!("vec2 expects 2 values, got {}", values.len());
                         }
+                        directives.push(RunDirective {
+                            expected_type: ExpectedType::Vec2Approx {
+                                expected: [values[0], values[1]],
+                            },
+                        });
+                        continue;
                     } else if let Some(vec_str) = approx_str.strip_prefix("vec3(") {
-                        if let Some(values_str) = vec_str.strip_suffix(')') {
-                            let values: Vec<f32> = values_str
-                                .split(',')
-                                .map(|s| s.trim().parse::<f32>())
-                                .collect::<Result<Vec<_>, _>>()
-                                .map_err(|_| {
-                                    anyhow::anyhow!("Failed to parse vec3 values: {}", values_str)
-                                })?;
-                            if values.len() != 3 {
-                                anyhow::bail!("vec3 expects 3 values, got {}", values.len());
-                            }
-                            directives.push(RunDirective {
-                                expected_type: ExpectedType::Vec3Approx {
-                                    expected: [values[0], values[1], values[2]],
-                                },
-                            });
-                            continue;
+                        // Strip tolerance suffix if present: "4, -2, 1) (tolerance: 0.01" -> "4, -2, 1"
+                        let values_str = if let Some(idx) = vec_str.find(") (tolerance:") {
+                            &vec_str[..idx]
+                        } else if vec_str.ends_with(')') {
+                            &vec_str[..vec_str.len() - 1]
+                        } else {
+                            vec_str
+                        };
+                        let values: Vec<f32> = values_str
+                            .split(',')
+                            .map(|s| s.trim().parse::<f32>())
+                            .collect::<Result<Vec<_>, _>>()
+                            .map_err(|_| {
+                                anyhow::anyhow!("Failed to parse vec3 values: {}", values_str)
+                            })?;
+                        if values.len() != 3 {
+                            anyhow::bail!("vec3 expects 3 values, got {}", values.len());
                         }
+                        directives.push(RunDirective {
+                            expected_type: ExpectedType::Vec3Approx {
+                                expected: [values[0], values[1], values[2]],
+                            },
+                        });
+                        continue;
                     } else if let Some(vec_str) = approx_str.strip_prefix("vec4(") {
                         if let Some(values_str) = vec_str.strip_suffix(')') {
                             let values: Vec<f32> = values_str
@@ -708,7 +720,14 @@ fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
                     }
                 }
                 // Parse "~= <value>" for approximate float comparison (tolerance removed - uses target defaults)
+                // Support both "~= <value>" and "~= <value> (tolerance: <tol>)" formats
                 if let Some(value_str) = spec.strip_prefix("~=").map(str::trim) {
+                    // Strip tolerance suffix if present: "4.0 (tolerance: 0.0001)" -> "4.0"
+                    let value_str = if let Some(idx) = value_str.find(" (tolerance:") {
+                        &value_str[..idx]
+                    } else {
+                        value_str
+                    };
                     let value = value_str.parse::<f32>().map_err(|_| {
                         anyhow::anyhow!("Failed to parse float value: {}", value_str)
                     })?;
@@ -747,12 +766,14 @@ fn execute_riscv32<T>(
     glsl_source: &str,
     fixed_point_format: Option<lp_glsl::FixedPointFormat>,
     return_type: ReturnType,
-    execute_fn: impl FnOnce(&crate::execution::EmulatorBackend, &crate::execution::backend::CompiledCode, Option<lp_glsl::FixedPointFormat>) -> Result<T>,
+    execute_fn: impl FnOnce(
+        &crate::execution::EmulatorBackend,
+        &crate::execution::backend::CompiledCode,
+        Option<lp_glsl::FixedPointFormat>,
+    ) -> Result<T>,
 ) -> Result<T> {
     use crate::execution::binary::compile_to_binary;
-    use crate::execution::{
-        CompiledCode, EmulatorBackend, EmulatorType,
-    };
+    use crate::execution::{CompiledCode, EmulatorBackend, EmulatorType};
 
     // Compile GLSL to binary (bootstrap + test function)
     let binary = compile_to_binary(glsl_source, fixed_point_format, return_type)?;

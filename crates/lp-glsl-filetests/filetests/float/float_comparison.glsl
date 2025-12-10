@@ -1,6 +1,6 @@
 // test compile
 // test run
-// target riscv32
+// target riscv32.fixed32
 
 int main() {
     float a = 2.5;
@@ -13,12 +13,12 @@ int main() {
 
 // function u0:0() -> i32 system_v {
 // block0:
-//     v0 = f32const 0x1.400000p1
-//     v1 = f32const 0x1.800000p0
-//     v2 = fcmp gt v0, v1  ; v0 = 0x1.400000p1, v1 = 0x1.800000p0
+//     v9 = iconst.i32 0x0002_8000
+//     v10 = iconst.i32 0x0001_8000
+//     v11 = icmp sgt v9, v10  ; v9 = 0x0002_8000, v10 = 0x0001_8000
 //     v3 = iconst.i8 1
 //     v4 = iconst.i8 0
-//     v5 = select v2, v3, v4  ; v3 = 1, v4 = 0
+//     v5 = select v11, v3, v4  ; v3 = 1, v4 = 0
 //     brif v5, block1, block2
 //
 // block1:

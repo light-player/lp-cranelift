@@ -109,15 +109,40 @@ impl EmulatorBackend {
                 // Set PC to entry point (0, or _start address)
                 emu.set_pc(0);
 
+                // Debug logging (enabled via LP_GLSL_DEBUG env var)
+                let debug_enabled = std::env::var("LP_GLSL_DEBUG").is_ok();
+                if debug_enabled {
+                    eprintln!("[emulator] Starting execution, binary size={} bytes", binary.len());
+                }
+
                 // Run until EBREAK
+                let mut step_count = 0;
                 loop {
+                    step_count += 1;
                     match emu.step() {
-                        Ok(lp_riscv_tools::StepResult::Halted) => break,
-                        Ok(lp_riscv_tools::StepResult::Continue) => continue,
+                        Ok(lp_riscv_tools::StepResult::Halted) => {
+                            if debug_enabled {
+                                eprintln!("[emulator] Halted after {} steps", step_count);
+                            }
+                            break;
+                        }
+                        Ok(lp_riscv_tools::StepResult::Continue) => {
+                            if debug_enabled && step_count % 1000 == 0 {
+                                let pc = emu.get_pc();
+                                eprintln!("[emulator] Step {}, PC=0x{:08x}", step_count, pc);
+                            }
+                            continue;
+                        }
                         Ok(lp_riscv_tools::StepResult::Syscall(_)) => {
                             anyhow::bail!("Unexpected syscall during execution");
                         }
-                        Err(e) => anyhow::bail!("Emulator error: {:?}", e),
+                        Err(e) => {
+                            if debug_enabled {
+                                let pc = emu.get_pc();
+                                eprintln!("[emulator] Error at step {}, PC=0x{:08x}: {:?}", step_count, pc, e);
+                            }
+                            anyhow::bail!("Emulator error: {:?}", e);
+                        }
                     }
                 }
 
@@ -157,7 +182,7 @@ impl ExecutionBackend for EmulatorBackend {
                 let value = memory
                     .read_word(RESULT_ADDR)
                     .map_err(|e| anyhow::anyhow!("Failed to read result from memory: {:?}", e))?;
-                Ok(value as i32)
+                Ok(value)
             }
             _ => anyhow::bail!("EmulatorBackend requires EmulatorBinary compiled code"),
         }

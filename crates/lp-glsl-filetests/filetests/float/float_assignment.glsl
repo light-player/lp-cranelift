@@ -1,6 +1,6 @@
 // test compile
 // test run
-// target riscv32
+// target riscv32.fixed32
 
 float main() {
     float x = 10;  // int 10 → float conversion

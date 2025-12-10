@@ -1,6 +1,6 @@
 // test compile
 
-// target riscv32
+// target riscv32.fixed32
 mat3 scale(mat3 m, float s) {
     return m * s;
 }

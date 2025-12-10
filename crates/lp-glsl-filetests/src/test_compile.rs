@@ -10,6 +10,7 @@ pub fn run_test(
     full_source: &str,
     glsl_source: &str,
     fixed_point_format: Option<lp_glsl::FixedPointFormat>,
+    check_fixed_point_clif: bool,
 ) -> Result<()> {
     // Parse target directives from the test file
     let targets = crate::filetest::parse_target_directives(full_source)?;
@@ -33,8 +34,14 @@ pub fn run_test(
     // Create JIT with target ISA
     let mut jit = lp_glsl::JIT::new_with_isa(isa);
     jit.fixed_point_format = fixed_point_format;
+    
+    // Determine whether to apply fixed-point transformation:
+    // - If check_fixed_point_clif is true, we want to verify CLIF AFTER fixed-point (apply_fixed_point=true)
+    // - Otherwise, we want to verify CLIF BEFORE fixed-point (target-agnostic, apply_fixed_point=false)
+    let apply_fixed_point = check_fixed_point_clif;
+    
     let clif = jit
-        .compile_to_clif(glsl_source)
+        .compile_to_clif_detailed(glsl_source, apply_fixed_point)
         .map_err(|e| anyhow::anyhow!("Compilation failed: {}", e))?;
 
     // Extract expected output from comments

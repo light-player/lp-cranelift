@@ -1,6 +1,6 @@
 // test compile
 
-// target riscv32
+// target riscv32.fixed32
 mat2 identity() {
     return mat2(1.0);
 }
@@ -17,24 +17,24 @@ mat2 main() {
 // block0(v0: i32):
 //     v1 = stack_addr.i32 ss0
 //     call fn0(v1)
-//     v2 = load.f32 notrap aligned v1
-//     v3 = load.f32 notrap aligned v1+4
-//     v4 = load.f32 notrap aligned v1+8
-//     v5 = load.f32 notrap aligned v1+12
-//     store notrap aligned v2, v0
-//     store notrap aligned v3, v0+4
-//     store notrap aligned v4, v0+8
-//     store notrap aligned v5, v0+12
+//     v10 = load.i32 notrap aligned v1
+//     v11 = load.i32 notrap aligned v1+4
+//     v12 = load.i32 notrap aligned v1+8
+//     v13 = load.i32 notrap aligned v1+12
+//     store notrap aligned v10, v0
+//     store notrap aligned v11, v0+4
+//     store notrap aligned v12, v0+8
+//     store notrap aligned v13, v0+12
 //     return
 //
 // block1:
-//     v6 = f32const 0.0
-//     store notrap aligned v6, v0  ; v6 = 0.0
-//     v7 = f32const 0.0
-//     store notrap aligned v7, v0+4  ; v7 = 0.0
-//     v8 = f32const 0.0
-//     store notrap aligned v8, v0+8  ; v8 = 0.0
-//     v9 = f32const 0.0
-//     store notrap aligned v9, v0+12  ; v9 = 0.0
+//     v14 = iconst.i32 0
+//     store notrap aligned v14, v0  ; v14 = 0
+//     v15 = iconst.i32 0
+//     store notrap aligned v15, v0+4  ; v15 = 0
+//     v16 = iconst.i32 0
+//     store notrap aligned v16, v0+8  ; v16 = 0
+//     v17 = iconst.i32 0
+//     store notrap aligned v17, v0+12  ; v17 = 0
 //     return
 // }

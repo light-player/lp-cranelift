@@ -1,6 +1,6 @@
 // test compile
 
-// target riscv32
+// target riscv32.fixed32
 mat3 transpose_mat(mat3 m) {
     return transpose(m);
 }

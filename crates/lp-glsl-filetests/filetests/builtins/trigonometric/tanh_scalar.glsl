@@ -9,21 +9,30 @@ float main() {
 
 // function u0:0() -> i32 system_v {
 //     sig0 = (f32) -> f32 system_v
-//     fn0 = u0:0 sig0
+//     fn0 = %tanhf sig0
 //
 // block0:
 //     v3 = iconst.i32 0
-//     v4 = f32const 0x1.000000p16
-//     v5 = fcvt_from_sint.f32 v3  ; v3 = 0
-//     v6 = fdiv v5, v4  ; v4 = 0x1.000000p16
-//     v7 = call fn0(v6)
-//     v8 = f32const 0x1.000000p16
-//     v9 = fmul v7, v8  ; v8 = 0x1.000000p16
-//     v10 = fcvt_to_sint.i32 v9
-//     return v10
+//     v4 = iconst.i32 0
+//     v5 = iconst.i32 1
+//     v6 = icmp slt v3, v4  ; v3 = 0, v4 = 0
+//     v7 = iabs v3  ; v3 = 0
+//     v8 = iadd v5, v7  ; v5 = 1
+//     v9 = sextend.i64 v3  ; v3 = 0
+//     v10 = iconst.i64 16
+//     v11 = ishl v9, v10  ; v10 = 16
+//     v12 = sextend.i64 v8
+//     v13 = sdiv v11, v12
+//     v14 = ireduce.i32 v13
+//     v15 = iconst.i32 0x0002_0000
+//     v16 = icmp sgt v7, v15  ; v15 = 0x0002_0000
+//     v17 = ineg v5  ; v5 = 1
+//     v18 = select v6, v17, v5  ; v5 = 1
+//     v19 = select v16, v18, v14
+//     return v19
 //
 // block1:
-//     v11 = iconst.i32 0
-//     return v11  ; v11 = 0
+//     v20 = iconst.i32 0
+//     return v20  ; v20 = 0
 // }
 // run: ~= 0.0 

@@ -22,24 +22,37 @@ pub fn generate_bootstrap(
 ) -> Result<Vec<u8>> {
     let mut code = Vec::new();
 
-    // 1. Set up stack pointer: lui sp, 0x80010; addi sp, sp, 0
-    // lui sp, 0x80010 (load upper 20 bits of 0x80010000 into sp)
-    code.extend_from_slice(&encode_lui(2, 0x80010)); // sp = x2
+    // 1. Set up stack pointer: lui sp, (STACK_BASE >> 12); addi sp, sp, 0
+    // lui sp, (STACK_BASE >> 12) - load upper 20 bits of STACK_BASE into sp
+    // encode_lui expects the full 32-bit value and extracts upper 20 bits
+    code.extend_from_slice(&encode_lui(2, STACK_BASE)); // sp = x2
     // addi sp, sp, 0 (add lower 12 bits, which are 0)
     code.extend_from_slice(&encode_addi(2, 2, 0));
 
     // 2. Call test function: jal ra, test_func_addr
     // Use jalr with absolute address (auipc + addi + jalr)
-    // auipc t0, (test_func_addr >> 12)
-    code.extend_from_slice(&encode_auipc(5, test_func_addr >> 12)); // t0 = x5
-    // addi t0, t0, (test_func_addr & 0xFFF)
-    code.extend_from_slice(&encode_addi(5, 5, (test_func_addr & 0xFFF) as i32));
-    // jalr ra, t0, 0
+    // PC-relative addressing: auipc computes PC + (imm << 12)
+    // PC at auipc instruction = 8 (after 2 stack setup instructions)
+    let pc_at_auipc = code.len() as u32;
+    let offset_to_test_func = test_func_addr.wrapping_sub(pc_at_auipc);
+    
+    // Debug logging (enabled via LP_GLSL_DEBUG env var)
+    if std::env::var("LP_GLSL_DEBUG").is_ok() {
+        eprintln!("[bootstrap] test_func_addr=0x{:08x}, pc_at_auipc=0x{:08x}, offset=0x{:08x}", 
+                  test_func_addr, pc_at_auipc, offset_to_test_func);
+    }
+    
+    // auipc t0, (offset >> 12) - computes t0 = PC + (offset >> 12) << 12
+    code.extend_from_slice(&encode_auipc(5, offset_to_test_func >> 12)); // t0 = x5
+    // addi t0, t0, (offset & 0xFFF) - adds lower 12 bits
+    code.extend_from_slice(&encode_addi(5, 5, (offset_to_test_func & 0xFFF) as i32));
+    // jalr ra, t0, 0 - jumps to t0, sets ra = PC + 4
     code.extend_from_slice(&encode_jalr(1, 5, 0)); // ra = x1
 
     // 3. Store result at RESULT_ADDR
     // Use t1 (x6) instead of t0 to avoid conflicts with function call setup
     // lui t1, (RESULT_ADDR >> 12); addi t1, t1, (RESULT_ADDR & 0xFFF)
+    // encode_lui expects the full 32-bit value and extracts upper 20 bits
     let result_base_reg = 6; // t1 = x6
     code.extend_from_slice(&encode_lui(result_base_reg, RESULT_ADDR));
     code.extend_from_slice(&encode_addi(result_base_reg, result_base_reg, (RESULT_ADDR & 0xFFF) as i32));
@@ -86,7 +99,8 @@ pub fn generate_bootstrap(
     }
 
     // 4. EBREAK: ebreak (0x00100073)
-    code.extend_from_slice(&[0x73, 0x10, 0x00, 0x00]);
+    // Encoding: 0x00100073 in little-endian bytes
+    code.extend_from_slice(&[0x73, 0x00, 0x10, 0x00]);
 
     Ok(code)
 }

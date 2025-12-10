@@ -1,6 +1,5 @@
 //! Math function converters (sqrt, ceil, floor).
 
-use crate::error::GlslError;
 use crate::transform::fixed_point::types::FixedPointFormat;
 
 #[cfg(not(feature = "std"))]
@@ -13,17 +12,26 @@ use cranelift_codegen::ir::{
     Function, Inst, InstBuilder, InstructionData, Value, condcodes::IntCC,
 };
 
+use super::transform::WalkCommand;
+
 /// Convert Sqrt to integer square root using Newton's method
 pub(super) fn convert_sqrt(
     func: &mut Function,
     inst: Inst,
     format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), GlslError> {
+) -> WalkCommand {
+    let old_result = func.dfg.first_result(inst);
+
+    // Only convert if result type is F32
+    if func.dfg.value_type(old_result) != cranelift_codegen::ir::types::F32 {
+        return WalkCommand::Continue;
+    }
+
     let inst_data = &func.dfg.insts[inst];
     if let InstructionData::Unary { opcode: _, arg } = inst_data {
+        // Map operand through value_map FIRST
         let arg = *value_map.get(arg).unwrap_or(arg);
-        let old_result = func.dfg.first_result(inst);
         let target_type = format.cranelift_type();
 
         let mut cursor = FuncCursor::new(func).at_inst(inst);
@@ -44,7 +52,7 @@ pub(super) fn convert_sqrt(
         // Newton's method: x_new = (x_old + n/x_old) >> 1
         // We need to iterate a few times. For simplicity, let's do 5 iterations.
         // Extend to larger type for intermediate calculations
-        match format {
+        let new_result = match format {
             FixedPointFormat::Fixed16x16 => {
                 // Extend to I64 for calculations
                 let x_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, arg);
@@ -74,8 +82,7 @@ pub(super) fn convert_sqrt(
                     .ireduce(cranelift_codegen::ir::types::I32, result_64);
 
                 // Handle zero case
-                let new_result = cursor.ins().select(is_zero, zero, result_32);
-                value_map.insert(old_result, new_result);
+                cursor.ins().select(is_zero, zero, result_32)
             }
             FixedPointFormat::Fixed32x32 => {
                 // Extend to I128 for calculations
@@ -102,18 +109,28 @@ pub(super) fn convert_sqrt(
                     .ins()
                     .ireduce(cranelift_codegen::ir::types::I64, result_128);
 
-                let new_result = cursor.ins().select(is_zero, zero, result_64);
-                value_map.insert(old_result, new_result);
+                // Handle zero case
+                cursor.ins().select(is_zero, zero, result_64)
             }
-        }
+        };
 
-        // Detach and remove old instruction
+        // Detach old instruction results
         cursor.func.dfg.detach_inst_results(inst);
-        cursor.goto_inst(inst);
-        cursor.remove_inst();
+
+        // Add to value_map immediately - this maps old F32 result to new I32/I64 result
+        // All uses of old_result will be redirected to new_result via value_map during forward_walk
+        // Note: We do NOT use change_to_alias here because it's designed for same-type aliasing,
+        // and we're converting from F32 to I32/I64. The value_map mechanism handles cross-type
+        // value replacement correctly.
+        value_map.insert(old_result, new_result);
+
+        // Replace old instruction with a harmless instruction (iconst 0)
+        // The alias ensures correctness, this is just to clean up the instruction
+        let target_type = format.cranelift_type();
+        cursor.func.dfg.replace(inst).iconst(target_type, 0);
     }
 
-    Ok(())
+    WalkCommand::Continue
 }
 
 /// Convert Ceil to fixed-point ceiling operation
@@ -122,9 +139,10 @@ pub(super) fn convert_ceil(
     inst: Inst,
     format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), GlslError> {
+) -> WalkCommand {
     let inst_data = &func.dfg.insts[inst];
     if let InstructionData::Unary { opcode: _, arg } = inst_data {
+        // Map operand through value_map FIRST
         let arg = *value_map.get(arg).unwrap_or(arg);
         let old_result = func.dfg.first_result(inst);
         let shift_amount = format.shift_amount();
@@ -134,7 +152,7 @@ pub(super) fn convert_ceil(
 
         // For fixed-point ceiling: ceil(x) means round up the fractional part
         // If x has any fractional bits, add 1 to the integer part
-        match format {
+        let new_result = match format {
             FixedPointFormat::Fixed16x16 => {
                 let shift_const = cursor
                     .ins()
@@ -164,11 +182,9 @@ pub(super) fn convert_ceil(
 
                 // result = rounded_int << shift
                 let result_64 = cursor.ins().ishl(rounded_int, shift_const);
-                let result_32 = cursor
+                cursor
                     .ins()
-                    .ireduce(cranelift_codegen::ir::types::I32, result_64);
-
-                value_map.insert(old_result, result_32);
+                    .ireduce(cranelift_codegen::ir::types::I32, result_64)
             }
             FixedPointFormat::Fixed32x32 => {
                 let shift_const = cursor
@@ -191,18 +207,26 @@ pub(super) fn convert_ceil(
                 let int_plus_one = cursor.ins().iadd(int_part, one_inc);
                 let rounded_int = cursor.ins().select(has_frac, int_plus_one, int_part);
 
-                let new_result = cursor.ins().ishl(rounded_int, shift_const);
-                value_map.insert(old_result, new_result);
+                cursor.ins().ishl(rounded_int, shift_const)
             }
-        }
+        };
 
-        // Detach and remove old instruction
+        // Detach old instruction results
         cursor.func.dfg.detach_inst_results(inst);
-        cursor.goto_inst(inst);
-        cursor.remove_inst();
+
+        // Add to value_map immediately - this maps old F32 result to new I32/I64 result
+        // All uses of old_result will be redirected to new_result via value_map during forward_walk
+        // Note: We do NOT use change_to_alias here because it's designed for same-type aliasing,
+        // and we're converting from F32 to I32/I64. The value_map mechanism handles cross-type
+        // value replacement correctly.
+        value_map.insert(old_result, new_result);
+
+        // Replace old instruction with a harmless instruction (iconst 0)
+        // The alias ensures correctness, this is just to clean up the instruction
+        cursor.func.dfg.replace(inst).iconst(target_type, 0);
     }
 
-    Ok(())
+    WalkCommand::Continue
 }
 
 /// Convert Floor to fixed-point floor operation
@@ -211,9 +235,10 @@ pub(super) fn convert_floor(
     inst: Inst,
     format: FixedPointFormat,
     value_map: &mut ValueMap<Value, Value>,
-) -> Result<(), GlslError> {
+) -> WalkCommand {
     let inst_data = &func.dfg.insts[inst];
     if let InstructionData::Unary { opcode: _, arg } = inst_data {
+        // Map operand through value_map FIRST
         let arg = *value_map.get(arg).unwrap_or(arg);
         let old_result = func.dfg.first_result(inst);
         let shift_amount = format.shift_amount();
@@ -227,28 +252,36 @@ pub(super) fn convert_floor(
             .ins()
             .iconst(cranelift_codegen::ir::types::I64, shift_amount);
 
-        match format {
+        let new_result = match format {
             FixedPointFormat::Fixed16x16 => {
                 let arg_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, arg);
                 let int_part = cursor.ins().sshr(arg_ext, shift_const);
                 let result_64 = cursor.ins().ishl(int_part, shift_const);
-                let result_32 = cursor
+                cursor
                     .ins()
-                    .ireduce(cranelift_codegen::ir::types::I32, result_64);
-                value_map.insert(old_result, result_32);
+                    .ireduce(cranelift_codegen::ir::types::I32, result_64)
             }
             FixedPointFormat::Fixed32x32 => {
                 let int_part = cursor.ins().sshr(arg, shift_const);
-                let new_result = cursor.ins().ishl(int_part, shift_const);
-                value_map.insert(old_result, new_result);
+                cursor.ins().ishl(int_part, shift_const)
             }
-        }
+        };
 
-        // Detach and remove old instruction
+        // Detach old instruction results
         cursor.func.dfg.detach_inst_results(inst);
-        cursor.goto_inst(inst);
-        cursor.remove_inst();
+
+        // Add to value_map immediately - this maps old F32 result to new I32/I64 result
+        // All uses of old_result will be redirected to new_result via value_map during forward_walk
+        // Note: We do NOT use change_to_alias here because it's designed for same-type aliasing,
+        // and we're converting from F32 to I32/I64. The value_map mechanism handles cross-type
+        // value replacement correctly.
+        value_map.insert(old_result, new_result);
+
+        // Replace old instruction with a harmless instruction (iconst 0)
+        // The alias ensures correctness, this is just to clean up the instruction
+        let target_type = format.cranelift_type();
+        cursor.func.dfg.replace(inst).iconst(target_type, 0);
     }
 
-    Ok(())
+    WalkCommand::Continue
 }

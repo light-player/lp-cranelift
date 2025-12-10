@@ -1,6 +1,6 @@
 // test compile
 // test run
-// target riscv32
+// target riscv32.fixed32
 
 int main() {
     vec3 a = vec3(1.0, 2.0, 3.0);
@@ -9,17 +9,17 @@ int main() {
     return 1;
 }
 
-// function u0:0() -> i32 apple_aarch64 {
+// function u0:0() -> i32 system_v {
 // block0:
-//     v0 = f32const 0x1.000000p0
-//     v1 = f32const 0x1.000000p1
-//     v2 = f32const 0x1.800000p1
-//     v3 = f32const 0x1.000000p2
-//     v4 = f32const 0x1.400000p2
-//     v5 = f32const 0x1.800000p2
-//     v6 = fadd v0, v3  ; v0 = 0x1.000000p0, v3 = 0x1.000000p2
-//     v7 = fadd v1, v4  ; v1 = 0x1.000000p1, v4 = 0x1.400000p2
-//     v8 = fadd v2, v5  ; v2 = 0x1.800000p1, v5 = 0x1.800000p2
+//     v11 = iconst.i32 0x0001_0000
+//     v12 = iconst.i32 0x0002_0000
+//     v13 = iconst.i32 0x0003_0000
+//     v14 = iconst.i32 0x0004_0000
+//     v15 = iconst.i32 0x0005_0000
+//     v16 = iconst.i32 0x0006_0000
+//     v17 = iadd v11, v14  ; v11 = 0x0001_0000, v14 = 0x0004_0000
+//     v18 = iadd v12, v15  ; v12 = 0x0002_0000, v15 = 0x0005_0000
+//     v19 = iadd v13, v16  ; v13 = 0x0003_0000, v16 = 0x0006_0000
 //     v9 = iconst.i32 1
 //     return v9  ; v9 = 1
 //

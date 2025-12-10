@@ -1,6 +1,6 @@
 // test compile
 // test run
-// target riscv32
+// target riscv32.fixed32
 
 bool main() {
     vec3 a = vec3(0.0, 0.0, 0.0);
@@ -13,42 +13,72 @@ bool main() {
 
 // function u0:0() -> i8 system_v {
 // block0:
-//     v0 = f32const 0.0
-//     v1 = f32const 0.0
-//     v2 = f32const 0.0
-//     v3 = f32const 0x1.400000p3
-//     v4 = f32const 0x1.400000p4
-//     v5 = f32const 0x1.e00000p4
-//     v6 = f32const 0x1.000000p-1
-//     v7 = f32const 0x1.000000p-1
-//     v8 = f32const 0x1.000000p-1
-//     v9 = f32const 0x1.000000p0
-//     v10 = fsub v9, v6  ; v9 = 0x1.000000p0, v6 = 0x1.000000p-1
-//     v11 = fmul v0, v10  ; v0 = 0.0
-//     v12 = fmul v3, v6  ; v3 = 0x1.400000p3, v6 = 0x1.000000p-1
-//     v13 = fadd v11, v12
-//     v14 = f32const 0x1.000000p0
-//     v15 = fsub v14, v7  ; v14 = 0x1.000000p0, v7 = 0x1.000000p-1
-//     v16 = fmul v1, v15  ; v1 = 0.0
-//     v17 = fmul v4, v7  ; v4 = 0x1.400000p4, v7 = 0x1.000000p-1
-//     v18 = fadd v16, v17
-//     v19 = f32const 0x1.000000p0
-//     v20 = fsub v19, v8  ; v19 = 0x1.000000p0, v8 = 0x1.000000p-1
-//     v21 = fmul v2, v20  ; v2 = 0.0
-//     v22 = fmul v5, v8  ; v5 = 0x1.e00000p4, v8 = 0x1.000000p-1
-//     v23 = fadd v21, v22
-//     v24 = fadd v13, v18
-//     v25 = fadd v24, v23
-//     v26 = f32const 0x1.dfd70ap4
-//     v27 = fcmp gt v25, v26  ; v26 = 0x1.dfd70ap4
+//     v43 = iconst.i32 0
+//     v44 = iconst.i32 0
+//     v45 = iconst.i32 0
+//     v46 = iconst.i32 0x000a_0000
+//     v47 = iconst.i32 0x0014_0000
+//     v48 = iconst.i32 0x001e_0000
+//     v49 = iconst.i32 0x8000
+//     v50 = iconst.i32 0x8000
+//     v51 = iconst.i32 0x8000
+//     v52 = iconst.i32 0x0001_0000
+//     v53 = isub v52, v49  ; v52 = 0x0001_0000, v49 = 0x8000
+//     v54 = sextend.i64 v43  ; v43 = 0
+//     v55 = sextend.i64 v53
+//     v56 = imul v54, v55
+//     v57 = iconst.i64 16
+//     v58 = sshr v56, v57  ; v57 = 16
+//     v59 = ireduce.i32 v58
+//     v60 = sextend.i64 v46  ; v46 = 0x000a_0000
+//     v61 = sextend.i64 v49  ; v49 = 0x8000
+//     v62 = imul v60, v61
+//     v63 = iconst.i64 16
+//     v64 = sshr v62, v63  ; v63 = 16
+//     v65 = ireduce.i32 v64
+//     v66 = iadd v59, v65
+//     v67 = iconst.i32 0x0001_0000
+//     v68 = isub v67, v50  ; v67 = 0x0001_0000, v50 = 0x8000
+//     v69 = sextend.i64 v44  ; v44 = 0
+//     v70 = sextend.i64 v68
+//     v71 = imul v69, v70
+//     v72 = iconst.i64 16
+//     v73 = sshr v71, v72  ; v72 = 16
+//     v74 = ireduce.i32 v73
+//     v75 = sextend.i64 v47  ; v47 = 0x0014_0000
+//     v76 = sextend.i64 v50  ; v50 = 0x8000
+//     v77 = imul v75, v76
+//     v78 = iconst.i64 16
+//     v79 = sshr v77, v78  ; v78 = 16
+//     v80 = ireduce.i32 v79
+//     v81 = iadd v74, v80
+//     v82 = iconst.i32 0x0001_0000
+//     v83 = isub v82, v51  ; v82 = 0x0001_0000, v51 = 0x8000
+//     v84 = sextend.i64 v45  ; v45 = 0
+//     v85 = sextend.i64 v83
+//     v86 = imul v84, v85
+//     v87 = iconst.i64 16
+//     v88 = sshr v86, v87  ; v87 = 16
+//     v89 = ireduce.i32 v88
+//     v90 = sextend.i64 v48  ; v48 = 0x001e_0000
+//     v91 = sextend.i64 v51  ; v51 = 0x8000
+//     v92 = imul v90, v91
+//     v93 = iconst.i64 16
+//     v94 = sshr v92, v93  ; v93 = 16
+//     v95 = ireduce.i32 v94
+//     v96 = iadd v89, v95
+//     v97 = iadd v66, v81
+//     v98 = iadd v97, v96
+//     v99 = iconst.i32 0x001d_fd71
+//     v100 = icmp sgt v98, v99  ; v99 = 0x001d_fd71
 //     v28 = iconst.i8 1
 //     v29 = iconst.i8 0
-//     v30 = select v27, v28, v29  ; v28 = 1, v29 = 0
-//     v31 = f32const 0x1.e028f6p4
-//     v32 = fcmp lt v25, v31  ; v31 = 0x1.e028f6p4
+//     v30 = select v100, v28, v29  ; v28 = 1, v29 = 0
+//     v101 = iconst.i32 0x001e_028f
+//     v102 = icmp slt v98, v101  ; v101 = 0x001e_028f
 //     v33 = iconst.i8 1
 //     v34 = iconst.i8 0
-//     v35 = select v32, v33, v34  ; v33 = 1, v34 = 0
+//     v35 = select v102, v33, v34  ; v33 = 1, v34 = 0
 //     v36 = iconst.i8 0
 //     v37 = iconst.i8 1
 //     v38 = icmp ne v30, v36  ; v36 = 0

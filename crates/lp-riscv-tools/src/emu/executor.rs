@@ -553,28 +553,30 @@ pub fn execute_instruction(
             let old_value = old_half as i32;
 
             let error_regs = *regs;
-            memory.write_halfword(address, value as i16).map_err(|mut e| {
-                match &mut e {
-                    EmulatorError::InvalidMemoryAccess {
-                        regs: err_regs,
-                        pc: err_pc,
-                        ..
-                    } => {
-                        *err_regs = error_regs;
-                        *err_pc = pc;
+            memory
+                .write_halfword(address, value as i16)
+                .map_err(|mut e| {
+                    match &mut e {
+                        EmulatorError::InvalidMemoryAccess {
+                            regs: err_regs,
+                            pc: err_pc,
+                            ..
+                        } => {
+                            *err_regs = error_regs;
+                            *err_pc = pc;
+                        }
+                        EmulatorError::UnalignedAccess {
+                            regs: err_regs,
+                            pc: err_pc,
+                            ..
+                        } => {
+                            *err_regs = error_regs;
+                            *err_pc = pc;
+                        }
+                        _ => {}
                     }
-                    EmulatorError::UnalignedAccess {
-                        regs: err_regs,
-                        pc: err_pc,
-                        ..
-                    } => {
-                        *err_regs = error_regs;
-                        *err_pc = pc;
-                    }
-                    _ => {}
-                }
-                e
-            })?;
+                    e
+                })?;
 
             InstLog::Store {
                 cycle: 0,
@@ -1156,7 +1158,6 @@ pub fn execute_instruction(
         // ====================================================================
         // Zbs: Single-bit instructions (immediate)
         // ====================================================================
-
         Inst::Bclri { rd, rs1, imm } => {
             let val1 = read_reg(regs, rs1);
             let rd_old = read_reg(regs, rd);
@@ -1243,7 +1244,6 @@ pub fn execute_instruction(
         // ====================================================================
         // Zbs: Single-bit instructions (register)
         // ====================================================================
-
         Inst::Bclr { rd, rs1, rs2 } => {
             let val1 = read_reg(regs, rs1);
             let val2 = read_reg(regs, rs2);
@@ -1334,7 +1334,6 @@ pub fn execute_instruction(
         // ====================================================================
         // Zbb: Count operations
         // ====================================================================
-
         Inst::Clz { rd, rs1 } => {
             let val1 = read_reg(regs, rs1);
             let rd_old = read_reg(regs, rd);
@@ -1406,7 +1405,6 @@ pub fn execute_instruction(
         // ====================================================================
         // Zbb: Sign/zero extend
         // ====================================================================
-
         Inst::Sextb { rd, rs1 } => {
             let val1 = read_reg(regs, rs1);
             let rd_old = read_reg(regs, rd);
@@ -1467,7 +1465,6 @@ pub fn execute_instruction(
         // ====================================================================
         // Zbb: Rotate instructions
         // ====================================================================
-
         Inst::Rori { rd, rs1, imm } => {
             let val1 = read_reg(regs, rs1);
             let rd_old = read_reg(regs, rd);
@@ -1536,13 +1533,15 @@ pub fn execute_instruction(
         // ====================================================================
         // Zbb: Byte reverse
         // ====================================================================
-
         Inst::Rev8 { rd, rs1 } => {
             let val1 = read_reg(regs, rs1);
             let rd_old = read_reg(regs, rd);
             let val_u = val1 as u32;
             // Reverse bytes: swap byte 0<->3, 1<->2
-            let result = ((val_u << 24) | ((val_u & 0xff00) << 8) | ((val_u & 0xff0000) >> 8) | (val_u >> 24)) as i32;
+            let result = ((val_u << 24)
+                | ((val_u & 0xff00) << 8)
+                | ((val_u & 0xff0000) >> 8)
+                | (val_u >> 24)) as i32;
             if rd.num() != 0 {
                 regs[rd.num() as usize] = result;
             }
@@ -1614,7 +1613,6 @@ pub fn execute_instruction(
         // ====================================================================
         // Zbb: Min/Max
         // ====================================================================
-
         Inst::Min { rd, rs1, rs2 } => {
             let val1 = read_reg(regs, rs1);
             let val2 = read_reg(regs, rs2);
@@ -1702,7 +1700,6 @@ pub fn execute_instruction(
         // ====================================================================
         // Zbb: Logical operations
         // ====================================================================
-
         Inst::Andn { rd, rs1, rs2 } => {
             let val1 = read_reg(regs, rs1);
             let val2 = read_reg(regs, rs2);
@@ -1766,7 +1763,6 @@ pub fn execute_instruction(
         // ====================================================================
         // Zba: Address generation
         // ====================================================================
-
         Inst::Sh1add { rd, rs1, rs2 } => {
             let val1 = read_reg(regs, rs1);
             let val2 = read_reg(regs, rs2);
@@ -1884,11 +1880,95 @@ pub fn execute_instruction(
                 kind: SystemKind::Ebreak, // Use existing kind (doesn't matter for logging)
             }
         }
+        Inst::Csrrw { rd, rs1: _, csr: _ } => {
+            // CSRRW: rd = CSR; CSR = rs1
+            // In emulator, CSR operations are no-ops (we don't track CSR state)
+            // Just write 0 to rd (or preserve if rd is x0)
+            let result = 0i32; // CSR reads return 0 (no CSR state tracked)
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::System {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                kind: SystemKind::Ebreak, // Use existing kind (doesn't matter for logging)
+            }
+        }
+        Inst::Csrrs { rd, rs1: _, csr: _ } => {
+            // CSRRS: rd = CSR; CSR = CSR | rs1
+            // In emulator, CSR operations are no-ops
+            let result = 0i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::System {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                kind: SystemKind::Ebreak,
+            }
+        }
+        Inst::Csrrc { rd, rs1: _, csr: _ } => {
+            // CSRRC: rd = CSR; CSR = CSR & ~rs1
+            // In emulator, CSR operations are no-ops
+            let result = 0i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::System {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                kind: SystemKind::Ebreak,
+            }
+        }
+        Inst::Csrrwi { rd, imm: _, csr: _ } => {
+            // CSRRWI: rd = CSR; CSR = imm
+            // In emulator, CSR operations are no-ops
+            let result = 0i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::System {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                kind: SystemKind::Ebreak,
+            }
+        }
+        Inst::Csrrsi { rd, imm: _, csr: _ } => {
+            // CSRRSI: rd = CSR; CSR = CSR | imm
+            // In emulator, CSR operations are no-ops
+            let result = 0i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::System {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                kind: SystemKind::Ebreak,
+            }
+        }
+        Inst::Csrrci { rd, imm: _, csr: _ } => {
+            // CSRRCI: rd = CSR; CSR = CSR & ~imm
+            // In emulator, CSR operations are no-ops
+            let result = 0i32;
+            if rd.num() != 0 {
+                regs[rd.num() as usize] = result;
+            }
+            InstLog::System {
+                cycle: 0,
+                pc,
+                instruction: instruction_word,
+                kind: SystemKind::Ebreak,
+            }
+        }
 
         // ====================================================================
         // Compressed instructions
         // ====================================================================
-
         Inst::CAddi { rd, imm } => {
             // c.addi: rd = rd + imm
             let val1 = read_reg(regs, rd);
@@ -2510,7 +2590,6 @@ pub fn execute_instruction(
         // Atomic instructions (A extension)
         // For single-threaded emulator, these are just read-modify-write
         // ====================================================================
-
         Inst::LrW { rd, rs1 } => {
             // lr.w: Load reserved word (just a regular load in single-threaded)
             let base = read_reg(regs, rs1);

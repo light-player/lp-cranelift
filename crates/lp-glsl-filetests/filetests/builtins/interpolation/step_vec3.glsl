@@ -1,6 +1,6 @@
 // test compile
 // test run
-// target riscv32
+// target riscv32.fixed32
 
 bool main() {
     vec3 edge = vec3(5.0, 5.0, 5.0);
@@ -11,34 +11,34 @@ bool main() {
     return sum > 1.99 && sum < 2.01;
 }
 
-// function u0:0() -> i8 apple_aarch64 {
+// function u0:0() -> i8 system_v {
 // block0:
-//     v0 = f32const 0x1.400000p2
-//     v1 = f32const 0x1.400000p2
-//     v2 = f32const 0x1.400000p2
-//     v3 = f32const 0x1.800000p1
-//     v4 = f32const 0x1.400000p2
-//     v5 = f32const 0x1.c00000p2
-//     v6 = f32const 0.0
-//     v7 = f32const 0x1.000000p0
-//     v8 = fcmp lt v3, v0  ; v3 = 0x1.800000p1, v0 = 0x1.400000p2
-//     v9 = select v8, v6, v7  ; v6 = 0.0, v7 = 0x1.000000p0
-//     v10 = fcmp lt v4, v1  ; v4 = 0x1.400000p2, v1 = 0x1.400000p2
-//     v11 = select v10, v6, v7  ; v6 = 0.0, v7 = 0x1.000000p0
-//     v12 = fcmp lt v5, v2  ; v5 = 0x1.c00000p2, v2 = 0x1.400000p2
-//     v13 = select v12, v6, v7  ; v6 = 0.0, v7 = 0x1.000000p0
-//     v14 = fadd v9, v11
-//     v15 = fadd v14, v13
-//     v16 = f32const 0x1.fd70a4p0
-//     v17 = fcmp gt v15, v16  ; v16 = 0x1.fd70a4p0
+//     v33 = iconst.i32 0x0005_0000
+//     v34 = iconst.i32 0x0005_0000
+//     v35 = iconst.i32 0x0005_0000
+//     v36 = iconst.i32 0x0003_0000
+//     v37 = iconst.i32 0x0005_0000
+//     v38 = iconst.i32 0x0007_0000
+//     v39 = iconst.i32 0
+//     v40 = iconst.i32 0x0001_0000
+//     v41 = icmp slt v36, v33  ; v36 = 0x0003_0000, v33 = 0x0005_0000
+//     v42 = select v41, v39, v40  ; v39 = 0, v40 = 0x0001_0000
+//     v43 = icmp slt v37, v34  ; v37 = 0x0005_0000, v34 = 0x0005_0000
+//     v44 = select v43, v39, v40  ; v39 = 0, v40 = 0x0001_0000
+//     v45 = icmp slt v38, v35  ; v38 = 0x0007_0000, v35 = 0x0005_0000
+//     v46 = select v45, v39, v40  ; v39 = 0, v40 = 0x0001_0000
+//     v47 = iadd v42, v44
+//     v48 = iadd v47, v46
+//     v49 = iconst.i32 0x0001_fd71
+//     v50 = icmp sgt v48, v49  ; v49 = 0x0001_fd71
 //     v18 = iconst.i8 1
 //     v19 = iconst.i8 0
-//     v20 = select v17, v18, v19  ; v18 = 1, v19 = 0
-//     v21 = f32const 0x1.0147aep1
-//     v22 = fcmp lt v15, v21  ; v21 = 0x1.0147aep1
+//     v20 = select v50, v18, v19  ; v18 = 1, v19 = 0
+//     v51 = iconst.i32 0x0002_028f
+//     v52 = icmp slt v48, v51  ; v51 = 0x0002_028f
 //     v23 = iconst.i8 1
 //     v24 = iconst.i8 0
-//     v25 = select v22, v23, v24  ; v23 = 1, v24 = 0
+//     v25 = select v52, v23, v24  ; v23 = 1, v24 = 0
 //     v26 = iconst.i8 0
 //     v27 = iconst.i8 1
 //     v28 = icmp ne v20, v26  ; v26 = 0

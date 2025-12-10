@@ -9,10 +9,14 @@ mod calls;
 mod comparison;
 mod constants;
 mod control;
+mod conversions;
 mod math;
 mod memory;
 mod transform;
 mod types;
+
+#[cfg(test)]
+mod transform_test;
 
 pub use transform::convert_floats_to_fixed;
 pub use types::{FixedPointFormat, float_to_fixed16x16, float_to_fixed32x32};

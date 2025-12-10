@@ -377,3 +377,81 @@ pub fn generate_cos_fixed(
 
     Ok(result)
 }
+
+/// Generate inline IR for tanh(x) where x is fixed-point
+///
+/// Uses approximation: tanh(x) ≈ x / (1 + |x|) for small values
+/// For larger values, clamps to ±1
+pub fn generate_tanh_fixed(
+    cursor: &mut FuncCursor,
+    x: Value,
+    format: FixedPointFormat,
+) -> Result<Value, GlslError> {
+    let target_type = format.cranelift_type();
+    let zero = cursor.ins().iconst(target_type, 0);
+    let one = cursor.ins().iconst(target_type, 1);
+
+    // Get absolute value and sign
+    let is_negative = cursor.ins().icmp(IntCC::SignedLessThan, x, zero);
+    let abs_x = cursor.ins().iabs(x);
+
+    // For small values: tanh(x) ≈ x / (1 + |x|)
+    // This works well for |x| < 1 in fixed-point representation
+    // For larger values, we clamp to ±1
+
+    // Compute 1 + |x|
+    let one_plus_abs = cursor.ins().iadd(one, abs_x);
+
+    // Compute x / (1 + |x|) using fixed-point division
+    let shift_amount = format.shift_amount();
+    let result = match format {
+        FixedPointFormat::Fixed16x16 => {
+            // x_ext = x extended to I64
+            let x_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I64, x);
+            let shift_const = cursor
+                .ins()
+                .iconst(cranelift_codegen::ir::types::I64, shift_amount);
+            let x_shifted = cursor.ins().ishl(x_ext, shift_const);
+            let one_plus_abs_ext = cursor
+                .ins()
+                .sextend(cranelift_codegen::ir::types::I64, one_plus_abs);
+            let div_result = cursor.ins().sdiv(x_shifted, one_plus_abs_ext);
+            cursor
+                .ins()
+                .ireduce(cranelift_codegen::ir::types::I32, div_result)
+        }
+        FixedPointFormat::Fixed32x32 => {
+            // x_ext = x extended to I128
+            let x_ext = cursor.ins().sextend(cranelift_codegen::ir::types::I128, x);
+            let shift_const = cursor
+                .ins()
+                .iconst(cranelift_codegen::ir::types::I64, shift_amount);
+            let x_shifted = cursor.ins().ishl(x_ext, shift_const);
+            let one_plus_abs_ext = cursor
+                .ins()
+                .sextend(cranelift_codegen::ir::types::I128, one_plus_abs);
+            let div_result = cursor.ins().sdiv(x_shifted, one_plus_abs_ext);
+            cursor
+                .ins()
+                .ireduce(cranelift_codegen::ir::types::I64, div_result)
+        }
+    };
+
+    // For very large values, clamp to ±1
+    // If |x| > threshold (e.g., 2 in fixed-point), return sign(x)
+    let threshold = match format {
+        FixedPointFormat::Fixed16x16 => 2 << 16,     // 2.0 in 16.16
+        FixedPointFormat::Fixed32x32 => 2_i64 << 32, // 2.0 in 32.32
+    };
+    let threshold_val = cursor.ins().iconst(target_type, threshold);
+    let is_large = cursor
+        .ins()
+        .icmp(IntCC::SignedGreaterThan, abs_x, threshold_val);
+
+    // Clamp result: if large, use sign(x), otherwise use computed result
+    let neg_one = cursor.ins().ineg(one);
+    let sign_result = cursor.ins().select(is_negative, neg_one, one);
+    let final_result = cursor.ins().select(is_large, sign_result, result);
+
+    Ok(final_result)
+}

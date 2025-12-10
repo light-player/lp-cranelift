@@ -1,6 +1,6 @@
 // test compile
 // test run
-// target riscv32
+// target riscv32.fixed32
 
 bool main() {
     vec3 result = mod(vec3(7.0, 8.0, 9.0), vec3(3.0, 3.0, 4.0));  // (1.0, 2.0, 1.0)
@@ -11,36 +11,78 @@ bool main() {
 
 // function u0:0() -> i8 system_v {
 // block0:
-//     v0 = f32const 0x1.c00000p2
-//     v1 = f32const 0x1.000000p3
-//     v2 = f32const 0x1.200000p3
-//     v3 = f32const 0x1.800000p1
-//     v4 = f32const 0x1.800000p1
-//     v5 = f32const 0x1.000000p2
-//     v6 = fdiv v0, v3  ; v0 = 0x1.c00000p2, v3 = 0x1.800000p1
-//     v7 = floor v6
-//     v8 = fmul v3, v7  ; v3 = 0x1.800000p1
-//     v9 = fsub v0, v8  ; v0 = 0x1.c00000p2
-//     v10 = fdiv v1, v4  ; v1 = 0x1.000000p3, v4 = 0x1.800000p1
-//     v11 = floor v10
-//     v12 = fmul v4, v11  ; v4 = 0x1.800000p1
-//     v13 = fsub v1, v12  ; v1 = 0x1.000000p3
-//     v14 = fdiv v2, v5  ; v2 = 0x1.200000p3, v5 = 0x1.000000p2
-//     v15 = floor v14
-//     v16 = fmul v5, v15  ; v5 = 0x1.000000p2
-//     v17 = fsub v2, v16  ; v2 = 0x1.200000p3
-//     v18 = fadd v9, v13
-//     v19 = fadd v18, v17
-//     v20 = f32const 0x1.feb852p1
-//     v21 = fcmp gt v19, v20  ; v20 = 0x1.feb852p1
+//     v37 = iconst.i32 0x0007_0000
+//     v38 = iconst.i32 0x0008_0000
+//     v39 = iconst.i32 0x0009_0000
+//     v40 = iconst.i32 0x0003_0000
+//     v41 = iconst.i32 0x0003_0000
+//     v42 = iconst.i32 0x0004_0000
+//     v43 = sextend.i64 v37  ; v37 = 0x0007_0000
+//     v44 = iconst.i64 16
+//     v45 = ishl v43, v44  ; v44 = 16
+//     v46 = sextend.i64 v40  ; v40 = 0x0003_0000
+//     v47 = sdiv v45, v46
+//     v48 = ireduce.i32 v47
+//     v49 = iconst.i64 16
+//     v50 = sextend.i64 v48
+//     v51 = sshr v50, v49  ; v49 = 16
+//     v52 = ishl v51, v49  ; v49 = 16
+//     v53 = ireduce.i32 v52
+//     v54 = sextend.i64 v40  ; v40 = 0x0003_0000
+//     v55 = sextend.i64 v53
+//     v56 = imul v54, v55
+//     v57 = iconst.i64 16
+//     v58 = sshr v56, v57  ; v57 = 16
+//     v59 = ireduce.i32 v58
+//     v60 = isub v37, v59  ; v37 = 0x0007_0000
+//     v61 = sextend.i64 v38  ; v38 = 0x0008_0000
+//     v62 = iconst.i64 16
+//     v63 = ishl v61, v62  ; v62 = 16
+//     v64 = sextend.i64 v41  ; v41 = 0x0003_0000
+//     v65 = sdiv v63, v64
+//     v66 = ireduce.i32 v65
+//     v67 = iconst.i64 16
+//     v68 = sextend.i64 v66
+//     v69 = sshr v68, v67  ; v67 = 16
+//     v70 = ishl v69, v67  ; v67 = 16
+//     v71 = ireduce.i32 v70
+//     v72 = sextend.i64 v41  ; v41 = 0x0003_0000
+//     v73 = sextend.i64 v71
+//     v74 = imul v72, v73
+//     v75 = iconst.i64 16
+//     v76 = sshr v74, v75  ; v75 = 16
+//     v77 = ireduce.i32 v76
+//     v78 = isub v38, v77  ; v38 = 0x0008_0000
+//     v79 = sextend.i64 v39  ; v39 = 0x0009_0000
+//     v80 = iconst.i64 16
+//     v81 = ishl v79, v80  ; v80 = 16
+//     v82 = sextend.i64 v42  ; v42 = 0x0004_0000
+//     v83 = sdiv v81, v82
+//     v84 = ireduce.i32 v83
+//     v85 = iconst.i64 16
+//     v86 = sextend.i64 v84
+//     v87 = sshr v86, v85  ; v85 = 16
+//     v88 = ishl v87, v85  ; v85 = 16
+//     v89 = ireduce.i32 v88
+//     v90 = sextend.i64 v42  ; v42 = 0x0004_0000
+//     v91 = sextend.i64 v89
+//     v92 = imul v90, v91
+//     v93 = iconst.i64 16
+//     v94 = sshr v92, v93  ; v93 = 16
+//     v95 = ireduce.i32 v94
+//     v96 = isub v39, v95  ; v39 = 0x0009_0000
+//     v97 = iadd v60, v78
+//     v98 = iadd v97, v96
+//     v99 = iconst.i32 0x0003_fd71
+//     v100 = icmp sgt v98, v99  ; v99 = 0x0003_fd71
 //     v22 = iconst.i8 1
 //     v23 = iconst.i8 0
-//     v24 = select v21, v22, v23  ; v22 = 1, v23 = 0
-//     v25 = f32const 0x1.00a3d8p2
-//     v26 = fcmp lt v19, v25  ; v25 = 0x1.00a3d8p2
+//     v24 = select v100, v22, v23  ; v22 = 1, v23 = 0
+//     v101 = iconst.i32 0x0004_028f
+//     v102 = icmp slt v98, v101  ; v101 = 0x0004_028f
 //     v27 = iconst.i8 1
 //     v28 = iconst.i8 0
-//     v29 = select v26, v27, v28  ; v27 = 1, v28 = 0
+//     v29 = select v102, v27, v28  ; v27 = 1, v28 = 0
 //     v30 = iconst.i8 0
 //     v31 = iconst.i8 1
 //     v32 = icmp ne v24, v30  ; v30 = 0

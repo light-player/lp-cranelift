@@ -1,6 +1,6 @@
 // test compile
 // test run
-// target riscv32
+// target riscv32.fixed32
 
 bool main() {
     float result = mod(7.0, 3.0);  // 7 - 3*floor(7/3) = 7 - 3*2 = 1.0
@@ -9,22 +9,36 @@ bool main() {
 
 // function u0:0() -> i8 system_v {
 // block0:
-//     v0 = f32const 0x1.c00000p2
-//     v1 = f32const 0x1.800000p1
-//     v2 = fdiv v0, v1  ; v0 = 0x1.c00000p2, v1 = 0x1.800000p1
-//     v3 = floor v2
-//     v4 = fmul v1, v3  ; v1 = 0x1.800000p1
-//     v5 = fsub v0, v4  ; v0 = 0x1.c00000p2
-//     v6 = f32const 0x1.fae148p-1
-//     v7 = fcmp gt v5, v6  ; v6 = 0x1.fae148p-1
+//     v23 = iconst.i32 0x0007_0000
+//     v24 = iconst.i32 0x0003_0000
+//     v25 = sextend.i64 v23  ; v23 = 0x0007_0000
+//     v26 = iconst.i64 16
+//     v27 = ishl v25, v26  ; v26 = 16
+//     v28 = sextend.i64 v24  ; v24 = 0x0003_0000
+//     v29 = sdiv v27, v28
+//     v30 = ireduce.i32 v29
+//     v31 = iconst.i64 16
+//     v32 = sextend.i64 v30
+//     v33 = sshr v32, v31  ; v31 = 16
+//     v34 = ishl v33, v31  ; v31 = 16
+//     v35 = ireduce.i32 v34
+//     v36 = sextend.i64 v24  ; v24 = 0x0003_0000
+//     v37 = sextend.i64 v35
+//     v38 = imul v36, v37
+//     v39 = iconst.i64 16
+//     v40 = sshr v38, v39  ; v39 = 16
+//     v41 = ireduce.i32 v40
+//     v42 = isub v23, v41  ; v23 = 0x0007_0000
+//     v43 = iconst.i32 0xfd71
+//     v44 = icmp sgt v42, v43  ; v43 = 0xfd71
 //     v8 = iconst.i8 1
 //     v9 = iconst.i8 0
-//     v10 = select v7, v8, v9  ; v8 = 1, v9 = 0
-//     v11 = f32const 0x1.028f5cp0
-//     v12 = fcmp lt v5, v11  ; v11 = 0x1.028f5cp0
+//     v10 = select v44, v8, v9  ; v8 = 1, v9 = 0
+//     v45 = iconst.i32 0x0001_028f
+//     v46 = icmp slt v42, v45  ; v45 = 0x0001_028f
 //     v13 = iconst.i8 1
 //     v14 = iconst.i8 0
-//     v15 = select v12, v13, v14  ; v13 = 1, v14 = 0
+//     v15 = select v46, v13, v14  ; v13 = 1, v14 = 0
 //     v16 = iconst.i8 0
 //     v17 = iconst.i8 1
 //     v18 = icmp ne v10, v16  ; v16 = 0

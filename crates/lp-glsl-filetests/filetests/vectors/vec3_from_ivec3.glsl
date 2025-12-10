@@ -1,6 +1,6 @@
 // test compile
 
-// target riscv32
+// target riscv32.fixed32
 int main() {
     ivec3 i = ivec3(1, 2, 3);
     vec3 v = vec3(i);  // Type conversion

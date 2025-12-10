@@ -1,6 +1,6 @@
 // test compile
 
-// target riscv32
+// target riscv32.fixed32
 int main() {
     vec3 v = vec3(1, 2, 3);  // int literals → float conversion
     return 1;

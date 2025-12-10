@@ -1,6 +1,6 @@
 // test compile
 
-// target riscv32
+// target riscv32.fixed32
 int main() {
     vec3 a = vec3(1.0, 2.0, 3.0);
     vec3 b = vec3(2.0, 2.0, 2.0);
@@ -8,21 +8,36 @@ int main() {
     return 1;
 }
 
-// function u0:0() -> i32 apple_aarch64 {
+// function u0:0() -> i32 system_v {
 // block0:
-//     v0 = f32const 0x1.000000p0
-//     v1 = f32const 0x1.000000p1
-//     v2 = f32const 0x1.800000p1
-//     v3 = f32const 0x1.000000p1
-//     v4 = f32const 0x1.000000p1
-//     v5 = f32const 0x1.000000p1
-//     v6 = fadd v0, v3  ; v0 = 0x1.000000p0, v3 = 0x1.000000p1
-//     v7 = fadd v1, v4  ; v1 = 0x1.000000p1, v4 = 0x1.000000p1
-//     v8 = fadd v2, v5  ; v2 = 0x1.800000p1, v5 = 0x1.000000p1
-//     v9 = f32const 0x1.000000p1
-//     v10 = fmul v6, v9  ; v9 = 0x1.000000p1
-//     v11 = fmul v7, v9  ; v9 = 0x1.000000p1
-//     v12 = fmul v8, v9  ; v9 = 0x1.000000p1
+//     v15 = iconst.i32 0x0001_0000
+//     v16 = iconst.i32 0x0002_0000
+//     v17 = iconst.i32 0x0003_0000
+//     v18 = iconst.i32 0x0002_0000
+//     v19 = iconst.i32 0x0002_0000
+//     v20 = iconst.i32 0x0002_0000
+//     v21 = iadd v15, v18  ; v15 = 0x0001_0000, v18 = 0x0002_0000
+//     v22 = iadd v16, v19  ; v16 = 0x0002_0000, v19 = 0x0002_0000
+//     v23 = iadd v17, v20  ; v17 = 0x0003_0000, v20 = 0x0002_0000
+//     v24 = iconst.i32 0x0002_0000
+//     v25 = sextend.i64 v21
+//     v26 = sextend.i64 v24  ; v24 = 0x0002_0000
+//     v27 = imul v25, v26
+//     v28 = iconst.i64 16
+//     v29 = sshr v27, v28  ; v28 = 16
+//     v30 = ireduce.i32 v29
+//     v31 = sextend.i64 v22
+//     v32 = sextend.i64 v24  ; v24 = 0x0002_0000
+//     v33 = imul v31, v32
+//     v34 = iconst.i64 16
+//     v35 = sshr v33, v34  ; v34 = 16
+//     v36 = ireduce.i32 v35
+//     v37 = sextend.i64 v23
+//     v38 = sextend.i64 v24  ; v24 = 0x0002_0000
+//     v39 = imul v37, v38
+//     v40 = iconst.i64 16
+//     v41 = sshr v39, v40  ; v40 = 16
+//     v42 = ireduce.i32 v41
 //     v13 = iconst.i32 1
 //     return v13  ; v13 = 1
 //
