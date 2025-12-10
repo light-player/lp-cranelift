@@ -175,68 +175,68 @@ fn test_sign_int() {
 
 // Fixed-point transformation tests - SSA level
 #[test]
-fn test_fixed_const_16x16() {
-    test_file("fixed_point/const_16x16.glsl");
+fn test_fixed_const() {
+    test_file("fixed_point/const.glsl");
 }
 
 #[test]
-fn test_fixed_add_16x16() {
-    test_file("fixed_point/add_16x16.glsl");
+fn test_fixed_add() {
+    test_file("fixed_point/add.glsl");
 }
 
 #[test]
-fn test_fixed_sub_16x16() {
-    test_file("fixed_point/sub_16x16.glsl");
+fn test_fixed_sub() {
+    test_file("fixed_point/sub.glsl");
 }
 
 #[test]
-fn test_fixed_mul_16x16() {
-    test_file("fixed_point/mul_16x16.glsl");
+fn test_fixed_mul() {
+    test_file("fixed_point/mul.glsl");
 }
 
 #[test]
-fn test_fixed_div_16x16() {
-    test_file("fixed_point/div_16x16.glsl");
+fn test_fixed_div() {
+    test_file("fixed_point/div.glsl");
 }
 
 #[test]
-fn test_fixed_cmp_eq_16x16() {
-    test_file("fixed_point/cmp_eq_16x16.glsl");
+fn test_fixed_cmp_eq() {
+    test_file("fixed_point/cmp_eq.glsl");
 }
 
 #[test]
-fn test_fixed_cmp_lt_16x16() {
-    test_file("fixed_point/cmp_lt_16x16.glsl");
+fn test_fixed_cmp_lt() {
+    test_file("fixed_point/cmp_lt.glsl");
 }
 
 #[test]
-fn test_fixed_expr_complex_16x16() {
-    test_file("fixed_point/expr_complex_16x16.glsl");
+fn test_fixed_expr_complex() {
+    test_file("fixed_point/expr_complex.glsl");
 }
 
 #[test]
-fn test_fixed_expr_nested_16x16() {
-    test_file("fixed_point/expr_nested_16x16.glsl");
+fn test_fixed_expr_nested() {
+    test_file("fixed_point/expr_nested.glsl");
 }
 
 #[test]
-fn test_fixed_negative_values_16x16() {
-    test_file("fixed_point/negative_values_16x16.glsl");
+fn test_fixed_negative_values() {
+    test_file("fixed_point/negative_values.glsl");
 }
 
 #[test]
-fn test_fixed_small_fractions_16x16() {
-    test_file("fixed_point/small_fractions_16x16.glsl");
+fn test_fixed_small_fractions() {
+    test_file("fixed_point/small_fractions.glsl");
 }
 
 #[test]
-fn test_fixed_range_limits_16x16() {
-    test_file("fixed_point/range_limits_16x16.glsl");
+fn test_fixed_range_limits() {
+    test_file("fixed_point/range_limits.glsl");
 }
 
 #[test]
-fn test_fixed_sin_16x16() {
-    test_file("fixed_point/sin_16x16.glsl");
+fn test_fixed_sin() {
+    test_file("fixed_point/sin.glsl");
 }
 
 #[test]
@@ -244,75 +244,52 @@ fn test_math_sine() {
     test_file("math/sine.glsl");
 }
 
-#[test]
-fn test_fixed_const_32x32() {
-    test_file("fixed_point/const_32x32.glsl");
-}
-
-#[test]
-fn test_fixed_mul_32x32() {
-    test_file("fixed_point/mul_32x32.glsl");
-}
-
-#[test]
-fn test_fixed_div_32x32() {
-    test_file("fixed_point/div_32x32.glsl");
-}
 
 // Fixed-point transformation tests - Runtime
 #[test]
-fn test_fixed_run_add_16x16() {
-    test_file("fixed_point/run_add_16x16.glsl");
+fn test_fixed_run_add() {
+    test_file("fixed_point/run_add.glsl");
 }
 
 #[test]
-fn test_fixed_run_mul_16x16() {
-    test_file("fixed_point/run_mul_16x16.glsl");
+fn test_fixed_run_mul() {
+    test_file("fixed_point/run_mul.glsl");
 }
 
 #[test]
-fn test_fixed_run_div_16x16() {
-    test_file("fixed_point/run_div_16x16.glsl");
+fn test_fixed_run_div() {
+    test_file("fixed_point/run_div.glsl");
 }
 
 #[test]
-fn test_fixed_run_precision_add_16x16() {
-    test_file("fixed_point/run_precision_add_16x16.glsl");
+fn test_fixed_run_precision_add() {
+    test_file("fixed_point/run_precision_add.glsl");
 }
 
 #[test]
-fn test_fixed_run_precision_mul_chain_16x16() {
-    test_file("fixed_point/run_precision_mul_chain_16x16.glsl");
+fn test_fixed_run_precision_mul_chain() {
+    test_file("fixed_point/run_precision_mul_chain.glsl");
+}
+
+
+#[test]
+fn test_fixed_run_negative() {
+    test_file("fixed_point/run_negative.glsl");
 }
 
 #[test]
-fn test_fixed_run_add_32x32() {
-    test_file("fixed_point/run_add_32x32.glsl");
+fn test_fixed_run_near_zero() {
+    test_file("fixed_point/run_near_zero.glsl");
 }
 
 #[test]
-fn test_fixed_run_mul_32x32() {
-    test_file("fixed_point/run_mul_32x32.glsl");
+fn test_fixed_run_cmp_eq() {
+    test_file("fixed_point/run_cmp_eq.glsl");
 }
 
 #[test]
-fn test_fixed_run_negative_16x16() {
-    test_file("fixed_point/run_negative_16x16.glsl");
-}
-
-#[test]
-fn test_fixed_run_near_zero_16x16() {
-    test_file("fixed_point/run_near_zero_16x16.glsl");
-}
-
-#[test]
-fn test_fixed_run_cmp_eq_16x16() {
-    test_file("fixed_point/run_cmp_eq_16x16.glsl");
-}
-
-#[test]
-fn test_fixed_run_cmp_lt_16x16() {
-    test_file("fixed_point/run_cmp_lt_16x16.glsl");
+fn test_fixed_run_cmp_lt() {
+    test_file("fixed_point/run_cmp_lt.glsl");
 }
 
 // Float tests
