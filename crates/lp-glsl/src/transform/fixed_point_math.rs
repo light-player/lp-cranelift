@@ -4,14 +4,8 @@
 //! and other math functions using pure integer arithmetic via the CORDIC
 //! (COordinate Rotation DIgital Computer) algorithm.
 //!
-//! This module re-exports implementations from `fixed_point::fixed::trig`
-//! for backward compatibility.
-
-// Re-export from the new location
-pub use crate::transform::fixed_point::fixed::trig::{
-    generate_sin_fixed,
-    generate_cos_fixed,
-};
+//! Note: Math functions (sin, cos) are now handled by intrinsic implementations
+//! in the compiler. This module only contains tanh for now.
 
 // Keep the old tanh implementation here for now (not yet moved)
 use crate::error::GlslError;

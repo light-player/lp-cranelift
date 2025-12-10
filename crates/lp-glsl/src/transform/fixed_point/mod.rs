@@ -5,8 +5,6 @@
 //! fixed-point representation using either I32 (16.16 format) or I64 (32.32 format).
 
 mod converters;
-pub mod fixed;
-mod functions;
 mod rewrite;
 mod transform;
 mod types;

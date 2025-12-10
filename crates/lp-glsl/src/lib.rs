@@ -16,6 +16,8 @@ pub mod codegen;
 pub mod compiler;
 pub mod error;
 pub mod frontend;
+#[cfg(feature = "intrinsic-math")]
+pub mod intrinsics;
 #[cfg(feature = "std")]
 pub mod jit;
 pub mod pipeline;

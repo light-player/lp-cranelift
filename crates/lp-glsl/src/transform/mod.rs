@@ -7,7 +7,7 @@ pub mod fixed_point;
 pub mod fixed_point_math;
 
 pub use fixed_point::{FixedPointFormat, convert_floats_to_fixed};
-pub use fixed_point_math::{generate_sin_fixed, generate_cos_fixed, generate_tanh_fixed};
+pub use fixed_point_math::generate_tanh_fixed;
 
 #[cfg(feature = "std")]
 use crate::pipeline::{TransformationPass, SemanticResult};

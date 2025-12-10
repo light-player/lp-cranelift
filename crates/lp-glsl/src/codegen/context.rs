@@ -42,6 +42,10 @@ pub struct CodegenContext<'a> {
 
     // Entry block for accessing function parameters (including StructReturn)
     pub entry_block: Option<Block>,
+
+    // Intrinsic function cache (for math function implementations)
+    #[cfg(feature = "intrinsic-math")]
+    pub intrinsic_cache: Option<crate::intrinsics::loader::IntrinsicCache>,
 }
 
 pub struct LoopContext {
@@ -61,6 +65,8 @@ impl<'a> CodegenContext<'a> {
             source_text: None,
             return_type: None,
             entry_block: None,
+            #[cfg(feature = "intrinsic-math")]
+            intrinsic_cache: None,
         }
     }
 

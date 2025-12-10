@@ -9,24 +9,39 @@ use cranelift_module::Linkage;
 impl<'a> CodegenContext<'a> {
     /// Helper to declare and get FuncRef for external math library function
     ///
-    /// Always uses TestCase names (even when imports are supported) so that
-    /// the fixed-point transformation can detect and replace math functions.
+    /// When intrinsic-math feature is enabled, uses GLSL intrinsic implementations.
+    /// Otherwise, creates external function calls.
     pub fn get_math_libcall(&mut self, func_name: &str) -> Result<FuncRef, GlslError> {
-        // Create signature: f32 -> f32
-        let mut sig = Signature::new(CallConv::SystemV);
-        sig.params.push(AbiParam::new(types::F32));
-        sig.returns.push(AbiParam::new(types::F32));
+        #[cfg(feature = "intrinsic-math")]
+        {
+            // Initialize cache if needed
+            if self.intrinsic_cache.is_none() {
+                use crate::intrinsics::loader::IntrinsicCache;
+                self.intrinsic_cache = Some(IntrinsicCache::new());
+            }
+            
+            // Use intrinsic implementation
+            use crate::intrinsics::loader::get_or_create_intrinsic;
+            get_or_create_intrinsic(func_name, self)
+        }
+        
+        #[cfg(not(feature = "intrinsic-math"))]
+        {
+            // Create signature: f32 -> f32
+            let mut sig = Signature::new(CallConv::SystemV);
+            sig.params.push(AbiParam::new(types::F32));
+            sig.returns.push(AbiParam::new(types::F32));
 
-        // Always create TestCase name so fixed-point transformation can detect it
-        // This works for both JIT (where imports are supported) and binary compilation
-        let sig_ref = self.builder.func.import_signature(sig);
-        let ext_name = cranelift_codegen::ir::ExternalName::testcase(func_name.as_bytes());
-        let ext_func = cranelift_codegen::ir::ExtFuncData {
-            name: ext_name,
-            signature: sig_ref,
-            colocated: false,
-        };
-        Ok(self.builder.func.import_function(ext_func))
+            // Create TestCase name for external function call
+            let sig_ref = self.builder.func.import_signature(sig);
+            let ext_name = cranelift_codegen::ir::ExternalName::testcase(func_name.as_bytes());
+            let ext_func = cranelift_codegen::ir::ExtFuncData {
+                name: ext_name,
+                signature: sig_ref,
+                colocated: false,
+            };
+            Ok(self.builder.func.import_function(ext_func))
+        }
     }
 
     /// Helper to declare and get FuncRef for atan2 (2-arg function)

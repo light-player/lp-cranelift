@@ -20,7 +20,8 @@ target-lexicon = { workspace = true }
 lp-jit-util = { path = "../lp-jit-util", default-features = false }
 
 [features]
-default = ["std"]
+default = ["std", "intrinsic-math"]
+intrinsic-math = []  # Enable intrinsic math function implementations
 std = [
     "glsl/std",
     "cranelift-codegen/std",

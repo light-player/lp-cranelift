@@ -18,7 +18,6 @@ use cranelift_codegen::ir::{
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 
 use super::converters;
-use super::functions::{CreatedFunctionBodies, FixedFunctionMap};
 
 /// Context for rewriting a function from F32 to fixed-point.
 ///
@@ -44,10 +43,6 @@ pub struct RewriteContext<'a> {
     pub sig_map: HashMap<SigRef, SigRef>,
     /// Fixed-point format to use
     pub format: FixedPointFormat,
-    /// Map of created fixed-point function references
-    pub created_functions: FixedFunctionMap,
-    /// Map of created fixed-point function bodies (to be added to module later)
-    pub created_bodies: CreatedFunctionBodies,
 }
 
 /// Convert function signature: F32 params/returns → I32/I64
@@ -111,8 +106,6 @@ pub fn rewrite_function(
         ext_func_map: HashMap::new(),
         sig_map: HashMap::new(),
         format,
-        created_functions: HashMap::new(),
-        created_bodies: HashMap::new(),
     };
 
     // 6. Build blocks and map parameters
@@ -407,8 +400,6 @@ fn convert_all_instructions(
                 &mut ctx.sig_map,
                 ctx.format,
                 block_map,
-                &mut ctx.created_functions,
-                &mut ctx.created_bodies,
             )?;
         }
     }
@@ -428,8 +419,6 @@ fn convert_instruction(
     sig_map: &mut HashMap<SigRef, SigRef>,
     format: FixedPointFormat,
     block_map: &HashMap<Block, Block>,
-    created_functions: &mut FixedFunctionMap,
-    created_bodies: &mut CreatedFunctionBodies,
 ) -> Result<(), GlslError> {
     // Don't switch blocks here - we're already on the correct block from convert_all_instructions
     // builder.switch_to_block(new_block);
@@ -511,8 +500,6 @@ fn convert_instruction(
                 sig_map,
                 format,
                 block_map,
-                created_functions,
-                created_bodies,
             )?;
         }
         Opcode::CallIndirect => {

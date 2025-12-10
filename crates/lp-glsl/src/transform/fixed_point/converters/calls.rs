@@ -13,22 +13,7 @@ use cranelift_codegen::ir::{
 };
 use cranelift_frontend::FunctionBuilder;
 
-use super::super::functions::{CreatedFunctionBodies, FixedFunctionMap, get_or_create_sin_fixed};
 use super::super::rewrite::{convert_signature, map_value};
-
-/// Extract function name from ExtFuncData
-///
-/// Returns the function name if it's a TestCase name, None otherwise.
-pub(crate) fn get_function_name(func: &Function, func_ref: FuncRef) -> Option<String> {
-    let ext_func = func.dfg.ext_funcs.get(func_ref)?;
-    match &ext_func.name {
-        cranelift_codegen::ir::ExternalName::TestCase(name) => {
-            // Convert TestcaseName to string using Display
-            Some(format!("{}", name).trim_start_matches('%').into())
-        }
-        _ => None,
-    }
-}
 
 /// Map external function reference (convert signature and create new function reference).
 pub(crate) fn map_external_function(
@@ -88,8 +73,6 @@ pub(crate) fn convert_call(
         cranelift_codegen::ir::Block,
         cranelift_codegen::ir::Block,
     >,
-    created_functions: &mut FixedFunctionMap,
-    created_bodies: &mut CreatedFunctionBodies,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -99,48 +82,7 @@ pub(crate) fn convert_call(
         args,
     } = inst_data
     {
-        // Check if this is a math function call that should be replaced
-        if let Some(name) = get_function_name(old_func, *func_ref) {
-            if name == "sinf" {
-                // Replace with fixed-point sine function
-                let sin_func_ref = get_or_create_sin_fixed(
-                    &mut builder.func,
-                    format,
-                    created_functions,
-                    created_bodies,
-                )?;
-
-                // Map call arguments (already in fixed-point format)
-                let old_args = args.as_slice(&old_func.dfg.value_lists);
-                let mapped_arg = map_value(value_map, old_args[0]);
-
-                // Emit call to fixed-point function
-                let call_inst = builder.ins().call(sin_func_ref, &[mapped_arg]);
-
-                // Map return value
-                let old_results: Vec<Value> = old_func.dfg.inst_results(old_inst).to_vec();
-                let new_results: Vec<Value> = builder.inst_results(call_inst).to_vec();
-
-                if old_results.len() != new_results.len() {
-                    return Err(GlslError::new(
-                        ErrorCode::E0301,
-                        format!(
-                            "Call return value count mismatch: old={}, new={}",
-                            old_results.len(),
-                            new_results.len()
-                        ),
-                    ));
-                }
-
-                for (old_result, new_result) in old_results.iter().zip(new_results.iter()) {
-                    value_map.insert(*old_result, *new_result);
-                }
-
-                return Ok(());
-            }
-        }
-
-        // For non-math functions, proceed with normal conversion
+        // Convert external function call
         let new_func_ref =
             map_external_function(old_func, *func_ref, builder, ext_func_map, sig_map, format)?;
 
