@@ -10,7 +10,7 @@ use std::vec::Vec;
 
 use cranelift_codegen::ir::{
     Block, BlockArg, BlockCall, Function, Inst, InstBuilder, InstructionData, JumpTable,
-    JumpTableData, Value,
+    JumpTableData, Value, types,
 };
 use cranelift_frontend::FunctionBuilder;
 
@@ -37,6 +37,19 @@ pub(crate) fn convert_jump(
             .args(&old_func.dfg.value_lists)
             .filter_map(|arg| arg.as_value())
             .collect();
+        
+        // Ensure target block has the required parameters
+        use super::super::rewrite::ensure_block_params;
+        ensure_block_params(
+            old_func,
+            old_dest_block,
+            new_dest_block,
+            builder,
+            value_map,
+            format,
+            &old_args,
+        )?;
+        
         let new_args: Vec<BlockArg> = old_args
             .iter()
             .map(|&v| map_value(value_map, v).into())
@@ -92,14 +105,78 @@ pub(crate) fn convert_brif(
             .filter_map(|arg| arg.as_value())
             .collect();
 
-        let new_then_args: Vec<BlockArg> = old_then_args
+        // Ensure target blocks have the required parameters
+        // This must happen BEFORE we map arguments, because we need to know
+        // how many parameters the block actually has (not just what this instruction passes)
+        use super::super::rewrite::ensure_block_params;
+        ensure_block_params(
+            old_func,
+            old_then_block,
+            new_then_block,
+            builder,
+            value_map,
+            format,
+            &old_then_args,
+        )?;
+        ensure_block_params(
+            old_func,
+            old_else_block,
+            new_else_block,
+            builder,
+            value_map,
+            format,
+            &old_else_args,
+        )?;
+
+        // Get the actual parameters the blocks have (may be more than what this brif passes)
+        let old_then_block_params = old_func.dfg.block_params(old_then_block);
+        let old_else_block_params = old_func.dfg.block_params(old_else_block);
+        
+        // Build argument lists: if block has more params than this brif passes,
+        // we need to pass default values (they'll be overwritten by other branches via phi)
+        let mut new_then_args: Vec<BlockArg> = old_then_args
             .iter()
             .map(|&v| map_value(value_map, v).into())
             .collect();
-        let new_else_args: Vec<BlockArg> = old_else_args
+        
+        // If block has more parameters than this instruction passes, add default values
+        if old_then_block_params.len() > old_then_args.len() {
+            let target_type = format.cranelift_type();
+            for i in old_then_args.len()..old_then_block_params.len() {
+                let old_param = old_then_block_params[i];
+                let old_type = old_func.dfg.value_type(old_param);
+                let param_type = if old_type == types::F32 {
+                    target_type
+                } else {
+                    old_type
+                };
+                // Pass a default constant value (0 for integers, will be overwritten by phi)
+                let default_val = builder.ins().iconst(param_type, 0);
+                new_then_args.push(default_val.into());
+            }
+        }
+        
+        let mut new_else_args: Vec<BlockArg> = old_else_args
             .iter()
             .map(|&v| map_value(value_map, v).into())
             .collect();
+        
+        // If block has more parameters than this instruction passes, add default values
+        if old_else_block_params.len() > old_else_args.len() {
+            let target_type = format.cranelift_type();
+            for i in old_else_args.len()..old_else_block_params.len() {
+                let old_param = old_else_block_params[i];
+                let old_type = old_func.dfg.value_type(old_param);
+                let param_type = if old_type == types::F32 {
+                    target_type
+                } else {
+                    old_type
+                };
+                // Pass a default constant value (0 for integers, will be overwritten by phi)
+                let default_val = builder.ins().iconst(param_type, 0);
+                new_else_args.push(default_val.into());
+            }
+        }
 
         // Emit brif
         builder.ins().brif(

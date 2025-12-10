@@ -172,26 +172,9 @@ fn create_and_map_blocks(
         }
     }
 
-    // Now map block parameters for non-entry blocks
-    for old_block in ctx.old_func.layout.blocks() {
-        // Skip entry block - already handled
-        if Some(old_block) == old_entry_block {
-            continue;
-        }
-
-        let new_block = ctx.block_map[&old_block];
-        map_block_params(
-            ctx.old_func,
-            old_block,
-            new_block,
-            builder,
-            &mut ctx.value_map,
-            ctx.format,
-        )?;
-    }
-
-    // Don't seal blocks here - we'll seal them after converting all instructions
-    // This allows us to switch between blocks freely during instruction conversion
+    // Don't create block parameters for non-entry blocks here
+    // They will be created on-demand when we encounter jumps/brifs that target them
+    // This handles the case where parameters are added dynamically via append_block_param
 
     Ok(())
 }
@@ -271,6 +254,62 @@ fn map_block_params(
         }
     }
 
+    Ok(())
+}
+
+/// Ensure block parameters exist for a target block based on what the old block has.
+/// This creates parameters on-demand when they're needed for jumps/brifs.
+/// 
+/// The key insight: we check what parameters the old block actually has at conversion time,
+/// not just what the current instruction passes. This handles the case where parameters
+/// are added dynamically via append_block_param.
+pub(super) fn ensure_block_params(
+    old_func: &Function,
+    old_block: Block,
+    new_block: Block,
+    builder: &mut FunctionBuilder,
+    value_map: &mut HashMap<Value, Value>,
+    format: FixedPointFormat,
+    _expected_args: &[Value], // Not used, but kept for API consistency
+) -> Result<(), GlslError> {
+    let target_type = format.cranelift_type();
+    
+    // Get current parameter count in new block
+    let current_param_count = builder.func.dfg.num_block_params(new_block);
+    
+    // Get the old block's actual parameters (what it has at conversion time)
+    // This is the source of truth - if the old block has N parameters, the new block should too
+    let old_params = old_func.dfg.block_params(old_block);
+    let expected_param_count = old_params.len();
+    
+    // If we need more parameters, add them based on the old block's parameters
+    if expected_param_count > current_param_count {
+        // Determine types for new parameters based on the old block's parameters
+        let mut new_param_types = Vec::new();
+        for &old_param in old_params.iter().skip(current_param_count) {
+            let old_type = old_func.dfg.value_type(old_param);
+            let new_type = if old_type == types::F32 {
+                target_type
+            } else {
+                old_type
+            };
+            new_param_types.push(new_type);
+        }
+        
+        // Add the missing parameters
+        for &param_type in &new_param_types {
+            builder.append_block_param(new_block, param_type);
+        }
+        
+        // Map old params to new params (only the newly added ones)
+        let new_params = builder.block_params(new_block);
+        for i in current_param_count..expected_param_count {
+            if i < old_params.len() && i < new_params.len() {
+                value_map.insert(old_params[i], new_params[i]);
+            }
+        }
+    }
+    
     Ok(())
 }
 

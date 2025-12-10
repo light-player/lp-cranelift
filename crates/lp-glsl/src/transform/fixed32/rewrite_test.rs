@@ -408,6 +408,7 @@ fn test_all_comparison_conditions() {
         };
         let cmp = builder.ins().fcmp(cond, params[0], params[1]);
         builder.ins().return_(&[cmp]);
+        builder.seal_all_blocks();
         builder.finalize();
 
         convert_floats_to_fixed(&mut func, FixedPointFormat::Fixed16x16)
