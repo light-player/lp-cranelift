@@ -11,25 +11,25 @@ float main() {
 
 // function u0:0() -> i32 system_v {
 // block0:
-//     v6 = iconst.i32 0x00b4_0000
-//     v7 = iconst.i32 1144
-//     v8 = sextend.i64 v6  ; v6 = 0x00b4_0000
-//     v9 = sextend.i64 v7  ; v7 = 1144
-//     v10 = imul v8, v9
-//     v11 = iconst.i64 16
-//     v12 = sshr v10, v11  ; v11 = 16
-//     v13 = ireduce.i32 v12
-//     v14 = iconst.i32 0x0039_4bb8
-//     v15 = sextend.i64 v13
-//     v16 = sextend.i64 v14  ; v14 = 0x0039_4bb8
-//     v17 = imul v15, v16
-//     v18 = iconst.i64 16
-//     v19 = sshr v17, v18  ; v18 = 16
-//     v20 = ireduce.i32 v19
-//     return v20
+//     v0 = iconst.i32 0x00b4_0000
+//     v1 = iconst.i32 1144
+//     v2 = sextend.i64 v0  ; v0 = 0x00b4_0000
+//     v3 = sextend.i64 v1  ; v1 = 1144
+//     v4 = imul v2, v3
+//     v5 = iconst.i64 16
+//     v6 = sshr v4, v5  ; v5 = 16
+//     v7 = ireduce.i32 v6
+//     v8 = iconst.i32 0x0039_4bb8
+//     v9 = sextend.i64 v7
+//     v10 = sextend.i64 v8  ; v8 = 0x0039_4bb8
+//     v11 = imul v9, v10
+//     v12 = iconst.i64 16
+//     v13 = sshr v11, v12  ; v12 = 16
+//     v14 = ireduce.i32 v13
+//     return v14
 //
 // block1:
-//     v21 = iconst.i32 0
-//     return v21  ; v21 = 0
+//     v15 = iconst.i32 0
+//     return v15  ; v15 = 0
 // }
 // run: ~= 180 

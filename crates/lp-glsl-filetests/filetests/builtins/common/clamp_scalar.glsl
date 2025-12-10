@@ -9,17 +9,17 @@ float main() {
 
 // function u0:0() -> i32 system_v {
 // block0:
-//     v6 = iconst.i32 0x0007_0000
-//     v7 = iconst.i32 0x0002_0000
-//     v8 = iconst.i32 0x0005_0000
-//     v9 = icmp sge v6, v7  ; v6 = 0x0007_0000, v7 = 0x0002_0000
-//     v10 = select v9, v6, v7  ; v6 = 0x0007_0000, v7 = 0x0002_0000
-//     v11 = icmp sle v10, v8  ; v8 = 0x0005_0000
-//     v12 = select v11, v10, v8  ; v8 = 0x0005_0000
-//     return v12
+//     v0 = iconst.i32 0x0007_0000
+//     v1 = iconst.i32 0x0002_0000
+//     v2 = iconst.i32 0x0005_0000
+//     v3 = icmp sgt v0, v1  ; v0 = 0x0007_0000, v1 = 0x0002_0000
+//     v4 = select v3, v0, v1  ; v0 = 0x0007_0000, v1 = 0x0002_0000
+//     v5 = icmp slt v4, v2  ; v2 = 0x0005_0000
+//     v6 = select v5, v4, v2  ; v2 = 0x0005_0000
+//     return v6
 //
 // block1:
-//     v13 = iconst.i32 0
-//     return v13  ; v13 = 0
+//     v7 = iconst.i32 0
+//     return v7  ; v7 = 0
 // }
 // run: ~= 5

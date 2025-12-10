@@ -13,42 +13,47 @@ bool main() {
 
 // function u0:0() -> i8 system_v {
 // block0:
-//     v33 = iconst.i32 0x0005_0000
-//     v34 = iconst.i32 0x0005_0000
-//     v35 = iconst.i32 0x0005_0000
-//     v36 = iconst.i32 0x0003_0000
-//     v37 = iconst.i32 0x0005_0000
-//     v38 = iconst.i32 0x0007_0000
-//     v39 = iconst.i32 0
-//     v40 = iconst.i32 0x0001_0000
-//     v41 = icmp slt v36, v33  ; v36 = 0x0003_0000, v33 = 0x0005_0000
-//     v42 = select v41, v39, v40  ; v39 = 0, v40 = 0x0001_0000
-//     v43 = icmp slt v37, v34  ; v37 = 0x0005_0000, v34 = 0x0005_0000
-//     v44 = select v43, v39, v40  ; v39 = 0, v40 = 0x0001_0000
-//     v45 = icmp slt v38, v35  ; v38 = 0x0007_0000, v35 = 0x0005_0000
-//     v46 = select v45, v39, v40  ; v39 = 0, v40 = 0x0001_0000
-//     v47 = iadd v42, v44
-//     v48 = iadd v47, v46
-//     v49 = iconst.i32 0x0001_fd71
-//     v50 = icmp sgt v48, v49  ; v49 = 0x0001_fd71
-//     v18 = iconst.i8 1
-//     v19 = iconst.i8 0
-//     v20 = select v50, v18, v19  ; v18 = 1, v19 = 0
-//     v51 = iconst.i32 0x0002_028f
-//     v52 = icmp slt v48, v51  ; v51 = 0x0002_028f
-//     v23 = iconst.i8 1
-//     v24 = iconst.i8 0
-//     v25 = select v52, v23, v24  ; v23 = 1, v24 = 0
-//     v26 = iconst.i8 0
-//     v27 = iconst.i8 1
-//     v28 = icmp ne v20, v26  ; v26 = 0
-//     v29 = icmp ne v25, v26  ; v26 = 0
-//     v30 = select v29, v27, v26  ; v27 = 1, v26 = 0
-//     v31 = select v28, v30, v26  ; v26 = 0
-//     return v31
+//     v0 = iconst.i32 0x0005_0000
+//     v1 = iconst.i32 0x0005_0000
+//     v2 = iconst.i32 0x0005_0000
+//     v3 = iconst.i32 0x0003_0000
+//     v4 = iconst.i32 0x0005_0000
+//     v5 = iconst.i32 0x0007_0000
+//     v6 = iconst.i32 0
+//     v7 = iconst.i32 0x0001_0000
+//     v8 = icmp slt v3, v0  ; v3 = 0x0003_0000, v0 = 0x0005_0000
+//     v9 = sextend.i32 v8
+//     v10 = select v9, v6, v7  ; v6 = 0, v7 = 0x0001_0000
+//     v11 = icmp slt v4, v1  ; v4 = 0x0005_0000, v1 = 0x0005_0000
+//     v12 = sextend.i32 v11
+//     v13 = select v12, v6, v7  ; v6 = 0, v7 = 0x0001_0000
+//     v14 = icmp slt v5, v2  ; v5 = 0x0007_0000, v2 = 0x0005_0000
+//     v15 = sextend.i32 v14
+//     v16 = select v15, v6, v7  ; v6 = 0, v7 = 0x0001_0000
+//     v17 = iadd v10, v13
+//     v18 = iadd v17, v16
+//     v19 = iconst.i32 0x0001_fd71
+//     v20 = icmp sgt v18, v19  ; v19 = 0x0001_fd71
+//     v21 = sextend.i32 v20
+//     v22 = iconst.i8 1
+//     v23 = iconst.i8 0
+//     v24 = select v21, v22, v23  ; v22 = 1, v23 = 0
+//     v25 = iconst.i32 0x0002_028f
+//     v26 = icmp slt v18, v25  ; v25 = 0x0002_028f
+//     v27 = sextend.i32 v26
+//     v28 = iconst.i8 1
+//     v29 = iconst.i8 0
+//     v30 = select v27, v28, v29  ; v28 = 1, v29 = 0
+//     v31 = iconst.i8 0
+//     v32 = iconst.i8 1
+//     v33 = icmp ne v24, v31  ; v31 = 0
+//     v34 = icmp ne v30, v31  ; v31 = 0
+//     v35 = select v34, v32, v31  ; v32 = 1, v31 = 0
+//     v36 = select v33, v35, v31  ; v31 = 0
+//     return v36
 //
 // block1:
-//     v32 = iconst.i8 0
-//     return v32  ; v32 = 0
+//     v37 = iconst.i8 0
+//     return v37  ; v37 = 0
 // }
 // run: == true

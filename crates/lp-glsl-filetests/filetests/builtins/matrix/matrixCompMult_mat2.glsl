@@ -8,55 +8,55 @@ mat2 main() {
     return matrixCompMult(a, b);
 }
 
-// function u0:0(i32 sret) system_v {
+// function u0:0(i32) system_v {
 // block0(v0: i32):
-//     v17 = iconst.i32 0x0001_0000
-//     v18 = iconst.i32 0x0002_0000
-//     v19 = iconst.i32 0x0003_0000
-//     v20 = iconst.i32 0x0004_0000
-//     v21 = iconst.i32 0x0002_0000
-//     v22 = iconst.i32 0x0002_0000
-//     v23 = iconst.i32 0x0002_0000
-//     v24 = iconst.i32 0x0002_0000
-//     v25 = sextend.i64 v17  ; v17 = 0x0001_0000
-//     v26 = sextend.i64 v21  ; v21 = 0x0002_0000
-//     v27 = imul v25, v26
-//     v28 = iconst.i64 16
-//     v29 = sshr v27, v28  ; v28 = 16
-//     v30 = ireduce.i32 v29
-//     v31 = sextend.i64 v18  ; v18 = 0x0002_0000
-//     v32 = sextend.i64 v22  ; v22 = 0x0002_0000
-//     v33 = imul v31, v32
-//     v34 = iconst.i64 16
-//     v35 = sshr v33, v34  ; v34 = 16
-//     v36 = ireduce.i32 v35
-//     v37 = sextend.i64 v19  ; v19 = 0x0003_0000
-//     v38 = sextend.i64 v23  ; v23 = 0x0002_0000
-//     v39 = imul v37, v38
-//     v40 = iconst.i64 16
-//     v41 = sshr v39, v40  ; v40 = 16
-//     v42 = ireduce.i32 v41
-//     v43 = sextend.i64 v20  ; v20 = 0x0004_0000
-//     v44 = sextend.i64 v24  ; v24 = 0x0002_0000
-//     v45 = imul v43, v44
-//     v46 = iconst.i64 16
-//     v47 = sshr v45, v46  ; v46 = 16
-//     v48 = ireduce.i32 v47
-//     store notrap aligned v30, v0
-//     store notrap aligned v36, v0+4
-//     store notrap aligned v42, v0+8
-//     store notrap aligned v48, v0+12
+//     v1 = iconst.i32 0x0001_0000
+//     v2 = iconst.i32 0x0002_0000
+//     v3 = iconst.i32 0x0003_0000
+//     v4 = iconst.i32 0x0004_0000
+//     v5 = iconst.i32 0x0002_0000
+//     v6 = iconst.i32 0x0002_0000
+//     v7 = iconst.i32 0x0002_0000
+//     v8 = iconst.i32 0x0002_0000
+//     v9 = sextend.i64 v1  ; v1 = 0x0001_0000
+//     v10 = sextend.i64 v5  ; v5 = 0x0002_0000
+//     v11 = imul v9, v10
+//     v12 = iconst.i64 16
+//     v13 = sshr v11, v12  ; v12 = 16
+//     v14 = ireduce.i32 v13
+//     v15 = sextend.i64 v2  ; v2 = 0x0002_0000
+//     v16 = sextend.i64 v6  ; v6 = 0x0002_0000
+//     v17 = imul v15, v16
+//     v18 = iconst.i64 16
+//     v19 = sshr v17, v18  ; v18 = 16
+//     v20 = ireduce.i32 v19
+//     v21 = sextend.i64 v3  ; v3 = 0x0003_0000
+//     v22 = sextend.i64 v7  ; v7 = 0x0002_0000
+//     v23 = imul v21, v22
+//     v24 = iconst.i64 16
+//     v25 = sshr v23, v24  ; v24 = 16
+//     v26 = ireduce.i32 v25
+//     v27 = sextend.i64 v4  ; v4 = 0x0004_0000
+//     v28 = sextend.i64 v8  ; v8 = 0x0002_0000
+//     v29 = imul v27, v28
+//     v30 = iconst.i64 16
+//     v31 = sshr v29, v30  ; v30 = 16
+//     v32 = ireduce.i32 v31
+//     store notrap aligned v14, v0
+//     store notrap aligned v20, v0+4
+//     store notrap aligned v26, v0+8
+//     store notrap aligned v32, v0+12
 //     return
 //
 // block1:
-//     v49 = iconst.i32 0
-//     store notrap aligned v49, v0  ; v49 = 0
-//     v50 = iconst.i32 0
-//     store notrap aligned v50, v0+4  ; v50 = 0
-//     v51 = iconst.i32 0
-//     store notrap aligned v51, v0+8  ; v51 = 0
-//     v52 = iconst.i32 0
-//     store notrap aligned v52, v0+12  ; v52 = 0
+//     v33 = iconst.i32 0
+//     store notrap aligned v33, v0  ; v33 = 0
+//     v34 = iconst.i32 0
+//     store notrap aligned v34, v0+4  ; v34 = 0
+//     v35 = iconst.i32 0
+//     store notrap aligned v35, v0+8  ; v35 = 0
+//     v36 = iconst.i32 0
+//     store notrap aligned v36, v0+12  ; v36 = 0
 //     return
 // }
 // run: ≈ mat2(2, 4, 6, 8) (tolerance: 0.01)

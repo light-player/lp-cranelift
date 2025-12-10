@@ -7,47 +7,47 @@ mat3 main() {
     return transpose(m);
 }
 
-// function u0:0(i32 sret) system_v {
+// function u0:0(i32) system_v {
 // block0(v0: i32):
-//     v19 = iconst.i32 0x0001_0000
-//     v20 = iconst.i32 0x0002_0000
-//     v21 = iconst.i32 0x0003_0000
-//     v22 = iconst.i32 0x0004_0000
-//     v23 = iconst.i32 0x0005_0000
-//     v24 = iconst.i32 0x0006_0000
-//     v25 = iconst.i32 0x0007_0000
-//     v26 = iconst.i32 0x0008_0000
-//     v27 = iconst.i32 0x0009_0000
-//     store notrap aligned v19, v0  ; v19 = 0x0001_0000
-//     store notrap aligned v22, v0+4  ; v22 = 0x0004_0000
-//     store notrap aligned v25, v0+8  ; v25 = 0x0007_0000
-//     store notrap aligned v20, v0+12  ; v20 = 0x0002_0000
-//     store notrap aligned v23, v0+16  ; v23 = 0x0005_0000
-//     store notrap aligned v26, v0+20  ; v26 = 0x0008_0000
-//     store notrap aligned v21, v0+24  ; v21 = 0x0003_0000
-//     store notrap aligned v24, v0+28  ; v24 = 0x0006_0000
-//     store notrap aligned v27, v0+32  ; v27 = 0x0009_0000
+//     v1 = iconst.i32 0x0001_0000
+//     v2 = iconst.i32 0x0002_0000
+//     v3 = iconst.i32 0x0003_0000
+//     v4 = iconst.i32 0x0004_0000
+//     v5 = iconst.i32 0x0005_0000
+//     v6 = iconst.i32 0x0006_0000
+//     v7 = iconst.i32 0x0007_0000
+//     v8 = iconst.i32 0x0008_0000
+//     v9 = iconst.i32 0x0009_0000
+//     store notrap aligned v1, v0  ; v1 = 0x0001_0000
+//     store notrap aligned v4, v0+4  ; v4 = 0x0004_0000
+//     store notrap aligned v7, v0+8  ; v7 = 0x0007_0000
+//     store notrap aligned v2, v0+12  ; v2 = 0x0002_0000
+//     store notrap aligned v5, v0+16  ; v5 = 0x0005_0000
+//     store notrap aligned v8, v0+20  ; v8 = 0x0008_0000
+//     store notrap aligned v3, v0+24  ; v3 = 0x0003_0000
+//     store notrap aligned v6, v0+28  ; v6 = 0x0006_0000
+//     store notrap aligned v9, v0+32  ; v9 = 0x0009_0000
 //     return
 //
 // block1:
-//     v28 = iconst.i32 0
-//     store notrap aligned v28, v0  ; v28 = 0
-//     v29 = iconst.i32 0
-//     store notrap aligned v29, v0+4  ; v29 = 0
-//     v30 = iconst.i32 0
-//     store notrap aligned v30, v0+8  ; v30 = 0
-//     v31 = iconst.i32 0
-//     store notrap aligned v31, v0+12  ; v31 = 0
-//     v32 = iconst.i32 0
-//     store notrap aligned v32, v0+16  ; v32 = 0
-//     v33 = iconst.i32 0
-//     store notrap aligned v33, v0+20  ; v33 = 0
-//     v34 = iconst.i32 0
-//     store notrap aligned v34, v0+24  ; v34 = 0
-//     v35 = iconst.i32 0
-//     store notrap aligned v35, v0+28  ; v35 = 0
-//     v36 = iconst.i32 0
-//     store notrap aligned v36, v0+32  ; v36 = 0
+//     v10 = iconst.i32 0
+//     store notrap aligned v10, v0  ; v10 = 0
+//     v11 = iconst.i32 0
+//     store notrap aligned v11, v0+4  ; v11 = 0
+//     v12 = iconst.i32 0
+//     store notrap aligned v12, v0+8  ; v12 = 0
+//     v13 = iconst.i32 0
+//     store notrap aligned v13, v0+12  ; v13 = 0
+//     v14 = iconst.i32 0
+//     store notrap aligned v14, v0+16  ; v14 = 0
+//     v15 = iconst.i32 0
+//     store notrap aligned v15, v0+20  ; v15 = 0
+//     v16 = iconst.i32 0
+//     store notrap aligned v16, v0+24  ; v16 = 0
+//     v17 = iconst.i32 0
+//     store notrap aligned v17, v0+28  ; v17 = 0
+//     v18 = iconst.i32 0
+//     store notrap aligned v18, v0+32  ; v18 = 0
 //     return
 // }
 // run: ≈ mat3(1, 4, 7, 2, 5, 8, 3, 6, 9) (tolerance: 0.01)

@@ -9,6 +9,10 @@ pub enum FixedPointFormat {
     /// Range: -32768.0 to +32767.9999847412109375
     /// Precision: 1/65536 (approximately 0.00001526)
     Fixed16x16,
+    /// 32.32 format: 32 integer bits, 32 fractional bits (uses I64)
+    /// Note: Not yet fully implemented
+    #[allow(dead_code)]
+    Fixed32x32,
 }
 
 impl FixedPointFormat {
@@ -16,6 +20,7 @@ impl FixedPointFormat {
     pub fn cranelift_type(&self) -> Type {
         match self {
             FixedPointFormat::Fixed16x16 => cranelift_codegen::ir::types::I32,
+            FixedPointFormat::Fixed32x32 => cranelift_codegen::ir::types::I64,
         }
     }
 
@@ -23,6 +28,7 @@ impl FixedPointFormat {
     pub fn shift_amount(&self) -> i64 {
         match self {
             FixedPointFormat::Fixed16x16 => 16,
+            FixedPointFormat::Fixed32x32 => 32,
         }
     }
 }

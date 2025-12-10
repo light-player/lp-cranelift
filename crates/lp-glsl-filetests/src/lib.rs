@@ -6,5 +6,6 @@ pub mod filetest;
 pub mod test_compile;
 pub mod test_error;
 pub mod test_run;
+pub mod test_riscv32_fixed32;
 
 pub use filetest::{TestTarget, run_filetest};

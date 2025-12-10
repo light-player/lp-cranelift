@@ -553,11 +553,11 @@ pub fn run_test(
     Ok(())
 }
 
-struct RunDirective {
-    expected_type: ExpectedType,
+pub struct RunDirective {
+    pub expected_type: ExpectedType,
 }
 
-enum ExpectedType {
+pub enum ExpectedType {
     Int(i32),
     Bool(bool),
     FloatApprox { expected: f32 },
@@ -569,7 +569,7 @@ enum ExpectedType {
     Mat4Approx { expected: [f32; 16] },
 }
 
-fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
+pub fn parse_run_directives(source: &str) -> Result<Vec<RunDirective>> {
     let mut directives = Vec::new();
 
     for line in source.lines() {

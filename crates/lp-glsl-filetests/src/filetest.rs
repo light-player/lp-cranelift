@@ -92,6 +92,7 @@ pub fn run_filetest(path: &Path) -> Result<()> {
     let test_error = source.contains("test error");
     let test_fixed32 = source.contains("test fixed32");
     let test_fixed64 = source.contains("test fixed64");
+    let test_riscv32_fixed32 = source.contains("test riscv32.fixed32");
 
     // Parse target directives
     let mut targets = parse_target_directives(&source)?;
@@ -135,6 +136,12 @@ pub fn run_filetest(path: &Path) -> Result<()> {
 
     if test_error {
         crate::test_error::run_test(path, &source, &glsl_source)?;
+    }
+
+    if test_riscv32_fixed32 {
+        crate::test_riscv32_fixed32::run_test(path, &source, &glsl_source)?;
+        // riscv32.fixed32 test handles both CLIF and execution, so we're done
+        return Ok(());
     }
 
     if test_compile {

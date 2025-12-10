@@ -9,33 +9,32 @@ int main() {
 
 // function u0:0() -> i32 system_v {
 // block0:
-//     v9 = iconst.i32 0x0002_0000
-//     v10 = iconst.i32 0x0003_0000
-//     v11 = iconst.i32 0x0004_0000
-//     v12 = iconst.i32 0x0002_0000
-//     v13 = sextend.i64 v9  ; v9 = 0x0002_0000
-//     v14 = sextend.i64 v12  ; v12 = 0x0002_0000
-//     v15 = imul v13, v14
-//     v16 = iconst.i64 16
-//     v17 = sshr v15, v16  ; v16 = 16
-//     v18 = ireduce.i32 v17
-//     v19 = sextend.i64 v10  ; v10 = 0x0003_0000
-//     v20 = sextend.i64 v12  ; v12 = 0x0002_0000
-//     v21 = imul v19, v20
-//     v22 = iconst.i64 16
-//     v23 = sshr v21, v22  ; v22 = 16
-//     v24 = ireduce.i32 v23
-//     v25 = sextend.i64 v11  ; v11 = 0x0004_0000
-//     v26 = sextend.i64 v12  ; v12 = 0x0002_0000
-//     v27 = imul v25, v26
-//     v28 = iconst.i64 16
-//     v29 = sshr v27, v28  ; v28 = 16
-//     v30 = ireduce.i32 v29
-//     v7 = iconst.i32 1
-//     return v7  ; v7 = 1
+//     v0 = iconst.i32 0x0002_0000
+//     v1 = iconst.i32 0x0003_0000
+//     v2 = iconst.i32 0x0004_0000
+//     v3 = iconst.i32 0x0002_0000
+//     v4 = sextend.i64 v0  ; v0 = 0x0002_0000
+//     v5 = sextend.i64 v3  ; v3 = 0x0002_0000
+//     v6 = imul v4, v5
+//     v7 = iconst.i64 16
+//     v8 = sshr v6, v7  ; v7 = 16
+//     v9 = ireduce.i32 v8
+//     v10 = sextend.i64 v1  ; v1 = 0x0003_0000
+//     v11 = sextend.i64 v3  ; v3 = 0x0002_0000
+//     v12 = imul v10, v11
+//     v13 = iconst.i64 16
+//     v14 = sshr v12, v13  ; v13 = 16
+//     v15 = ireduce.i32 v14
+//     v16 = sextend.i64 v2  ; v2 = 0x0004_0000
+//     v17 = sextend.i64 v3  ; v3 = 0x0002_0000
+//     v18 = imul v16, v17
+//     v19 = iconst.i64 16
+//     v20 = sshr v18, v19  ; v19 = 16
+//     v21 = ireduce.i32 v20
+//     v22 = iconst.i32 1
+//     return v22  ; v22 = 1
 //
 // block1:
-//     v8 = iconst.i32 0
-//     return v8  ; v8 = 0
+//     v23 = iconst.i32 0
+//     return v23  ; v23 = 0
 // }
-

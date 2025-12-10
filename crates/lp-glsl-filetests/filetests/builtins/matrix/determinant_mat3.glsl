@@ -10,78 +10,78 @@ float main() {
 
 // function u0:0() -> i32 system_v {
 // block0:
-//     v24 = iconst.i32 0x0001_0000
-//     v25 = iconst.i32 0
-//     v26 = iconst.i32 0
-//     v27 = iconst.i32 0
-//     v28 = iconst.i32 0x0001_0000
-//     v29 = iconst.i32 0
-//     v30 = iconst.i32 0
-//     v31 = iconst.i32 0
-//     v32 = iconst.i32 0x0001_0000
-//     v33 = sextend.i64 v28  ; v28 = 0x0001_0000
-//     v34 = sextend.i64 v32  ; v32 = 0x0001_0000
-//     v35 = imul v33, v34
-//     v36 = iconst.i64 16
-//     v37 = sshr v35, v36  ; v36 = 16
-//     v38 = ireduce.i32 v37
-//     v39 = sextend.i64 v31  ; v31 = 0
-//     v40 = sextend.i64 v29  ; v29 = 0
-//     v41 = imul v39, v40
-//     v42 = iconst.i64 16
-//     v43 = sshr v41, v42  ; v42 = 16
-//     v44 = ireduce.i32 v43
-//     v45 = isub v38, v44
-//     v46 = sextend.i64 v24  ; v24 = 0x0001_0000
-//     v47 = sextend.i64 v45
-//     v48 = imul v46, v47
-//     v49 = iconst.i64 16
-//     v50 = sshr v48, v49  ; v49 = 16
-//     v51 = ireduce.i32 v50
-//     v52 = sextend.i64 v25  ; v25 = 0
-//     v53 = sextend.i64 v32  ; v32 = 0x0001_0000
-//     v54 = imul v52, v53
-//     v55 = iconst.i64 16
-//     v56 = sshr v54, v55  ; v55 = 16
-//     v57 = ireduce.i32 v56
-//     v58 = sextend.i64 v31  ; v31 = 0
-//     v59 = sextend.i64 v26  ; v26 = 0
-//     v60 = imul v58, v59
-//     v61 = iconst.i64 16
-//     v62 = sshr v60, v61  ; v61 = 16
-//     v63 = ireduce.i32 v62
-//     v64 = isub v57, v63
-//     v65 = sextend.i64 v27  ; v27 = 0
-//     v66 = sextend.i64 v64
-//     v67 = imul v65, v66
-//     v68 = iconst.i64 16
-//     v69 = sshr v67, v68  ; v68 = 16
-//     v70 = ireduce.i32 v69
-//     v71 = sextend.i64 v25  ; v25 = 0
-//     v72 = sextend.i64 v29  ; v29 = 0
-//     v73 = imul v71, v72
-//     v74 = iconst.i64 16
-//     v75 = sshr v73, v74  ; v74 = 16
-//     v76 = ireduce.i32 v75
-//     v77 = sextend.i64 v28  ; v28 = 0x0001_0000
-//     v78 = sextend.i64 v26  ; v26 = 0
-//     v79 = imul v77, v78
-//     v80 = iconst.i64 16
-//     v81 = sshr v79, v80  ; v80 = 16
-//     v82 = ireduce.i32 v81
-//     v83 = isub v76, v82
-//     v84 = sextend.i64 v30  ; v30 = 0
-//     v85 = sextend.i64 v83
-//     v86 = imul v84, v85
-//     v87 = iconst.i64 16
-//     v88 = sshr v86, v87  ; v87 = 16
-//     v89 = ireduce.i32 v88
-//     v90 = isub v51, v70
-//     v91 = iadd v90, v89
-//     return v91
+//     v0 = iconst.i32 0x0001_0000
+//     v1 = iconst.i32 0
+//     v2 = iconst.i32 0
+//     v3 = iconst.i32 0
+//     v4 = iconst.i32 0x0001_0000
+//     v5 = iconst.i32 0
+//     v6 = iconst.i32 0
+//     v7 = iconst.i32 0
+//     v8 = iconst.i32 0x0001_0000
+//     v9 = sextend.i64 v4  ; v4 = 0x0001_0000
+//     v10 = sextend.i64 v8  ; v8 = 0x0001_0000
+//     v11 = imul v9, v10
+//     v12 = iconst.i64 16
+//     v13 = sshr v11, v12  ; v12 = 16
+//     v14 = ireduce.i32 v13
+//     v15 = sextend.i64 v7  ; v7 = 0
+//     v16 = sextend.i64 v5  ; v5 = 0
+//     v17 = imul v15, v16
+//     v18 = iconst.i64 16
+//     v19 = sshr v17, v18  ; v18 = 16
+//     v20 = ireduce.i32 v19
+//     v21 = isub v14, v20
+//     v22 = sextend.i64 v0  ; v0 = 0x0001_0000
+//     v23 = sextend.i64 v21
+//     v24 = imul v22, v23
+//     v25 = iconst.i64 16
+//     v26 = sshr v24, v25  ; v25 = 16
+//     v27 = ireduce.i32 v26
+//     v28 = sextend.i64 v1  ; v1 = 0
+//     v29 = sextend.i64 v8  ; v8 = 0x0001_0000
+//     v30 = imul v28, v29
+//     v31 = iconst.i64 16
+//     v32 = sshr v30, v31  ; v31 = 16
+//     v33 = ireduce.i32 v32
+//     v34 = sextend.i64 v7  ; v7 = 0
+//     v35 = sextend.i64 v2  ; v2 = 0
+//     v36 = imul v34, v35
+//     v37 = iconst.i64 16
+//     v38 = sshr v36, v37  ; v37 = 16
+//     v39 = ireduce.i32 v38
+//     v40 = isub v33, v39
+//     v41 = sextend.i64 v3  ; v3 = 0
+//     v42 = sextend.i64 v40
+//     v43 = imul v41, v42
+//     v44 = iconst.i64 16
+//     v45 = sshr v43, v44  ; v44 = 16
+//     v46 = ireduce.i32 v45
+//     v47 = sextend.i64 v1  ; v1 = 0
+//     v48 = sextend.i64 v5  ; v5 = 0
+//     v49 = imul v47, v48
+//     v50 = iconst.i64 16
+//     v51 = sshr v49, v50  ; v50 = 16
+//     v52 = ireduce.i32 v51
+//     v53 = sextend.i64 v4  ; v4 = 0x0001_0000
+//     v54 = sextend.i64 v2  ; v2 = 0
+//     v55 = imul v53, v54
+//     v56 = iconst.i64 16
+//     v57 = sshr v55, v56  ; v56 = 16
+//     v58 = ireduce.i32 v57
+//     v59 = isub v52, v58
+//     v60 = sextend.i64 v6  ; v6 = 0
+//     v61 = sextend.i64 v59
+//     v62 = imul v60, v61
+//     v63 = iconst.i64 16
+//     v64 = sshr v62, v63  ; v63 = 16
+//     v65 = ireduce.i32 v64
+//     v66 = isub v27, v46
+//     v67 = iadd v66, v65
+//     return v67
 //
 // block1:
-//     v92 = iconst.i32 0
-//     return v92  ; v92 = 0
+//     v68 = iconst.i32 0
+//     return v68  ; v68 = 0
 // }
 // run: ~= 1.0  // Identity matrix has determinant 1

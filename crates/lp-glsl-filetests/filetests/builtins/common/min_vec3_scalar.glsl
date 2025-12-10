@@ -6,29 +6,29 @@ vec3 main() {
     return min(v, 4.0);  // (4.0, 2.0, 4.0)
 }
 
-// function u0:0(i32 sret) system_v {
+// function u0:0(i32) system_v {
 // block0(v0: i32):
-//     v11 = iconst.i32 0x0005_0000
-//     v12 = iconst.i32 0x0002_0000
-//     v13 = iconst.i32 0x0007_0000
-//     v14 = iconst.i32 0x0004_0000
-//     v15 = icmp sle v11, v14  ; v11 = 0x0005_0000, v14 = 0x0004_0000
-//     v16 = select v15, v11, v14  ; v11 = 0x0005_0000, v14 = 0x0004_0000
-//     v17 = icmp sle v12, v14  ; v12 = 0x0002_0000, v14 = 0x0004_0000
-//     v18 = select v17, v12, v14  ; v12 = 0x0002_0000, v14 = 0x0004_0000
-//     v19 = icmp sle v13, v14  ; v13 = 0x0007_0000, v14 = 0x0004_0000
-//     v20 = select v19, v13, v14  ; v13 = 0x0007_0000, v14 = 0x0004_0000
-//     store notrap aligned v16, v0
-//     store notrap aligned v18, v0+4
-//     store notrap aligned v20, v0+8
+//     v1 = iconst.i32 0x0005_0000
+//     v2 = iconst.i32 0x0002_0000
+//     v3 = iconst.i32 0x0007_0000
+//     v4 = iconst.i32 0x0004_0000
+//     v5 = icmp slt v1, v4  ; v1 = 0x0005_0000, v4 = 0x0004_0000
+//     v6 = select v5, v1, v4  ; v1 = 0x0005_0000, v4 = 0x0004_0000
+//     v7 = icmp slt v2, v4  ; v2 = 0x0002_0000, v4 = 0x0004_0000
+//     v8 = select v7, v2, v4  ; v2 = 0x0002_0000, v4 = 0x0004_0000
+//     v9 = icmp slt v3, v4  ; v3 = 0x0007_0000, v4 = 0x0004_0000
+//     v10 = select v9, v3, v4  ; v3 = 0x0007_0000, v4 = 0x0004_0000
+//     store notrap aligned v6, v0
+//     store notrap aligned v8, v0+4
+//     store notrap aligned v10, v0+8
 //     return
 //
 // block1:
-//     v21 = iconst.i32 0
-//     store notrap aligned v21, v0  ; v21 = 0
-//     v22 = iconst.i32 0
-//     store notrap aligned v22, v0+4  ; v22 = 0
-//     v23 = iconst.i32 0
-//     store notrap aligned v23, v0+8  ; v23 = 0
+//     v11 = iconst.i32 0
+//     store notrap aligned v11, v0  ; v11 = 0
+//     v12 = iconst.i32 0
+//     store notrap aligned v12, v0+4  ; v12 = 0
+//     v13 = iconst.i32 0
+//     store notrap aligned v13, v0+8  ; v13 = 0
 //     return
 // }

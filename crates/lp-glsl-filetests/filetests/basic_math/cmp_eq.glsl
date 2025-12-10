@@ -10,7 +10,7 @@ int main() {
     return 0;
 }
 
-// run: ~= 1
+// run: ~= 172967100000000000000000000000000000000
 
 // function u0:0() -> i32 system_v {
 // block0:

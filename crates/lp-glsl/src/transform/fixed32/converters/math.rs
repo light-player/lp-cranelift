@@ -1,12 +1,12 @@
 //! Math function conversion functions.
 
-use crate::error::{ErrorCode, GlslError};
+use crate::error::GlslError;
 use crate::transform::fixed32::types::FixedPointFormat;
 
-use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData, Value};
+use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value};
 use cranelift_frontend::FunctionBuilder;
 
-use super::super::rewrite::map_value;
+use super::{extract_unary_operand, get_first_result, map_operand, unexpected_format_error};
 
 /// Convert Ceil instruction.
 pub(crate) fn convert_ceil(
@@ -15,23 +15,13 @@ pub(crate) fn convert_ceil(
     builder: &mut FunctionBuilder,
     value_map: &mut std::collections::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<
+    _block_map: &std::collections::HashMap<
         cranelift_codegen::ir::Block,
         cranelift_codegen::ir::Block,
     >,
 ) -> Result<(), GlslError> {
-    let inst_data = &old_func.dfg.insts[old_inst];
-
-    let arg = if let InstructionData::Unary { arg, .. } = inst_data {
-        *arg
-    } else {
-        return Err(GlslError::new(
-            ErrorCode::E0301,
-            format!("Ceil instruction has unexpected format: {:?}", inst_data),
-        ));
-    };
-
-    let mapped_arg = map_value(value_map, arg);
+    let arg = extract_unary_operand(old_func, old_inst)?;
+    let mapped_arg = map_operand(value_map, arg);
     let target_type = format.cranelift_type();
     let shift_amount = format.shift_amount();
 
@@ -44,7 +34,7 @@ pub(crate) fn convert_ceil(
     let rounded = builder.ins().sshr(added, shift_const);
     let new_result = builder.ins().ishl(rounded, shift_const);
 
-    let old_result = old_func.dfg.first_result(old_inst);
+    let old_result = get_first_result(old_func, old_inst);
     value_map.insert(old_result, new_result);
 
     Ok(())
@@ -57,23 +47,13 @@ pub(crate) fn convert_floor(
     builder: &mut FunctionBuilder,
     value_map: &mut std::collections::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<
+    _block_map: &std::collections::HashMap<
         cranelift_codegen::ir::Block,
         cranelift_codegen::ir::Block,
     >,
 ) -> Result<(), GlslError> {
-    let inst_data = &old_func.dfg.insts[old_inst];
-
-    let arg = if let InstructionData::Unary { arg, .. } = inst_data {
-        *arg
-    } else {
-        return Err(GlslError::new(
-            ErrorCode::E0301,
-            format!("Floor instruction has unexpected format: {:?}", inst_data),
-        ));
-    };
-
-    let mapped_arg = map_value(value_map, arg);
+    let arg = extract_unary_operand(old_func, old_inst)?;
+    let mapped_arg = map_operand(value_map, arg);
     let target_type = format.cranelift_type();
     let shift_amount = format.shift_amount();
 
@@ -83,7 +63,7 @@ pub(crate) fn convert_floor(
     let rounded = builder.ins().sshr(mapped_arg, shift_const);
     let new_result = builder.ins().ishl(rounded, shift_const);
 
-    let old_result = old_func.dfg.first_result(old_inst);
+    let old_result = get_first_result(old_func, old_inst);
     value_map.insert(old_result, new_result);
 
     Ok(())

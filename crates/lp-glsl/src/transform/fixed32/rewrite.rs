@@ -259,7 +259,7 @@ fn map_block_params(
 
 /// Ensure block parameters exist for a target block based on what the old block has.
 /// This creates parameters on-demand when they're needed for jumps/brifs.
-/// 
+///
 /// The key insight: we check what parameters the old block actually has at conversion time,
 /// not just what the current instruction passes. This handles the case where parameters
 /// are added dynamically via append_block_param.
@@ -273,15 +273,15 @@ pub(super) fn ensure_block_params(
     _expected_args: &[Value], // Not used, but kept for API consistency
 ) -> Result<(), GlslError> {
     let target_type = format.cranelift_type();
-    
+
     // Get current parameter count in new block
     let current_param_count = builder.func.dfg.num_block_params(new_block);
-    
+
     // Get the old block's actual parameters (what it has at conversion time)
     // This is the source of truth - if the old block has N parameters, the new block should too
     let old_params = old_func.dfg.block_params(old_block);
     let expected_param_count = old_params.len();
-    
+
     // If we need more parameters, add them based on the old block's parameters
     if expected_param_count > current_param_count {
         // Determine types for new parameters based on the old block's parameters
@@ -295,12 +295,12 @@ pub(super) fn ensure_block_params(
             };
             new_param_types.push(new_type);
         }
-        
+
         // Add the missing parameters
         for &param_type in &new_param_types {
             builder.append_block_param(new_block, param_type);
         }
-        
+
         // Map old params to new params (only the newly added ones)
         let new_params = builder.block_params(new_block);
         for i in current_param_count..expected_param_count {
@@ -309,7 +309,7 @@ pub(super) fn ensure_block_params(
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -450,8 +450,8 @@ fn convert_all_instructions(
 fn convert_instruction(
     old_func: &Function,
     old_inst: Inst,
-    old_block: Block,
-    new_block: Block,
+    _old_block: Block,
+    _new_block: Block,
     builder: &mut FunctionBuilder,
     value_map: &mut HashMap<Value, Value>,
     ext_func_map: &mut HashMap<FuncRef, FuncRef>,
@@ -460,7 +460,7 @@ fn convert_instruction(
     block_map: &HashMap<Block, Block>,
 ) -> Result<(), GlslError> {
     // Don't switch blocks here - we're already on the correct block from convert_all_instructions
-    // builder.switch_to_block(new_block);
+    // The new_block parameter is kept for API consistency but not used
 
     // Copy source location (skip for now - RelSourceLoc conversion will be handled later)
     // if let Some(srcloc) = old_func.srclocs.get(old_inst) {

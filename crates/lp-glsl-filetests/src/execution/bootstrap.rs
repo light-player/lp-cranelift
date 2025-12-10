@@ -29,10 +29,23 @@ pub fn generate_bootstrap(
     // addi sp, sp, 0 (add lower 12 bits, which are 0)
     code.extend_from_slice(&encode_addi(2, 2, 0));
 
-    // 2. Call test function: jal ra, test_func_addr
+    // 2. Set up function arguments if needed (StructReturn)
+    // For StructReturn, a0 (x10) must contain the result buffer address
+    let needs_struct_return = matches!(
+        return_type,
+        ReturnType::Vec2 | ReturnType::Vec3 | ReturnType::Vec4
+            | ReturnType::Mat2 | ReturnType::Mat3 | ReturnType::Mat4
+    );
+    
+    if needs_struct_return {
+        // Load RESULT_ADDR into a0 (x10) for StructReturn parameter
+        code.extend_from_slice(&encode_lui(10, RESULT_ADDR)); // lui a0, (RESULT_ADDR >> 12)
+        code.extend_from_slice(&encode_addi(10, 10, (RESULT_ADDR & 0xFFF) as i32)); // addi a0, a0, (RESULT_ADDR & 0xFFF)
+    }
+    
+    // 3. Call test function: jal ra, test_func_addr
     // Use jalr with absolute address (auipc + addi + jalr)
     // PC-relative addressing: auipc computes PC + (imm << 12)
-    // PC at auipc instruction = 8 (after 2 stack setup instructions)
     let pc_at_auipc = code.len() as u32;
     let offset_to_test_func = test_func_addr.wrapping_sub(pc_at_auipc);
     
@@ -49,56 +62,48 @@ pub fn generate_bootstrap(
     // jalr ra, t0, 0 - jumps to t0, sets ra = PC + 4
     code.extend_from_slice(&encode_jalr(1, 5, 0)); // ra = x1
 
-    // 3. Store result at RESULT_ADDR
-    // Use t1 (x6) instead of t0 to avoid conflicts with function call setup
-    // lui t1, (RESULT_ADDR >> 12); addi t1, t1, (RESULT_ADDR & 0xFFF)
-    // encode_lui expects the full 32-bit value and extracts upper 20 bits
-    let result_base_reg = 6; // t1 = x6
-    code.extend_from_slice(&encode_lui(result_base_reg, RESULT_ADDR));
-    code.extend_from_slice(&encode_addi(result_base_reg, result_base_reg, (RESULT_ADDR & 0xFFF) as i32));
-    
-    match return_type {
-        ReturnType::Int | ReturnType::Bool => {
-            // Result is in a0 (x10), store it
-            code.extend_from_slice(&encode_sw(result_base_reg, 10, 0)); // sw a0, 0(t1)
-        }
-        ReturnType::Float => {
-            match fixed_point_format {
-                Some(FixedPointFormat::Fixed16x16) => {
-                    // Result is in a0 (i32 fixed-point), store it
-                    code.extend_from_slice(&encode_sw(result_base_reg, 10, 0)); // sw a0, 0(t1)
-                }
-                Some(FixedPointFormat::Fixed32x32) => {
-                    // Result is in a0 (low) and a1 (high), store both
-                    code.extend_from_slice(&encode_sw(result_base_reg, 10, 0)); // sw a0, 0(t1) - low
-                    code.extend_from_slice(&encode_sw(result_base_reg, 11, 4)); // sw a1, 4(t1) - high
-                }
-                None => {
-                    // Result is in fa0 (f32), store it
-                    code.extend_from_slice(&encode_fsw(result_base_reg, 10, 0)); // fsw fa0, 0(t1)
+    // 4. Store result at RESULT_ADDR (if not already there via StructReturn)
+    // For StructReturn, result is already at RESULT_ADDR, so no copy needed
+    if !needs_struct_return {
+        // Use t1 (x6) to load RESULT_ADDR
+        let result_base_reg = 6; // t1 = x6
+        code.extend_from_slice(&encode_lui(result_base_reg, RESULT_ADDR));
+        code.extend_from_slice(&encode_addi(result_base_reg, result_base_reg, (RESULT_ADDR & 0xFFF) as i32));
+        
+        match return_type {
+            ReturnType::Int | ReturnType::Bool => {
+                // Result is in a0 (x10), store it
+                code.extend_from_slice(&encode_sw(result_base_reg, 10, 0)); // sw a0, 0(t1)
+            }
+            ReturnType::Float => {
+                match fixed_point_format {
+                    Some(FixedPointFormat::Fixed16x16) => {
+                        // Result is in a0 (i32 fixed-point), store it
+                        code.extend_from_slice(&encode_sw(result_base_reg, 10, 0)); // sw a0, 0(t1)
+                    }
+                    Some(FixedPointFormat::Fixed32x32) => {
+                        // Result is in a0 (low) and a1 (high), store both
+                        code.extend_from_slice(&encode_sw(result_base_reg, 10, 0)); // sw a0, 0(t1) - low
+                        code.extend_from_slice(&encode_sw(result_base_reg, 11, 4)); // sw a1, 4(t1) - high
+                    }
+                    None => {
+                        // Result is in fa0 (f32), store it
+                        code.extend_from_slice(&encode_fsw(result_base_reg, 10, 0)); // fsw fa0, 0(t1)
+                    }
                 }
             }
-        }
-        ReturnType::I64 => {
-            // Result is in a0 (low) and a1 (high), store both
-            code.extend_from_slice(&encode_sw(result_base_reg, 10, 0)); // sw a0, 0(t1) - low
-            code.extend_from_slice(&encode_sw(result_base_reg, 11, 4)); // sw a1, 4(t1) - high
-        }
-        ReturnType::Vec2 | ReturnType::Mat2 => {
-            // Result is in memory (struct return), copy to RESULT_ADDR
-            // For struct return, result pointer is in a0, copy 8 bytes
-            // For now, assume result is already at RESULT_ADDR (simplified)
-            // TODO: Handle struct return properly
-        }
-        ReturnType::Vec3 | ReturnType::Mat3 => {
-            // Similar to Vec2, but 12/36 bytes
-        }
-        ReturnType::Vec4 | ReturnType::Mat4 => {
-            // Similar to Vec2, but 16/64 bytes
+            ReturnType::I64 => {
+                // Result is in a0 (low) and a1 (high), store both
+                code.extend_from_slice(&encode_sw(result_base_reg, 10, 0)); // sw a0, 0(t1) - low
+                code.extend_from_slice(&encode_sw(result_base_reg, 11, 4)); // sw a1, 4(t1) - high
+            }
+            _ => {
+                // StructReturn cases handled above - result already at RESULT_ADDR
+            }
         }
     }
 
-    // 4. EBREAK: ebreak (0x00100073)
+    // 5. EBREAK: ebreak (0x00100073)
     // Encoding: 0x00100073 in little-endian bytes
     code.extend_from_slice(&[0x73, 0x00, 0x10, 0x00]);
 

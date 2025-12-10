@@ -338,6 +338,11 @@ fn test_vec3_add() {
 }
 
 #[test]
+fn test_vec2_add_fixed32() {
+    test_file("fixed32/vec2_add.glsl");
+}
+
+#[test]
 fn test_vec3_multiply_scalar() {
     test_file("vectors/vec3_multiply_scalar.glsl");
 }

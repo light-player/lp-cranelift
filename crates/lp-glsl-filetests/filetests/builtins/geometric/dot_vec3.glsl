@@ -11,36 +11,36 @@ float main() {
 
 // function u0:0() -> i32 system_v {
 // block0:
-//     v12 = iconst.i32 0x0001_0000
-//     v13 = iconst.i32 0x0002_0000
-//     v14 = iconst.i32 0x0003_0000
-//     v15 = iconst.i32 0x0004_0000
-//     v16 = iconst.i32 0x0005_0000
-//     v17 = iconst.i32 0x0006_0000
-//     v18 = sextend.i64 v12  ; v12 = 0x0001_0000
-//     v19 = sextend.i64 v15  ; v15 = 0x0004_0000
-//     v20 = imul v18, v19
-//     v21 = iconst.i64 16
-//     v22 = sshr v20, v21  ; v21 = 16
-//     v23 = ireduce.i32 v22
-//     v24 = sextend.i64 v13  ; v13 = 0x0002_0000
-//     v25 = sextend.i64 v16  ; v16 = 0x0005_0000
-//     v26 = imul v24, v25
-//     v27 = iconst.i64 16
-//     v28 = sshr v26, v27  ; v27 = 16
-//     v29 = ireduce.i32 v28
-//     v30 = iadd v23, v29
-//     v31 = sextend.i64 v14  ; v14 = 0x0003_0000
-//     v32 = sextend.i64 v17  ; v17 = 0x0006_0000
-//     v33 = imul v31, v32
-//     v34 = iconst.i64 16
-//     v35 = sshr v33, v34  ; v34 = 16
-//     v36 = ireduce.i32 v35
-//     v37 = iadd v30, v36
-//     return v37
+//     v0 = iconst.i32 0x0001_0000
+//     v1 = iconst.i32 0x0002_0000
+//     v2 = iconst.i32 0x0003_0000
+//     v3 = iconst.i32 0x0004_0000
+//     v4 = iconst.i32 0x0005_0000
+//     v5 = iconst.i32 0x0006_0000
+//     v6 = sextend.i64 v0  ; v0 = 0x0001_0000
+//     v7 = sextend.i64 v3  ; v3 = 0x0004_0000
+//     v8 = imul v6, v7
+//     v9 = iconst.i64 16
+//     v10 = sshr v8, v9  ; v9 = 16
+//     v11 = ireduce.i32 v10
+//     v12 = sextend.i64 v1  ; v1 = 0x0002_0000
+//     v13 = sextend.i64 v4  ; v4 = 0x0005_0000
+//     v14 = imul v12, v13
+//     v15 = iconst.i64 16
+//     v16 = sshr v14, v15  ; v15 = 16
+//     v17 = ireduce.i32 v16
+//     v18 = iadd v11, v17
+//     v19 = sextend.i64 v2  ; v2 = 0x0003_0000
+//     v20 = sextend.i64 v5  ; v5 = 0x0006_0000
+//     v21 = imul v19, v20
+//     v22 = iconst.i64 16
+//     v23 = sshr v21, v22  ; v22 = 16
+//     v24 = ireduce.i32 v23
+//     v25 = iadd v18, v24
+//     return v25
 //
 // block1:
-//     v38 = iconst.i32 0
-//     return v38  ; v38 = 0
+//     v26 = iconst.i32 0
+//     return v26  ; v26 = 0
 // }
 // run: ~= 32

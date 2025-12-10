@@ -1,12 +1,12 @@
 //! Type conversion instruction conversion functions.
 
-use crate::error::{ErrorCode, GlslError};
+use crate::error::GlslError;
 use crate::transform::fixed32::types::FixedPointFormat;
 
-use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData, Value, types};
+use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, types};
 use cranelift_frontend::FunctionBuilder;
 
-use super::super::rewrite::map_value;
+use super::{extract_unary_operand, get_first_result, map_operand, unexpected_format_error};
 
 /// Convert FcvtFromSint instruction.
 pub(crate) fn convert_fcvt_from_sint(
@@ -15,34 +15,22 @@ pub(crate) fn convert_fcvt_from_sint(
     builder: &mut FunctionBuilder,
     value_map: &mut std::collections::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<
+    _block_map: &std::collections::HashMap<
         cranelift_codegen::ir::Block,
         cranelift_codegen::ir::Block,
     >,
 ) -> Result<(), GlslError> {
-    let inst_data = &old_func.dfg.insts[old_inst];
-
     // Check if result is F32
-    let old_result = old_func.dfg.first_result(old_inst);
+    let old_result = get_first_result(old_func, old_inst);
     if old_func.dfg.value_type(old_result) != types::F32 {
         // Not an F32 conversion, skip
         return Ok(());
     }
 
-    let arg = if let InstructionData::Unary { arg, .. } = inst_data {
-        *arg
-    } else {
-        return Err(GlslError::new(
-            ErrorCode::E0301,
-            format!(
-                "FcvtFromSint instruction has unexpected format: {:?}",
-                inst_data
-            ),
-        ));
-    };
+    let arg = extract_unary_operand(old_func, old_inst)?;
 
     // Map argument
-    let mapped_arg = map_value(value_map, arg);
+    let mapped_arg = map_operand(value_map, arg);
     let target_type = format.cranelift_type();
     let shift_amount = format.shift_amount();
 
@@ -60,7 +48,6 @@ pub(crate) fn convert_fcvt_from_sint(
         builder.ins().ishl(mapped_arg, shift_const)
     };
 
-    let old_result = old_func.dfg.first_result(old_inst);
     value_map.insert(old_result, shifted);
 
     Ok(())
@@ -73,34 +60,22 @@ pub(crate) fn convert_fcvt_from_uint(
     builder: &mut FunctionBuilder,
     value_map: &mut std::collections::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<
+    _block_map: &std::collections::HashMap<
         cranelift_codegen::ir::Block,
         cranelift_codegen::ir::Block,
     >,
 ) -> Result<(), GlslError> {
-    let inst_data = &old_func.dfg.insts[old_inst];
-
     // Check if result is F32
-    let old_result = old_func.dfg.first_result(old_inst);
+    let old_result = get_first_result(old_func, old_inst);
     if old_func.dfg.value_type(old_result) != types::F32 {
         // Not an F32 conversion, skip
         return Ok(());
     }
 
-    let arg = if let InstructionData::Unary { arg, .. } = inst_data {
-        *arg
-    } else {
-        return Err(GlslError::new(
-            ErrorCode::E0301,
-            format!(
-                "FcvtFromUint instruction has unexpected format: {:?}",
-                inst_data
-            ),
-        ));
-    };
+    let arg = extract_unary_operand(old_func, old_inst)?;
 
     // Map argument
-    let mapped_arg = map_value(value_map, arg);
+    let mapped_arg = map_operand(value_map, arg);
     let target_type = format.cranelift_type();
     let shift_amount = format.shift_amount();
 
@@ -118,7 +93,6 @@ pub(crate) fn convert_fcvt_from_uint(
         builder.ins().ishl(mapped_arg, shift_const)
     };
 
-    let old_result = old_func.dfg.first_result(old_inst);
     value_map.insert(old_result, shifted);
 
     Ok(())

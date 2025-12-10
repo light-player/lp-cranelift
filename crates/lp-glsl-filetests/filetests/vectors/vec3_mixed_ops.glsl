@@ -10,39 +10,38 @@ int main() {
 
 // function u0:0() -> i32 system_v {
 // block0:
-//     v15 = iconst.i32 0x0001_0000
-//     v16 = iconst.i32 0x0002_0000
-//     v17 = iconst.i32 0x0003_0000
-//     v18 = iconst.i32 0x0002_0000
-//     v19 = iconst.i32 0x0002_0000
-//     v20 = iconst.i32 0x0002_0000
-//     v21 = iadd v15, v18  ; v15 = 0x0001_0000, v18 = 0x0002_0000
-//     v22 = iadd v16, v19  ; v16 = 0x0002_0000, v19 = 0x0002_0000
-//     v23 = iadd v17, v20  ; v17 = 0x0003_0000, v20 = 0x0002_0000
-//     v24 = iconst.i32 0x0002_0000
-//     v25 = sextend.i64 v21
-//     v26 = sextend.i64 v24  ; v24 = 0x0002_0000
-//     v27 = imul v25, v26
-//     v28 = iconst.i64 16
-//     v29 = sshr v27, v28  ; v28 = 16
-//     v30 = ireduce.i32 v29
-//     v31 = sextend.i64 v22
-//     v32 = sextend.i64 v24  ; v24 = 0x0002_0000
-//     v33 = imul v31, v32
-//     v34 = iconst.i64 16
-//     v35 = sshr v33, v34  ; v34 = 16
-//     v36 = ireduce.i32 v35
-//     v37 = sextend.i64 v23
-//     v38 = sextend.i64 v24  ; v24 = 0x0002_0000
-//     v39 = imul v37, v38
-//     v40 = iconst.i64 16
-//     v41 = sshr v39, v40  ; v40 = 16
-//     v42 = ireduce.i32 v41
-//     v13 = iconst.i32 1
-//     return v13  ; v13 = 1
+//     v0 = iconst.i32 0x0001_0000
+//     v1 = iconst.i32 0x0002_0000
+//     v2 = iconst.i32 0x0003_0000
+//     v3 = iconst.i32 0x0002_0000
+//     v4 = iconst.i32 0x0002_0000
+//     v5 = iconst.i32 0x0002_0000
+//     v6 = iadd v0, v3  ; v0 = 0x0001_0000, v3 = 0x0002_0000
+//     v7 = iadd v1, v4  ; v1 = 0x0002_0000, v4 = 0x0002_0000
+//     v8 = iadd v2, v5  ; v2 = 0x0003_0000, v5 = 0x0002_0000
+//     v9 = iconst.i32 0x0002_0000
+//     v10 = sextend.i64 v6
+//     v11 = sextend.i64 v9  ; v9 = 0x0002_0000
+//     v12 = imul v10, v11
+//     v13 = iconst.i64 16
+//     v14 = sshr v12, v13  ; v13 = 16
+//     v15 = ireduce.i32 v14
+//     v16 = sextend.i64 v7
+//     v17 = sextend.i64 v9  ; v9 = 0x0002_0000
+//     v18 = imul v16, v17
+//     v19 = iconst.i64 16
+//     v20 = sshr v18, v19  ; v19 = 16
+//     v21 = ireduce.i32 v20
+//     v22 = sextend.i64 v8
+//     v23 = sextend.i64 v9  ; v9 = 0x0002_0000
+//     v24 = imul v22, v23
+//     v25 = iconst.i64 16
+//     v26 = sshr v24, v25  ; v25 = 16
+//     v27 = ireduce.i32 v26
+//     v28 = iconst.i32 1
+//     return v28  ; v28 = 1
 //
 // block1:
-//     v14 = iconst.i32 0
-//     return v14  ; v14 = 0
+//     v29 = iconst.i32 0
+//     return v29  ; v29 = 0
 // }
-

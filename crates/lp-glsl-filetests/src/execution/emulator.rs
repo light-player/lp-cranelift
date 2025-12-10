@@ -96,7 +96,7 @@ impl EmulatorBackend {
         }
     }
 
-    fn run_emulator(&self, binary: &[u8]) -> Result<Riscv32Emulator> {
+    pub fn run_emulator(&self, binary: &[u8]) -> Result<Riscv32Emulator> {
         match self.emulator_type {
             EmulatorType::Riscv32 => {
                 let ram_size = 64 * 1024; // 64KB RAM

@@ -9,18 +9,18 @@ float main() {
 
 // function u0:0() -> i32 system_v {
 // block0:
-//     v4 = iconst.i32 0x00b4_0000
-//     v5 = iconst.i32 1144
-//     v6 = sextend.i64 v4  ; v4 = 0x00b4_0000
-//     v7 = sextend.i64 v5  ; v5 = 1144
-//     v8 = imul v6, v7
-//     v9 = iconst.i64 16
-//     v10 = sshr v8, v9  ; v9 = 16
-//     v11 = ireduce.i32 v10
-//     return v11
+//     v0 = iconst.i32 0x00b4_0000
+//     v1 = iconst.i32 1144
+//     v2 = sextend.i64 v0  ; v0 = 0x00b4_0000
+//     v3 = sextend.i64 v1  ; v1 = 1144
+//     v4 = imul v2, v3
+//     v5 = iconst.i64 16
+//     v6 = sshr v4, v5  ; v5 = 16
+//     v7 = ireduce.i32 v6
+//     return v7
 //
 // block1:
-//     v12 = iconst.i32 0
-//     return v12  ; v12 = 0
+//     v8 = iconst.i32 0
+//     return v8  ; v8 = 0
 // }
 // run: ~= 3.1415927 

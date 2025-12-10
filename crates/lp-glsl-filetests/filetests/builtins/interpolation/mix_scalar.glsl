@@ -10,44 +10,46 @@ bool main() {
 
 // function u0:0() -> i8 system_v {
 // block0:
-//     v25 = iconst.i32 0
-//     v26 = iconst.i32 0x000a_0000
-//     v27 = iconst.i32 0x8000
-//     v28 = iconst.i32 0x0001_0000
-//     v29 = isub v28, v27  ; v28 = 0x0001_0000, v27 = 0x8000
-//     v30 = sextend.i64 v25  ; v25 = 0
-//     v31 = sextend.i64 v29
-//     v32 = imul v30, v31
-//     v33 = iconst.i64 16
-//     v34 = sshr v32, v33  ; v33 = 16
-//     v35 = ireduce.i32 v34
-//     v36 = sextend.i64 v26  ; v26 = 0x000a_0000
-//     v37 = sextend.i64 v27  ; v27 = 0x8000
-//     v38 = imul v36, v37
-//     v39 = iconst.i64 16
-//     v40 = sshr v38, v39  ; v39 = 16
-//     v41 = ireduce.i32 v40
-//     v42 = iadd v35, v41
-//     v43 = iconst.i32 0x0004_fd71
-//     v44 = icmp sgt v42, v43  ; v43 = 0x0004_fd71
-//     v10 = iconst.i8 1
-//     v11 = iconst.i8 0
-//     v12 = select v44, v10, v11  ; v10 = 1, v11 = 0
-//     v45 = iconst.i32 0x0005_028f
-//     v46 = icmp slt v42, v45  ; v45 = 0x0005_028f
-//     v15 = iconst.i8 1
-//     v16 = iconst.i8 0
-//     v17 = select v46, v15, v16  ; v15 = 1, v16 = 0
-//     v18 = iconst.i8 0
-//     v19 = iconst.i8 1
-//     v20 = icmp ne v12, v18  ; v18 = 0
-//     v21 = icmp ne v17, v18  ; v18 = 0
-//     v22 = select v21, v19, v18  ; v19 = 1, v18 = 0
-//     v23 = select v20, v22, v18  ; v18 = 0
-//     return v23
+//     v0 = iconst.i32 0
+//     v1 = iconst.i32 0x000a_0000
+//     v2 = iconst.i32 0x8000
+//     v3 = iconst.i32 0x0001_0000
+//     v4 = isub v3, v2  ; v3 = 0x0001_0000, v2 = 0x8000
+//     v5 = sextend.i64 v0  ; v0 = 0
+//     v6 = sextend.i64 v4
+//     v7 = imul v5, v6
+//     v8 = iconst.i64 16
+//     v9 = sshr v7, v8  ; v8 = 16
+//     v10 = ireduce.i32 v9
+//     v11 = sextend.i64 v1  ; v1 = 0x000a_0000
+//     v12 = sextend.i64 v2  ; v2 = 0x8000
+//     v13 = imul v11, v12
+//     v14 = iconst.i64 16
+//     v15 = sshr v13, v14  ; v14 = 16
+//     v16 = ireduce.i32 v15
+//     v17 = iadd v10, v16
+//     v18 = iconst.i32 0x0004_fd71
+//     v19 = icmp sgt v17, v18  ; v18 = 0x0004_fd71
+//     v20 = sextend.i32 v19
+//     v21 = iconst.i8 1
+//     v22 = iconst.i8 0
+//     v23 = select v20, v21, v22  ; v21 = 1, v22 = 0
+//     v24 = iconst.i32 0x0005_028f
+//     v25 = icmp slt v17, v24  ; v24 = 0x0005_028f
+//     v26 = sextend.i32 v25
+//     v27 = iconst.i8 1
+//     v28 = iconst.i8 0
+//     v29 = select v26, v27, v28  ; v27 = 1, v28 = 0
+//     v30 = iconst.i8 0
+//     v31 = iconst.i8 1
+//     v32 = icmp ne v23, v30  ; v30 = 0
+//     v33 = icmp ne v29, v30  ; v30 = 0
+//     v34 = select v33, v31, v30  ; v31 = 1, v30 = 0
+//     v35 = select v32, v34, v30  ; v30 = 0
+//     return v35
 //
 // block1:
-//     v24 = iconst.i8 0
-//     return v24  ; v24 = 0
+//     v36 = iconst.i8 0
+//     return v36  ; v36 = 0
 // }
 // run: == true

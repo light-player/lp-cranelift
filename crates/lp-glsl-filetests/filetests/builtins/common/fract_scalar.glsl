@@ -9,33 +9,33 @@ bool main() {
 
 // function u0:0() -> i8 system_v {
 // block0:
-//     v20 = iconst.i32 0x0003_c000
-//     v21 = iconst.i64 16
-//     v22 = sextend.i64 v20  ; v20 = 0x0003_c000
-//     v23 = sshr v22, v21  ; v21 = 16
-//     v24 = ishl v23, v21  ; v21 = 16
-//     v25 = ireduce.i32 v24
-//     v26 = isub v20, v25  ; v20 = 0x0003_c000
-//     v27 = iconst.i32 0xbd71
-//     v28 = icmp sgt v26, v27  ; v27 = 0xbd71
-//     v5 = iconst.i8 1
-//     v6 = iconst.i8 0
-//     v7 = select v28, v5, v6  ; v5 = 1, v6 = 0
-//     v29 = iconst.i32 0xc28f
-//     v30 = icmp slt v26, v29  ; v29 = 0xc28f
-//     v10 = iconst.i8 1
-//     v11 = iconst.i8 0
-//     v12 = select v30, v10, v11  ; v10 = 1, v11 = 0
-//     v13 = iconst.i8 0
+//     v0 = iconst.i32 0x0003_c000
+//     v1 = iconst.i32 16
+//     v2 = sshr v0, v1  ; v0 = 0x0003_c000, v1 = 16
+//     v3 = ishl v2, v1  ; v1 = 16
+//     v4 = isub v0, v3  ; v0 = 0x0003_c000
+//     v5 = iconst.i32 0xbd71
+//     v6 = icmp sgt v4, v5  ; v5 = 0xbd71
+//     v7 = sextend.i32 v6
+//     v8 = iconst.i8 1
+//     v9 = iconst.i8 0
+//     v10 = select v7, v8, v9  ; v8 = 1, v9 = 0
+//     v11 = iconst.i32 0xc28f
+//     v12 = icmp slt v4, v11  ; v11 = 0xc28f
+//     v13 = sextend.i32 v12
 //     v14 = iconst.i8 1
-//     v15 = icmp ne v7, v13  ; v13 = 0
-//     v16 = icmp ne v12, v13  ; v13 = 0
-//     v17 = select v16, v14, v13  ; v14 = 1, v13 = 0
-//     v18 = select v15, v17, v13  ; v13 = 0
-//     return v18
+//     v15 = iconst.i8 0
+//     v16 = select v13, v14, v15  ; v14 = 1, v15 = 0
+//     v17 = iconst.i8 0
+//     v18 = iconst.i8 1
+//     v19 = icmp ne v10, v17  ; v17 = 0
+//     v20 = icmp ne v16, v17  ; v17 = 0
+//     v21 = select v20, v18, v17  ; v18 = 1, v17 = 0
+//     v22 = select v19, v21, v17  ; v17 = 0
+//     return v22
 //
 // block1:
-//     v19 = iconst.i8 0
-//     return v19  ; v19 = 0
+//     v23 = iconst.i8 0
+//     return v23  ; v23 = 0
 // }
 // run: == true

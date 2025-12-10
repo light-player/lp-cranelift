@@ -9,9 +9,9 @@ int main() {
 
 // function u0:0() -> i32 system_v {
 // block0:
-//     v5 = iconst.i32 0x0001_0000
-//     v6 = iconst.i32 0x0002_0000
-//     v7 = iconst.i32 0x0003_0000
+//     v0 = iconst.i32 0x0001_0000
+//     v1 = iconst.i32 0x0002_0000
+//     v2 = iconst.i32 0x0003_0000
 //     v3 = iconst.i32 1
 //     return v3  ; v3 = 1
 //

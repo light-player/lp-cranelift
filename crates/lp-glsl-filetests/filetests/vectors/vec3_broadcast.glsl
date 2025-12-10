@@ -8,7 +8,7 @@ int main() {
 
 // function u0:0() -> i32 system_v {
 // block0:
-//     v3 = iconst.i32 0x0005_0000
+//     v0 = iconst.i32 0x0005_0000
 //     v1 = iconst.i32 1
 //     return v1  ; v1 = 1
 //

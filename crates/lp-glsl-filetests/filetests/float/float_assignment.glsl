@@ -7,14 +7,15 @@ float main() {
     return x;
 }
 
-// function u0:0() -> f32 system_v {
+// function u0:0() -> i32 system_v {
 // block0:
 //     v0 = iconst.i32 10
-//     v1 = fcvt_from_sint.f32 v0  ; v0 = 10
-//     return v1
+//     v1 = iconst.i32 16
+//     v2 = ishl v0, v1  ; v0 = 10, v1 = 16
+//     return v2
 //
 // block1:
-//     v2 = f32const 0.0
-//     return v2  ; v2 = 0.0
+//     v3 = iconst.i32 0
+//     return v3  ; v3 = 0
 // }
 // run: ~= 10 (tolerance: 0.01)

@@ -9,6 +9,9 @@ use std::{boxed::Box, string::String};
 #[cfg(feature = "std")]
 use lp_jit_util::call_structreturn;
 
+#[cfg(feature = "std")]
+use crate::FixedPointFormat;
+
 /// High-level compiler interface
 #[cfg(feature = "std")]
 pub struct Compiler {
@@ -55,21 +58,44 @@ impl Compiler {
         // Get calling convention and pointer type before compilation
         let call_conv = self.jit.call_conv();
         let pointer_type = self.jit.pointer_type();
+        let fixed_point_format = self.jit.fixed_point_format;
         let code_ptr = self.jit.compile(source)?;
         Ok(Box::new(move || {
-            let mut buffer = [0.0f32; 2];
-            unsafe {
-                call_structreturn(
-                    code_ptr,
-                    buffer.as_mut_ptr(),
-                    2,
-                    call_conv,
-                    pointer_type,
-                ).unwrap_or_else(|e| {
-                    panic!("Internal error: StructReturn call failed for vec2: {}. This indicates a codegen bug.", e);
-                });
+            if let Some(FixedPointFormat::Fixed16x16) = fixed_point_format {
+                // Fixed-point: read as i32 and convert to f32
+                // Use Vec to ensure proper memory allocation and alignment
+                let mut buffer = vec![0i32; 2];
+                unsafe {
+                    call_structreturn(
+                        code_ptr,
+                        buffer.as_mut_ptr(),
+                        2,
+                        call_conv,
+                        pointer_type,
+                    ).unwrap_or_else(|e| {
+                        panic!("Internal error: StructReturn call failed for vec2: {}. This indicates a codegen bug.", e);
+                    });
+                }
+                (
+                    buffer[0] as f32 / crate::codegen::constants::FIXED16X16_SCALE,
+                    buffer[1] as f32 / crate::codegen::constants::FIXED16X16_SCALE,
+                )
+            } else {
+                // Normal floating-point: read as f32
+                let mut buffer = [0.0f32; 2];
+                unsafe {
+                    call_structreturn(
+                        code_ptr,
+                        buffer.as_mut_ptr(),
+                        2,
+                        call_conv,
+                        pointer_type,
+                    ).unwrap_or_else(|e| {
+                        panic!("Internal error: StructReturn call failed for vec2: {}. This indicates a codegen bug.", e);
+                    });
+                }
+                (buffer[0], buffer[1])
             }
-            (buffer[0], buffer[1])
         }))
     }
 
@@ -81,21 +107,45 @@ impl Compiler {
         // Get calling convention and pointer type before compilation
         let call_conv = self.jit.call_conv();
         let pointer_type = self.jit.pointer_type();
+        let fixed_point_format = self.jit.fixed_point_format;
         let code_ptr = self.jit.compile(source)?;
         Ok(Box::new(move || {
-            let mut buffer = [0.0f32; 3];
-            unsafe {
-                call_structreturn(
-                    code_ptr,
-                    buffer.as_mut_ptr(),
-                    3,
-                    call_conv,
-                    pointer_type,
-                ).unwrap_or_else(|e| {
-                    panic!("Internal error: StructReturn call failed for vec3: {}. This indicates a codegen bug.", e);
-                });
+            if let Some(FixedPointFormat::Fixed16x16) = fixed_point_format {
+                // Fixed-point: read as i32 and convert to f32
+                // Use Vec to ensure proper memory allocation and alignment
+                let mut buffer = vec![0i32; 3];
+                unsafe {
+                    call_structreturn(
+                        code_ptr,
+                        buffer.as_mut_ptr(),
+                        3,
+                        call_conv,
+                        pointer_type,
+                    ).unwrap_or_else(|e| {
+                        panic!("Internal error: StructReturn call failed for vec3: {}. This indicates a codegen bug.", e);
+                    });
+                }
+                (
+                    buffer[0] as f32 / crate::codegen::constants::FIXED16X16_SCALE,
+                    buffer[1] as f32 / crate::codegen::constants::FIXED16X16_SCALE,
+                    buffer[2] as f32 / crate::codegen::constants::FIXED16X16_SCALE,
+                )
+            } else {
+                // Normal floating-point: read as f32
+                let mut buffer = [0.0f32; 3];
+                unsafe {
+                    call_structreturn(
+                        code_ptr,
+                        buffer.as_mut_ptr(),
+                        3,
+                        call_conv,
+                        pointer_type,
+                    ).unwrap_or_else(|e| {
+                        panic!("Internal error: StructReturn call failed for vec3: {}. This indicates a codegen bug.", e);
+                    });
+                }
+                (buffer[0], buffer[1], buffer[2])
             }
-            (buffer[0], buffer[1], buffer[2])
         }))
     }
 
@@ -107,14 +157,32 @@ impl Compiler {
         // Get calling convention and pointer type before compilation
         let call_conv = self.jit.call_conv();
         let pointer_type = self.jit.pointer_type();
+        let fixed_point_format = self.jit.fixed_point_format;
         let code_ptr = self.jit.compile(source)?;
         Ok(Box::new(move || {
-            let mut buffer = [0.0f32; 4];
-            unsafe {
-                call_structreturn(code_ptr, buffer.as_mut_ptr(), 4, call_conv, pointer_type)
-                    .expect("StructReturn call failed");
+            if let Some(FixedPointFormat::Fixed16x16) = fixed_point_format {
+                // Fixed-point: read as i32 and convert to f32
+                // Use Vec to ensure proper memory allocation and alignment
+                let mut buffer = vec![0i32; 4];
+                unsafe {
+                    call_structreturn(code_ptr, buffer.as_mut_ptr(), 4, call_conv, pointer_type)
+                        .expect("StructReturn call failed");
+                }
+                (
+                    buffer[0] as f32 / crate::codegen::constants::FIXED16X16_SCALE,
+                    buffer[1] as f32 / crate::codegen::constants::FIXED16X16_SCALE,
+                    buffer[2] as f32 / crate::codegen::constants::FIXED16X16_SCALE,
+                    buffer[3] as f32 / crate::codegen::constants::FIXED16X16_SCALE,
+                )
+            } else {
+                // Normal floating-point: read as f32
+                let mut buffer = [0.0f32; 4];
+                unsafe {
+                    call_structreturn(code_ptr, buffer.as_mut_ptr(), 4, call_conv, pointer_type)
+                        .expect("StructReturn call failed");
+                }
+                (buffer[0], buffer[1], buffer[2], buffer[3])
             }
-            (buffer[0], buffer[1], buffer[2], buffer[3])
         }))
     }
 

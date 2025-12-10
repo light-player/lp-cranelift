@@ -10,64 +10,77 @@ bool main() {
 
 // function u0:0() -> i8 system_v {
 // block0:
-//     v33 = iconst.i32 0
-//     v34 = iconst.i32 0x000a_0000
-//     v35 = iconst.i32 0x0005_0000
-//     v36 = iconst.i32 0
-//     v37 = iconst.i32 0x0001_0000
-//     v38 = iconst.i32 0x0002_0000
-//     v39 = iconst.i32 0x0003_0000
-//     v40 = isub v35, v33  ; v35 = 0x0005_0000, v33 = 0
-//     v41 = isub v34, v33  ; v34 = 0x000a_0000, v33 = 0
-//     v42 = sextend.i64 v40
-//     v43 = iconst.i64 16
-//     v44 = ishl v42, v43  ; v43 = 16
-//     v45 = sextend.i64 v41
-//     v46 = sdiv v44, v45
-//     v47 = ireduce.i32 v46
-//     v48 = icmp sge v47, v36  ; v36 = 0
-//     v49 = select v48, v47, v36  ; v36 = 0
-//     v50 = icmp sle v49, v37  ; v37 = 0x0001_0000
-//     v51 = select v50, v49, v37  ; v37 = 0x0001_0000
-//     v52 = sextend.i64 v51
-//     v53 = sextend.i64 v51
-//     v54 = imul v52, v53
-//     v55 = iconst.i64 16
-//     v56 = sshr v54, v55  ; v55 = 16
-//     v57 = ireduce.i32 v56
-//     v58 = sextend.i64 v38  ; v38 = 0x0002_0000
-//     v59 = sextend.i64 v51
-//     v60 = imul v58, v59
-//     v61 = iconst.i64 16
-//     v62 = sshr v60, v61  ; v61 = 16
-//     v63 = ireduce.i32 v62
-//     v64 = isub v39, v63  ; v39 = 0x0003_0000
-//     v65 = sextend.i64 v57
-//     v66 = sextend.i64 v64
-//     v67 = imul v65, v66
-//     v68 = iconst.i64 16
-//     v69 = sshr v67, v68  ; v68 = 16
-//     v70 = ireduce.i32 v69
-//     v71 = iconst.i32 0x7d71
-//     v72 = icmp sgt v70, v71  ; v71 = 0x7d71
-//     v18 = iconst.i8 1
-//     v19 = iconst.i8 0
-//     v20 = select v72, v18, v19  ; v18 = 1, v19 = 0
-//     v73 = iconst.i32 0x828f
-//     v74 = icmp slt v70, v73  ; v73 = 0x828f
-//     v23 = iconst.i8 1
-//     v24 = iconst.i8 0
-//     v25 = select v74, v23, v24  ; v23 = 1, v24 = 0
-//     v26 = iconst.i8 0
-//     v27 = iconst.i8 1
-//     v28 = icmp ne v20, v26  ; v26 = 0
-//     v29 = icmp ne v25, v26  ; v26 = 0
-//     v30 = select v29, v27, v26  ; v27 = 1, v26 = 0
-//     v31 = select v28, v30, v26  ; v26 = 0
-//     return v31
+//     v0 = iconst.i32 0
+//     v1 = iconst.i32 0x000a_0000
+//     v2 = iconst.i32 0x0005_0000
+//     v3 = iconst.i32 0
+//     v4 = iconst.i32 0x0001_0000
+//     v5 = iconst.i32 0x0002_0000
+//     v6 = iconst.i32 0x0003_0000
+//     v7 = isub v2, v0  ; v2 = 0x0005_0000, v0 = 0
+//     v8 = isub v1, v0  ; v1 = 0x000a_0000, v0 = 0
+//     v9 = iconst.i32 0
+//     v10 = icmp eq v8, v9  ; v9 = 0
+//     v11 = iconst.i32 0x7fff_0000
+//     v12 = iconst.i32 -2147483648
+//     v13 = icmp eq v7, v9  ; v9 = 0
+//     v14 = icmp slt v7, v9  ; v9 = 0
+//     v15 = select v14, v12, v11  ; v12 = -2147483648, v11 = 0x7fff_0000
+//     v16 = select v13, v9, v15  ; v9 = 0
+//     v17 = iconst.i32 1
+//     v18 = select v10, v17, v8  ; v17 = 1
+//     v19 = sextend.i64 v7
+//     v20 = iconst.i64 16
+//     v21 = ishl v19, v20  ; v20 = 16
+//     v22 = sextend.i64 v18
+//     v23 = sdiv v21, v22
+//     v24 = ireduce.i32 v23
+//     v25 = select v10, v16, v24
+//     v26 = icmp sgt v25, v3  ; v3 = 0
+//     v27 = select v26, v25, v3  ; v3 = 0
+//     v28 = icmp slt v27, v4  ; v4 = 0x0001_0000
+//     v29 = select v28, v27, v4  ; v4 = 0x0001_0000
+//     v30 = sextend.i64 v29
+//     v31 = sextend.i64 v29
+//     v32 = imul v30, v31
+//     v33 = iconst.i64 16
+//     v34 = sshr v32, v33  ; v33 = 16
+//     v35 = ireduce.i32 v34
+//     v36 = sextend.i64 v5  ; v5 = 0x0002_0000
+//     v37 = sextend.i64 v29
+//     v38 = imul v36, v37
+//     v39 = iconst.i64 16
+//     v40 = sshr v38, v39  ; v39 = 16
+//     v41 = ireduce.i32 v40
+//     v42 = isub v6, v41  ; v6 = 0x0003_0000
+//     v43 = sextend.i64 v35
+//     v44 = sextend.i64 v42
+//     v45 = imul v43, v44
+//     v46 = iconst.i64 16
+//     v47 = sshr v45, v46  ; v46 = 16
+//     v48 = ireduce.i32 v47
+//     v49 = iconst.i32 0x7d71
+//     v50 = icmp sgt v48, v49  ; v49 = 0x7d71
+//     v51 = sextend.i32 v50
+//     v52 = iconst.i8 1
+//     v53 = iconst.i8 0
+//     v54 = select v51, v52, v53  ; v52 = 1, v53 = 0
+//     v55 = iconst.i32 0x828f
+//     v56 = icmp slt v48, v55  ; v55 = 0x828f
+//     v57 = sextend.i32 v56
+//     v58 = iconst.i8 1
+//     v59 = iconst.i8 0
+//     v60 = select v57, v58, v59  ; v58 = 1, v59 = 0
+//     v61 = iconst.i8 0
+//     v62 = iconst.i8 1
+//     v63 = icmp ne v54, v61  ; v61 = 0
+//     v64 = icmp ne v60, v61  ; v61 = 0
+//     v65 = select v64, v62, v61  ; v62 = 1, v61 = 0
+//     v66 = select v63, v65, v61  ; v61 = 0
+//     return v66
 //
 // block1:
-//     v32 = iconst.i8 0
-//     return v32  ; v32 = 0
+//     v67 = iconst.i8 0
+//     return v67  ; v67 = 0
 // }
 // run: == true
