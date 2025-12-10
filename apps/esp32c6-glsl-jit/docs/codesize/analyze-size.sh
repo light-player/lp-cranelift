@@ -3,6 +3,11 @@
 
 set -e
 
+# Change to repository root (where Cargo.toml is)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
+cd "$REPO_ROOT"
+
 TARGET="riscv32imac-unknown-none-elf"
 PACKAGE="embive-program"
 
