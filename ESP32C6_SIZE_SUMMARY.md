@@ -192,3 +192,4 @@ cargo tree --package esp32c6-glsl-jit --target riscv32imac-unknown-none-elf -e f
 - `QUICK_SIZE_GUIDE.md` - Quick optimization tips
 - `analyze-esp32c6-size.sh` - Analysis script
 
+

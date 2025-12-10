@@ -138,3 +138,4 @@ cargo bloat --release --target riscv32imac-unknown-none-elf --package esp32c6-gl
 cargo tree --package esp32c6-glsl-jit --target riscv32imac-unknown-none-elf
 ```
 
+

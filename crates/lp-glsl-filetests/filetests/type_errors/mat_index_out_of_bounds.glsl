@@ -9,3 +9,4 @@ vec2 main() {
 // EXPECT_ERROR: matrix column index 2 out of bounds (max 1)
 // EXPECT_LOCATION: 5
 
+

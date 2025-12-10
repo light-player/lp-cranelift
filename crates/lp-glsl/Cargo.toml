@@ -14,6 +14,7 @@ cranelift-codegen = { workspace = true }
 cranelift-jit = { workspace = true, optional = true }
 cranelift-module = { workspace = true }
 cranelift-native = { workspace = true, optional = true }
+cranelift-reader = { workspace = true, optional = true }
 hashbrown = { workspace = true }
 target-lexicon = { workspace = true }
 lp-jit-util = { path = "../lp-jit-util", default-features = false }
@@ -28,7 +29,8 @@ std = [
     "cranelift-module/std",
     "cranelift-jit",
     "cranelift-jit/std",
-    "cranelift-native"
+    "cranelift-native",
+    "cranelift-reader"
 ]
 core = [
     "cranelift-codegen/core",

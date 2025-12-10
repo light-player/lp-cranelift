@@ -8,3 +8,4 @@ int main() {
 // EXPECT_ERROR: undefined function `unknown_func`
 // EXPECT_LOCATION: 3
 
+

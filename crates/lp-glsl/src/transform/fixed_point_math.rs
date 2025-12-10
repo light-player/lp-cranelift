@@ -3,7 +3,17 @@
 //! This module provides production-quality implementations of trigonometric
 //! and other math functions using pure integer arithmetic via the CORDIC
 //! (COordinate Rotation DIgital Computer) algorithm.
+//!
+//! This module re-exports implementations from `fixed_point::fixed::trig`
+//! for backward compatibility.
 
+// Re-export from the new location
+pub use crate::transform::fixed_point::fixed::trig::{
+    generate_sin_fixed,
+    generate_cos_fixed,
+};
+
+// Keep the old tanh implementation here for now (not yet moved)
 use crate::error::GlslError;
 use crate::transform::fixed_point::FixedPointFormat;
 
@@ -304,79 +314,8 @@ fn reduce_angle_to_quadrant(
     Ok((reduced, q3))
 }
 
-/// Generate inline IR for sin(x) where x is fixed-point
-pub fn generate_sin_fixed(
-    cursor: &mut FuncCursor,
-    x: Value,
-    format: FixedPointFormat,
-) -> Result<Value, GlslError> {
-    // Reduce angle to [0, π/2] and get quadrant
-    let (reduced_angle, quadrant) = reduce_angle_to_quadrant(cursor, x, format)?;
-
-    // Compute sin/cos of reduced angle using CORDIC
-    let (sin_val, _cos_val) = cordic_rotation_mode(cursor, reduced_angle, format)?;
-
-    // Apply quadrant transformations
-    let target_type = format.cranelift_type();
-    let zero = cursor.ins().iconst(target_type, 0);
-    let one = cursor.ins().iconst(target_type, 1);
-    let two = cursor.ins().iconst(target_type, 2);
-    let three = cursor.ins().iconst(target_type, 3);
-
-    let q0 = cursor.ins().icmp(IntCC::Equal, quadrant, zero);
-    let q1 = cursor.ins().icmp(IntCC::Equal, quadrant, one);
-    let q2 = cursor.ins().icmp(IntCC::Equal, quadrant, two);
-    let q3 = cursor.ins().icmp(IntCC::Equal, quadrant, three);
-
-    // Q0: sin(x) = sin(reduced)
-    // Q1: sin(x) = sin(π - reduced) = sin(reduced)
-    // Q2: sin(x) = -sin(reduced - π) = -sin(reduced)
-    // Q3: sin(x) = -sin(2π - reduced) = -sin(reduced)
-    let neg_sin = cursor.ins().ineg(sin_val);
-    let result_q2 = cursor.ins().select(q2, neg_sin, sin_val);
-    let result_q3 = cursor.ins().select(q3, neg_sin, result_q2);
-    let result_q1 = cursor.ins().select(q1, sin_val, result_q3);
-    let result = cursor.ins().select(q0, sin_val, result_q1);
-
-    Ok(result)
-}
-
-/// Generate inline IR for cos(x) where x is fixed-point
-pub fn generate_cos_fixed(
-    cursor: &mut FuncCursor,
-    x: Value,
-    format: FixedPointFormat,
-) -> Result<Value, GlslError> {
-    // Reduce angle to [0, π/2] and get quadrant
-    let (reduced_angle, quadrant) = reduce_angle_to_quadrant(cursor, x, format)?;
-
-    // Compute sin/cos of reduced angle using CORDIC
-    let (_sin_val, cos_val) = cordic_rotation_mode(cursor, reduced_angle, format)?;
-
-    // Apply quadrant transformations
-    let target_type = format.cranelift_type();
-    let zero = cursor.ins().iconst(target_type, 0);
-    let one = cursor.ins().iconst(target_type, 1);
-    let two = cursor.ins().iconst(target_type, 2);
-    let three = cursor.ins().iconst(target_type, 3);
-
-    let q0 = cursor.ins().icmp(IntCC::Equal, quadrant, zero);
-    let q1 = cursor.ins().icmp(IntCC::Equal, quadrant, one);
-    let q2 = cursor.ins().icmp(IntCC::Equal, quadrant, two);
-    let q3 = cursor.ins().icmp(IntCC::Equal, quadrant, three);
-
-    // Q0: cos(x) = cos(reduced)
-    // Q1: cos(x) = -cos(π - reduced) = -cos(reduced)
-    // Q2: cos(x) = -cos(reduced - π) = -cos(reduced)
-    // Q3: cos(x) = cos(2π - reduced) = cos(reduced)
-    let neg_cos = cursor.ins().ineg(cos_val);
-    let result_q1 = cursor.ins().select(q1, neg_cos, cos_val);
-    let result_q2 = cursor.ins().select(q2, neg_cos, result_q1);
-    let result_q3 = cursor.ins().select(q3, cos_val, result_q2);
-    let result = cursor.ins().select(q0, cos_val, result_q3);
-
-    Ok(result)
-}
+// generate_sin_fixed and generate_cos_fixed are now in fixed_point::fixed::trig
+// and re-exported above
 
 /// Generate inline IR for tanh(x) where x is fixed-point
 ///

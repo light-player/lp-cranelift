@@ -9,3 +9,4 @@ int helper() {
 // EXPECT_ERROR_CODE: E0108
 // EXPECT_ERROR: no `main()` function found
 
+

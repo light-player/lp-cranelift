@@ -8,3 +8,4 @@ mat2 main() {
 // EXPECT_ERROR: cannot construct `mat2` from `Bool`
 // EXPECT_LOCATION: 4
 
+

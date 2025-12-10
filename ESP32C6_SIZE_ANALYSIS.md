@@ -271,3 +271,4 @@ cargo bloat --release --target riscv32imac-unknown-none-elf --package esp32c6-gl
 - `SIZE_ANALYSIS.md` - Detailed analysis methodology
 - `analyze-esp32c6-size.sh` - Custom analysis script for this target
 
+

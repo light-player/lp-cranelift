@@ -10,3 +10,4 @@ vec3 main() {
 // EXPECT_ERROR: matrix × vector dimension mismatch
 // EXPECT_LOCATION: 6
 
+

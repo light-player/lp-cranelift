@@ -8,3 +8,4 @@ mat2 main() {
 // EXPECT_ERROR: `mat2` constructor has wrong number of arguments
 // EXPECT_LOCATION: 4
 
+

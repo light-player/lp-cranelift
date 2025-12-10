@@ -10,3 +10,4 @@ mat3 main() {
 // EXPECT_ERROR: matrix addition requires matching matrix types
 // EXPECT_LOCATION: 6
 
+

@@ -10,3 +10,4 @@ mat3 main() {
 // EXPECT_ERROR: matrix × matrix dimension mismatch
 // EXPECT_LOCATION: 6
 
+
