@@ -11,12 +11,7 @@ pub(crate) fn define() -> TargetIsa {
         "Integer multiplication and division",
         true,
     );
-    let _has_a = setting.add_bool(
-        "has_a",
-        "has extension A?",
-        "Atomic instructions",
-        true,
-    );
+    let _has_a = setting.add_bool("has_a", "has extension A?", "Atomic instructions", true);
     let _has_f = setting.add_bool(
         "has_f",
         "has extension F?",
@@ -29,7 +24,7 @@ pub(crate) fn define() -> TargetIsa {
         "Double-precision floating point",
         false,
     );
-    
+
     let _has_zicsr = setting.add_bool(
         "has_zicsr",
         "has extension Zicsr?",
@@ -42,7 +37,7 @@ pub(crate) fn define() -> TargetIsa {
         "Instruction-fetch fence",
         true,
     );
-    
+
     // Bit manipulation
     let _has_zba = setting.add_bool(
         "has_zba",
@@ -68,33 +63,33 @@ pub(crate) fn define() -> TargetIsa {
         "Zbs: Single-bit instructions",
         false,
     );
-    
+
     // Compressed
-    let has_zca = setting.add_bool(
+    let _has_zca = setting.add_bool(
         "has_zca",
         "has extension Zca?",
         "Zca is the C extension without floating point loads",
         false,
     );
-    let has_zcb = setting.add_bool(
+    let _has_zcb = setting.add_bool(
         "has_zcb",
         "has extension Zcb?",
         "Zcb: Extra compressed instructions",
         false,
     );
-    let has_zcd = setting.add_bool(
+    let _has_zcd = setting.add_bool(
         "has_zcd",
         "has extension Zcd?",
         "Zcd contains only the double precision floating point loads from the C extension",
         false,
     );
-    let has_zcf = setting.add_bool(
+    let _has_zcf = setting.add_bool(
         "has_zcf",
         "has extension Zcf?",
         "Zcf contains only the single precision floating point loads from the C extension",
         false,
     );
-    
+
     // Floating-point extensions
     let _has_zfh = setting.add_bool(
         "has_zfh",
@@ -114,7 +109,7 @@ pub(crate) fn define() -> TargetIsa {
         "Zfa: Extension for Additional Floating-Point Instructions",
         false,
     );
-    
+
     // Conditional operations
     let _has_zicond = setting.add_bool(
         "has_zicond",
@@ -122,7 +117,7 @@ pub(crate) fn define() -> TargetIsa {
         "Zicond: Integer Conditional Operations",
         false,
     );
-    
+
     // Cryptography
     let _has_zbkb = setting.add_bool(
         "has_zbkb",
@@ -154,7 +149,7 @@ pub(crate) fn define() -> TargetIsa {
         "Zks: ShangMi Algorithm Suite",
         false,
     );
-    
+
     // Vector
     let _has_v = setting.add_bool(
         "has_v",
@@ -168,7 +163,7 @@ pub(crate) fn define() -> TargetIsa {
         "Zvfh: Vector Extension for Half-Precision Floating-Point",
         false,
     );
-    
+
     // Vector length settings
     let _has_zvl32b = setting.add_bool(
         "has_zvl32b",

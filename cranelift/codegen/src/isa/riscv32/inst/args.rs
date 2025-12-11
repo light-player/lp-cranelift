@@ -9,7 +9,6 @@ use crate::isa::riscv32::lower::isle::generated_code::{
 use crate::machinst::isle::WritableReg;
 
 use core::fmt::Result;
-use alloc::{vec, format};
 
 /// A macro for defining a newtype of `Reg` that enforces some invariant about
 /// the wrapped `Reg` (such as that it is of a particular register class).
@@ -368,10 +367,10 @@ impl FliConstant {
             (F32, f) if f == (f32::MIN_POSITIVE as f64) => Self::new(1),
             (F64, f) if f == f64::MIN_POSITIVE => Self::new(1),
 
-            (_, f) if f == 1.52587890625e-5 => Self::new(2),  // 2^-16
-            (_, f) if f == 3.0517578125e-5 => Self::new(3),   // 2^-15
-            (_, f) if f == 0.00390625 => Self::new(4),        // 2^-8
-            (_, f) if f == 0.0078125 => Self::new(5),         // 2^-7
+            (_, f) if f == 1.52587890625e-5 => Self::new(2), // 2^-16
+            (_, f) if f == 3.0517578125e-5 => Self::new(3),  // 2^-15
+            (_, f) if f == 0.00390625 => Self::new(4),       // 2^-8
+            (_, f) if f == 0.0078125 => Self::new(5),        // 2^-7
             (_, f) if f == 0.0625 => Self::new(6),
             (_, f) if f == 0.125 => Self::new(7),
             (_, f) if f == 0.25 => Self::new(8),
@@ -748,7 +747,6 @@ impl AluOPRRR {
             AluOPRRR::Sub => 0b000,
 
             // Note: RV64-specific *w instructions removed (Addw, Subw, Sllw, Srlw, Sraw)
-
             AluOPRRR::Mul => 0b000,
             AluOPRRR::Mulh => 0b001,
             AluOPRRR::Mulhsu => 0b010,
@@ -816,7 +814,6 @@ impl AluOPRRR {
             | AluOPRRR::Packh => 0b0110011,
 
             // Note: RV64-specific *w instructions removed - they use opcode 0b0111011 (OP-32) on RV64
-
             AluOPRRR::Mul
             | AluOPRRR::Mulh
             | AluOPRRR::Mulhsu
@@ -827,7 +824,6 @@ impl AluOPRRR {
             | AluOPRRR::RemU => 0b0110011,
 
             // Note: RV64M *w instructions removed (opcode 0b0111011 = OP-32)
-
             AluOPRRR::Adduw => 0b0111011,
             AluOPRRR::Andn
             | AluOPRRR::Bclr
@@ -852,9 +848,7 @@ impl AluOPRRR {
             | AluOPRRR::CzeroNez => 0b0110011,
 
             // Note: RV64 Rolw, Rorw removed
-            AluOPRRR::Sh2adduw
-            | AluOPRRR::Sh3adduw
-            | AluOPRRR::Sh1adduw => 0b0111011,
+            AluOPRRR::Sh2adduw | AluOPRRR::Sh3adduw | AluOPRRR::Sh1adduw => 0b0111011,
         }
     }
 
@@ -875,7 +869,6 @@ impl AluOPRRR {
             AluOPRRR::And => 0b0000000,
 
             // Note: RV64-specific *w instructions removed (Addw, Subw, Sllw, Srlw, Sraw)
-
             AluOPRRR::Mul => 0b0000001,
             AluOPRRR::Mulh => 0b0000001,
             AluOPRRR::Mulhsu => 0b0000001,
@@ -886,7 +879,6 @@ impl AluOPRRR {
             AluOPRRR::RemU => 0b0000001,
 
             // Note: RV64M *w instructions removed (Mulw, Divw, Divuw, Remw, Remuw)
-
             AluOPRRR::Adduw => 0b0000100,
             AluOPRRR::Andn => 0b0100000,
             AluOPRRR::Bclr => 0b0100100,
@@ -1726,9 +1718,7 @@ impl CiOp {
         // https://five-embeddev.com/riscv-isa-manual/latest/rvc-opcode-map.html#rvcopcodemap
         match self {
             // Note: RV64 CAddiw removed
-            CiOp::CAddi | CiOp::CAddi16sp | CiOp::CLi | CiOp::CLui => {
-                COpcodeSpace::C1
-            }
+            CiOp::CAddi | CiOp::CAddi16sp | CiOp::CLi | CiOp::CLui => COpcodeSpace::C1,
             CiOp::CSlli | CiOp::CLwsp | CiOp::CLdsp | CiOp::CFldsp => COpcodeSpace::C2,
         }
     }

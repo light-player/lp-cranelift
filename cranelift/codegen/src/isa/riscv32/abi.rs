@@ -17,7 +17,6 @@ use crate::isa::unwind::UnwindInst;
 use crate::settings;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use alloc::{format, vec};
 use regalloc2::{MachineEnv, PReg, PRegSet};
 
 use alloc::borrow::ToOwned;

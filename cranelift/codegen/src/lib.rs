@@ -14,7 +14,6 @@
     allow(dead_code, reason = "see comment above")
 )]
 
-#[macro_use]
 extern crate alloc;
 
 #[cfg(feature = "std")]
@@ -30,9 +29,11 @@ use std::collections::{HashMap, hash_map};
 #[cfg(feature = "std")]
 pub(crate) use rustc_hash::{FxHashMap, FxHashSet};
 #[cfg(not(feature = "std"))]
-pub(crate) type FxHashMap<K, V> = hashbrown::HashMap<K, V, core::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
+pub(crate) type FxHashMap<K, V> =
+    hashbrown::HashMap<K, V, core::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
 #[cfg(not(feature = "std"))]
-pub(crate) type FxHashSet<V> = hashbrown::HashSet<V, core::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
+pub(crate) type FxHashSet<V> =
+    hashbrown::HashSet<V, core::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
 
 pub use crate::context::Context;
 pub use crate::value_label::{LabelValueLoc, ValueLabelsRanges, ValueLocRange};

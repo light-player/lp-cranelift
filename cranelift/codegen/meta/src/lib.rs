@@ -1,7 +1,7 @@
 //! This crate generates Rust sources for use by
 //! [`cranelift_codegen`](../cranelift_codegen/index.html).
 
-use cranelift_srcgen::{Formatter, Language, error, fmtln};
+use cranelift_srcgen::error;
 use shared::Definitions;
 
 #[macro_use]
@@ -143,22 +143,25 @@ pub fn generate(
         generate_isle_for_assembler(&insts, isle_dir)?;
         generate_rust_macro_for_assembler(&insts, out_dir)?;
     }
-    
+
     // If x86 is not enabled, create empty assembler files so ISLE compilation doesn't fail
     #[cfg(not(feature = "x86"))]
     {
         use std::io::Write;
-        
+
         // Create empty assembler.isle
         let assembler_isle = isle_dir.join("assembler.isle");
         let mut file = std::fs::File::create(&assembler_isle)?;
         writeln!(file, ";; Empty assembler definitions (x86 not enabled)")?;
-        
+
         // Create empty assembler-isle-macro.rs
         let macro_rs = out_dir.join("assembler-isle-macro.rs");
         let mut file = std::fs::File::create(&macro_rs)?;
         writeln!(file, "// Empty assembler macro (x86 not enabled)")?;
-        writeln!(file, "macro_rules! isle_assembler_methods {{ ($($tt:tt)*) => {{}} }}")?;
+        writeln!(
+            file,
+            "macro_rules! isle_assembler_methods {{ ($($tt:tt)*) => {{}} }}"
+        )?;
     }
 
     Ok(())

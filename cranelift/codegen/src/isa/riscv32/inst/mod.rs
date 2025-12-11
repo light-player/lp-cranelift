@@ -14,9 +14,9 @@ use crate::{CodegenError, CodegenResult, settings};
 pub use crate::ir::condcodes::FloatCC;
 
 use alloc::boxed::Box;
+use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use alloc::{format, vec};
 use core::fmt::Write;
 use regalloc2::RegClass;
 use smallvec::{SmallVec, smallvec};

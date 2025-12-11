@@ -7,16 +7,16 @@ use crate::isa::{
     Builder as IsaBuilder, FunctionAlignment, IsaFlagsHashKey, OwnedTargetIsa, TargetIsa,
 };
 use crate::machinst::{
-    CompiledCode, CompiledCodeStencil, MachInst, MachTextSectionBuilder, Reg, SigSet,
-    TextSectionBuilder, VCode, compile,
+    CompiledCodeStencil, MachInst, MachTextSectionBuilder, Reg, SigSet, TextSectionBuilder, VCode,
+    compile,
 };
 use crate::result::CodegenResult;
 use crate::settings::{self as shared_settings, Flags};
 use crate::{CodegenError, ir};
-use alloc::{boxed::Box, vec::Vec, vec, format};
+use alloc::string::String;
+use alloc::{boxed::Box, format, vec::Vec};
 use core::fmt;
 use cranelift_control::ControlPlane;
-use alloc::string::String;
 use target_lexicon::{Architecture, Triple};
 mod abi;
 pub(crate) mod inst;

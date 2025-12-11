@@ -5,7 +5,7 @@ pub mod generated_code;
 use generated_code::MInst;
 
 // Types that the generated ISLE code uses via `use super::*`.
-use self::generated_code::{FpuOPWidth, VecAluOpRR, VecLmul};
+use self::generated_code::FpuOPWidth;
 use crate::isa::riscv32::Riscv32Backend;
 use crate::isa::riscv32::lower::args::{
     FReg, VReg, WritableFReg, WritableVReg, WritableXReg, XReg,
@@ -23,7 +23,7 @@ use crate::{
 };
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use alloc::{vec, format};
+use alloc::vec;
 use regalloc2::PReg;
 use wasmtime_math::{f32_cvt_to_int_bounds, f64_cvt_to_int_bounds};
 

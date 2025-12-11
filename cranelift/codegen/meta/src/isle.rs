@@ -72,7 +72,6 @@ pub fn get_isle_compilations(
     let src_opts = codegen_crate_dir.join("src").join("opts");
 
     // Directories for lowering backends.
-    let src_isa_x64 = codegen_crate_dir.join("src").join("isa").join("x64");
     let src_isa_aarch64 = codegen_crate_dir.join("src").join("isa").join("aarch64");
     let src_isa_s390x = codegen_crate_dir.join("src").join("isa").join("s390x");
     let src_isa_riscv32 = codegen_crate_dir.join("src").join("isa").join("riscv32");

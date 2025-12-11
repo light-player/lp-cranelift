@@ -281,7 +281,7 @@ impl VecAluOpRRR {
 }
 
 impl fmt::Display for VecAluOpRRR {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
         unreachable!("Vector ALU support deferred to Phase 2")
     }
 }
@@ -309,7 +309,7 @@ impl VecAluOpRRImm5 {
 }
 
 impl fmt::Display for VecAluOpRRImm5 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
         unreachable!("Vector ALU support deferred to Phase 2")
     }
 }
@@ -337,7 +337,7 @@ impl VecAluOpRRRImm5 {
 }
 
 impl fmt::Display for VecAluOpRRRImm5 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
         unreachable!("Vector ALU support deferred to Phase 2")
     }
 }
@@ -405,7 +405,7 @@ impl VecAluOpRImm5 {
 }
 
 impl fmt::Display for VecAluOpRImm5 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
         unreachable!("Vector ALU support deferred to Phase 2")
     }
 }
@@ -429,7 +429,7 @@ impl VecAluOpRRRR {
 }
 
 impl fmt::Display for VecAluOpRRRR {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
         unreachable!("Vector ALU support deferred to Phase 2")
     }
 }
