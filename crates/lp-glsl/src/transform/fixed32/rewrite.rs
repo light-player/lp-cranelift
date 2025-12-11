@@ -46,7 +46,7 @@ pub struct RewriteContext<'a> {
 }
 
 /// Convert function signature: F32 params/returns → I32
-pub(super) fn convert_signature(old_sig: &Signature, format: FixedPointFormat) -> Signature {
+pub fn convert_signature(old_sig: &Signature, format: FixedPointFormat) -> Signature {
     let target_type = format.cranelift_type();
     let mut new_sig = Signature::new(old_sig.call_conv);
 

@@ -252,8 +252,13 @@ impl JIT {
 
         let pointer_type = self.module.isa().pointer_type();
         let triple = self.module.isa().triple();
-        let sig =
+        let mut sig =
             SignatureBuilder::build_with_triple(return_type, parameters, pointer_type, triple);
+
+        // Transform signature if fixed-point is enabled
+        if let Some(format) = self.fixed_point_format {
+            sig = crate::transform::fixed32::convert_signature(&sig, format);
+        }
 
         // Declare function in module
         self.module
@@ -617,6 +622,24 @@ impl JIT {
                     func.name, verifier_error, self.ctx.func
                 ),
             ));
+        }
+
+        // Apply fixed-point transformation if enabled
+        if let Some(format) = self.fixed_point_format {
+            crate::transform::fixed32::convert_floats_to_fixed(&mut self.ctx.func, format)?;
+
+            // Re-verify after transformation
+            if let Err(verifier_error) =
+                cranelift_codegen::verify_function(&self.ctx.func, self.module.isa())
+            {
+                return Err(GlslError::new(
+                    ErrorCode::E0301,
+                    format!(
+                        "verifier error after fixed-point transform in function '{}': {}\n\nFunction IR:\n{}",
+                        func.name, verifier_error, self.ctx.func
+                    ),
+                ));
+            }
         }
 
         // Define function in module

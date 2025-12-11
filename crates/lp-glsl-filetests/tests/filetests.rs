@@ -474,6 +474,57 @@ fn test_fixed32_mat4() {
     test_file("fixed32/mat4.glsl");
 }
 
+// Fixed32 user function tests
+#[test]
+fn test_fixed32_fn_arg_f32() {
+    test_file("fixed32/fn_arg_f32.glsl");
+}
+
+#[test]
+fn test_fixed32_fn_arg_vec2() {
+    test_file("fixed32/fn_arg_vec2.glsl");
+}
+
+#[test]
+fn test_fixed32_fn_arg_vec3() {
+    test_file("fixed32/fn_arg_vec3.glsl");
+}
+
+#[test]
+fn test_fixed32_fn_arg_vec4() {
+    test_file("fixed32/fn_arg_vec4.glsl");
+}
+
+#[test]
+fn test_fixed32_fn_ret_f32() {
+    test_file("fixed32/fn_ret_f32.glsl");
+}
+
+#[test]
+fn test_fixed32_fn_ret_vec2() {
+    test_file("fixed32/fn_ret_vec2.glsl");
+}
+
+#[test]
+fn test_fixed32_fn_ret_vec3() {
+    test_file("fixed32/fn_ret_vec3.glsl");
+}
+
+#[test]
+fn test_fixed32_fn_ret_vec4() {
+    test_file("fixed32/fn_ret_vec4.glsl");
+}
+
+#[test]
+fn test_fixed32_fn_both_f32() {
+    test_file("fixed32/fn_both_f32.glsl");
+}
+
+#[test]
+fn test_fixed32_fn_both_vec2() {
+    test_file("fixed32/fn_both_vec2.glsl");
+}
+
 #[test]
 fn test_vec3_multiply_scalar() {
     test_file("vectors/vec3_multiply_scalar.glsl");
