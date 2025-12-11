@@ -30,3 +30,4 @@ pub fn convert_signature(old_sig: &Signature, format: FixedPointFormat) -> Signa
 
     new_sig
 }
+

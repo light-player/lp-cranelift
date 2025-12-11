@@ -82,3 +82,4 @@ pub fn rewrite_function(
     // 11. Return new function (builder is dropped, so we can return new_func)
     Ok(new_func)
 }
+

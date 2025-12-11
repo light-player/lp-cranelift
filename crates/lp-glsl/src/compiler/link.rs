@@ -566,3 +566,257 @@ fn map_value(value_map: &HashMap<Value, Value>, old_value: Value) -> Value {
         .get(&old_value)
         .expect("Value not found in value_map - this indicates a bug in instruction copying")
 }
+
+// ============================================================================
+// Backend linking functions
+// ============================================================================
+
+use crate::ir::ClifModule;
+
+#[cfg(not(feature = "std"))]
+use alloc::format as alloc_format;
+#[cfg(feature = "std")]
+use std::format as alloc_format;
+
+/// Options for emulator execution
+#[cfg(feature = "emulator")]
+pub(crate) struct EmulatorOptions {
+    pub max_memory: usize,
+    pub stack_size: usize,
+    pub max_instructions: u64,
+}
+
+/// Link CLIF module for JIT execution
+/// Works in both std and no_std (JITModule supports no_std)
+pub fn link_glsl_for_jit(
+    module: ClifModule,
+) -> Result<crate::backend::jit::GlslJitModule, crate::error::GlslError> {
+    use crate::backend::jit::GlslJitModule;
+    use crate::error::GlslError;
+    // JITModule supports no_std, so we can use it unconditionally
+    use cranelift_jit::{JITBuilder, JITModule};
+    use cranelift_module::Linkage;
+    use hashbrown::HashMap;
+
+    // Recreate the ISA from the TargetIsa reference
+    use cranelift_codegen::isa;
+    let isa_builder = isa::Builder::from_target_isa(module.isa());
+    // Copy flags from the original ISA
+    let flags = module.isa().flags().clone();
+    let isa = isa_builder.finish(flags).map_err(|e| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            alloc_format!("failed to recreate ISA: {:?}", e),
+        )
+    })?;
+
+    let builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
+    let mut jit_module = JITModule::new(builder);
+
+    let name_to_id = module.link_into(&mut jit_module, Linkage::Export)?;
+
+    jit_module.finalize_definitions().map_err(|e| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            alloc_format!("failed to finalize JIT module: {}", e),
+        )
+    })?;
+
+    // Build function pointer map
+    let mut function_ptrs = HashMap::new();
+    for (name, func_id) in &name_to_id {
+        let ptr = jit_module.get_finalized_function(*func_id);
+        function_ptrs.insert(name.clone(), ptr);
+    }
+
+    // Extract signatures (both GLSL and Cranelift)
+    let mut signatures = HashMap::new();
+    let mut cranelift_signatures = HashMap::new();
+
+    for (name, func) in module.user_functions() {
+        // Store Cranelift signature for argument handling
+        cranelift_signatures.insert(name.clone(), func.signature.clone());
+
+        // Get GLSL signature from ClifModule
+        let glsl_sig = module.glsl_signature(name).ok_or_else(|| {
+            GlslError::new(
+                crate::error::ErrorCode::E0400,
+                format!("GLSL signature for function '{}' not found", name),
+            )
+        })?;
+        signatures.insert(name.clone(), glsl_sig.clone());
+    }
+
+    // Store main function's Cranelift signature
+    cranelift_signatures.insert(
+        String::from("main"),
+        module.main_function().signature.clone(),
+    );
+
+    // Get main function's GLSL signature from ClifModule
+    let main_glsl_sig = module.glsl_signature("main").ok_or_else(|| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            "GLSL signature for 'main' not found",
+        )
+    })?;
+    signatures.insert(String::from("main"), main_glsl_sig.clone());
+
+    Ok(GlslJitModule {
+        jit_module,
+        function_ptrs,
+        signatures,
+        cranelift_signatures,
+        call_conv: module.isa().default_call_conv(),
+        pointer_type: module.isa().pointer_type(),
+    })
+}
+
+/// Link CLIF module for emulator execution
+/// Requires `emulator` feature flag to be enabled
+#[cfg(feature = "emulator")]
+pub fn link_glsl_for_emulator(
+    module: ClifModule,
+    emulator_options: &EmulatorOptions,
+) -> Result<crate::backend::emu::GlslEmulatorModule, crate::error::GlslError> {
+    use crate::backend::emu::GlslEmulatorModule;
+    use crate::error::GlslError;
+    use hashbrown::HashMap;
+    use lp_riscv_tools::Gpr;
+    use lp_riscv_tools::emu::emulator::Riscv32Emulator;
+
+    // Compile to binary
+    let binary = compile_clif_to_binary(&module)?;
+
+    // Create emulator
+    let ram_size = emulator_options.max_memory;
+    let mut emulator = Riscv32Emulator::new(binary.clone(), vec![0; ram_size])
+        .with_max_instructions(emulator_options.max_instructions);
+
+    // Set up stack pointer (stack starts at top of RAM, grows downward)
+    let stack_base = ram_size as u32;
+    emulator.set_register(Gpr::Sp, stack_base as i32);
+    emulator.set_pc(0);
+
+    // Extract signatures (both GLSL and Cranelift)
+    // Note: We only support calling main at address 0x00 for now
+    let mut signatures = HashMap::new();
+    let mut cranelift_signatures = HashMap::new();
+
+    for (name, func) in module.user_functions() {
+        // Store Cranelift signature for argument handling
+        cranelift_signatures.insert(name.clone(), func.signature.clone());
+
+        // Get GLSL signature from ClifModule
+        let glsl_sig = module.glsl_signature(name).ok_or_else(|| {
+            GlslError::new(
+                crate::error::ErrorCode::E0400,
+                format!("GLSL signature for function '{}' not found", name),
+            )
+        })?;
+        signatures.insert(name.clone(), glsl_sig.clone());
+    }
+
+    // Store main function's Cranelift signature
+    cranelift_signatures.insert(
+        String::from("main"),
+        module.main_function().signature.clone(),
+    );
+
+    // Get main function's GLSL signature from ClifModule
+    let main_glsl_sig = module.glsl_signature("main").ok_or_else(|| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            "GLSL signature for 'main' not found",
+        )
+    })?;
+    signatures.insert(String::from("main"), main_glsl_sig.clone());
+
+    Ok(GlslEmulatorModule {
+        emulator,
+        signatures,
+        cranelift_signatures,
+        binary,
+    })
+}
+
+/// Compile CLIF module to binary for emulator execution
+/// Uses ObjectModule to properly handle function call relocations
+#[cfg(feature = "emulator")]
+fn compile_clif_to_binary(module: &ClifModule) -> Result<Vec<u8>, crate::error::GlslError> {
+    use crate::error::GlslError;
+    use cranelift_module::Linkage;
+    use cranelift_object::{ObjectBuilder, ObjectModule};
+
+    // Create ObjectModule for proper linking with relocations
+    let isa = module.isa();
+    let mut isa_builder = cranelift_codegen::isa::Builder::from_target_isa(isa);
+    let flags = isa.flags().clone();
+    let owned_isa = isa_builder.finish(flags).map_err(|e| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            alloc_format!("failed to recreate ISA: {:?}", e),
+        )
+    })?;
+
+    let builder = ObjectBuilder::new(
+        owned_isa,
+        "glsl_module",
+        cranelift_module::default_libcall_names(),
+    )
+    .map_err(|e| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            alloc_format!("failed to create ObjectBuilder: {:?}", e),
+        )
+    })?;
+
+    let mut object_module = ObjectModule::new(builder);
+
+    // Link all functions into the ObjectModule (handles relocations)
+    module
+        .link_into(&mut object_module, Linkage::Export)
+        .map_err(|e| {
+            GlslError::new(
+                crate::error::ErrorCode::E0400,
+                alloc_format!("failed to link functions: {}", e),
+            )
+        })?;
+
+    // Finish the module and get the object file
+    let object_product = object_module.finish();
+    let object_bytes = object_product.emit().map_err(|e| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            alloc_format!("failed to emit object: {:?}", e),
+        )
+    })?;
+
+    // Parse the object file to extract the .text section (code)
+    use object::{Object, ObjectSection};
+    let obj = object::File::parse(&object_bytes[..]).map_err(|e| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            alloc_format!("failed to parse object file: {:?}", e),
+        )
+    })?;
+
+    // Find the .text section
+    let mut code_bytes = Vec::new();
+    for section in obj.sections() {
+        if section.kind() == object::SectionKind::Text {
+            if let Ok(data) = section.data() {
+                code_bytes.extend_from_slice(data);
+            }
+        }
+    }
+
+    if code_bytes.is_empty() {
+        return Err(GlslError::new(
+            crate::error::ErrorCode::E0400,
+            "No .text section found in object file",
+        ));
+    }
+
+    Ok(code_bytes)
+}
