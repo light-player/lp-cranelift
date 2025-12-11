@@ -65,6 +65,8 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/fuzzing/wasm-spec-interpreter/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crates/jit-debug/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/jit-icache-coherence/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/lp-glsl-filetests-old/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/lp-glsl-filetests-old/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crates/lp-glsl-filetests/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/lp-glsl-filetests/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/crates/lp-glsl/examples" isTestSource="false" />
