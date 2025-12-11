@@ -284,10 +284,27 @@ impl GlslExecutable for GlslJitModule {
             )
         })?;
 
+        // Check return type: I32 means fixed-point, F32 means native float
+        let return_type = sig
+            .returns
+            .first()
+            .map(|r| r.value_type)
+            .unwrap_or(types::F32);
+
         // Handle no-argument case
         if args.is_empty() {
-            let func: unsafe extern "C" fn() -> f32 = unsafe { core::mem::transmute(*func_ptr) };
-            return Ok(unsafe { func() });
+            if return_type == types::I32 {
+                // Fixed-point: call as i32, convert to f32
+                let func: unsafe extern "C" fn() -> i32 =
+                    unsafe { core::mem::transmute(*func_ptr) };
+                let fixed_result = unsafe { func() };
+                return Ok(fixed_result as f32 / 65536.0);
+            } else {
+                // Native float: call as f32
+                let func: unsafe extern "C" fn() -> f32 =
+                    unsafe { core::mem::transmute(*func_ptr) };
+                return Ok(unsafe { func() });
+            }
         }
 
         // For now, only support simple cases (1-2 scalar arguments)
@@ -308,23 +325,48 @@ impl GlslExecutable for GlslJitModule {
             jit_args.extend(self.glsl_value_to_jit_args(arg, sig, &mut arg_idx)?);
         }
 
-        // Call based on number of arguments
-        let result = match jit_args.len() {
-            1 => {
-                let func: unsafe extern "C" fn(u64) -> f32 =
-                    unsafe { core::mem::transmute(*func_ptr) };
-                unsafe { func(jit_args[0]) }
+        // Call based on number of arguments and return type
+        let result = if return_type == types::I32 {
+            // Fixed-point: call as i32, convert to f32
+            match jit_args.len() {
+                1 => {
+                    let func: unsafe extern "C" fn(u64) -> i32 =
+                        unsafe { core::mem::transmute(*func_ptr) };
+                    let fixed_result = unsafe { func(jit_args[0]) };
+                    fixed_result as f32 / 65536.0
+                }
+                2 => {
+                    let func: unsafe extern "C" fn(u64, u64) -> i32 =
+                        unsafe { core::mem::transmute(*func_ptr) };
+                    let fixed_result = unsafe { func(jit_args[0], jit_args[1]) };
+                    fixed_result as f32 / 65536.0
+                }
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Too many arguments for simple JIT call: {}", jit_args.len()),
+                    ));
+                }
             }
-            2 => {
-                let func: unsafe extern "C" fn(u64, u64) -> f32 =
-                    unsafe { core::mem::transmute(*func_ptr) };
-                unsafe { func(jit_args[0], jit_args[1]) }
-            }
-            _ => {
-                return Err(GlslError::new(
-                    ErrorCode::E0400,
-                    format!("Too many arguments for simple JIT call: {}", jit_args.len()),
-                ));
+        } else {
+            // Native float: call as f32
+            match jit_args.len() {
+                1 => {
+                    let func: unsafe extern "C" fn(u64) -> f32 =
+                        unsafe { core::mem::transmute(*func_ptr) };
+                    unsafe { func(jit_args[0]) }
+                }
+                2 => {
+                    let func: unsafe extern "C" fn(u64, u64) -> f32 =
+                        unsafe { core::mem::transmute(*func_ptr) };
+                    unsafe { func(jit_args[0], jit_args[1]) }
+                }
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Too many arguments for simple JIT call: {}", jit_args.len()),
+                    ));
+                }
             }
         };
 
