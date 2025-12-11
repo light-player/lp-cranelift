@@ -218,7 +218,7 @@ pub fn get_math_libcall(&mut self, func_name: &str) -> Result<FuncRef, GlslError
 
 ### 7. Add filetests with validation (ACCEPTANCE CRITERIA)
 
-**File**: `crates/lp-glsl-filetests/filetests/math/sine.glsl` (NEW - establishes pattern)
+**File**: `lightplayer/crates/lp-glsl-filetests/filetests/math/sine.glsl` (NEW - establishes pattern)
 
 This is the **acceptance criteria** - sine function must work in a filetest with validation.
 
@@ -264,7 +264,7 @@ float main() {
 2. **Run test**: All sine values are correct within tolerance
 3. **Pattern**: This structure can be copied for other math functions (cos, tan, etc.)
 
-**File**: `crates/lp-glsl-filetests/filetests/math/sine.glsl` (NEW)
+**File**: `lightplayer/crates/lp-glsl-filetests/filetests/math/sine.glsl` (NEW)
 
 Test that fixed-point conversion works with intrinsic functions:
 
@@ -398,8 +398,8 @@ fn compile_intrinsic_functions(
 2. `crates/lp-glsl/src/intrinsics/loader.rs` - Intrinsic function loader
 3. `crates/lp-glsl/src/intrinsics/compiler.rs` - GLSL to Function compiler
 4. `crates/lp-glsl/src/intrinsics/trig.glsl` - Trigonometric function implementations (float-based)
-5. `crates/lp-glsl-filetests/filetests/math/sine.glsl` - **ACCEPTANCE CRITERIA**: Sine test with validation
-6. `crates/lp-glsl-filetests/filetests/math/sine_fixed32.glsl` - Fixed-point sine test
+5. `lightplayer/crates/lp-glsl-filetests/filetests/math/sine.glsl` - **ACCEPTANCE CRITERIA**: Sine test with validation
+6. `lightplayer/crates/lp-glsl-filetests/filetests/math/sine_fixed32.glsl` - Fixed-point sine test
 
 **Modified Files**:
 

@@ -187,7 +187,7 @@ for user_func in &typed_ast.user_functions {
 
 ## Testing
 
-### Test File: `crates/lp-glsl-filetests/filetests/fixed32/functions.glsl`
+### Test File: `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/functions.glsl`
 
 Create comprehensive tests for user functions:
 
@@ -272,7 +272,7 @@ float main() {
 2. `crates/lp-glsl/src/jit.rs` - Convert user functions before main
 3. `crates/lp-glsl/src/compiler.rs` - Convert user functions before main
 4. `crates/lp-glsl/src/transform/fixed32/mod.rs` - Add helper functions
-5. `crates/lp-glsl-filetests/filetests/fixed32/functions.glsl` - NEW test file
+5. `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/functions.glsl` - NEW test file
 
 ## Notes
 

@@ -57,7 +57,7 @@ fn test_intrinsic_no_f32_after_conversion() {
 
 #### Test: Basic Math Functions
 
-**Files**: `crates/lp-glsl-filetests/filetests/math/`
+**Files**: `lightplayer/crates/lp-glsl-filetests/filetests/math/`
 
 - `sine.glsl` - Test sin() function
 - `cosine.glsl` - Test cos() function
@@ -74,7 +74,7 @@ Each test should:
 
 #### Test: Fixed-Point Math Functions
 
-**Files**: `crates/lp-glsl-filetests/filetests/fixed32/math/`
+**Files**: `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/math/`
 
 - `sin.glsl` - sin() in fixed-point
 - `cos.glsl` - cos() in fixed-point
@@ -84,7 +84,7 @@ Each test should:
 
 #### Test: Multiple Intrinsics
 
-**File**: `crates/lp-glsl-filetests/filetests/math/multiple.glsl`
+**File**: `lightplayer/crates/lp-glsl-filetests/filetests/math/multiple.glsl`
 
 ```glsl
 // test compile
@@ -101,7 +101,7 @@ float main() {
 
 #### Test: Intrinsic Dependencies
 
-**File**: `crates/lp-glsl-filetests/filetests/math/dependencies.glsl`
+**File**: `lightplayer/crates/lp-glsl-filetests/filetests/math/dependencies.glsl`
 
 ```glsl
 // test compile
@@ -117,7 +117,7 @@ float main() {
 
 #### Test: Precision
 
-**File**: `crates/lp-glsl-filetests/filetests/fixed32/math/precision.glsl`
+**File**: `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/math/precision.glsl`
 
 ```glsl
 // test compile
@@ -207,18 +207,18 @@ fn test_intrinsic_cached_across_calls() {
 
 ### Math Function Tests
 
-- `crates/lp-glsl-filetests/filetests/math/sine.glsl`
-- `crates/lp-glsl-filetests/filetests/math/cosine.glsl`
-- `crates/lp-glsl-filetests/filetests/math/tangent.glsl`
-- `crates/lp-glsl-filetests/filetests/math/multiple.glsl`
-- `crates/lp-glsl-filetests/filetests/math/dependencies.glsl`
+- `lightplayer/crates/lp-glsl-filetests/filetests/math/sine.glsl`
+- `lightplayer/crates/lp-glsl-filetests/filetests/math/cosine.glsl`
+- `lightplayer/crates/lp-glsl-filetests/filetests/math/tangent.glsl`
+- `lightplayer/crates/lp-glsl-filetests/filetests/math/multiple.glsl`
+- `lightplayer/crates/lp-glsl-filetests/filetests/math/dependencies.glsl`
 
 ### Fixed-Point Math Tests
 
-- `crates/lp-glsl-filetests/filetests/fixed32/math/sin.glsl`
-- `crates/lp-glsl-filetests/filetests/fixed32/math/cos.glsl`
-- `crates/lp-glsl-filetests/filetests/fixed32/math/tan.glsl`
-- `crates/lp-glsl-filetests/filetests/fixed32/math/precision.glsl`
+- `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/math/sin.glsl`
+- `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/math/cos.glsl`
+- `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/math/tan.glsl`
+- `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/math/precision.glsl`
 
 ### Unit Tests
 
@@ -237,15 +237,15 @@ fn test_intrinsic_cached_across_calls() {
 
 ## Files to Create
 
-1. `crates/lp-glsl-filetests/filetests/math/sine.glsl`
-2. `crates/lp-glsl-filetests/filetests/math/cosine.glsl`
-3. `crates/lp-glsl-filetests/filetests/math/tangent.glsl`
-4. `crates/lp-glsl-filetests/filetests/math/multiple.glsl`
-5. `crates/lp-glsl-filetests/filetests/math/dependencies.glsl`
-6. `crates/lp-glsl-filetests/filetests/fixed32/math/sin.glsl`
-7. `crates/lp-glsl-filetests/filetests/fixed32/math/cos.glsl`
-8. `crates/lp-glsl-filetests/filetests/fixed32/math/tan.glsl`
-9. `crates/lp-glsl-filetests/filetests/fixed32/math/precision.glsl`
+1. `lightplayer/crates/lp-glsl-filetests/filetests/math/sine.glsl`
+2. `lightplayer/crates/lp-glsl-filetests/filetests/math/cosine.glsl`
+3. `lightplayer/crates/lp-glsl-filetests/filetests/math/tangent.glsl`
+4. `lightplayer/crates/lp-glsl-filetests/filetests/math/multiple.glsl`
+5. `lightplayer/crates/lp-glsl-filetests/filetests/math/dependencies.glsl`
+6. `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/math/sin.glsl`
+7. `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/math/cos.glsl`
+8. `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/math/tan.glsl`
+9. `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/math/precision.glsl`
 10. `crates/lp-glsl/tests/intrinsics_compilation.rs`
 11. `crates/lp-glsl/tests/intrinsics_fixed_point.rs`
 

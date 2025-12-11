@@ -228,7 +228,7 @@ fn convert_instruction(
 
 ## Testing
 
-### Test File: `crates/lp-glsl-filetests/filetests/fixed32/internal_calls.glsl`
+### Test File: `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/internal_calls.glsl`
 
 ```glsl
 // test compile
@@ -260,7 +260,7 @@ float main() {
 
 1. `crates/lp-glsl/src/transform/fixed32/converters/calls.rs` - Detect internal/external
 2. `crates/lp-glsl/src/transform/fixed32/rewrite.rs` - Track internal refs
-3. `crates/lp-glsl-filetests/filetests/fixed32/internal_calls.glsl` - NEW test file
+3. `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/internal_calls.glsl` - NEW test file
 
 ## Dependencies
 

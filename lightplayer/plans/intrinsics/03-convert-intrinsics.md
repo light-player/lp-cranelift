@@ -290,7 +290,7 @@ pub struct IntrinsicCache {
 
 ## Testing
 
-### Test File: `crates/lp-glsl-filetests/filetests/fixed32/intrinsics_sin.glsl`
+### Test File: `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/intrinsics_sin.glsl`
 
 ```glsl
 // test compile
@@ -306,7 +306,7 @@ float main() {
 // run: ~= 1.0  (tolerance: 0.01 for fixed-point)
 ```
 
-### Test File: `crates/lp-glsl-filetests/filetests/fixed32/intrinsics_cos.glsl`
+### Test File: `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/intrinsics_cos.glsl`
 
 ```glsl
 // test compile
@@ -336,7 +336,7 @@ float main() {
 3. `crates/lp-glsl/src/compiler.rs` - Convert intrinsics before transform
 4. `crates/lp-glsl/src/intrinsics/loader.rs` - Enhance cache
 5. `crates/lp-glsl/src/codegen/context.rs` - Track called intrinsics
-6. `crates/lp-glsl-filetests/filetests/fixed32/intrinsics_*.glsl` - NEW test files
+6. `lightplayer/crates/lp-glsl-filetests/filetests/fixed32/intrinsics_*.glsl` - NEW test files
 
 ## Dependencies
 

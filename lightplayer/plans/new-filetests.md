@@ -4,7 +4,7 @@
 
 **Implemented:**
 
-- `crates/lp-glsl-filetests/filetests/` directory exists with ~274 test files organized by feature
+- `lightplayer/crates/lp-glsl-filetests/filetests/` directory exists with ~274 test files organized by feature
 - Bless mode (`CRANELIFT_TEST_BLESS=1`) is implemented in `src/file_update.rs`
 - Test execution harness (`run_filetest`) exists in `src/filetest.rs`
 - Support for compile, run, and error tests
@@ -33,7 +33,7 @@
 
 ## Directory layout (feature-first)
 
-- `crates/lp-glsl-filetests/filetests/`
+- `lightplayer/crates/lp-glsl-filetests/filetests/`
   - `float/` (e.g., `add.glsl`, `mul.glsl`, `mix.glsl`)
   - `functions/` (user-defined functions, returns float/int/bool)
   - `control/` (loops/if; keep small starter set)
