@@ -3256,10 +3256,13 @@ dependencies = [
  "cranelift-jit",
  "cranelift-module",
  "cranelift-native",
+ "cranelift-object",
  "cranelift-reader",
  "glsl",
  "hashbrown 0.15.2",
  "lp-jit-util",
+ "lp-riscv-tools",
+ "object 0.37.3",
  "target-lexicon",
 ]
 

@@ -14,14 +14,18 @@ cranelift-codegen = { workspace = true }
 cranelift-jit = { workspace = true, optional = true }
 cranelift-module = { workspace = true }
 cranelift-native = { workspace = true, optional = true }
+cranelift-object = { workspace = true, optional = true }
 cranelift-reader = { workspace = true, optional = true }
 hashbrown = { workspace = true }
+object = { workspace = true, optional = true }
 target-lexicon = { workspace = true }
 lp-jit-util = { path = "../lp-jit-util", default-features = false }
+lp-riscv-tools = { path = "../lp-riscv-tools", optional = true }
 
 [features]
 default = ["std", "intrinsic-math"]
 intrinsic-math = []  # Enable intrinsic math function implementations
+emulator = ["lp-riscv-tools", "cranelift-object", "object"]  # Enable RISC-V 32-bit emulator support
 std = [
     "glsl/std",
     "cranelift-codegen/std",
@@ -36,7 +40,8 @@ std = [
 core = [
     "cranelift-codegen/core",
     "cranelift-frontend/core",
-    "cranelift-module/core"
+    "cranelift-module/core",
+    "cranelift-jit"  # JITModule supports no_std
 ]
 
 [dev-dependencies]

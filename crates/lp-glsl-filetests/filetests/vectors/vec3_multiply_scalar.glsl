@@ -38,3 +38,4 @@ int main() {
 //     v23 = iconst.i32 0
 //     return v23  ; v23 = 0
 // }
+
