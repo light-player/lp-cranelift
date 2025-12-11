@@ -1,21 +1,249 @@
 //! ELF file loader for RISC-V emulator.
 //!
 //! This module provides utilities to load RISC-V ELF files into the emulator's memory.
+//! It handles both segment loading and relocation application.
 
 #![cfg(feature = "std")]
 
 extern crate std;
 
-use alloc::{format, string::{String, ToString}, vec, vec::Vec};
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
+use hashbrown::HashMap;
+use object::{Object, ObjectSection, ObjectSymbol};
 
 /// Information extracted from an ELF file for emulator loading.
 pub struct ElfLoadInfo {
-    /// Code/ROM region (starts at address 0)
+    /// Code/ROM region (starts at address 0) with relocations applied
     pub code: Vec<u8>,
     /// RAM region (starts at 0x80000000)
     pub ram: Vec<u8>,
     /// Entry point address
     pub entry_point: u32,
+}
+
+/// Find the address of a symbol by name (relative to text section base).
+///
+/// Returns the offset from the text section base address.
+pub fn find_symbol_address(
+    obj: &object::File,
+    symbol_name: &str,
+    text_section_base: u64,
+) -> Result<u32, String> {
+    for symbol in obj.symbols() {
+        if symbol.kind() == object::SymbolKind::Text {
+            if let Ok(name) = symbol.name() {
+                if name == symbol_name {
+                    let addr = symbol.address();
+                    if addr >= text_section_base {
+                        return Ok((addr - text_section_base) as u32);
+                    }
+                }
+            }
+        }
+    }
+    Err(format!("Symbol '{}' not found", symbol_name))
+}
+
+/// Apply a single relocation to code bytes.
+fn apply_single_relocation(
+    reloc: object::Relocation,
+    reloc_offset: u64,
+    code_bytes: &mut [u8],
+    symbol_map: &HashMap<String, u32>,
+    obj: &object::File,
+) -> Result<(), String> {
+    use object::{RelocationFlags, RelocationTarget};
+
+    // Get target symbol address
+    let target_addr = match reloc.target() {
+        RelocationTarget::Symbol(sym_idx) => {
+            if let Ok(sym) = obj.symbol_by_index(sym_idx) {
+                if let Ok(name) = sym.name() {
+                    symbol_map.get(name).copied()
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+        _ => None,
+    };
+
+    let target_addr = target_addr.ok_or_else(|| {
+        format!(
+            "Could not resolve relocation target at offset {}",
+            reloc_offset
+        )
+    })?;
+
+    // Calculate PC-relative offset
+    let pc = reloc_offset as u32;
+    let pcrel = target_addr
+        .wrapping_sub(pc)
+        .wrapping_add(reloc.addend() as u32);
+
+    // Determine relocation type from flags
+    let reloc_offset = reloc_offset as usize;
+    if reloc_offset >= code_bytes.len() {
+        return Err(format!("Relocation offset {} out of bounds", reloc_offset));
+    }
+
+    match reloc.flags() {
+        RelocationFlags::Elf { r_type } => {
+            match r_type {
+                object::elf::R_RISCV_CALL_PLT => {
+                    // RISC-V CALL_PLT: auipc+jalr pair
+                    // This is equivalent to R_RISCV_PCREL_HI20 + R_RISCV_PCREL_LO12_I
+                    if reloc_offset + 8 > code_bytes.len() {
+                        return Err(format!(
+                            "CALL_PLT relocation at offset {} requires 8 bytes, but only {} available",
+                            reloc_offset,
+                            code_bytes.len() - reloc_offset
+                        ));
+                    }
+
+                    // Read the two instructions
+                    let auipc_bytes = &code_bytes[reloc_offset..reloc_offset + 4];
+                    let jalr_bytes = &code_bytes[reloc_offset + 4..reloc_offset + 8];
+                    let auipc_word = u32::from_le_bytes([
+                        auipc_bytes[0],
+                        auipc_bytes[1],
+                        auipc_bytes[2],
+                        auipc_bytes[3],
+                    ]);
+                    let jalr_word = u32::from_le_bytes([
+                        jalr_bytes[0],
+                        jalr_bytes[1],
+                        jalr_bytes[2],
+                        jalr_bytes[3],
+                    ]);
+
+                    // Apply RISC-V CALL_PLT patching (see cranelift/jit/src/compiled_blob.rs)
+                    // Split pcrel into hi20 and lo12
+                    let hi20 = pcrel.wrapping_add(0x800) & 0xFFFFF000;
+                    let lo12 = pcrel.wrapping_sub(hi20) & 0xFFF;
+
+                    // Patch auipc (bits [31:12] contain the immediate)
+                    let auipc_bytes = &mut code_bytes[reloc_offset..reloc_offset + 4];
+                    let patched_auipc = (auipc_word & 0xFFF) | hi20;
+                    auipc_bytes.copy_from_slice(&patched_auipc.to_le_bytes());
+
+                    // Patch jalr (bits [31:20] contain the immediate)
+                    let jalr_bytes = &mut code_bytes[reloc_offset + 4..reloc_offset + 8];
+                    let patched_jalr = (jalr_word & 0xFFFFF) | (lo12 << 20);
+                    jalr_bytes.copy_from_slice(&patched_jalr.to_le_bytes());
+                }
+                object::elf::R_RISCV_PCREL_HI20 => {
+                    // RISC-V PC-relative high 20 bits
+                    if reloc_offset + 4 > code_bytes.len() {
+                        return Err(format!(
+                            "PCREL_HI20 relocation at offset {} requires 4 bytes",
+                            reloc_offset
+                        ));
+                    }
+                    let inst_bytes = &mut code_bytes[reloc_offset..reloc_offset + 4];
+                    let inst_word = u32::from_le_bytes([
+                        inst_bytes[0],
+                        inst_bytes[1],
+                        inst_bytes[2],
+                        inst_bytes[3],
+                    ]);
+                    let hi20 = pcrel.wrapping_add(0x800) & 0xFFFFF000;
+                    let patched = (inst_word & 0xFFF) | hi20;
+                    inst_bytes.copy_from_slice(&patched.to_le_bytes());
+                }
+                object::elf::R_RISCV_PCREL_LO12_I => {
+                    // RISC-V PC-relative low 12 bits (immediate)
+                    if reloc_offset + 4 > code_bytes.len() {
+                        return Err(format!(
+                            "PCREL_LO12_I relocation at offset {} requires 4 bytes",
+                            reloc_offset
+                        ));
+                    }
+                    let inst_bytes = &mut code_bytes[reloc_offset..reloc_offset + 4];
+                    let inst_word = u32::from_le_bytes([
+                        inst_bytes[0],
+                        inst_bytes[1],
+                        inst_bytes[2],
+                        inst_bytes[3],
+                    ]);
+                    // For LO12_I, we need the low 12 bits of the offset
+                    // This is typically used with a preceding HI20 relocation
+                    let lo12 = pcrel & 0xFFF;
+                    let patched = (inst_word & 0xFFFFF) | (lo12 << 20);
+                    inst_bytes.copy_from_slice(&patched.to_le_bytes());
+                }
+                _ => {
+                    // For other relocation types, try simple PC-relative patching
+                    if reloc_offset + 4 <= code_bytes.len() {
+                        let pcrel_i32 = pcrel as i32;
+                        let reloc_bytes = &mut code_bytes[reloc_offset..reloc_offset + 4];
+                        reloc_bytes.copy_from_slice(&pcrel_i32.to_le_bytes());
+                    } else {
+                        return Err(format!(
+                            "Unsupported relocation type {} at offset {}",
+                            r_type, reloc_offset
+                        ));
+                    }
+                }
+            }
+        }
+        _ => {
+            // For non-ELF formats, try generic PC-relative patching
+            if reloc_offset + 4 <= code_bytes.len() {
+                let pcrel_i32 = pcrel as i32;
+                let reloc_bytes = &mut code_bytes[reloc_offset..reloc_offset + 4];
+                reloc_bytes.copy_from_slice(&pcrel_i32.to_le_bytes());
+            } else {
+                return Err(format!(
+                    "Unsupported relocation format at offset {}",
+                    reloc_offset
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Apply relocations to code bytes using the object crate's relocation API.
+fn apply_relocations(
+    obj: &object::File,
+    code_bytes: &mut [u8],
+    text_section_id: object::SectionIndex,
+    text_section_base: u64,
+) -> Result<(), String> {
+    // Build symbol map (name -> address relative to text section base)
+    let mut symbol_map: HashMap<String, u32> = HashMap::new();
+    for symbol in obj.symbols() {
+        if symbol.kind() == object::SymbolKind::Text {
+            if let Ok(name) = symbol.name() {
+                let addr = symbol.address();
+                if addr >= text_section_base {
+                    let offset = (addr - text_section_base) as u32;
+                    symbol_map.insert(name.to_string(), offset);
+                }
+            }
+        }
+    }
+
+    // Find text section and apply relocations
+    for section in obj.sections() {
+        if section.index() == text_section_id {
+            for (reloc_offset, reloc) in section.relocations() {
+                apply_single_relocation(reloc, reloc_offset, code_bytes, &symbol_map, obj)?;
+            }
+            break;
+        }
+    }
+
+    Ok(())
 }
 
 /// Load a RISC-V ELF file and extract code and data sections for the emulator.
@@ -24,11 +252,12 @@ pub struct ElfLoadInfo {
 /// - Parses the ELF file
 /// - Extracts loadable segments
 /// - Splits them into ROM (low addresses) and RAM (high addresses)
+/// - Applies relocations to code sections
 /// - Returns the entry point address
 pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
+    use elf::ElfBytes;
     use elf::abi::PT_LOAD;
     use elf::endian::LittleEndian;
-    use elf::ElfBytes;
 
     // Parse ELF
     let elf = ElfBytes::<LittleEndian>::minimal_parse(elf_data)
@@ -48,7 +277,7 @@ pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
 
     let entry_point = elf.ehdr.e_entry as u32;
 
-    // Split address ranges: 
+    // Split address ranges:
     // ROM/Code: 0x00000000 - 0x7FFFFFFF
     // RAM: 0x80000000 - 0xFFFFFFFF
     const RAM_START: u32 = 0x80000000;
@@ -104,7 +333,9 @@ pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
                 } else if filesz > 0 {
                     return Err(format!(
                         "Segment data out of bounds: vaddr=0x{:x}, size={}, code_len={}",
-                        vaddr, memsz, code.len()
+                        vaddr,
+                        memsz,
+                        code.len()
                     ));
                 }
             } else {
@@ -117,11 +348,79 @@ pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
                 } else if filesz > 0 {
                     return Err(format!(
                         "Segment data out of bounds: vaddr=0x{:x}, size={}, ram_len={}",
-                        vaddr, memsz, ram.len()
+                        vaddr,
+                        memsz,
+                        ram.len()
                     ));
                 }
             }
         }
+    }
+
+    // Apply relocations to code sections using the object crate
+    // Parse with object crate to access sections and relocations
+    let obj = object::File::parse(elf_data)
+        .map_err(|e| format!("Failed to parse ELF with object crate: {}", e))?;
+
+    // Load section data into code/RAM buffers
+    // Object files use sections, not segments
+    // Only load executable sections (Text) and data sections, skip metadata
+    for section in obj.sections() {
+        // Skip metadata sections (symbol tables, string tables, etc.)
+        let section_kind = section.kind();
+        if section_kind == object::SectionKind::Metadata
+            || section_kind == object::SectionKind::Other
+        {
+            continue;
+        }
+
+        if let Ok(data) = section.data() {
+            if data.is_empty() {
+                continue;
+            }
+
+            let section_addr = section.address();
+
+            if section_addr < RAM_START as u64 {
+                // ROM/Code region
+                let offset = section_addr as usize;
+                if offset + data.len() <= code.len() {
+                    code[offset..offset + data.len()].copy_from_slice(data);
+                } else {
+                    // Extend code buffer if needed
+                    let needed_size = offset + data.len();
+                    code.resize(needed_size.max(code.len()), 0);
+                    code[offset..offset + data.len()].copy_from_slice(data);
+                }
+            } else {
+                // RAM region
+                let offset = (section_addr - RAM_START as u64) as usize;
+                if offset + data.len() <= ram.len() {
+                    ram[offset..offset + data.len()].copy_from_slice(data);
+                } else {
+                    // Extend RAM buffer if needed
+                    let needed_size = offset + data.len();
+                    ram.resize(needed_size.max(ram.len()), 0);
+                    ram[offset..offset + data.len()].copy_from_slice(data);
+                }
+            }
+        }
+    }
+
+    // Find the .text section and apply relocations
+    let mut text_section_base = 0u64;
+    let mut text_section_id = None;
+    for section in obj.sections() {
+        if section.kind() == object::SectionKind::Text {
+            text_section_base = section.address();
+            text_section_id = Some(section.index());
+            break;
+        }
+    }
+
+    // Apply relocations if we found a text section
+    if let Some(text_id) = text_section_id {
+        apply_relocations(&obj, &mut code, text_id, text_section_base)?;
     }
 
     Ok(ElfLoadInfo {
@@ -130,4 +429,3 @@ pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
         entry_point,
     })
 }
-

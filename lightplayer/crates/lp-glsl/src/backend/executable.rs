@@ -60,6 +60,13 @@ pub trait GlslExecutable {
     /// List all available function names
     fn list_functions(&self) -> Vec<String>;
 
+    /// Get emulator state as a formatted string, if this is an emulator module.
+    /// Returns None for non-emulator implementations (e.g., JIT).
+    #[cfg(feature = "std")]
+    fn format_emulator_state(&self) -> Option<String> {
+        None
+    }
+
     // TODO: Future extensions:
     // fn set_uniform(&mut self, name: &str, value: GlslValue) -> Result<(), GlslError>;
     // fn get_uniform(&self, name: &str) -> Option<&GlslValue>;

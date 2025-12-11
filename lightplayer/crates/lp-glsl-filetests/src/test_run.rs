@@ -69,13 +69,24 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
                         directive.comparison,
                     )?;
                 } else {
-                    anyhow::bail!(
-                        "run test failed at line {}: {}\n\
-                         This test assertion can be automatically updated by setting the\n\
-                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
-                        directive.line_number,
-                        err_msg
-                    );
+                    // Get emulator state if available
+                    let emulator_state = executable.format_emulator_state();
+                    let error_msg = if let Some(state) = emulator_state {
+                        format!(
+                            "run test failed at line {}: {}{}\n\
+                             This test assertion can be automatically updated by setting the\n\
+                             CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
+                            directive.line_number, err_msg, state
+                        )
+                    } else {
+                        format!(
+                            "run test failed at line {}: {}\n\
+                             This test assertion can be automatically updated by setting the\n\
+                             CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
+                            directive.line_number, err_msg
+                        )
+                    };
+                    anyhow::bail!("{}", error_msg);
                 }
             }
         }
@@ -144,16 +155,43 @@ fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
     // Call main() based on return type
     match &sig.return_type {
         Type::Float => {
-            let result = executable.call_f32("main", &[])?;
-            Ok(GlslValue::F32(result))
+            executable
+                .call_f32("main", &[])
+                .map(GlslValue::F32)
+                .map_err(|e| {
+                    // Add emulator state to error if available
+                    if let Some(state) = executable.format_emulator_state() {
+                        anyhow::anyhow!("{}{}", e, state)
+                    } else {
+                        anyhow::anyhow!("{}", e)
+                    }
+                })
         }
         Type::Int => {
-            let result = executable.call_i32("main", &[])?;
-            Ok(GlslValue::I32(result))
+            executable
+                .call_i32("main", &[])
+                .map(GlslValue::I32)
+                .map_err(|e| {
+                    // Add emulator state to error if available
+                    if let Some(state) = executable.format_emulator_state() {
+                        anyhow::anyhow!("{}{}", e, state)
+                    } else {
+                        anyhow::anyhow!("{}", e)
+                    }
+                })
         }
         Type::Bool => {
-            let result = executable.call_bool("main", &[])?;
-            Ok(GlslValue::Bool(result))
+            executable
+                .call_bool("main", &[])
+                .map(GlslValue::Bool)
+                .map_err(|e| {
+                    // Add emulator state to error if available
+                    if let Some(state) = executable.format_emulator_state() {
+                        anyhow::anyhow!("{}{}", e, state)
+                    } else {
+                        anyhow::anyhow!("{}", e)
+                    }
+                })
         }
         _ => anyhow::bail!("unsupported return type: {:?}", sig.return_type),
     }

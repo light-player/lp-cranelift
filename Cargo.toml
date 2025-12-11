@@ -150,7 +150,6 @@ members = ["cranelift", "cranelift/assembler-x64/fuzz", "cranelift/isle/fuzz", "
 exclude = [
   'docs/rust_wasi_markdown_parser',
   'crates/lp-glsl',
-  'crates/lp-glsl-filetests',
 ]
 
 [workspace.package]

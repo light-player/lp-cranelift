@@ -683,15 +683,50 @@ pub fn link_glsl_for_emulator(
     use crate::error::GlslError;
     use hashbrown::HashMap;
     use lp_riscv_tools::Gpr;
+    use lp_riscv_tools::elf_loader::{find_symbol_address, load_elf};
     use lp_riscv_tools::emu::emulator::Riscv32Emulator;
 
-    // Compile to binary
-    let binary = compile_clif_to_binary(&module)?;
+    // Compile to ELF
+    let elf_bytes = compile_clif_to_elf(&module)?;
+
+    // Load ELF and apply relocations
+    let load_info = load_elf(&elf_bytes)
+        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("ELF load failed: {}", e)))?;
+
+    // Parse ELF to find main function address
+    use object::{Object, ObjectSection};
+    let obj = object::File::parse(&elf_bytes[..]).map_err(|e| {
+        GlslError::new(
+            ErrorCode::E0400,
+            alloc_format!("Failed to parse ELF for symbol lookup: {:?}", e),
+        )
+    })?;
+
+    // Find text section base for symbol address calculation
+    let mut text_section_base = 0u64;
+    for section in obj.sections() {
+        if section.kind() == object::SectionKind::Text {
+            text_section_base = section.address();
+            break;
+        }
+    }
+
+    // Find main function address
+    let main_address = find_symbol_address(&obj, "main", text_section_base).map_err(|e| {
+        GlslError::new(
+            ErrorCode::E0400,
+            format!("Failed to find main symbol: {}", e),
+        )
+    })?;
+
+    let binary = load_info.code;
 
     // Create emulator
     let ram_size = emulator_options.max_memory;
+    use lp_riscv_tools::emu::LogLevel;
     let mut emulator = Riscv32Emulator::new(binary.clone(), vec![0; ram_size])
-        .with_max_instructions(emulator_options.max_instructions);
+        .with_max_instructions(emulator_options.max_instructions)
+        .with_log_level(LogLevel::Instructions);
 
     // Set up stack pointer (stack starts at top of RAM, grows downward)
     let stack_base = ram_size as u32;
@@ -699,7 +734,6 @@ pub fn link_glsl_for_emulator(
     emulator.set_pc(0);
 
     // Extract signatures (both GLSL and Cranelift)
-    // Note: We only support calling main at address 0x00 for now
     let mut signatures = HashMap::new();
     let mut cranelift_signatures = HashMap::new();
 
@@ -737,20 +771,22 @@ pub fn link_glsl_for_emulator(
         signatures,
         cranelift_signatures,
         binary,
+        main_address,
     })
 }
 
-/// Compile CLIF module to binary for emulator execution
+/// Compile CLIF module to ELF object file for emulator execution
 /// Uses ObjectModule to properly handle function call relocations
+/// Returns the ELF bytes
 #[cfg(feature = "emulator")]
-fn compile_clif_to_binary(module: &ClifModule) -> Result<Vec<u8>, crate::error::GlslError> {
+fn compile_clif_to_elf(module: &ClifModule) -> Result<Vec<u8>, crate::error::GlslError> {
     use crate::error::GlslError;
     use cranelift_module::Linkage;
     use cranelift_object::{ObjectBuilder, ObjectModule};
 
     // Create ObjectModule for proper linking with relocations
     let isa = module.isa();
-    let mut isa_builder = cranelift_codegen::isa::Builder::from_target_isa(isa);
+    let isa_builder = cranelift_codegen::isa::Builder::from_target_isa(isa);
     let flags = isa.flags().clone();
     let owned_isa = isa_builder.finish(flags).map_err(|e| {
         GlslError::new(
@@ -792,31 +828,5 @@ fn compile_clif_to_binary(module: &ClifModule) -> Result<Vec<u8>, crate::error::
         )
     })?;
 
-    // Parse the object file to extract the .text section (code)
-    use object::{Object, ObjectSection};
-    let obj = object::File::parse(&object_bytes[..]).map_err(|e| {
-        GlslError::new(
-            crate::error::ErrorCode::E0400,
-            alloc_format!("failed to parse object file: {:?}", e),
-        )
-    })?;
-
-    // Find the .text section
-    let mut code_bytes = Vec::new();
-    for section in obj.sections() {
-        if section.kind() == object::SectionKind::Text {
-            if let Ok(data) = section.data() {
-                code_bytes.extend_from_slice(data);
-            }
-        }
-    }
-
-    if code_bytes.is_empty() {
-        return Err(GlslError::new(
-            crate::error::ErrorCode::E0400,
-            "No .text section found in object file",
-        ));
-    }
-
-    Ok(code_bytes)
+    Ok(object_bytes)
 }

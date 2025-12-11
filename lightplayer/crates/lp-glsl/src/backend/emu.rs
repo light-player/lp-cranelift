@@ -24,6 +24,7 @@ pub struct GlslEmulatorModule {
     // Store Cranelift signatures for proper function calling with arguments
     pub(crate) cranelift_signatures: HashMap<String, cranelift_codegen::ir::Signature>,
     pub(crate) binary: Vec<u8>,
+    pub(crate) main_address: u32,
 }
 
 // Helper function to convert GlslValue to DataValue
@@ -120,18 +121,15 @@ impl GlslExecutable for GlslEmulatorModule {
         Self::validate_main_only(name)?;
         Self::validate_no_args(args);
 
-        // Main is always at address 0x00
-        const MAIN_ENTRY: u32 = 0x00;
-
         // Get the actual Cranelift signature for main
         let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
             GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
         })?;
 
-        // Call main via emulator (no arguments)
+        // Call main via emulator (no arguments) at its actual address
         let results = self
             .emulator
-            .call_function(MAIN_ENTRY, &[], sig)
+            .call_function(self.main_address, &[], sig)
             .map_err(|e| {
                 GlslError::new(
                     ErrorCode::E0400,
@@ -155,18 +153,15 @@ impl GlslExecutable for GlslEmulatorModule {
         Self::validate_main_only(name)?;
         Self::validate_no_args(args);
 
-        // Main is always at address 0x00
-        const MAIN_ENTRY: u32 = 0x00;
-
         // Get the actual Cranelift signature for main
         let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
             GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
         })?;
 
-        // Call main via emulator (no arguments)
+        // Call main via emulator (no arguments) at its actual address
         let results = self
             .emulator
-            .call_function(MAIN_ENTRY, &[], sig)
+            .call_function(self.main_address, &[], sig)
             .map_err(|e| {
                 GlslError::new(
                     ErrorCode::E0400,
@@ -194,18 +189,15 @@ impl GlslExecutable for GlslEmulatorModule {
         Self::validate_main_only(name)?;
         Self::validate_no_args(args);
 
-        // Main is always at address 0x00
-        const MAIN_ENTRY: u32 = 0x00;
-
         // Get the actual Cranelift signature for main
         let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
             GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
         })?;
 
-        // Call main via emulator (no arguments)
+        // Call main via emulator (no arguments) at its actual address
         let results = self
             .emulator
-            .call_function(MAIN_ENTRY, &[], sig)
+            .call_function(self.main_address, &[], sig)
             .map_err(|e| {
                 GlslError::new(
                     ErrorCode::E0400,
@@ -231,18 +223,15 @@ impl GlslExecutable for GlslEmulatorModule {
         Self::validate_main_only(name)?;
         Self::validate_no_args(args);
 
-        // Main is always at address 0x00
-        const MAIN_ENTRY: u32 = 0x00;
-
         // Get the actual Cranelift signature for main
         let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
             GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
         })?;
 
-        // Call main via emulator (no arguments)
+        // Call main via emulator (no arguments) at its actual address
         let results = self
             .emulator
-            .call_function(MAIN_ENTRY, &[], sig)
+            .call_function(self.main_address, &[], sig)
             .map_err(|e| {
                 GlslError::new(
                     ErrorCode::E0400,
@@ -280,18 +269,15 @@ impl GlslExecutable for GlslEmulatorModule {
         Self::validate_main_only(name)?;
         Self::validate_no_args(args);
 
-        // Main is always at address 0x00
-        const MAIN_ENTRY: u32 = 0x00;
-
         // Get the actual Cranelift signature for main
         let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
             GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
         })?;
 
-        // Call main via emulator (no arguments)
+        // Call main via emulator (no arguments) at its actual address
         let results = self
             .emulator
-            .call_function(MAIN_ENTRY, &[], sig)
+            .call_function(self.main_address, &[], sig)
             .map_err(|e| {
                 GlslError::new(
                     ErrorCode::E0400,
@@ -324,5 +310,15 @@ impl GlslExecutable for GlslEmulatorModule {
 
     fn list_functions(&self) -> Vec<String> {
         self.signatures.keys().cloned().collect()
+    }
+
+    #[cfg(feature = "std")]
+    fn format_emulator_state(&self) -> Option<String> {
+        let state_dump = self.emulator.dump_state();
+        let debug_info = self.emulator.format_debug_info(None, 100);
+        Some(format!(
+            "\n=== Emulator State ===\n{}\n\n=== Debug Info ===\n{}",
+            state_dump, debug_info
+        ))
     }
 }

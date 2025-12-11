@@ -22,11 +22,15 @@ cranelift-frontend = { workspace = true, optional = true }
 
 # For ELF loading (std only)
 elf = { version = "0.7", optional = true }
+object = { version = "0.37.3", optional = true }
 
 [features]
-std = ["dep:cranelift-frontend", "cranelift-frontend/std", "dep:elf"]
+std = ["dep:cranelift-frontend", "cranelift-frontend/std", "dep:elf", "dep:object"]
 
 [dev-dependencies]
+cranelift-object = { workspace = true }
+cranelift-frontend = { workspace = true }
+cranelift-module = { workspace = true }
 
 [[example]]
 name = "simple_codegen"
