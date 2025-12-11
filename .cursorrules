@@ -1,5 +1,7 @@
 # Light Player Compiler (LPC) - Cursor Rules
 
+# Warnings: Fix warnings before committing. Don't just ignore them. If you can't fix them easily, ask for help.
+
 # Commits: All commits start with "lpc: " prefix
 
 # Commits: Commit frequently with small incremental changes
