@@ -5,4 +5,5 @@
 
 mod clif_module;
 
+#[allow(unused_imports)]
 pub use clif_module::{ClifModule, ClifModuleBuilder};

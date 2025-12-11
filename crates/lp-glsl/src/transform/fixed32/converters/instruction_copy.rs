@@ -173,7 +173,7 @@ pub fn copy_instruction_as_is(
             constant_handle: *constant_handle,
         },
         InstructionData::Load {
-            flags, offset, arg, ..
+            flags, offset, arg: _, ..
         } => InstructionData::Load {
             opcode,
             flags: *flags,
@@ -183,7 +183,7 @@ pub fn copy_instruction_as_is(
         InstructionData::Store {
             flags,
             offset,
-            args,
+            args: _,
             ..
         } => {
             // Store is handled separately - it has no results
@@ -216,7 +216,7 @@ pub fn copy_instruction_as_is(
         InstructionData::StackStore {
             stack_slot,
             offset,
-            arg,
+            arg: _,
             ..
         } => {
             // Stack store is handled separately - it has no results

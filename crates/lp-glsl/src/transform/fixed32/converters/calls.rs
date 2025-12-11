@@ -70,7 +70,7 @@ pub(crate) fn convert_call(
     ext_func_map: &mut hashbrown::HashMap<FuncRef, FuncRef>,
     sig_map: &mut hashbrown::HashMap<SigRef, SigRef>,
     format: FixedPointFormat,
-    block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
+    _block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -127,10 +127,10 @@ pub(crate) fn convert_call_indirect(
     old_inst: Inst,
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
-    ext_func_map: &mut hashbrown::HashMap<FuncRef, FuncRef>,
+    _ext_func_map: &mut hashbrown::HashMap<FuncRef, FuncRef>,
     sig_map: &mut hashbrown::HashMap<SigRef, SigRef>,
     format: FixedPointFormat,
-    block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
+    _block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 

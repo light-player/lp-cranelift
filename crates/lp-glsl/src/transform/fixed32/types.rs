@@ -50,4 +50,3 @@ pub fn float_to_fixed16x16(f: f32) -> i32 {
     };
     rounded
 }
-

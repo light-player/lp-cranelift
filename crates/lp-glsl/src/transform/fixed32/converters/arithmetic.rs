@@ -23,7 +23,7 @@ pub(crate) fn convert_fadd(
     old_inst: Inst,
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
-    format: FixedPointFormat,
+    _format: FixedPointFormat,
 ) -> Result<(), GlslError> {
     // Get operands and map them
     let (arg1_old, arg2_old) = extract_binary_operands(old_func, old_inst)?;
@@ -53,7 +53,7 @@ pub(crate) fn convert_fsub(
     old_inst: Inst,
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
-    format: FixedPointFormat,
+    _format: FixedPointFormat,
 ) -> Result<(), GlslError> {
     let (arg1_old, arg2_old) = extract_binary_operands(old_func, old_inst)?;
     let arg1 = map_operand(value_map, arg1_old);
@@ -95,7 +95,7 @@ pub(crate) fn convert_fmul(
     let mul_result_wide = builder.ins().imul(arg1_wide, arg2_wide);
 
     // Right shift to scale back
-    let shift_const = builder.ins().iconst(types::I64, shift_amount as i64);
+    let shift_const = builder.ins().iconst(types::I64, shift_amount);
     let shifted_wide = builder.ins().sshr(mul_result_wide, shift_const);
 
     // Truncate back to i32
@@ -165,7 +165,7 @@ pub(crate) fn convert_fdiv(
     let arg1_wide = builder.ins().sextend(types::I64, arg1);
 
     // Left shift numerator in i64
-    let shift_const = builder.ins().iconst(types::I64, shift_amount as i64);
+    let shift_const = builder.ins().iconst(types::I64, shift_amount);
     let shifted_numerator_wide = builder.ins().ishl(arg1_wide, shift_const);
 
     // Sign-extend safe denominator to i64

@@ -38,7 +38,7 @@ pub(crate) fn convert_fcvt_from_sint(
     // Convert integer to fixed-point: int << shift_amount
     // Need to sign-extend if arg is smaller than target_type
     let arg_type = old_func.dfg.value_type(arg);
-    let shift_const = builder.ins().iconst(target_type, shift_amount as i64);
+    let shift_const = builder.ins().iconst(target_type, shift_amount);
 
     let shifted = if arg_type.bits() < target_type.bits() {
         // Sign-extend first, then shift
@@ -83,7 +83,7 @@ pub(crate) fn convert_fcvt_from_uint(
     // Convert unsigned integer to fixed-point: uint << shift_amount
     // Need to zero-extend if arg is smaller than target_type
     let arg_type = old_func.dfg.value_type(arg);
-    let shift_const = builder.ins().iconst(target_type, shift_amount as i64);
+    let shift_const = builder.ins().iconst(target_type, shift_amount);
 
     let shifted = if arg_type.bits() < target_type.bits() {
         // Zero-extend first, then shift

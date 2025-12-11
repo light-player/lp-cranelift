@@ -7,9 +7,10 @@
 //!
 //! This is similar to the fixed-point transformation in `transform/fixed32/rewrite.rs`,
 //! but simpler - we just remap FuncRefs without changing types.
+#![allow(dead_code)]
 
 use crate::error::{ErrorCode, GlslError};
-use cranelift_codegen::ir::{Block, Function, Inst, InstBuilder, InstructionData, Value};
+use cranelift_codegen::ir::{Block, Function, Inst, InstBuilder, Value};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_module::{FuncId, Module};
 use hashbrown::HashMap;
@@ -258,7 +259,7 @@ fn copy_instruction(
     func_ref_map: &HashMap<cranelift_codegen::ir::FuncRef, cranelift_codegen::ir::FuncRef>,
     block_map: &HashMap<Block, Block>,
 ) -> Result<(), GlslError> {
-    use cranelift_codegen::ir::{InstructionData, Opcode};
+    use cranelift_codegen::ir::Opcode;
 
     let inst_data = &old_func.dfg.insts[old_inst];
     let opcode = inst_data.opcode();

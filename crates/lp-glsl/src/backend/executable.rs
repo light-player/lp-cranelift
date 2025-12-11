@@ -3,10 +3,8 @@
 //! This module provides a trait-based API for executing GLSL functions that
 //! abstracts away JIT vs Emulator implementations.
 
-use crate::ir::ClifModule;
 use crate::error::GlslError;
 use crate::semantic::functions::FunctionSignature;
-use hashbrown::HashMap;
 
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String, vec::Vec};
@@ -192,4 +190,3 @@ pub enum GlslValue {
 // Re-export module types for convenience
 #[cfg(feature = "emulator")]
 pub use crate::backend::emu::GlslEmulatorModule;
-pub use crate::backend::jit::GlslJitModule;

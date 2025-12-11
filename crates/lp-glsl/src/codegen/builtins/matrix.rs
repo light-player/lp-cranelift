@@ -15,6 +15,7 @@ use alloc::format;
 #[cfg(feature = "std")]
 use std::format;
 
+#[allow(non_snake_case)]
 impl<'a> CodegenContext<'a> {
     /// Component-wise matrix multiply: result[i][j] = x[i][j] * y[i][j]
     pub fn builtin_matrixCompMult(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {

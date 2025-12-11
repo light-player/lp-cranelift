@@ -90,7 +90,7 @@ pub fn transform_module(
         })?;
     let mut temp_main_func = Function::new();
     temp_main_func.signature = main_new_sig.clone();
-    let main_func_ref = temp_module.declare_func_in_func(main_func_id, &mut temp_main_func);
+    let _main_func_ref = temp_module.declare_func_in_func(main_func_id, &mut temp_main_func);
 
     // Step 2: Convert all function bodies, updating call sites to use new FuncRefs
     let mut builder = ClifModule::builder()
@@ -104,7 +104,7 @@ pub fn transform_module(
         // Recreate ISA from TargetIsa reference
         .set_isa({
             use cranelift_codegen::isa;
-            let mut isa_builder = isa::Builder::from_target_isa(module.isa());
+            let isa_builder = isa::Builder::from_target_isa(module.isa());
             // Copy flags from the original ISA
             let flags = module.isa().flags().clone();
             isa_builder.finish(flags).map_err(|e| {

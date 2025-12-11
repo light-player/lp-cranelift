@@ -17,6 +17,7 @@ use std::{format, string::String, vec::Vec};
 /// JIT-compiled GLSL module (executes on host or embedded)
 /// Works in both std and no_std (JITModule supports no_std)
 pub struct GlslJitModule {
+    #[allow(dead_code)]
     pub(crate) jit_module: cranelift_jit::JITModule,
     pub(crate) function_ptrs: HashMap<String, *const u8>,
     pub(crate) signatures: HashMap<String, FunctionSignature>,

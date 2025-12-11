@@ -32,7 +32,7 @@ pub(crate) fn convert_ceil(
     let mask = (1i64 << shift_amount) - 1;
     let mask_const = builder.ins().iconst(target_type, mask);
     let added = builder.ins().iadd(mapped_arg, mask_const);
-    let shift_const = builder.ins().iconst(target_type, shift_amount as i64);
+    let shift_const = builder.ins().iconst(target_type, shift_amount);
     let rounded = builder.ins().sshr(added, shift_const);
     let new_result = builder.ins().ishl(rounded, shift_const);
 
@@ -61,7 +61,7 @@ pub(crate) fn convert_floor(
 
     // Floor: round down to nearest integer
     // In fixed-point: value >> shift, then << shift
-    let shift_const = builder.ins().iconst(target_type, shift_amount as i64);
+    let shift_const = builder.ins().iconst(target_type, shift_amount);
     let rounded = builder.ins().sshr(mapped_arg, shift_const);
     let new_result = builder.ins().ishl(rounded, shift_const);
 
@@ -107,12 +107,12 @@ pub(crate) fn convert_sqrt(
 
     // Scale up for better precision: x_scaled = x_fixed << 16
     // This allows us to compute sqrt(x_fixed << 16) = sqrt(x) * 65536 directly
-    let shift_16 = builder.ins().iconst(types::I64, shift_amount as i64);
+    let shift_16 = builder.ins().iconst(types::I64, shift_amount);
     let x_scaled = builder.ins().ishl(x_fixed_wide, shift_16);
 
     // Initial guess: max(x_scaled >> 16, 1) to avoid division by zero
     // This is a rough approximation: sqrt(x_scaled) ≈ x_scaled >> 16 for large values
-    let shift_16_for_guess = builder.ins().iconst(types::I64, shift_amount as i64);
+    let shift_16_for_guess = builder.ins().iconst(types::I64, shift_amount);
     let guess0_wide = builder.ins().sshr(x_scaled, shift_16_for_guess);
     let one_wide = builder.ins().iconst(types::I64, 1);
     let guess0_min = builder.ins().smax(guess0_wide, one_wide);

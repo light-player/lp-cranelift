@@ -8,8 +8,8 @@ use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-use crate::transform::fixed32::blocks::ensure_block_params;
 use crate::ir_utils::value_map::map_value;
+use crate::transform::fixed32::blocks::ensure_block_params;
 
 use cranelift_codegen::ir::{
     Block, BlockArg, Function, Inst, InstBuilder, InstructionData, JumpTableData, Value, types,
@@ -37,7 +37,7 @@ pub(crate) fn convert_jump(
             .args(&old_func.dfg.value_lists)
             .filter_map(|arg| arg.as_value())
             .collect();
-        
+
         // Ensure target block has the required parameters
         ensure_block_params(
             old_func,
@@ -48,7 +48,7 @@ pub(crate) fn convert_jump(
             format,
             &old_args,
         )?;
-        
+
         let new_args: Vec<BlockArg> = old_args
             .iter()
             .map(|&v| map_value(value_map, v).into())
@@ -129,14 +129,14 @@ pub(crate) fn convert_brif(
         // Get the actual parameters the blocks have (may be more than what this brif passes)
         let old_then_block_params = old_func.dfg.block_params(old_then_block);
         let old_else_block_params = old_func.dfg.block_params(old_else_block);
-        
+
         // Build argument lists: if block has more params than this brif passes,
         // we need to pass default values (they'll be overwritten by other branches via phi)
         let mut new_then_args: Vec<BlockArg> = old_then_args
             .iter()
             .map(|&v| map_value(value_map, v).into())
             .collect();
-        
+
         // If block has more parameters than this instruction passes, add default values
         if old_then_block_params.len() > old_then_args.len() {
             let target_type = format.cranelift_type();
@@ -153,12 +153,12 @@ pub(crate) fn convert_brif(
                 new_then_args.push(default_val.into());
             }
         }
-        
+
         let mut new_else_args: Vec<BlockArg> = old_else_args
             .iter()
             .map(|&v| map_value(value_map, v).into())
             .collect();
-        
+
         // If block has more parameters than this instruction passes, add default values
         if old_else_block_params.len() > old_else_args.len() {
             let target_type = format.cranelift_type();
@@ -200,7 +200,7 @@ pub(crate) fn convert_br_table(
     old_inst: Inst,
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
-    format: FixedPointFormat,
+    _format: FixedPointFormat,
     block_map: &hashbrown::HashMap<Block, Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
@@ -274,8 +274,8 @@ pub(crate) fn convert_return(
     old_inst: Inst,
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
-    format: FixedPointFormat,
-    block_map: &hashbrown::HashMap<Block, Block>,
+    _format: FixedPointFormat,
+    _block_map: &hashbrown::HashMap<Block, Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -305,8 +305,8 @@ pub(crate) fn convert_select(
     old_inst: Inst,
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
-    format: FixedPointFormat,
-    block_map: &hashbrown::HashMap<Block, Block>,
+    _format: FixedPointFormat,
+    _block_map: &hashbrown::HashMap<Block, Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -331,4 +331,3 @@ pub(crate) fn convert_select(
 
     Ok(())
 }
-

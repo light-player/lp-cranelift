@@ -1,9 +1,8 @@
 //! GLSL compiler that compiles GLSL source to ClifModule
 
-use crate::ir::ClifModule;
-use crate::error::GlslError;
 use crate::compiler::pipeline::CompilationPipeline;
-use crate::semantic::TypedShader;
+use crate::error::GlslError;
+use crate::ir::ClifModule;
 use cranelift_codegen::ir::Function;
 use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
@@ -24,6 +23,7 @@ use std::vec::Vec;
 
 /// GLSL compiler that compiles GLSL source to ClifModule
 pub struct GlslCompiler {
+    #[allow(dead_code)]
     builder_context: FunctionBuilderContext,
 }
 
@@ -43,7 +43,6 @@ impl GlslCompiler {
     ) -> Result<ClifModule, GlslError> {
         use crate::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};
-        use cranelift_codegen::Context;
 
         // 1. Parse and analyze GLSL
         let semantic_result = CompilationPipeline::parse_and_analyze(source)?;
@@ -145,7 +144,7 @@ impl GlslCompiler {
     fn compile_function_to_clif(
         &mut self,
         func: &crate::semantic::TypedFunction,
-        func_id: FuncId,
+        _func_id: FuncId,
         func_ids: &HashMap<String, FuncId>,
         func_registry: &crate::semantic::functions::FunctionRegistry,
         temp_module: &mut dyn Module,
@@ -369,11 +368,10 @@ pub fn create_minimal_module_for_declarations(
     use crate::error::{ErrorCode, GlslError};
     use cranelift_codegen::entity::PrimaryMap;
     use cranelift_codegen::isa;
-    use cranelift_codegen::settings::Configurable;
     use std::cell::RefCell;
 
     // Recreate OwnedTargetIsa from the reference
-    let mut isa_builder = isa::Builder::from_target_isa(isa);
+    let isa_builder = isa::Builder::from_target_isa(isa);
     let flags = isa.flags().clone();
     let owned_isa = isa_builder.finish(flags).map_err(|e| {
         GlslError::new(ErrorCode::E0400, format!("failed to recreate ISA: {:?}", e))

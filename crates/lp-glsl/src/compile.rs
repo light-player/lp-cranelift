@@ -7,7 +7,7 @@ use crate::backend::executable::{DecimalFormat, GlslOptions, RunMode};
 use crate::compiler::glsl_compiler::GlslCompiler;
 use crate::error::GlslError;
 use crate::ir::ClifModule;
-use crate::transform::fixed32::{transform_module, FixedPointFormat};
+use crate::transform::fixed32::{FixedPointFormat, transform_module};
 
 use cranelift_codegen::isa::OwnedTargetIsa;
 
@@ -20,9 +20,9 @@ use alloc::format as alloc_format;
 use std::format as alloc_format;
 
 #[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, string::String, vec::Vec};
+use alloc::{boxed::Box, string::String};
 #[cfg(feature = "std")]
-use std::{boxed::Box, string::String, vec::Vec};
+use std::{boxed::Box, string::String};
 
 /// Compile GLSL to CLIF module (internal, reusable)
 /// This is the core compilation step that can be reused for different backends
@@ -88,8 +88,7 @@ pub fn link_glsl_for_jit(
 
     // Recreate the ISA from the TargetIsa reference
     use cranelift_codegen::isa;
-    use cranelift_codegen::settings::Configurable;
-    let mut isa_builder = isa::Builder::from_target_isa(module.isa());
+    let isa_builder = isa::Builder::from_target_isa(module.isa());
     // Copy flags from the original ISA
     let flags = module.isa().flags().clone();
     let isa = isa_builder.finish(flags).map_err(|e| {
@@ -141,7 +140,7 @@ pub fn link_glsl_for_jit(
         String::from("main"),
         module.main_function().signature.clone(),
     );
-    
+
     // Get main function's GLSL signature from ClifModule
     let main_glsl_sig = module.glsl_signature("main").ok_or_else(|| {
         GlslError::new(
@@ -211,7 +210,7 @@ pub fn link_glsl_for_emulator(
         String::from("main"),
         module.main_function().signature.clone(),
     );
-    
+
     // Get main function's GLSL signature from ClifModule
     let main_glsl_sig = module.glsl_signature("main").ok_or_else(|| {
         GlslError::new(

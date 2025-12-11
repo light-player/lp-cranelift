@@ -220,6 +220,11 @@ impl ClifModule {
                                 })
                                 .collect();
 
+                            let available_sigs_str = if available_sigs.is_empty() {
+                                String::from("  (none)")
+                            } else {
+                                available_sigs.join("\n")
+                            };
                             return Err(GlslError::new(
                                 ErrorCode::E0400,
                                 format!(
@@ -233,11 +238,7 @@ impl ClifModule {
                                     func_id_to_name_debug.join("\n"),
                                     name_to_id.len(),
                                     name_to_id_debug.join("\n"),
-                                    if available_sigs.is_empty() {
-                                        "  (none)"
-                                    } else {
-                                        &available_sigs.join("\n")
-                                    }
+                                    available_sigs_str
                                 ),
                             ));
                         }

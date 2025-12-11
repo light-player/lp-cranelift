@@ -40,6 +40,7 @@ pub struct TypedFunction {
 
 /// Semantic analyzer that orchestrates semantic analysis passes
 pub struct SemanticAnalyzer {
+    #[allow(dead_code)]
     registry: functions::FunctionRegistry,
 }
 

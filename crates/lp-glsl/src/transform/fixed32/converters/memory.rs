@@ -15,7 +15,7 @@ pub(crate) fn convert_load(
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
+    _block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -61,7 +61,7 @@ pub(crate) fn convert_store(
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
+    _block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
