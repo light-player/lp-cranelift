@@ -28,21 +28,24 @@ fn decode_c0(inst: u16, funct3: u16) -> Result<Inst, String> {
         0b000 => decode_c_addi4spn(inst), // C.ADDI4SPN
         0b010 => decode_c_lw(inst),       // C.LW
         0b110 => decode_c_sw(inst),       // C.SW
-        _ => Err(format!("Unknown C0 instruction: funct3={:03b}, inst=0x{:04x}", funct3, inst)),
+        _ => Err(format!(
+            "Unknown C0 instruction: funct3={:03b}, inst=0x{:04x}",
+            funct3, inst
+        )),
     }
 }
 
 /// Decode quadrant 1 (opcode = 0b01)
 fn decode_c1(inst: u16, funct3: u16) -> Result<Inst, String> {
     match funct3 {
-        0b000 => decode_c_addi_or_nop(inst), // C.ADDI / C.NOP
-        0b001 => decode_c_jal(inst),          // C.JAL (RV32 only)
-        0b010 => decode_c_li(inst),           // C.LI
+        0b000 => decode_c_addi_or_nop(inst),     // C.ADDI / C.NOP
+        0b001 => decode_c_jal(inst),             // C.JAL (RV32 only)
+        0b010 => decode_c_li(inst),              // C.LI
         0b011 => decode_c_addi16sp_or_lui(inst), // C.ADDI16SP / C.LUI
-        0b100 => decode_c_misc_alu(inst),     // ALU operations (SRLI, SRAI, ANDI, SUB, XOR, OR, AND)
-        0b101 => decode_c_j(inst),            // C.J
-        0b110 => decode_c_beqz(inst),         // C.BEQZ
-        0b111 => decode_c_bnez(inst),         // C.BNEZ
+        0b100 => decode_c_misc_alu(inst), // ALU operations (SRLI, SRAI, ANDI, SUB, XOR, OR, AND)
+        0b101 => decode_c_j(inst),        // C.J
+        0b110 => decode_c_beqz(inst),     // C.BEQZ
+        0b111 => decode_c_bnez(inst),     // C.BNEZ
         _ => unreachable!(),
     }
 }
@@ -54,7 +57,10 @@ fn decode_c2(inst: u16, funct3: u16) -> Result<Inst, String> {
         0b010 => decode_c_lwsp(inst),    // C.LWSP
         0b100 => decode_c_misc_cr(inst), // C.JR, C.MV, C.JALR, C.ADD
         0b110 => decode_c_swsp(inst),    // C.SWSP
-        _ => Err(format!("Unknown C2 instruction: funct3={:03b}, inst=0x{:04x}", funct3, inst)),
+        _ => Err(format!(
+            "Unknown C2 instruction: funct3={:03b}, inst=0x{:04x}",
+            funct3, inst
+        )),
     }
 }
 
@@ -76,7 +82,7 @@ fn decode_c_addi4spn(inst: u16) -> Result<Inst, String> {
     let nzuimm = ((inst >> 7) & 0x30)   // nzuimm[5:4] from inst[12:11]
         | ((inst >> 1) & 0x3c0)          // nzuimm[9:6] from inst[10:7]
         | ((inst >> 4) & 0x4)            // nzuimm[2] from inst[6]
-        | ((inst >> 2) & 0x8);           // nzuimm[3] from inst[5]
+        | ((inst >> 2) & 0x8); // nzuimm[3] from inst[5]
 
     if nzuimm == 0 {
         return Err("C.ADDI4SPN with nzuimm=0 is reserved".into());
@@ -101,7 +107,7 @@ fn decode_c_lw(inst: u16) -> Result<Inst, String> {
     // uimm[2|6] = inst[6:5]
     let uimm = ((inst >> 7) & 0x38)   // uimm[5:3] from inst[12:10]
         | ((inst >> 4) & 0x4)          // uimm[2] from inst[6]
-        | ((inst << 1) & 0x40);        // uimm[6] from inst[5]
+        | ((inst << 1) & 0x40); // uimm[6] from inst[5]
 
     Ok(Inst::CLw {
         rd,
@@ -121,7 +127,7 @@ fn decode_c_sw(inst: u16) -> Result<Inst, String> {
     // Extract uimm (same as C.LW)
     let uimm = ((inst >> 7) & 0x38)   // uimm[5:3] from inst[12:10]
         | ((inst >> 4) & 0x4)          // uimm[2] from inst[6]
-        | ((inst << 1) & 0x40);        // uimm[6] from inst[5]
+        | ((inst << 1) & 0x40); // uimm[6] from inst[5]
 
     Ok(Inst::CSw {
         rs1,
@@ -141,10 +147,7 @@ fn decode_c_addi_or_nop(inst: u16) -> Result<Inst, String> {
     }
 
     // Extract immediate: imm[5] | imm[4:0]
-    let imm = sign_extend(
-        ((inst >> 7) & 0x20) | ((inst >> 2) & 0x1f),
-        6
-    );
+    let imm = sign_extend(((inst >> 7) & 0x20) | ((inst >> 2) & 0x1f), 6);
 
     Ok(Inst::CAddi {
         rd: Gpr::new(rd),
@@ -169,10 +172,7 @@ fn decode_c_li(inst: u16) -> Result<Inst, String> {
     }
 
     // Extract immediate: imm[5] | imm[4:0]
-    let imm = sign_extend(
-        ((inst >> 7) & 0x20) | ((inst >> 2) & 0x1f),
-        6
-    );
+    let imm = sign_extend(((inst >> 7) & 0x20) | ((inst >> 2) & 0x1f), 6);
 
     Ok(Inst::CLi {
         rd: Gpr::new(rd),
@@ -194,8 +194,8 @@ fn decode_c_addi16sp_or_lui(inst: u16) -> Result<Inst, String> {
                 | ((inst >> 2) & 0x10)   // nzimm[4] from inst[6]
                 | ((inst << 1) & 0x40)   // nzimm[6] from inst[5]
                 | ((inst << 4) & 0x180)  // nzimm[8:7] from inst[4:3]
-                | ((inst << 3) & 0x20),  // nzimm[5] from inst[2]
-            10
+                | ((inst << 3) & 0x20), // nzimm[5] from inst[2]
+            10,
         );
 
         if nzimm == 0 {
@@ -212,10 +212,7 @@ fn decode_c_addi16sp_or_lui(inst: u16) -> Result<Inst, String> {
     // C.LUI: rd = nzimm << 12
     // nzimm[17] = inst[12]
     // nzimm[16:12] = inst[6:2]
-    let nzimm = sign_extend(
-        ((inst >> 7) & 0x20) | ((inst >> 2) & 0x1f),
-        6
-    );
+    let nzimm = sign_extend(((inst >> 7) & 0x20) | ((inst >> 2) & 0x1f), 6);
 
     if nzimm == 0 {
         return Err("C.LUI with nzimm=0 is reserved".into());
@@ -256,10 +253,7 @@ fn decode_c_misc_alu(inst: u16) -> Result<Inst, String> {
         }
         0b10 => {
             // C.ANDI: rd' = rd' & imm
-            let imm = sign_extend(
-                ((inst >> 7) & 0x20) | ((inst >> 2) & 0x1f),
-                6
-            );
+            let imm = sign_extend(((inst >> 7) & 0x20) | ((inst >> 2) & 0x1f), 6);
             Ok(Inst::CAndi { rd, imm })
         }
         0b11 => {
@@ -273,7 +267,10 @@ fn decode_c_misc_alu(inst: u16) -> Result<Inst, String> {
                 (0b100011, 0b01) => Ok(Inst::CXor { rd, rs }),
                 (0b100011, 0b10) => Ok(Inst::COr { rd, rs }),
                 (0b100011, 0b11) => Ok(Inst::CAnd { rd, rs }),
-                _ => Err(format!("Unknown C.MISC_ALU instruction: funct6={:06b}, inst=0x{:04x}", funct6, inst)),
+                _ => Err(format!(
+                    "Unknown C.MISC_ALU instruction: funct6={:06b}, inst=0x{:04x}",
+                    funct6, inst
+                )),
             }
         }
         _ => unreachable!(),
@@ -336,7 +333,7 @@ fn decode_c_lwsp(inst: u16) -> Result<Inst, String> {
     // Extract uimm: uimm[5] = inst[12], uimm[4:2] = inst[6:4], uimm[7:6] = inst[3:2]
     let uimm = ((inst >> 7) & 0x20)   // uimm[5] from inst[12]
         | ((inst >> 2) & 0x1c)         // uimm[4:2] from inst[6:4]
-        | ((inst << 4) & 0xc0);        // uimm[7:6] from inst[3:2]
+        | ((inst << 4) & 0xc0); // uimm[7:6] from inst[3:2]
 
     Ok(Inst::CLwsp {
         rd: Gpr::new(rd),
@@ -382,7 +379,10 @@ fn decode_c_misc_cr(inst: u16) -> Result<Inst, String> {
                 rs: Gpr::new(rs2),
             })
         }
-        _ => Err(format!("Unknown C.MISC_CR instruction: funct4={:04b}, rd_rs1={}, rs2={}, inst=0x{:04x}", funct4, rd_rs1, rs2, inst)),
+        _ => Err(format!(
+            "Unknown C.MISC_CR instruction: funct4={:04b}, rd_rs1={}, rs2={}, inst=0x{:04x}",
+            funct4, rd_rs1, rs2, inst
+        )),
     }
 }
 
@@ -393,7 +393,7 @@ fn decode_c_swsp(inst: u16) -> Result<Inst, String> {
 
     // Extract uimm: uimm[5:2] = inst[12:9], uimm[7:6] = inst[8:7]
     let uimm = ((inst >> 7) & 0x3c)   // uimm[5:2] from inst[12:9]
-        | ((inst >> 1) & 0xc0);        // uimm[7:6] from inst[8:7]
+        | ((inst >> 1) & 0xc0); // uimm[7:6] from inst[8:7]
 
     Ok(Inst::CSwsp {
         rs: Gpr::new(rs2),
@@ -416,7 +416,7 @@ fn sign_extend(value: u16, bits: u8) -> i32 {
     let mask = (1 << bits) - 1;
     let value = (value & mask) as i32;
 
-    if (value & sign_bit as i32) != 0 {
+    if (value & sign_bit) != 0 {
         value | (!(mask as i32))
     } else {
         value
@@ -433,7 +433,7 @@ fn decode_cj_offset(inst: u16) -> i32 {
         | ((inst >> 1) & 0x40)            // offset[6] from inst[7]
         | ((inst << 1) & 0x80)            // offset[7] from inst[6]
         | ((inst >> 2) & 0xe)             // offset[3:1] from inst[5:3]
-        | ((inst << 3) & 0x20);           // offset[5] from inst[2]
+        | ((inst << 3) & 0x20); // offset[5] from inst[2]
 
     sign_extend(offset, 12)
 }
@@ -445,7 +445,7 @@ fn decode_cb_offset(inst: u16) -> i32 {
         | ((inst >> 7) & 0x18)            // offset[4:3] from inst[11:10]
         | ((inst << 1) & 0xc0)            // offset[7:6] from inst[6:5]
         | ((inst >> 2) & 0x6)             // offset[2:1] from inst[4:3]
-        | ((inst << 3) & 0x20);           // offset[5] from inst[2]
+        | ((inst << 3) & 0x20); // offset[5] from inst[2]
 
     sign_extend(offset, 9)
 }
@@ -515,4 +515,3 @@ mod tests {
         }
     }
 }
-

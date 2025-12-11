@@ -1248,7 +1248,7 @@ pub fn execute_instruction(
             let val1 = read_reg(regs, rs1);
             let val2 = read_reg(regs, rs2);
             let rd_old = read_reg(regs, rd);
-            let bit_pos = ((val2 as u32) & 0x1f) as u32; // Only use bottom 5 bits
+            let bit_pos = (val2 as u32) & 0x1f; // Only use bottom 5 bits
             let mask = !(1u32 << bit_pos);
             let result = ((val1 as u32) & mask) as i32;
             if rd.num() != 0 {
@@ -1270,7 +1270,7 @@ pub fn execute_instruction(
             let val1 = read_reg(regs, rs1);
             let val2 = read_reg(regs, rs2);
             let rd_old = read_reg(regs, rd);
-            let bit_pos = ((val2 as u32) & 0x1f) as u32; // Only use bottom 5 bits
+            let bit_pos = (val2 as u32) & 0x1f; // Only use bottom 5 bits
             let mask = 1u32 << bit_pos;
             let result = ((val1 as u32) | mask) as i32;
             if rd.num() != 0 {
@@ -1292,7 +1292,7 @@ pub fn execute_instruction(
             let val1 = read_reg(regs, rs1);
             let val2 = read_reg(regs, rs2);
             let rd_old = read_reg(regs, rd);
-            let bit_pos = ((val2 as u32) & 0x1f) as u32; // Only use bottom 5 bits
+            let bit_pos = (val2 as u32) & 0x1f; // Only use bottom 5 bits
             let mask = 1u32 << bit_pos;
             let result = ((val1 as u32) ^ mask) as i32;
             if rd.num() != 0 {
@@ -1314,7 +1314,7 @@ pub fn execute_instruction(
             let val1 = read_reg(regs, rs1);
             let val2 = read_reg(regs, rs2);
             let rd_old = read_reg(regs, rd);
-            let bit_pos = ((val2 as u32) & 0x1f) as u32; // Only use bottom 5 bits
+            let bit_pos = (val2 as u32) & 0x1f; // Only use bottom 5 bits
             let result = (((val1 as u32) >> bit_pos) & 1) as i32;
             if rd.num() != 0 {
                 regs[rd.num() as usize] = result;
@@ -1490,7 +1490,7 @@ pub fn execute_instruction(
             let val1 = read_reg(regs, rs1);
             let val2 = read_reg(regs, rs2);
             let rd_old = read_reg(regs, rd);
-            let shift_amount = ((val2 as u32) & 0x1f) as u32; // Only use bottom 5 bits
+            let shift_amount = (val2 as u32) & 0x1f; // Only use bottom 5 bits
             let val_u = val1 as u32;
             let result = (val_u.rotate_left(shift_amount)) as i32;
             if rd.num() != 0 {
@@ -1512,7 +1512,7 @@ pub fn execute_instruction(
             let val1 = read_reg(regs, rs1);
             let val2 = read_reg(regs, rs2);
             let rd_old = read_reg(regs, rd);
-            let shift_amount = ((val2 as u32) & 0x1f) as u32; // Only use bottom 5 bits
+            let shift_amount = (val2 as u32) & 0x1f; // Only use bottom 5 bits
             let val_u = val1 as u32;
             let result = (val_u.rotate_right(shift_amount)) as i32;
             if rd.num() != 0 {
