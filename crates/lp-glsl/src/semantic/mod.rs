@@ -1,26 +1,25 @@
-use glsl::syntax::TranslationUnit;
 use crate::error::GlslError;
+use glsl::syntax::TranslationUnit;
 use passes::SemanticPass;
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-
 #[cfg(feature = "std")]
-use std::string::String;
+use std::vec::Vec;
+
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
+#[cfg(feature = "std")]
+use std::string::String;
 
-
-pub mod scope;
-pub mod types;
-pub mod type_check;
 pub mod builtins;
 pub mod functions;
-pub mod validator;
-pub mod type_resolver;
 pub mod passes;
+pub mod scope;
+pub mod type_check;
+pub mod type_resolver;
+pub mod types;
+pub mod validator;
 
 /// Name of the main entry point function in GLSL shaders
 pub const MAIN_FUNCTION_NAME: &str = "main";
@@ -50,31 +49,35 @@ impl SemanticAnalyzer {
             registry: functions::FunctionRegistry::new(),
         }
     }
-    
-    pub fn analyze(&mut self, shader: &TranslationUnit, source: &str) -> Result<TypedShader, GlslError> {
+
+    pub fn analyze(
+        &mut self,
+        shader: &TranslationUnit,
+        source: &str,
+    ) -> Result<TypedShader, GlslError> {
         // Pass 1: Collect function signatures
         let mut registry_pass = passes::function_registry::FunctionRegistryPass::new();
         registry_pass.run(shader, source)?;
         let registry = registry_pass.into_registry();
-        
+
         // Pass 2: Extract function bodies
         let mut extraction_pass = passes::function_extraction::FunctionExtractionPass::new();
         extraction_pass.run(shader, source)?;
         let (main_func, user_functions) = extraction_pass.into_results();
-        
+
         // Pass 3: Validate
         let main_function = main_func.ok_or_else(|| GlslError::no_main_function())?;
-        
+
         let typed_shader = TypedShader {
             main_function,
             user_functions,
             function_registry: registry,
         };
-        
+
         // Pass 3 (continued): Validate (using reference to registry from typed_shader)
         let mut validation_pass = passes::validation::ValidationPass;
         validation_pass.validate(&typed_shader, source)?;
-        
+
         Ok(typed_shader)
     }
 }
@@ -92,7 +95,9 @@ pub fn analyze(shader: &TranslationUnit) -> Result<TypedShader, GlslError> {
 
 /// Analyze GLSL shader with source text for better error messages
 /// This function maintains backward compatibility with the old API
-pub fn analyze_with_source(shader: &TranslationUnit, source: &str) -> Result<TypedShader, GlslError> {
+pub fn analyze_with_source(
+    shader: &TranslationUnit,
+    source: &str,
+) -> Result<TypedShader, GlslError> {
     SemanticAnalyzer::new().analyze(shader, source)
 }
-

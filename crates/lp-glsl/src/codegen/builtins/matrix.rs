@@ -1,8 +1,8 @@
 //! Matrix built-in functions
 
 use crate::codegen::context::CodegenContext;
-use crate::semantic::types::Type;
 use crate::error::{ErrorCode, GlslError};
+use crate::semantic::types::Type;
 use cranelift_codegen::ir::{InstBuilder, Value};
 
 #[cfg(not(feature = "std"))]
@@ -18,12 +18,18 @@ use std::format;
 #[allow(non_snake_case)]
 impl<'a> CodegenContext<'a> {
     /// Component-wise matrix multiply: result[i][j] = x[i][j] * y[i][j]
-    pub fn builtin_matrixCompMult(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+    pub fn builtin_matrixCompMult(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
         let (y_vals, y_ty) = &args[1];
 
         if x_ty != y_ty || !x_ty.is_matrix() {
-            return Err(GlslError::new(ErrorCode::E0104, "matrixCompMult() requires two matrices of the same type"));
+            return Err(GlslError::new(
+                ErrorCode::E0104,
+                "matrixCompMult() requires two matrices of the same type",
+            ));
         }
 
         let mut result_vals = Vec::new();
@@ -36,12 +42,18 @@ impl<'a> CodegenContext<'a> {
 
     /// Outer product: vec1 × vec2 → matrix
     /// For vec3 × vec3, returns mat3 where result[i][j] = vec1[i] * vec2[j]
-    pub fn builtin_outerProduct(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+    pub fn builtin_outerProduct(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (vec1_vals, vec1_ty) = &args[0];
         let (vec2_vals, vec2_ty) = &args[1];
 
         if !vec1_ty.is_vector() || !vec2_ty.is_vector() {
-            return Err(GlslError::new(ErrorCode::E0104, "outerProduct() requires two vectors"));
+            return Err(GlslError::new(
+                ErrorCode::E0104,
+                "outerProduct() requires two vectors",
+            ));
         }
 
         let vec1_size = vec1_vals.len();
@@ -52,8 +64,15 @@ impl<'a> CodegenContext<'a> {
             (2, 2) => Type::Mat2,
             (3, 3) => Type::Mat3,
             (4, 4) => Type::Mat4,
-            _ => return Err(GlslError::new(ErrorCode::E0104, 
-                format!("outerProduct() requires matching vector sizes (got {} and {})", vec1_size, vec2_size))),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0104,
+                    format!(
+                        "outerProduct() requires matching vector sizes (got {} and {})",
+                        vec1_size, vec2_size
+                    ),
+                ));
+            }
         };
 
         // Compute outer product: result[i][j] = vec1[i] * vec2[j]
@@ -70,11 +89,17 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// Transpose matrix: swap rows and columns
-    pub fn builtin_transpose(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+    pub fn builtin_transpose(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (m_vals, m_ty) = &args[0];
 
         if !m_ty.is_matrix() {
-            return Err(GlslError::new(ErrorCode::E0104, "transpose() requires a matrix"));
+            return Err(GlslError::new(
+                ErrorCode::E0104,
+                "transpose() requires a matrix",
+            ));
         }
 
         let (rows, cols) = m_ty.matrix_dims().unwrap();
@@ -85,8 +110,10 @@ impl<'a> CodegenContext<'a> {
         // m[col][row] = m_vals[row * cols + col] (since m is stored column-major)
         // So: result_vals[result_col * rows + result_row] = m_vals[result_row * cols + result_col]
         let mut result_vals = Vec::new();
-        for result_col in 0..rows {  // Transposed matrix has rows columns
-            for result_row in 0..cols {  // Transposed matrix has cols rows
+        for result_col in 0..rows {
+            // Transposed matrix has rows columns
+            for result_row in 0..cols {
+                // Transposed matrix has cols rows
                 // result[result_row][result_col] = m[result_col][result_row]
                 // m[result_col][result_row] = m_vals[result_row * cols + result_col]
                 let old_idx = result_row * cols + result_col;
@@ -99,22 +126,29 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// Compute matrix determinant
-    pub fn builtin_determinant(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+    pub fn builtin_determinant(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (m_vals, m_ty) = &args[0];
 
         if !m_ty.is_matrix() {
-            return Err(GlslError::new(ErrorCode::E0104, "determinant() requires a matrix"));
+            return Err(GlslError::new(
+                ErrorCode::E0104,
+                "determinant() requires a matrix",
+            ));
         }
 
         let (rows, cols) = m_ty.matrix_dims().unwrap();
         if rows != cols {
-            return Err(GlslError::new(ErrorCode::E0104, "determinant() only supported for square matrices"));
+            return Err(GlslError::new(
+                ErrorCode::E0104,
+                "determinant() only supported for square matrices",
+            ));
         }
 
         // Helper to get element at (row, col) from column-major storage
-        let get = |row: usize, col: usize| -> Value {
-            m_vals[col * rows + row]
-        };
+        let get = |row: usize, col: usize| -> Value { m_vals[col * rows + row] };
 
         let det = match rows {
             2 => {
@@ -164,31 +198,49 @@ impl<'a> CodegenContext<'a> {
                 // Cofactor expansion for 4x4 (using first row)
                 // This is complex, so we'll use a simpler approach: compute via minors
                 // For now, return an error and implement later if needed
-                return Err(GlslError::new(ErrorCode::E0400, "4x4 determinant not yet implemented"));
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "4x4 determinant not yet implemented",
+                ));
             }
-            _ => return Err(GlslError::new(ErrorCode::E0104, format!("determinant() not supported for {}-dimensional matrices", rows))),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0104,
+                    format!(
+                        "determinant() not supported for {}-dimensional matrices",
+                        rows
+                    ),
+                ));
+            }
         };
 
         Ok((vec![det], Type::Float))
     }
 
     /// Compute matrix inverse
-    pub fn builtin_inverse(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+    pub fn builtin_inverse(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (m_vals, m_ty) = &args[0];
 
         if !m_ty.is_matrix() {
-            return Err(GlslError::new(ErrorCode::E0104, "inverse() requires a matrix"));
+            return Err(GlslError::new(
+                ErrorCode::E0104,
+                "inverse() requires a matrix",
+            ));
         }
 
         let (rows, cols) = m_ty.matrix_dims().unwrap();
         if rows != cols {
-            return Err(GlslError::new(ErrorCode::E0104, "inverse() only supported for square matrices"));
+            return Err(GlslError::new(
+                ErrorCode::E0104,
+                "inverse() only supported for square matrices",
+            ));
         }
 
         // Helper to get element at (row, col) from column-major storage
-        let get = |row: usize, col: usize| -> Value {
-            m_vals[col * rows + row]
-        };
+        let get = |row: usize, col: usize| -> Value { m_vals[col * rows + row] };
 
         match rows {
             2 => {
@@ -220,26 +272,33 @@ impl<'a> CodegenContext<'a> {
                 let minus_b = self.builder.ins().fsub(zero, b);
 
                 let mut result_vals = Vec::new();
-                result_vals.push(self.builder.ins().fmul(d, inv_det));  // result[0][0]
-                result_vals.push(self.builder.ins().fmul(minus_c, inv_det));  // result[1][0]
-                result_vals.push(self.builder.ins().fmul(minus_b, inv_det));  // result[0][1]
-                result_vals.push(self.builder.ins().fmul(a, inv_det));  // result[1][1]
+                result_vals.push(self.builder.ins().fmul(d, inv_det)); // result[0][0]
+                result_vals.push(self.builder.ins().fmul(minus_c, inv_det)); // result[1][0]
+                result_vals.push(self.builder.ins().fmul(minus_b, inv_det)); // result[0][1]
+                result_vals.push(self.builder.ins().fmul(a, inv_det)); // result[1][1]
 
                 Ok((result_vals, m_ty.clone()))
             }
             3 => {
                 // For 3x3, use adjugate/determinant method
                 // This is complex, so for now return error
-                return Err(GlslError::new(ErrorCode::E0400, "3x3 matrix inverse not yet implemented"));
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "3x3 matrix inverse not yet implemented",
+                ));
             }
             4 => {
-                return Err(GlslError::new(ErrorCode::E0400, "4x4 matrix inverse not yet implemented"));
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "4x4 matrix inverse not yet implemented",
+                ));
             }
-            _ => return Err(GlslError::new(ErrorCode::E0104, format!("inverse() not supported for {}-dimensional matrices", rows))),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0104,
+                    format!("inverse() not supported for {}-dimensional matrices", rows),
+                ));
+            }
         }
     }
 }
-
-
-
-
