@@ -39,5 +39,5 @@ serde_derive = { workspace = true }
 cranelift.workspace = true
 smallvec = { workspace = true }
 pulley-interpreter = { workspace = true, features = ["disas", "std", "interp"] }
-lp-riscv-tools = { path = "../../crates/lp-riscv-tools" }
+lp-riscv-tools = { path = "../../lightplayer/crates/lp-riscv-tools" }
 libm = { workspace = true }
