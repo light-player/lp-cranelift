@@ -1,13 +1,16 @@
 mod common;
 
-use lp_glsl::{Compiler, FixedPointFormat};
+use lp_glsl::{DecimalFormat, GlslOptions, RunMode, glsl_jit};
 
 /// Compile and execute GLSL with fixed-point transformation that returns i32
 fn run_fixed32_test(source: &str) -> i32 {
-    let mut compiler = Compiler::new();
-    compiler.set_fixed_point_format(Some(FixedPointFormat::Fixed16x16));
-    let func = compiler.compile_int(source).expect("Compilation failed");
-    func()
+    let options = GlslOptions {
+        run_mode: RunMode::HostJit,
+        decimal_format: DecimalFormat::Fixed32,
+    };
+    let mut executable = glsl_jit(source, options).expect("Compilation failed");
+    let result_f32 = executable.call_f32("main", &[]).expect("Execution failed");
+    float_to_fixed32(result_f32)
 }
 
 /// Convert float to 16.16 fixed-point for comparison
@@ -458,8 +461,10 @@ fn test_neg_operation() {
 #[test]
 #[ignore]
 fn test_vec2_fixed32() {
-    let mut compiler = Compiler::new();
-    compiler.set_fixed_point_format(Some(FixedPointFormat::Fixed16x16));
+    let options = GlslOptions {
+        run_mode: RunMode::HostJit,
+        decimal_format: DecimalFormat::Fixed32,
+    };
     let shader = r#"
         vec2 main() {
             vec2 a = vec2(2.5, 3.5);
@@ -467,8 +472,12 @@ fn test_vec2_fixed32() {
             return a + b;
         }
     "#;
-    let func = compiler.compile_vec2(shader).expect("Compilation failed");
-    let (x, y) = func();
+    let mut executable = glsl_jit(shader, options).expect("Compilation failed");
+    let result = executable
+        .call_vec("main", &[], 2)
+        .expect("Execution failed");
+    let x = result[0];
+    let y = result[1];
 
     // vec2(2.5, 3.5) + vec2(1.0, 1.5) = vec2(3.5, 5.0)
     assert!((x - 3.5).abs() < 0.001, "Expected x ~3.5, got {}", x);
@@ -478,8 +487,10 @@ fn test_vec2_fixed32() {
 #[test]
 #[ignore]
 fn test_vec3_fixed32() {
-    let mut compiler = Compiler::new();
-    compiler.set_fixed_point_format(Some(FixedPointFormat::Fixed16x16));
+    let options = GlslOptions {
+        run_mode: RunMode::HostJit,
+        decimal_format: DecimalFormat::Fixed32,
+    };
     let shader = r#"
         vec3 main() {
             vec3 a = vec3(1.0, 2.0, 3.0);
@@ -487,8 +498,13 @@ fn test_vec3_fixed32() {
             return a + b;
         }
     "#;
-    let func = compiler.compile_vec3(shader).expect("Compilation failed");
-    let (x, y, z) = func();
+    let mut executable = glsl_jit(shader, options).expect("Compilation failed");
+    let result = executable
+        .call_vec("main", &[], 3)
+        .expect("Execution failed");
+    let x = result[0];
+    let y = result[1];
+    let z = result[2];
 
     // vec3(1.0, 2.0, 3.0) + vec3(0.5, 1.5, 2.5) = vec3(1.5, 3.5, 5.5)
     assert!((x - 1.5).abs() < 0.001, "Expected x ~1.5, got {}", x);
@@ -499,8 +515,10 @@ fn test_vec3_fixed32() {
 #[test]
 #[ignore]
 fn test_vec4_fixed32() {
-    let mut compiler = Compiler::new();
-    compiler.set_fixed_point_format(Some(FixedPointFormat::Fixed16x16));
+    let options = GlslOptions {
+        run_mode: RunMode::HostJit,
+        decimal_format: DecimalFormat::Fixed32,
+    };
     let shader = r#"
         vec4 main() {
             vec4 a = vec4(1.0, 2.0, 3.0, 4.0);
@@ -508,8 +526,14 @@ fn test_vec4_fixed32() {
             return a + b;
         }
     "#;
-    let func = compiler.compile_vec4(shader).expect("Compilation failed");
-    let (x, y, z, w) = func();
+    let mut executable = glsl_jit(shader, options).expect("Compilation failed");
+    let result = executable
+        .call_vec("main", &[], 4)
+        .expect("Execution failed");
+    let x = result[0];
+    let y = result[1];
+    let z = result[2];
+    let w = result[3];
 
     // vec4(1.0, 2.0, 3.0, 4.0) + vec4(0.5, 1.5, 2.5, 3.5) = vec4(1.5, 3.5, 5.5, 7.5)
     assert!((x - 1.5).abs() < 0.001, "Expected x ~1.5, got {}", x);
@@ -521,8 +545,10 @@ fn test_vec4_fixed32() {
 #[test]
 #[ignore]
 fn test_vec2_multiplication_fixed32() {
-    let mut compiler = Compiler::new();
-    compiler.set_fixed_point_format(Some(FixedPointFormat::Fixed16x16));
+    let options = GlslOptions {
+        run_mode: RunMode::HostJit,
+        decimal_format: DecimalFormat::Fixed32,
+    };
     let shader = r#"
         vec2 main() {
             vec2 a = vec2(2.0, 3.0);
@@ -530,8 +556,12 @@ fn test_vec2_multiplication_fixed32() {
             return a * b;
         }
     "#;
-    let func = compiler.compile_vec2(shader).expect("Compilation failed");
-    let (x, y) = func();
+    let mut executable = glsl_jit(shader, options).expect("Compilation failed");
+    let result = executable
+        .call_vec("main", &[], 2)
+        .expect("Execution failed");
+    let x = result[0];
+    let y = result[1];
 
     // vec2(2.0, 3.0) * vec2(1.5, 2.5) = vec2(3.0, 7.5)
     assert!((x - 3.0).abs() < 0.01, "Expected x ~3.0, got {}", x);
@@ -541,8 +571,10 @@ fn test_vec2_multiplication_fixed32() {
 #[test]
 #[ignore]
 fn test_vec3_division_fixed32() {
-    let mut compiler = Compiler::new();
-    compiler.set_fixed_point_format(Some(FixedPointFormat::Fixed16x16));
+    let options = GlslOptions {
+        run_mode: RunMode::HostJit,
+        decimal_format: DecimalFormat::Fixed32,
+    };
     let shader = r#"
         vec3 main() {
             vec3 a = vec3(10.0, 20.0, 30.0);
@@ -550,8 +582,13 @@ fn test_vec3_division_fixed32() {
             return a / b;
         }
     "#;
-    let func = compiler.compile_vec3(shader).expect("Compilation failed");
-    let (x, y, z) = func();
+    let mut executable = glsl_jit(shader, options).expect("Compilation failed");
+    let result = executable
+        .call_vec("main", &[], 3)
+        .expect("Execution failed");
+    let x = result[0];
+    let y = result[1];
+    let z = result[2];
 
     // vec3(10.0, 20.0, 30.0) / vec3(2.0, 4.0, 5.0) = vec3(5.0, 5.0, 6.0)
     assert!((x - 5.0).abs() < 0.01, "Expected x ~5.0, got {}", x);
@@ -562,8 +599,10 @@ fn test_vec3_division_fixed32() {
 #[test]
 #[ignore]
 fn test_vec4_complex_expression_fixed32() {
-    let mut compiler = Compiler::new();
-    compiler.set_fixed_point_format(Some(FixedPointFormat::Fixed16x16));
+    let options = GlslOptions {
+        run_mode: RunMode::HostJit,
+        decimal_format: DecimalFormat::Fixed32,
+    };
     let shader = r#"
         vec4 main() {
             vec4 a = vec4(1.0, 2.0, 3.0, 4.0);
@@ -571,8 +610,14 @@ fn test_vec4_complex_expression_fixed32() {
             return (a + b) * 2.0;
         }
     "#;
-    let func = compiler.compile_vec4(shader).expect("Compilation failed");
-    let (x, y, z, w) = func();
+    let mut executable = glsl_jit(shader, options).expect("Compilation failed");
+    let result = executable
+        .call_vec("main", &[], 4)
+        .expect("Execution failed");
+    let x = result[0];
+    let y = result[1];
+    let z = result[2];
+    let w = result[3];
 
     // (vec4(1.0, 2.0, 3.0, 4.0) + vec4(0.5, 1.0, 1.5, 2.0)) * 2.0 = vec4(3.0, 6.0, 9.0, 12.0)
     assert!((x - 3.0).abs() < 0.01, "Expected x ~3.0, got {}", x);

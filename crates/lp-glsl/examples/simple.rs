@@ -1,9 +1,12 @@
 //! Simple example of compiling and executing GLSL code
 
-use lp_glsl::Compiler;
+use lp_glsl::{DecimalFormat, GlslOptions, RunMode, glsl_jit};
 
 fn main() {
-    let mut compiler = Compiler::new();
+    let options = GlslOptions {
+        run_mode: RunMode::HostJit,
+        decimal_format: DecimalFormat::Float,
+    };
 
     // Example 1: Integer arithmetic
     let shader1 = r#"
@@ -14,8 +17,8 @@ fn main() {
         }
     "#;
 
-    let func1 = compiler.compile_int(shader1).unwrap();
-    let result1 = func1();
+    let mut executable1 = glsl_jit(shader1, options.clone()).unwrap();
+    let result1 = executable1.call_i32("main", &[]).unwrap();
     println!("Example 1 - Integer arithmetic: {} (expected: 42)", result1);
     assert_eq!(result1, 42);
 
@@ -28,13 +31,13 @@ fn main() {
         }
     "#;
 
-    let func2 = compiler.compile_bool(shader2).unwrap();
-    let result2 = func2();
+    let mut executable2 = glsl_jit(shader2, options.clone()).unwrap();
+    let result2 = executable2.call_bool("main", &[]).unwrap();
     println!(
-        "Example 2 - Boolean comparison: {} (expected: 1 for true)",
+        "Example 2 - Boolean comparison: {} (expected: true)",
         result2
     );
-    assert_eq!(result2, 1);
+    assert_eq!(result2, true);
 
     // Example 3: Complex expression
     let shader3 = r#"
@@ -46,14 +49,10 @@ fn main() {
         }
     "#;
 
-    let func3 = compiler.compile_int(shader3).unwrap();
-    let result3 = func3();
-    println!(
-        "Example 3 - Complex expression: {} (expected: 12)",
-        result3
-    );
+    let mut executable3 = glsl_jit(shader3, options).unwrap();
+    let result3 = executable3.call_i32("main", &[]).unwrap();
+    println!("Example 3 - Complex expression: {} (expected: 12)", result3);
     assert_eq!(result3, 12); // (5 + 3) * 2 - 4 = 12
 
     println!("\nAll examples passed!");
 }
-
