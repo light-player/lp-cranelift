@@ -262,7 +262,7 @@ impl GlslCompiler {
         }
 
         // Generate default return if needed
-        crate::jit::JIT::generate_default_return(&mut codegen_ctx, &func.return_type)?;
+        crate::codegen::helpers::generate_default_return(&mut codegen_ctx, &func.return_type)?;
 
         // Finalize
         codegen_ctx.builder.finalize();
@@ -326,7 +326,7 @@ impl GlslCompiler {
         }
 
         // Generate default return if needed
-        crate::jit::JIT::generate_default_return(&mut codegen_ctx, &main_func.return_type)?;
+        crate::codegen::helpers::generate_default_return(&mut codegen_ctx, &main_func.return_type)?;
 
         // Finalize
         codegen_ctx.builder.finalize();

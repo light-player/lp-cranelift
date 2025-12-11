@@ -13,6 +13,63 @@ use alloc::{format, string::String, vec::Vec};
 #[cfg(feature = "std")]
 use std::{format, string::String, vec::Vec};
 
+/// Trait for executing GLSL functions with various return types
+/// Abstracts away JIT vs Emulator implementations
+///
+/// **Current State**: Supports basic function calling with in-parameters only.
+/// Future extensions will add:
+/// - Uniform variables (`set_uniform`, `get_uniform`, `list_uniforms`)
+/// - Texture/sampler binding (`bind_texture`, `bind_sampler`)
+/// - Built-in variables (`set_builtin`, e.g., `gl_Position`, `gl_FragCoord`)
+/// - `out` and `inout` parameters
+pub trait GlslExecutable {
+    /// Call a function that returns void
+    fn call_void(&mut self, name: &str, args: &[GlslValue]) -> Result<(), GlslError>;
+
+    /// Call a function that returns i32
+    fn call_i32(&mut self, name: &str, args: &[GlslValue]) -> Result<i32, GlslError>;
+
+    /// Call a function that returns f32
+    fn call_f32(&mut self, name: &str, args: &[GlslValue]) -> Result<f32, GlslError>;
+
+    /// Call a function that returns bool
+    fn call_bool(&mut self, name: &str, args: &[GlslValue]) -> Result<bool, GlslError>;
+
+    /// Call a function that returns a vector (vec2, vec3, or vec4)
+    /// `dim` is the dimension (2, 3, or 4)
+    fn call_vec(
+        &mut self,
+        name: &str,
+        args: &[GlslValue],
+        dim: usize,
+    ) -> Result<Vec<f32>, GlslError>;
+
+    /// Call a function that returns a matrix
+    /// `rows` and `cols` specify the matrix dimensions (e.g., 2x2, 3x3, 4x4)
+    /// Returns a flat vector in column-major order
+    fn call_mat(
+        &mut self,
+        name: &str,
+        args: &[GlslValue],
+        rows: usize,
+        cols: usize,
+    ) -> Result<Vec<f32>, GlslError>;
+
+    /// Get the signature of a function by name
+    fn get_function_signature(&self, name: &str) -> Option<&FunctionSignature>;
+
+    /// List all available function names
+    fn list_functions(&self) -> Vec<String>;
+
+    // TODO: Future extensions:
+    // fn set_uniform(&mut self, name: &str, value: GlslValue) -> Result<(), GlslError>;
+    // fn get_uniform(&self, name: &str) -> Option<&GlslValue>;
+    // fn list_uniforms(&self) -> Vec<String>;
+    // fn bind_texture(&mut self, unit: u32, texture: Texture) -> Result<(), GlslError>;
+    // fn bind_sampler(&mut self, unit: u32, sampler: Sampler) -> Result<(), GlslError>;
+    // fn set_builtin(&mut self, name: &str, value: GlslValue) -> Result<(), GlslError>;
+}
+
 /// Execution mode for GLSL compilation
 #[derive(Debug, Clone)]
 pub enum RunMode {
@@ -112,63 +169,6 @@ impl GlslOptions {
             decimal_format: DecimalFormat::Fixed32,
         }
     }
-}
-
-/// Trait for executing GLSL functions with various return types
-/// Abstracts away JIT vs Emulator implementations
-///
-/// **Current State**: Supports basic function calling with in-parameters only.
-/// Future extensions will add:
-/// - Uniform variables (`set_uniform`, `get_uniform`, `list_uniforms`)
-/// - Texture/sampler binding (`bind_texture`, `bind_sampler`)
-/// - Built-in variables (`set_builtin`, e.g., `gl_Position`, `gl_FragCoord`)
-/// - `out` and `inout` parameters
-pub trait GlslExecutable {
-    /// Call a function that returns void
-    fn call_void(&mut self, name: &str, args: &[GlslValue]) -> Result<(), GlslError>;
-
-    /// Call a function that returns i32
-    fn call_i32(&mut self, name: &str, args: &[GlslValue]) -> Result<i32, GlslError>;
-
-    /// Call a function that returns f32
-    fn call_f32(&mut self, name: &str, args: &[GlslValue]) -> Result<f32, GlslError>;
-
-    /// Call a function that returns bool
-    fn call_bool(&mut self, name: &str, args: &[GlslValue]) -> Result<bool, GlslError>;
-
-    /// Call a function that returns a vector (vec2, vec3, or vec4)
-    /// `dim` is the dimension (2, 3, or 4)
-    fn call_vec(
-        &mut self,
-        name: &str,
-        args: &[GlslValue],
-        dim: usize,
-    ) -> Result<Vec<f32>, GlslError>;
-
-    /// Call a function that returns a matrix
-    /// `rows` and `cols` specify the matrix dimensions (e.g., 2x2, 3x3, 4x4)
-    /// Returns a flat vector in column-major order
-    fn call_mat(
-        &mut self,
-        name: &str,
-        args: &[GlslValue],
-        rows: usize,
-        cols: usize,
-    ) -> Result<Vec<f32>, GlslError>;
-
-    /// Get the signature of a function by name
-    fn get_function_signature(&self, name: &str) -> Option<&FunctionSignature>;
-
-    /// List all available function names
-    fn list_functions(&self) -> Vec<String>;
-
-    // TODO: Future extensions:
-    // fn set_uniform(&mut self, name: &str, value: GlslValue) -> Result<(), GlslError>;
-    // fn get_uniform(&self, name: &str) -> Option<&GlslValue>;
-    // fn list_uniforms(&self) -> Vec<String>;
-    // fn bind_texture(&mut self, unit: u32, texture: Texture) -> Result<(), GlslError>;
-    // fn bind_sampler(&mut self, unit: u32, sampler: Sampler) -> Result<(), GlslError>;
-    // fn set_builtin(&mut self, name: &str, value: GlslValue) -> Result<(), GlslError>;
 }
 
 /// GLSL value types for function arguments

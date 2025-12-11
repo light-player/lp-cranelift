@@ -283,7 +283,7 @@ pub fn compile_intrinsic_functions(
             }
 
             // Generate default return if needed
-            crate::jit::JIT::generate_default_return(&mut codegen_ctx, &user_func.return_type)?;
+            crate::codegen::helpers::generate_default_return(&mut codegen_ctx, &user_func.return_type)?;
 
             codegen_ctx.builder.finalize();
         } // codegen_ctx and builder are dropped here
