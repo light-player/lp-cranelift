@@ -6,7 +6,8 @@ use crate::transform::fixed32::types::FixedPointFormat;
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, types};
 use cranelift_frontend::FunctionBuilder;
 
-use super::{extract_unary_operand, get_first_result, map_operand, unexpected_format_error};
+use crate::ir_utils::instruction::{extract_unary_operand, get_first_result};
+use crate::ir_utils::value_map::map_operand;
 
 /// Convert FcvtFromSint instruction.
 pub(crate) fn convert_fcvt_from_sint(

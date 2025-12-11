@@ -9,7 +9,10 @@ use cranelift_codegen::ir::{
 };
 use cranelift_frontend::FunctionBuilder;
 
-use super::{extract_binary_operands, get_first_result, map_operand, unexpected_format_error};
+use crate::ir_utils::instruction::{
+    extract_binary_operands, get_first_result, unexpected_format_error,
+};
+use crate::ir_utils::value_map::map_operand;
 
 /// Convert Fcmp to icmp.
 ///

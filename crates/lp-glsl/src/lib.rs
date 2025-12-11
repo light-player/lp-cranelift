@@ -12,27 +12,30 @@ extern crate std;
 #[macro_use]
 extern crate alloc;
 
-pub mod clif_module;
+// Public modules
 pub mod codegen;
-pub mod compile;
 pub mod error;
-pub mod executable;
-#[cfg(feature = "emulator")]
-pub mod executable_emu;
-pub mod executable_jit;
 pub mod frontend;
-pub mod glsl_compiler;
 #[cfg(feature = "intrinsic-math")]
 pub mod intrinsics;
-pub mod link;
-pub mod pipeline;
 pub mod semantic;
 pub mod transform;
 
-pub use clif_module::ClifModule;
+// Private modules
+mod backend;
+mod compile;
+mod compiler;
+mod ir;
+mod ir_utils;
+
+// Re-exports
+pub use backend::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode};
+#[cfg(feature = "emulator")]
+pub use backend::GlslEmulatorModule;
+pub use backend::GlslJitModule;
+pub use compiler::{Backend, CompiledShader, CompilationPipeline, ParseResult, SemanticResult, TransformationPass};
 pub use error::{ErrorCode, GlslError, SourceLocation};
-pub use executable::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode};
-pub use pipeline::{Backend, CompiledShader, ParseResult, SemanticResult, TransformationPass};
+pub use ir::ClifModule;
 pub use transform::FixedPointFormat;
 
 // Public API functions

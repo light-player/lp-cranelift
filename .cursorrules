@@ -21,3 +21,5 @@
 # Structure: Use feature flags to gate optional components
 
 # Structure: Keep wasmtime components but gate behind features (Option 1 approach)
+
+# When organizing refer to the style guide at ./lp-docs/style.md

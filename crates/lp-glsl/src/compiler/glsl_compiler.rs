@@ -1,8 +1,8 @@
 //! GLSL compiler that compiles GLSL source to ClifModule
 
-use crate::compiler::pipeline::CompilationPipeline;
-use crate::error::GlslError;
 use crate::ir::ClifModule;
+use crate::error::GlslError;
+use crate::compiler::pipeline::CompilationPipeline;
 use crate::semantic::TypedShader;
 use cranelift_codegen::ir::Function;
 use cranelift_codegen::isa::OwnedTargetIsa;
@@ -363,7 +363,7 @@ impl Default for GlslCompiler {
 
 /// Create a minimal module for function declarations during compilation
 /// This is used to get FuncIds for cross-function calls
-pub(crate) fn create_minimal_module_for_declarations(
+pub fn create_minimal_module_for_declarations(
     isa: &dyn cranelift_codegen::isa::TargetIsa,
 ) -> Result<std::boxed::Box<dyn Module>, GlslError> {
     use crate::error::{ErrorCode, GlslError};

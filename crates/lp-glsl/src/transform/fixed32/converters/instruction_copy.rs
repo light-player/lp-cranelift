@@ -5,6 +5,7 @@
 //! Used by both the fixed-point transformation and function linking.
 
 use crate::error::{ErrorCode, GlslError};
+use crate::ir_utils::value_map::map_value;
 use cranelift_codegen::ir::{Function, Inst, InstructionData, Value, types};
 use cranelift_frontend::FunctionBuilder;
 
@@ -15,13 +16,6 @@ use std::vec::Vec;
 
 // Use hashbrown::HashMap for consistency across no_std and std builds
 use hashbrown::HashMap;
-
-/// Map a value through the value map, returning the mapped value.
-fn map_value(value_map: &HashMap<Value, Value>, old_value: Value) -> Value {
-    *value_map
-        .get(&old_value)
-        .expect("Value not found in value_map - this indicates a bug in instruction copying")
-}
 
 /// Copy a non-F32 instruction as-is (for instructions that don't need conversion).
 ///

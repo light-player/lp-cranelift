@@ -51,8 +51,3 @@ pub fn float_to_fixed16x16(f: f32) -> i32 {
     rounded
 }
 
-/// Convert fixed16x16 back to float32 (for debugging/constants).
-#[allow(dead_code)]
-pub fn fixed16x16_to_float(fixed: i32) -> f32 {
-    fixed as f32 / crate::codegen::constants::FIXED16X16_SCALE
-}

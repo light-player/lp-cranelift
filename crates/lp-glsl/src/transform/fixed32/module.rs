@@ -3,13 +3,14 @@
 //! This module provides a pure functional transformation that converts all functions
 //! in a ClifModule from float to fixed-point representation atomically.
 
-use crate::clif_module::{ClifModule, ClifModuleBuilder};
+use crate::compiler::glsl_compiler::create_minimal_module_for_declarations;
 use crate::error::{ErrorCode, GlslError};
-use crate::glsl_compiler::create_minimal_module_for_declarations;
-use crate::transform::fixed32::rewrite::{convert_signature, rewrite_function};
+use crate::ir::ClifModule;
+use crate::transform::fixed32::function::rewrite_function;
+use crate::transform::fixed32::signature::convert_signature;
 use crate::transform::fixed32::types::FixedPointFormat;
 use cranelift_codegen::ir::{FuncRef, Function, Signature};
-use cranelift_module::{FuncId, Linkage, Module};
+use cranelift_module::{Linkage, Module};
 use hashbrown::HashMap;
 
 #[cfg(not(feature = "std"))]
@@ -24,8 +25,6 @@ use std::string::String;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
 
 /// Transform a ClifModule from float to fixed-point representation
 ///

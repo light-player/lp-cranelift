@@ -6,10 +6,11 @@ use crate::transform::fixed32::types::FixedPointFormat;
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, condcodes::IntCC, types};
 use cranelift_frontend::FunctionBuilder;
 
-use super::{
-    create_max_fixed_const, create_min_fixed_const, create_zero_const, extract_binary_operands,
-    extract_unary_operand, get_first_result, map_operand,
+use crate::ir_utils::fixed_point::{
+    create_max_fixed_const, create_min_fixed_const, create_zero_const,
 };
+use crate::ir_utils::instruction::{extract_binary_operands, extract_unary_operand, get_first_result};
+use crate::ir_utils::value_map::map_operand;
 
 /// Convert Fadd to iadd.
 ///

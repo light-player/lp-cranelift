@@ -3,13 +3,11 @@
 //! This module provides internal, reusable compilation functions that can be
 //! used by different backends (JIT, emulator, etc.)
 
-use crate::clif_module::ClifModule;
+use crate::backend::executable::{DecimalFormat, GlslOptions, RunMode};
+use crate::compiler::glsl_compiler::GlslCompiler;
 use crate::error::GlslError;
-use crate::glsl_compiler::GlslCompiler;
-use crate::transform::fixed32::{FixedPointFormat, transform_module};
-
-// Re-export types from executable module to avoid circular dependency
-pub use crate::executable::{DecimalFormat, GlslOptions, RunMode};
+use crate::ir::ClifModule;
+use crate::transform::fixed32::{transform_module, FixedPointFormat};
 
 use cranelift_codegen::isa::OwnedTargetIsa;
 
@@ -81,8 +79,8 @@ pub fn compile_glsl_to_clif(source: &str, options: &GlslOptions) -> Result<ClifM
 /// Works in both std and no_std (JITModule supports no_std)
 pub fn link_glsl_for_jit(
     module: ClifModule,
-) -> Result<crate::executable::GlslJitModule, GlslError> {
-    use crate::executable_jit::GlslJitModule;
+) -> Result<crate::backend::jit::GlslJitModule, GlslError> {
+    use crate::backend::jit::GlslJitModule;
     // JITModule supports no_std, so we can use it unconditionally
     use cranelift_jit::{JITBuilder, JITModule};
     use cranelift_module::Linkage;
@@ -169,8 +167,8 @@ pub fn link_glsl_for_jit(
 pub fn link_glsl_for_emulator(
     module: ClifModule,
     emulator_options: &EmulatorOptions,
-) -> Result<crate::executable::GlslEmulatorModule, GlslError> {
-    use crate::executable_emu::GlslEmulatorModule;
+) -> Result<crate::backend::emu::GlslEmulatorModule, GlslError> {
+    use crate::backend::emu::GlslEmulatorModule;
     use cranelift_codegen::{Context, control::ControlPlane};
     use hashbrown::HashMap;
     use lp_riscv_tools::Gpr;
@@ -324,7 +322,7 @@ fn compile_clif_to_binary(module: &ClifModule) -> Result<Vec<u8>, GlslError> {
 pub fn glsl_jit(
     source: &str,
     options: GlslOptions,
-) -> Result<Box<dyn crate::executable::GlslExecutable>, GlslError> {
+) -> Result<Box<dyn crate::backend::executable::GlslExecutable>, GlslError> {
     let module = compile_glsl_to_clif(source, &options)?;
     let jit_module = link_glsl_for_jit(module)?;
     Ok(Box::new(jit_module))
@@ -336,7 +334,7 @@ pub fn glsl_jit(
 pub fn glsl_emu_riscv32(
     source: &str,
     options: GlslOptions,
-) -> Result<std::boxed::Box<dyn crate::executable::GlslExecutable>, GlslError> {
+) -> Result<std::boxed::Box<dyn crate::backend::executable::GlslExecutable>, GlslError> {
     let module = compile_glsl_to_clif(source, &options)?;
 
     let emulator_options = match &options.run_mode {

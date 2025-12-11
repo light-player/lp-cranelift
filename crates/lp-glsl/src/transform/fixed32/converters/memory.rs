@@ -6,7 +6,7 @@ use crate::transform::fixed32::types::FixedPointFormat;
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData, Value, types};
 use cranelift_frontend::FunctionBuilder;
 
-use super::helpers::map_value;
+use crate::ir_utils::value_map::map_value;
 
 /// Convert Load instruction (if it loads F32).
 pub(crate) fn convert_load(

@@ -13,8 +13,8 @@ use cranelift_codegen::ir::{
 };
 use cranelift_frontend::FunctionBuilder;
 
-use super::super::rewrite::convert_signature;
-use super::helpers::map_value;
+use super::super::signature::convert_signature;
+use crate::ir_utils::value_map::map_value;
 
 /// Map external function reference (convert signature and create new function reference).
 pub(crate) fn map_external_function(
