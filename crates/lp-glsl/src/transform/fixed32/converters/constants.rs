@@ -5,6 +5,7 @@ use crate::transform::fixed32::types::{FixedPointFormat, float_to_fixed16x16};
 
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData, Value};
 use cranelift_frontend::FunctionBuilder;
+use hashbrown::HashMap;
 
 use super::{get_first_result, unexpected_format_error};
 
@@ -13,7 +14,7 @@ pub(crate) fn convert_f32const(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut HashMap<Value, Value>,
     format: FixedPointFormat,
 ) -> Result<(), GlslError> {
     // Get the float constant value

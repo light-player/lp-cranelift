@@ -27,6 +27,11 @@ pub struct ClifModule {
     function_registry: FunctionRegistry,
     source_text: String,
     isa: OwnedTargetIsa,
+    // Store GLSL signatures for proper API extraction (return types, parameters)
+    glsl_signatures: HashMap<String, crate::semantic::functions::FunctionSignature>,
+    // Map from old FuncId (from compilation) to function name
+    // This is needed when linking to remap FuncRefs to new module's FuncIds
+    func_id_to_name: HashMap<u32, String>,
 }
 
 impl ClifModule {
@@ -70,6 +75,24 @@ impl ClifModule {
         self.isa.frontend_config()
     }
 
+    /// Get GLSL signature for a function by name
+    pub fn glsl_signature(
+        &self,
+        name: &str,
+    ) -> Option<&crate::semantic::functions::FunctionSignature> {
+        self.glsl_signatures.get(name)
+    }
+
+    /// Get function name for an old FuncId (from compilation)
+    pub fn func_id_to_name(&self, old_func_id: u32) -> Option<&String> {
+        self.func_id_to_name.get(&old_func_id)
+    }
+
+    /// Get the entire func_id_to_name mapping (for preserving during transformations)
+    pub fn func_id_to_name_map(&self) -> &HashMap<u32, String> {
+        &self.func_id_to_name
+    }
+
     /// Link all functions from this module into a Cranelift Module (JITModule, ObjectModule, etc.)
     /// Returns a mapping of function names to their FuncIds in the target module
     pub fn link_into<M: Module>(
@@ -81,7 +104,7 @@ impl ClifModule {
 
         let mut name_to_id = HashMap::new();
 
-        // Declare and define all user functions
+        // Declare all functions first to get their FuncIds
         for (name, func) in &self.user_functions {
             let func_id = module
                 .declare_function(name, Linkage::Local, &func.signature)
@@ -91,19 +114,8 @@ impl ClifModule {
                         format!("failed to declare function '{}': {}", name, e),
                     )
                 })?;
-            let mut ctx = module.make_context();
-            ctx.func = func.clone();
-            module.define_function(func_id, &mut ctx).map_err(|e| {
-                GlslError::new(
-                    ErrorCode::E0400,
-                    format!("failed to define function '{}': {}", name, e),
-                )
-            })?;
-            module.clear_context(&mut ctx);
             name_to_id.insert(name.clone(), func_id);
         }
-
-        // Declare and define main function
         let main_id = module
             .declare_function("main", main_linkage, &self.main_function.signature)
             .map_err(|e| {
@@ -112,8 +124,224 @@ impl ClifModule {
                     format!("failed to declare main function: {}", e),
                 )
             })?;
+        name_to_id.insert(String::from("main"), main_id);
+
+        // Helper function to remap FuncRefs in a function
+        fn remap_func_refs<M: Module>(
+            func: &mut cranelift_codegen::ir::Function,
+            module: &mut M,
+            func_id_to_name: &HashMap<u32, String>,
+            name_to_id: &HashMap<String, FuncId>,
+        ) -> Result<(), GlslError> {
+            use cranelift_codegen::ir::{ExternalName, FuncRef, InstructionData};
+
+            // Collect all old FuncRefs and extract FuncIds
+            // If user_named_funcs is empty, we'll match by signature
+            // Collect all FuncRefs and their IDs first to avoid borrow conflicts
+            let user_named_funcs = func.params.user_named_funcs();
+            let mut old_func_ref_to_old_func_id: Vec<(FuncRef, u32)> = Vec::new();
+            let mut func_ids_to_add: Vec<u32> = Vec::new();
+            for (old_func_ref, old_ext_func) in func.dfg.ext_funcs.iter() {
+                if let ExternalName::User(user_name_ref) = old_ext_func.name {
+                    // Try to look up the UserExternalName from user_named_funcs first
+                    if let Some(user_name) = user_named_funcs.get(user_name_ref) {
+                        old_func_ref_to_old_func_id.push((old_func_ref, user_name.index));
+                    } else {
+                        // user_named_funcs is empty - match by signature
+                        let old_sig = &func.dfg.signatures[old_ext_func.signature];
+                        let mut found = false;
+                        for (func_id_val, func_name) in func_id_to_name.iter() {
+                            if let Some(new_func_id) = name_to_id.get(func_name) {
+                                let decl = module.declarations().get_function_decl(*new_func_id);
+                                // Compare signatures - they should match exactly
+                                if decl.signature.params.len() == old_sig.params.len()
+                                    && decl.signature.returns.len() == old_sig.returns.len()
+                                {
+                                    let params_match = decl
+                                        .signature
+                                        .params
+                                        .iter()
+                                        .zip(old_sig.params.iter())
+                                        .all(|(new_param, old_param)| {
+                                            new_param.value_type == old_param.value_type
+                                                && new_param.purpose == old_param.purpose
+                                        });
+                                    let returns_match = decl
+                                        .signature
+                                        .returns
+                                        .iter()
+                                        .zip(old_sig.returns.iter())
+                                        .all(|(new_ret, old_ret)| {
+                                            new_ret.value_type == old_ret.value_type
+                                                && new_ret.purpose == old_ret.purpose
+                                        });
+
+                                    if params_match && returns_match {
+                                        // Match found - store func_id to add later
+                                        func_ids_to_add.push(*func_id_val);
+                                        old_func_ref_to_old_func_id
+                                            .push((old_func_ref, *func_id_val));
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        if !found {
+                            // Provide more detailed error message with available signatures
+                            let available_sigs: Vec<String> = func_id_to_name
+                                .iter()
+                                .filter_map(|(func_id_val, func_name)| {
+                                    name_to_id.get(func_name).map(|new_func_id| {
+                                        let decl =
+                                            module.declarations().get_function_decl(*new_func_id);
+                                        format!(
+                                            "  {} (old FuncId {}, new FuncId {}): {:?}",
+                                            func_name,
+                                            func_id_val,
+                                            new_func_id.as_u32(),
+                                            decl.signature
+                                        )
+                                    })
+                                })
+                                .collect();
+
+                            let func_id_to_name_debug: Vec<String> = func_id_to_name
+                                .iter()
+                                .map(|(func_id_val, func_name)| {
+                                    format!("  FuncId {} -> '{}'", func_id_val, func_name)
+                                })
+                                .collect();
+
+                            let name_to_id_debug: Vec<String> = name_to_id
+                                .iter()
+                                .map(|(name, func_id)| {
+                                    format!("  '{}' -> FuncId {}", name, func_id.as_u32())
+                                })
+                                .collect();
+
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!(
+                                    "Could not match FuncRef to FuncId - signature matching failed.\n\
+                                    Looking for signature: {:?}\n\
+                                    func_id_to_name mappings ({} entries):\n{}\n\
+                                    name_to_id mappings ({} entries):\n{}\n\
+                                    Available signatures:\n{}",
+                                    old_sig,
+                                    func_id_to_name.len(),
+                                    func_id_to_name_debug.join("\n"),
+                                    name_to_id.len(),
+                                    name_to_id_debug.join("\n"),
+                                    if available_sigs.is_empty() {
+                                        "  (none)"
+                                    } else {
+                                        &available_sigs.join("\n")
+                                    }
+                                ),
+                            ));
+                        }
+                    }
+                }
+            }
+
+            // Now add user_named_funcs entries (after we're done reading from user_named_funcs)
+            for func_id_val in &func_ids_to_add {
+                use cranelift_codegen::ir::UserExternalName;
+                let user_name = UserExternalName::new(0, *func_id_val);
+                let _ = func.params.ensure_user_func_name(user_name);
+            }
+
+            // Build mapping from old FuncRef to new FuncRef
+            let mut func_ref_map: HashMap<FuncRef, FuncRef> = HashMap::new();
+            for (old_func_ref, old_func_id) in &old_func_ref_to_old_func_id {
+                let callee_name = func_id_to_name.get(old_func_id).ok_or_else(|| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!(
+                            "Could not find function name for old FuncId {}",
+                            old_func_id
+                        ),
+                    )
+                })?;
+                let new_callee_func_id = name_to_id.get(callee_name).ok_or_else(|| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Could not find new FuncId for function '{}'", callee_name),
+                    )
+                })?;
+                let new_func_ref = module.declare_func_in_func(*new_callee_func_id, func);
+                func_ref_map.insert(*old_func_ref, new_func_ref);
+            }
+
+            // Now replace FuncRefs in all call instructions
+            // Collect blocks and instructions first to avoid borrow conflicts
+            let blocks: Vec<_> = func.layout.blocks().collect();
+            let mut insts_to_update: Vec<(cranelift_codegen::ir::Inst, FuncRef)> = Vec::new();
+            for block in &blocks {
+                for inst in func.layout.block_insts(*block) {
+                    let inst_data = &func.dfg.insts[inst];
+                    if let InstructionData::Call { func_ref, .. } = inst_data {
+                        if let Some(&new_func_ref) = func_ref_map.get(func_ref) {
+                            insts_to_update.push((inst, new_func_ref));
+                        }
+                    }
+                }
+            }
+
+            // Now update the instructions
+            for (inst, new_func_ref) in insts_to_update {
+                let inst_data = &mut func.dfg.insts[inst];
+                if let InstructionData::Call { opcode, args, .. } = inst_data.clone() {
+                    *inst_data = InstructionData::Call {
+                        opcode,
+                        func_ref: new_func_ref,
+                        args,
+                    };
+                }
+            }
+
+            Ok(())
+        }
+
+        // Define all user functions, remapping FuncRefs
+        for (name, old_func) in &self.user_functions {
+            let new_func_id = name_to_id[name];
+            let mut ctx = module.make_context();
+            let mut func_clone = old_func.clone();
+
+            // Update function name
+            use cranelift_codegen::ir::UserFuncName;
+            func_clone.name = UserFuncName::user(0, new_func_id.as_u32());
+
+            // Remap FuncRefs to point to new module's FuncIds
+            remap_func_refs(&mut func_clone, module, &self.func_id_to_name, &name_to_id)?;
+
+            ctx.func = func_clone;
+            module.define_function(new_func_id, &mut ctx).map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("failed to define function '{}': {}", name, e),
+                )
+            })?;
+            module.clear_context(&mut ctx);
+        }
+
+        // Define main function, remapping FuncRefs
         let mut ctx = module.make_context();
-        ctx.func = self.main_function.clone();
+        let mut main_func_clone = self.main_function.clone();
+        use cranelift_codegen::ir::UserFuncName;
+        main_func_clone.name = UserFuncName::user(0, main_id.as_u32());
+
+        // Remap FuncRefs
+        remap_func_refs(
+            &mut main_func_clone,
+            module,
+            &self.func_id_to_name,
+            &name_to_id,
+        )?;
+
+        ctx.func = main_func_clone;
         module.define_function(main_id, &mut ctx).map_err(|e| {
             GlslError::new(
                 ErrorCode::E0400,
@@ -121,7 +349,6 @@ impl ClifModule {
             )
         })?;
         module.clear_context(&mut ctx);
-        name_to_id.insert(String::from("main"), main_id);
 
         Ok(name_to_id)
     }
@@ -134,6 +361,8 @@ pub struct ClifModuleBuilder {
     function_registry: Option<FunctionRegistry>,
     source_text: Option<String>,
     isa: Option<OwnedTargetIsa>,
+    glsl_signatures: HashMap<String, crate::semantic::functions::FunctionSignature>,
+    func_id_to_name: HashMap<u32, String>,
 }
 
 impl ClifModuleBuilder {
@@ -144,7 +373,40 @@ impl ClifModuleBuilder {
             function_registry: None,
             source_text: None,
             isa: None,
+            glsl_signatures: HashMap::new(),
+            func_id_to_name: HashMap::new(),
         }
+    }
+
+    /// Add a GLSL signature for a function
+    pub fn add_glsl_signature(
+        mut self,
+        name: String,
+        signature: crate::semantic::functions::FunctionSignature,
+    ) -> Self {
+        self.glsl_signatures.insert(name, signature);
+        self
+    }
+
+    /// Add multiple GLSL signatures
+    pub fn add_glsl_signatures(
+        mut self,
+        signatures: HashMap<String, crate::semantic::functions::FunctionSignature>,
+    ) -> Self {
+        self.glsl_signatures.extend(signatures);
+        self
+    }
+
+    /// Add a FuncId to name mapping
+    pub fn add_func_id_mapping(mut self, func_id: u32, name: String) -> Self {
+        self.func_id_to_name.insert(func_id, name);
+        self
+    }
+
+    /// Add multiple FuncId to name mappings
+    pub fn add_func_id_mappings(mut self, mappings: HashMap<u32, String>) -> Self {
+        self.func_id_to_name.extend(mappings);
+        self
     }
 
     /// Add a single user function
@@ -209,7 +471,8 @@ impl ClifModuleBuilder {
             function_registry,
             source_text,
             isa,
+            glsl_signatures: self.glsl_signatures,
+            func_id_to_name: self.func_id_to_name,
         })
     }
 }
-

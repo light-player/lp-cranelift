@@ -73,6 +73,34 @@ impl ObjectBuilder {
             target_lexicon::Architecture::X86_64 => object::Architecture::X86_64,
             target_lexicon::Architecture::Arm(_) => object::Architecture::Arm,
             target_lexicon::Architecture::Aarch64(_) => object::Architecture::Aarch64,
+            target_lexicon::Architecture::Riscv32(_) => {
+                if binary_format != object::BinaryFormat::Elf {
+                    return Err(ModuleError::Backend(anyhow!(
+                        "binary format {binary_format:?} is not supported for riscv32",
+                    )));
+                }
+
+                // FIXME(#4994): Get the right float ABI variant from the TargetIsa
+                // riscv32 typically uses soft-float by default
+                let mut eflags = object::elf::EF_RISCV_FLOAT_ABI_SOFT;
+
+                // Set the RVC eflag if we have the C extension enabled.
+                let has_c = isa
+                    .isa_flags()
+                    .iter()
+                    .filter(|f| f.name == "has_zca" || f.name == "has_zcd")
+                    .all(|f| f.as_bool().unwrap_or_default());
+                if has_c {
+                    eflags |= object::elf::EF_RISCV_RVC;
+                }
+
+                file_flags = object::FileFlags::Elf {
+                    os_abi: object::elf::ELFOSABI_NONE,
+                    abi_version: 0,
+                    e_flags: eflags,
+                };
+                object::Architecture::Riscv32
+            }
             target_lexicon::Architecture::Riscv64(_) => {
                 if binary_format != object::BinaryFormat::Elf {
                     return Err(ModuleError::Backend(anyhow!(
@@ -915,6 +943,16 @@ impl ObjectModule {
                 );
                 RelocationFlags::Elf {
                     r_type: object::elf::R_RISCV_GOT_HI20,
+                }
+            }
+            Reloc::RiscvPCRelHi20 => {
+                assert_eq!(
+                    self.object.format(),
+                    object::BinaryFormat::Elf,
+                    "RiscvPCRelHi20 is not supported for this file format"
+                );
+                RelocationFlags::Elf {
+                    r_type: object::elf::R_RISCV_PCREL_HI20,
                 }
             }
             // FIXME

@@ -6,19 +6,16 @@ use crate::transform::fixed32::types::FixedPointFormat;
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData, Value, types};
 use cranelift_frontend::FunctionBuilder;
 
-use super::super::rewrite::map_value;
+use super::helpers::map_value;
 
 /// Convert Load instruction (if it loads F32).
 pub(crate) fn convert_load(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<
-        cranelift_codegen::ir::Block,
-        cranelift_codegen::ir::Block,
-    >,
+    block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -62,12 +59,9 @@ pub(crate) fn convert_store(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<
-        cranelift_codegen::ir::Block,
-        cranelift_codegen::ir::Block,
-    >,
+    block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 

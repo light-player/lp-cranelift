@@ -258,3 +258,63 @@ fn reject_nul_byte_symbol_for_data() {
         )
         .unwrap();
 }
+
+#[test]
+fn riscv32_simple_function() {
+    use cranelift_codegen::isa::lookup;
+    use target_lexicon::Triple;
+
+    let flag_builder = settings::builder();
+    let triple = Triple {
+        architecture: target_lexicon::Architecture::Riscv32(
+            target_lexicon::Riscv32Architecture::Riscv32imac,
+        ),
+        vendor: target_lexicon::Vendor::Unknown,
+        operating_system: target_lexicon::OperatingSystem::None_,
+        environment: target_lexicon::Environment::Unknown,
+        binary_format: target_lexicon::BinaryFormat::Elf,
+    };
+    let isa_builder = lookup(triple).unwrap();
+    let isa = isa_builder
+        .finish(settings::Flags::new(flag_builder))
+        .unwrap();
+    let mut module =
+        ObjectModule::new(ObjectBuilder::new(isa, "test", default_libcall_names()).unwrap());
+
+    let sig = Signature {
+        params: vec![AbiParam::new(types::I32), AbiParam::new(types::I32)],
+        returns: vec![AbiParam::new(types::I32)],
+        call_conv: CallConv::SystemV,
+    };
+
+    let func_id = module
+        .declare_function("add", Linkage::Local, &sig)
+        .unwrap();
+
+    let mut ctx = Context::new();
+    ctx.func = Function::with_name_signature(UserFuncName::user(0, func_id.as_u32()), sig);
+    let mut func_ctx = FunctionBuilderContext::new();
+    {
+        let mut bcx: FunctionBuilder = FunctionBuilder::new(&mut ctx.func, &mut func_ctx);
+        let block = bcx.create_block();
+        bcx.append_block_params_for_function_params(block);
+        bcx.switch_to_block(block);
+        bcx.seal_block(block);
+
+        let arg0 = bcx.block_params(block)[0];
+        let arg1 = bcx.block_params(block)[1];
+        let result = bcx.ins().iadd(arg0, arg1);
+        bcx.ins().return_(&[result]);
+        bcx.finalize();
+    }
+
+    module.define_function(func_id, &mut ctx).unwrap();
+
+    let product = module.finish();
+    let object_bytes = product.emit().unwrap();
+
+    // Verify we got some bytes
+    assert!(!object_bytes.is_empty());
+    // Verify it's an ELF file (starts with ELF magic)
+    assert_eq!(&object_bytes[0..4], &[0x7f, 0x45, 0x4c, 0x46]);
+}

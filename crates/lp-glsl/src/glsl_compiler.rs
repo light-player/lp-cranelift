@@ -78,6 +78,8 @@ impl GlslCompiler {
 
         // 4. Compile all user functions to CLIF with FLOAT types
         let mut user_functions = HashMap::new();
+        let mut glsl_signatures = HashMap::new();
+        let mut func_id_to_name = HashMap::new();
         for user_func in &typed_ast.user_functions {
             let func_id = func_ids[&user_func.name];
             let func = self.compile_function_to_clif(
@@ -89,6 +91,19 @@ impl GlslCompiler {
                 isa.as_ref(),
             )?;
             user_functions.insert(user_func.name.clone(), func);
+
+            // Store GLSL signature
+            glsl_signatures.insert(
+                user_func.name.clone(),
+                crate::semantic::functions::FunctionSignature {
+                    name: user_func.name.clone(),
+                    return_type: user_func.return_type.clone(),
+                    parameters: user_func.parameters.clone(),
+                },
+            );
+
+            // Store FuncId -> name mapping for linking
+            func_id_to_name.insert(func_id.as_u32(), user_func.name.clone());
         }
 
         // 5. Compile main function to CLIF with FLOAT types
@@ -101,6 +116,20 @@ impl GlslCompiler {
             semantic_result.source,
         )?;
 
+        // Store main function's GLSL signature
+        glsl_signatures.insert(
+            String::from("main"),
+            crate::semantic::functions::FunctionSignature {
+                name: String::from("main"),
+                return_type: typed_ast.main_function.return_type.clone(),
+                parameters: typed_ast.main_function.parameters.clone(),
+            },
+        );
+
+        // Store main's FuncId -> name mapping (main is declared separately, but we need to track it)
+        // Note: main doesn't have a FuncId in func_ids, but we can infer it if needed
+        // For now, we'll handle main separately in link_into
+
         // 6. Build and return ClifModule
         Ok(ClifModule::builder()
             .set_function_registry(typed_ast.function_registry)
@@ -108,6 +137,8 @@ impl GlslCompiler {
             .set_isa(isa)
             .add_user_functions(user_functions)
             .set_main_function(main_func)
+            .add_glsl_signatures(glsl_signatures)
+            .add_func_id_mappings(func_id_to_name)
             .build()?)
     }
 
@@ -513,12 +544,11 @@ pub(crate) fn create_minimal_module_for_declarations(
             let functions = self.functions.borrow();
             let decl = &functions[func_id];
             let signature = func.import_signature(decl.signature.clone());
-            let user_name_ref = func.declare_imported_user_function(
-                cranelift_codegen::ir::UserExternalName {
+            let user_name_ref =
+                func.declare_imported_user_function(cranelift_codegen::ir::UserExternalName {
                     namespace: 0,
                     index: func_id.as_u32(),
-                },
-            );
+                });
             let colocated = decl.linkage.is_final();
             func.import_function(cranelift_codegen::ir::ExtFuncData {
                 name: cranelift_codegen::ir::ExternalName::user(user_name_ref),
@@ -536,4 +566,3 @@ pub(crate) fn create_minimal_module_for_declarations(
         names: RefCell::new(HashMap::new()),
     }))
 }
-

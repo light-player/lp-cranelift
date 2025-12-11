@@ -13,9 +13,9 @@ pub(crate) fn convert_fcvt_from_sint(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    _block_map: &std::collections::HashMap<
+    _block_map: &hashbrown::HashMap<
         cranelift_codegen::ir::Block,
         cranelift_codegen::ir::Block,
     >,
@@ -58,9 +58,9 @@ pub(crate) fn convert_fcvt_from_uint(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    _block_map: &std::collections::HashMap<
+    _block_map: &hashbrown::HashMap<
         cranelift_codegen::ir::Block,
         cranelift_codegen::ir::Block,
     >,

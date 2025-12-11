@@ -3,16 +3,18 @@
 //! This module contains converters that transform F32 instructions into
 //! fixed-point equivalents using the builder-based rewrite approach.
 
-mod helpers;
-
 pub mod arithmetic;
 pub mod calls;
 pub mod comparison;
 pub mod constants;
 pub mod control;
 pub mod conversions;
+pub mod helpers;
+pub mod instruction_copy;
 pub mod math;
 pub mod memory;
 
-pub(crate) use helpers::*;
+// Re-export instruction_copy for use in link.rs
+pub use instruction_copy::copy_instruction_as_is;
 
+pub(crate) use helpers::*;

@@ -125,18 +125,17 @@ pub fn link_glsl_for_jit(
     let mut cranelift_signatures = HashMap::new();
 
     for (name, func) in module.user_functions() {
-        use crate::semantic::functions::FunctionSignature;
         // Store Cranelift signature for argument handling
         cranelift_signatures.insert(name.clone(), func.signature.clone());
 
-        // TODO: Extract proper GLSL signature from Function
-        // For now, use placeholder
-        let sig = FunctionSignature {
-            name: name.clone(),
-            return_type: crate::semantic::types::Type::Void,
-            parameters: Vec::new(),
-        };
-        signatures.insert(name.clone(), sig);
+        // Get GLSL signature from ClifModule
+        let glsl_sig = module.glsl_signature(name).ok_or_else(|| {
+            GlslError::new(
+                crate::error::ErrorCode::E0400,
+                format!("GLSL signature for function '{}' not found", name),
+            )
+        })?;
+        signatures.insert(name.clone(), glsl_sig.clone());
     }
 
     // Store main function's Cranelift signature
@@ -144,12 +143,15 @@ pub fn link_glsl_for_jit(
         String::from("main"),
         module.main_function().signature.clone(),
     );
-    let main_sig = crate::semantic::functions::FunctionSignature {
-        name: String::from("main"),
-        return_type: crate::semantic::types::Type::Void,
-        parameters: Vec::new(),
-    };
-    signatures.insert(String::from("main"), main_sig);
+    
+    // Get main function's GLSL signature from ClifModule
+    let main_glsl_sig = module.glsl_signature("main").ok_or_else(|| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            "GLSL signature for 'main' not found",
+        )
+    })?;
+    signatures.insert(String::from("main"), main_glsl_sig.clone());
 
     Ok(GlslJitModule {
         jit_module,
@@ -196,13 +198,14 @@ pub fn link_glsl_for_emulator(
         // Store Cranelift signature for argument handling
         cranelift_signatures.insert(name.clone(), func.signature.clone());
 
-        // TODO: Extract proper GLSL signature from Function
-        let sig = crate::semantic::functions::FunctionSignature {
-            name: name.clone(),
-            return_type: crate::semantic::types::Type::Void,
-            parameters: Vec::new(),
-        };
-        signatures.insert(name.clone(), sig);
+        // Get GLSL signature from ClifModule
+        let glsl_sig = module.glsl_signature(name).ok_or_else(|| {
+            GlslError::new(
+                crate::error::ErrorCode::E0400,
+                format!("GLSL signature for function '{}' not found", name),
+            )
+        })?;
+        signatures.insert(name.clone(), glsl_sig.clone());
     }
 
     // Store main function's Cranelift signature
@@ -210,12 +213,15 @@ pub fn link_glsl_for_emulator(
         String::from("main"),
         module.main_function().signature.clone(),
     );
-    let main_sig = crate::semantic::functions::FunctionSignature {
-        name: String::from("main"),
-        return_type: crate::semantic::types::Type::Void,
-        parameters: Vec::new(),
-    };
-    signatures.insert(String::from("main"), main_sig);
+    
+    // Get main function's GLSL signature from ClifModule
+    let main_glsl_sig = module.glsl_signature("main").ok_or_else(|| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            "GLSL signature for 'main' not found",
+        )
+    })?;
+    signatures.insert(String::from("main"), main_glsl_sig.clone());
 
     Ok(GlslEmulatorModule {
         emulator,

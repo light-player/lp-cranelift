@@ -21,7 +21,7 @@ pub(crate) fn convert_fadd(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
 ) -> Result<(), GlslError> {
     // Get operands and map them
@@ -51,7 +51,7 @@ pub(crate) fn convert_fsub(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
 ) -> Result<(), GlslError> {
     let (arg1_old, arg2_old) = extract_binary_operands(old_func, old_inst)?;
@@ -75,7 +75,7 @@ pub(crate) fn convert_fmul(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
 ) -> Result<(), GlslError> {
     let (arg1_old, arg2_old) = extract_binary_operands(old_func, old_inst)?;
@@ -115,7 +115,7 @@ pub(crate) fn convert_fdiv(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
 ) -> Result<(), GlslError> {
     let (arg1_old, arg2_old) = extract_binary_operands(old_func, old_inst)?;
@@ -192,7 +192,7 @@ pub(crate) fn convert_fneg(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     _format: FixedPointFormat,
 ) -> Result<(), GlslError> {
     let arg = extract_unary_operand(old_func, old_inst)?;
@@ -211,7 +211,7 @@ pub(crate) fn convert_fabs(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
 ) -> Result<(), GlslError> {
     let arg = extract_unary_operand(old_func, old_inst)?;

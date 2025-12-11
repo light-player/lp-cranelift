@@ -21,9 +21,9 @@ pub(crate) fn convert_fcmp(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     _format: FixedPointFormat,
-    _block_map: &std::collections::HashMap<
+    _block_map: &hashbrown::HashMap<
         cranelift_codegen::ir::Block,
         cranelift_codegen::ir::Block,
     >,
@@ -81,9 +81,9 @@ pub(crate) fn convert_fmax(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     _format: FixedPointFormat,
-    _block_map: &std::collections::HashMap<
+    _block_map: &hashbrown::HashMap<
         cranelift_codegen::ir::Block,
         cranelift_codegen::ir::Block,
     >,
@@ -107,9 +107,9 @@ pub(crate) fn convert_fmin(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     _format: FixedPointFormat,
-    _block_map: &std::collections::HashMap<
+    _block_map: &hashbrown::HashMap<
         cranelift_codegen::ir::Block,
         cranelift_codegen::ir::Block,
     >,

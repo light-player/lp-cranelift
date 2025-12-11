@@ -116,21 +116,31 @@ pub fn transform_module(
             })?
         });
 
-    // Convert user functions
-    // Note: For now, we use rewrite_function which handles FuncRef conversion internally
-    // by converting signatures. The FuncRef mapping we created above is for future
-    // use when we need to ensure cross-function calls use the correct FuncRefs.
-    // The current rewrite_function should work correctly because it converts signatures
-    // and creates new FuncRefs with converted signatures automatically.
+    // Preserve GLSL signatures (they don't change during fixed-point transformation)
+    // The GLSL types remain the same; only the CLIF representation changes
     for (name, func) in module.user_functions() {
         let rewritten_func = rewrite_function(func, format)?;
         builder = builder.add_user_function(name.clone(), rewritten_func);
+
+        // Preserve GLSL signature from original module
+        if let Some(glsl_sig) = module.glsl_signature(name) {
+            builder = builder.add_glsl_signature(name.clone(), glsl_sig.clone());
+        }
     }
 
     // Convert main function
     let rewritten_main = rewrite_function(module.main_function(), format)?;
     builder = builder.set_main_function(rewritten_main);
 
+    // Preserve main's GLSL signature
+    if let Some(main_glsl_sig) = module.glsl_signature("main") {
+        builder = builder.add_glsl_signature(String::from("main"), main_glsl_sig.clone());
+    }
+
+    // Preserve func_id_to_name mapping - this is needed for linking
+    // The mapping from old FuncIds (from compilation) to function names doesn't change
+    // during transformation, so we can copy it directly
+    builder = builder.add_func_id_mappings(module.func_id_to_name_map().clone());
+
     Ok(builder.build()?)
 }
-

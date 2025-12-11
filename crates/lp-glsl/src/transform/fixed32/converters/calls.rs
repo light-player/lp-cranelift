@@ -13,15 +13,16 @@ use cranelift_codegen::ir::{
 };
 use cranelift_frontend::FunctionBuilder;
 
-use super::super::rewrite::{convert_signature, map_value};
+use super::super::rewrite::convert_signature;
+use super::helpers::map_value;
 
 /// Map external function reference (convert signature and create new function reference).
 pub(crate) fn map_external_function(
     old_func: &Function,
     old_func_ref: FuncRef,
     builder: &mut FunctionBuilder,
-    ext_func_map: &mut std::collections::HashMap<FuncRef, FuncRef>,
-    sig_map: &mut std::collections::HashMap<SigRef, SigRef>,
+    ext_func_map: &mut hashbrown::HashMap<FuncRef, FuncRef>,
+    sig_map: &mut hashbrown::HashMap<SigRef, SigRef>,
     format: FixedPointFormat,
 ) -> Result<FuncRef, GlslError> {
     // Check if already mapped
@@ -65,14 +66,11 @@ pub(crate) fn convert_call(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
-    ext_func_map: &mut std::collections::HashMap<FuncRef, FuncRef>,
-    sig_map: &mut std::collections::HashMap<SigRef, SigRef>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
+    ext_func_map: &mut hashbrown::HashMap<FuncRef, FuncRef>,
+    sig_map: &mut hashbrown::HashMap<SigRef, SigRef>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<
-        cranelift_codegen::ir::Block,
-        cranelift_codegen::ir::Block,
-    >,
+    block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -128,14 +126,11 @@ pub(crate) fn convert_call_indirect(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
-    ext_func_map: &mut std::collections::HashMap<FuncRef, FuncRef>,
-    sig_map: &mut std::collections::HashMap<SigRef, SigRef>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
+    ext_func_map: &mut hashbrown::HashMap<FuncRef, FuncRef>,
+    sig_map: &mut hashbrown::HashMap<SigRef, SigRef>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<
-        cranelift_codegen::ir::Block,
-        cranelift_codegen::ir::Block,
-    >,
+    block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 

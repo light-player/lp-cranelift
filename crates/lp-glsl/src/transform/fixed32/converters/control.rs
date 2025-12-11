@@ -14,16 +14,16 @@ use cranelift_codegen::ir::{
 };
 use cranelift_frontend::FunctionBuilder;
 
-use super::super::rewrite::map_value;
+use super::helpers::map_value;
 
 /// Convert Jump instruction.
 pub(crate) fn convert_jump(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<Block, Block>,
+    block_map: &hashbrown::HashMap<Block, Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -39,16 +39,20 @@ pub(crate) fn convert_jump(
             .collect();
         
         // Ensure target block has the required parameters
-        use super::super::rewrite::ensure_block_params;
-        ensure_block_params(
-            old_func,
-            old_dest_block,
-            new_dest_block,
-            builder,
-            value_map,
-            format,
-            &old_args,
-        )?;
+        // We need to convert value_map to the type expected by ensure_block_params
+        // ensure_block_params expects hashbrown::HashMap, but we have hashbrown::HashMap
+        // For now, we'll handle block params directly
+        let old_params = old_func.dfg.block_params(old_dest_block);
+        let new_params = builder.block_params(new_dest_block);
+        
+        if old_params.len() != new_params.len() {
+            // Add missing parameters
+            for &old_param in old_params.iter().skip(new_params.len()) {
+                let old_param_type = old_func.dfg.value_type(old_param);
+                let new_param = builder.append_block_param(new_dest_block, old_param_type);
+                value_map.insert(old_param, new_param);
+            }
+        }
         
         let new_args: Vec<BlockArg> = old_args
             .iter()
@@ -72,9 +76,9 @@ pub(crate) fn convert_brif(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<Block, Block>,
+    block_map: &hashbrown::HashMap<Block, Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -108,25 +112,37 @@ pub(crate) fn convert_brif(
         // Ensure target blocks have the required parameters
         // This must happen BEFORE we map arguments, because we need to know
         // how many parameters the block actually has (not just what this instruction passes)
-        use super::super::rewrite::ensure_block_params;
-        ensure_block_params(
-            old_func,
-            old_then_block,
-            new_then_block,
-            builder,
-            value_map,
-            format,
-            &old_then_args,
-        )?;
-        ensure_block_params(
-            old_func,
-            old_else_block,
-            new_else_block,
-            builder,
-            value_map,
-            format,
-            &old_else_args,
-        )?;
+        let old_then_params = old_func.dfg.block_params(old_then_block);
+        let new_then_params = builder.block_params(new_then_block);
+        if old_then_params.len() > new_then_params.len() {
+            let target_type = format.cranelift_type();
+            for &old_param in old_then_params.iter().skip(new_then_params.len()) {
+                let old_type = old_func.dfg.value_type(old_param);
+                let param_type = if old_type == types::F32 {
+                    target_type
+                } else {
+                    old_type
+                };
+                let new_param = builder.append_block_param(new_then_block, param_type);
+                value_map.insert(old_param, new_param);
+            }
+        }
+        
+        let old_else_params = old_func.dfg.block_params(old_else_block);
+        let new_else_params = builder.block_params(new_else_block);
+        if old_else_params.len() > new_else_params.len() {
+            let target_type = format.cranelift_type();
+            for &old_param in old_else_params.iter().skip(new_else_params.len()) {
+                let old_type = old_func.dfg.value_type(old_param);
+                let param_type = if old_type == types::F32 {
+                    target_type
+                } else {
+                    old_type
+                };
+                let new_param = builder.append_block_param(new_else_block, param_type);
+                value_map.insert(old_param, new_param);
+            }
+        }
 
         // Get the actual parameters the blocks have (may be more than what this brif passes)
         let old_then_block_params = old_func.dfg.block_params(old_then_block);
@@ -201,9 +217,9 @@ pub(crate) fn convert_br_table(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<Block, Block>,
+    block_map: &hashbrown::HashMap<Block, Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -275,9 +291,9 @@ pub(crate) fn convert_return(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<Block, Block>,
+    block_map: &hashbrown::HashMap<Block, Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -306,9 +322,9 @@ pub(crate) fn convert_select(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
-    value_map: &mut std::collections::HashMap<Value, Value>,
+    value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    block_map: &std::collections::HashMap<Block, Block>,
+    block_map: &hashbrown::HashMap<Block, Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 

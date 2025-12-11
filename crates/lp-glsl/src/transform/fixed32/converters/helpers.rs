@@ -14,7 +14,16 @@ use std::vec::Vec;
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData, Value, types};
 use cranelift_frontend::FunctionBuilder;
 
-use super::super::rewrite::map_value;
+// Define map_value locally to match the HashMap type used by converters
+// Converters use hashbrown::HashMap, so we match that
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeMap as HashMap;
+#[cfg(feature = "std")]
+use hashbrown::HashMap;
+
+pub(crate) fn map_value(value_map: &HashMap<Value, Value>, old_value: Value) -> Value {
+    *value_map.get(&old_value).unwrap_or(&old_value)
+}
 
 /// Extract binary operands from an instruction.
 ///
@@ -59,14 +68,18 @@ pub fn extract_unary_operand(old_func: &Function, old_inst: Inst) -> Result<Valu
 
 /// Map a value through the value map, returning the mapped value.
 ///
-/// This is a convenience wrapper around the map_value function from rewrite.
-pub fn map_operand(value_map: &std::collections::HashMap<Value, Value>, old_value: Value) -> Value {
-    map_value(value_map, old_value)
+/// This is a convenience wrapper that accepts hashbrown::HashMap.
+pub fn map_operand(value_map: &hashbrown::HashMap<Value, Value>, old_value: Value) -> Value {
+    // Convert to our internal HashMap type
+    use hashbrown::HashMap as StdHashMap;
+    // We need to work with the same type, so just call map_value directly
+    // Since both are HashMap<Value, Value>, we can use as_ref pattern
+    *value_map.get(&old_value).unwrap_or(&old_value)
 }
 
 /// Map multiple values through the value map.
 pub fn map_operands(
-    value_map: &std::collections::HashMap<Value, Value>,
+    value_map: &hashbrown::HashMap<Value, Value>,
     old_values: &[Value],
 ) -> Vec<Value> {
     old_values
@@ -130,7 +143,7 @@ pub fn unexpected_format_error(
 pub fn max_fixed_value(format: FixedPointFormat) -> i32 {
     match format {
         FixedPointFormat::Fixed16x16 => 0x7FFF0000i32, // 32767.0 in 16.16 format
-        FixedPointFormat::Fixed32x32 => i32::MAX, // Not fully implemented
+        FixedPointFormat::Fixed32x32 => i32::MAX,      // Not fully implemented
     }
 }
 
@@ -138,7 +151,7 @@ pub fn max_fixed_value(format: FixedPointFormat) -> i32 {
 pub fn min_fixed_value(format: FixedPointFormat) -> i32 {
     match format {
         FixedPointFormat::Fixed16x16 => 0x80000000u32 as i32, // -32768.0 in 16.16 format (i32::MIN)
-        FixedPointFormat::Fixed32x32 => i32::MIN, // Not fully implemented
+        FixedPointFormat::Fixed32x32 => i32::MIN,             // Not fully implemented
     }
 }
 

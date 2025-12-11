@@ -4,7 +4,7 @@
 //! at the Cranelift IR level. All F32 types and operations are converted to
 //! fixed-point representation using I32 (16.16 format).
 
-mod converters;
+pub mod converters;
 mod module;
 mod rewrite;
 mod transform;

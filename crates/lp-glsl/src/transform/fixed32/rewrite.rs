@@ -8,8 +8,9 @@ use crate::transform::fixed32::types::FixedPointFormat;
 
 #[cfg(not(feature = "std"))]
 use alloc::{collections::BTreeMap as HashMap, vec::Vec};
+use hashbrown::HashMap;
 #[cfg(feature = "std")]
-use std::{collections::HashMap, vec::Vec};
+use std::vec::Vec;
 
 use cranelift_codegen::ir::{
     AbiParam, Block, FuncRef, Function, Inst, InstructionData, Opcode, SigRef, Signature, Value,
@@ -617,11 +618,7 @@ pub(super) fn map_values(value_map: &HashMap<Value, Value>, old_values: &[Value]
 
 /// Copy a non-F32 instruction as-is (for instructions that don't need conversion).
 ///
-/// This handles instructions that don't involve F32 types and can be copied
-/// directly, mapping all values through value_map.
-///
-/// Note: This is a simplified implementation. For complex instructions,
-/// explicit converters should be created.
+/// Delegates to the shared implementation in converters::instruction_copy.
 fn copy_instruction_as_is(
     old_func: &Function,
     old_inst: Inst,
@@ -630,158 +627,9 @@ fn copy_instruction_as_is(
     _format: FixedPointFormat,
     _block_map: &HashMap<Block, Block>,
 ) -> Result<(), GlslError> {
-    let opcode = old_func.dfg.insts[old_inst].opcode();
-    let inst_data = &old_func.dfg.insts[old_inst];
-
-    // First, check if this instruction involves F32 types
-    // If it does, it should have been converted already
-    let old_results: Vec<Value> = old_func.dfg.inst_results(old_inst).to_vec();
-    for &result in &old_results {
-        if old_func.dfg.value_type(result) == types::F32 {
-            return Err(GlslError::new(
-                ErrorCode::E0301,
-                format!(
-                    "Instruction {:?} produces F32 result but was not converted. This is a bug in the fixed-point conversion.",
-                    opcode
-                ),
-            ));
-        }
-    }
-
-    // Check operands for F32 types
-    let old_args = old_func.dfg.inst_args(old_inst);
-    for &arg in old_args {
-        if old_func.dfg.value_type(arg) == types::F32 {
-            return Err(GlslError::new(
-                ErrorCode::E0301,
-                format!(
-                    "Instruction {:?} has F32 operand but was not converted. This is a bug in the fixed-point conversion.",
-                    opcode
-                ),
-            ));
-        }
-    }
-
-    // If no results, this is typically a terminator or side-effect only instruction
-    // These should have been handled by explicit converters, but if they fall through,
-    // we can safely skip them (they don't produce values to map)
-    if old_results.is_empty() {
-        // Most terminators are handled explicitly, but some side-effect instructions
-        // might fall through. For now, we'll allow this.
-        return Ok(());
-    }
-
-    // For instructions with results, we need to reconstruct them
-    // Determine the controlling type
-    let ctrl_type = if opcode.constraints().requires_typevar_operand() {
-        // Get type from first operand
-        let first_arg = old_func.dfg.inst_args(old_inst)[0];
-        let mapped_first_arg = map_value(value_map, first_arg);
-        builder.func.dfg.value_type(mapped_first_arg)
-    } else {
-        // Get type from first result
-        old_func.dfg.value_type(old_results[0])
-    };
-
-    // Get old arguments using DFG
-    let old_args = old_func.dfg.inst_args(old_inst);
-    let mapped_args: Vec<Value> = old_args.iter().map(|&v| map_value(value_map, v)).collect();
-
-    // Reconstruct instruction data with mapped operands
-    let new_inst_data = match inst_data {
-        InstructionData::Unary { .. } => InstructionData::Unary {
-            opcode,
-            arg: mapped_args[0],
-        },
-        InstructionData::UnaryImm { imm, .. } => InstructionData::UnaryImm { opcode, imm: *imm },
-        InstructionData::Binary { .. } => {
-            if mapped_args.len() != 2 {
-                return Err(GlslError::new(
-                    ErrorCode::E0301,
-                    format!(
-                        "Binary instruction requires 2 arguments, got {}",
-                        mapped_args.len()
-                    ),
-                ));
-            }
-            InstructionData::Binary {
-                opcode,
-                args: [mapped_args[0], mapped_args[1]],
-            }
-        }
-        InstructionData::Ternary { .. } => {
-            if mapped_args.len() != 3 {
-                return Err(GlslError::new(
-                    ErrorCode::E0301,
-                    format!(
-                        "Ternary instruction requires 3 arguments, got {}",
-                        mapped_args.len()
-                    ),
-                ));
-            }
-            InstructionData::Ternary {
-                opcode,
-                args: [mapped_args[0], mapped_args[1], mapped_args[2]],
-            }
-        }
-        InstructionData::NullAry { .. } => InstructionData::NullAry { opcode },
-        InstructionData::IntCompare { cond, .. } => {
-            if mapped_args.len() != 2 {
-                return Err(GlslError::new(
-                    ErrorCode::E0301,
-                    format!(
-                        "IntCompare instruction requires 2 arguments, got {}",
-                        mapped_args.len()
-                    ),
-                ));
-            }
-            InstructionData::IntCompare {
-                opcode,
-                cond: *cond,
-                args: [mapped_args[0], mapped_args[1]],
-            }
-        }
-        _ => {
-            // For other instruction formats, return an error
-            // These should be handled by explicit converters
-            return Err(GlslError::new(
-                ErrorCode::E0301,
-                format!(
-                    "Instruction {:?} with format {:?} not yet supported in copy_instruction_as_is. Please add explicit converter.",
-                    opcode, inst_data
-                ),
-            ));
-        }
-    };
-
-    // Insert instruction using DFG and layout directly
-    // We need to ensure the block is inserted in the layout first
-    builder.ensure_inserted_block();
-    let current_block = builder
-        .current_block()
-        .expect("Builder must have a current block");
-
-    // Create instruction
-    let new_inst = builder.func.dfg.make_inst(new_inst_data);
-    builder.func.dfg.make_inst_results(new_inst, ctrl_type);
-    builder.func.layout.append_inst(new_inst, current_block);
-
-    // Map results
-    let new_results = builder.func.dfg.inst_results(new_inst);
-    if old_results.len() != new_results.len() {
-        return Err(GlslError::new(
-            ErrorCode::E0301,
-            format!(
-                "Instruction {:?} result count mismatch: old={}, new={}",
-                opcode,
-                old_results.len(),
-                new_results.len()
-            ),
-        ));
-    }
-    for (old_result, new_result) in old_results.iter().zip(new_results.iter()) {
-        value_map.insert(*old_result, *new_result);
-    }
-
-    Ok(())
+    // Use shared implementation with F32 checking enabled
+    converters::copy_instruction_as_is(
+        old_func, old_inst, builder, value_map,
+        true, // check_f32 = true for fixed-point conversion
+    )
 }
