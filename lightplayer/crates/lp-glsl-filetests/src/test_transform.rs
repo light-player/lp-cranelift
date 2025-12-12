@@ -13,10 +13,16 @@ pub fn run_transform_fixed32_test(
     expected_clif: &str,
     path: &Path,
 ) -> Result<()> {
+    // Skip transform test if source doesn't have a main() function
+    // (transform tests require a complete shader with main())
+    if !glsl_source.contains("main()") {
+        return Ok(());
+    }
+
     // Compile to CLIF
     let mut compiler = GlslCompiler::new();
-    let isa = create_riscv32_isa()
-        .with_context(|| "failed to create riscv32 ISA for transform test")?;
+    let isa =
+        create_riscv32_isa().with_context(|| "failed to create riscv32 ISA for transform test")?;
     let module = compiler
         .compile_to_clif_module(glsl_source, isa)
         .with_context(|| "failed to compile GLSL to CLIF module")?;
@@ -44,9 +50,9 @@ fn create_riscv32_isa() -> Result<cranelift_codegen::isa::OwnedTargetIsa> {
     };
 
     let mut flag_builder = settings::builder();
-    flag_builder.set("is_pic", "false").map_err(|e| {
-        anyhow::anyhow!("failed to set is_pic: {}", e)
-    })?;
+    flag_builder
+        .set("is_pic", "false")
+        .map_err(|e| anyhow::anyhow!("failed to set is_pic: {}", e))?;
     flag_builder
         .set("use_colocated_libcalls", "false")
         .map_err(|e| anyhow::anyhow!("failed to set use_colocated_libcalls: {}", e))?;

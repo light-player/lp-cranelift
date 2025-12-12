@@ -34,20 +34,30 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
             generate_bootstrap(&test_file.glsl_source, &directive.expression_str)?;
 
         // Compile and execute
-        let mut executable = glsl_emu_riscv32(&bootstrap_source, options.clone())
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "failed to compile bootstrap for {}: {}",
-                    directive.expression_str,
-                    e
-                )
-            })
-            .with_context(|| {
-                format!(
-                    "failed to compile bootstrap for {}",
-                    directive.expression_str
-                )
-            })?;
+        let mut executable = glsl_emu_riscv32(&bootstrap_source, options.clone()).map_err(|e| {
+            // Extract just the relevant function and generated main() for display
+            let relevant_code = extract_relevant_code_for_error(
+                &test_file.glsl_source,
+                &directive.expression_str,
+                &bootstrap_source,
+            );
+
+            anyhow::anyhow!(
+                "Compilation failed for test case at line {}:\n\
+                     \n\
+                     Test case: {}\n\
+                     \n\
+                     Generated bootstrap code:\n\
+                     {}\n\
+                     \n\
+                     Compilation error:\n\
+                     {}",
+                directive.line_number,
+                directive.expression_str,
+                format_code_block(&relevant_code),
+                e
+            )
+        })?;
 
         // Execute main() and get result
         let actual_value = execute_main(&mut *executable)?;
@@ -130,7 +140,10 @@ fn infer_return_type_from_expression(source: &str, expression: &str) -> Result<S
             if let Some(return_type) = before_func.split_whitespace().last() {
                 // Validate it's a known type
                 match return_type {
-                    "float" | "int" | "bool" => return Ok(return_type.to_string()),
+                    "float" | "int" | "bool" | "vec2" | "vec3" | "vec4" | "ivec2" | "ivec3"
+                    | "ivec4" | "mat2" | "mat3" | "mat4" => {
+                        return Ok(return_type.to_string());
+                    }
                     _ => {}
                 }
             }
@@ -140,6 +153,23 @@ fn infer_return_type_from_expression(source: &str, expression: &str) -> Result<S
     // Fallback: use heuristic based on function name or expression content
     if func_name.contains("float") || expression.contains('.') {
         Ok("float".to_string())
+    } else if func_name.contains("vec") || func_name.contains("mat") {
+        // Try to infer from function name
+        if func_name.contains("vec2") || func_name.contains("ivec2") {
+            Ok("vec2".to_string())
+        } else if func_name.contains("vec3") || func_name.contains("ivec3") {
+            Ok("vec3".to_string())
+        } else if func_name.contains("vec4") || func_name.contains("ivec4") {
+            Ok("vec4".to_string())
+        } else if func_name.contains("mat2") {
+            Ok("mat2".to_string())
+        } else if func_name.contains("mat3") {
+            Ok("mat3".to_string())
+        } else if func_name.contains("mat4") {
+            Ok("mat4".to_string())
+        } else {
+            Ok("float".to_string())
+        }
     } else {
         Ok("int".to_string())
     }
@@ -193,11 +223,92 @@ fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
                     }
                 })
         }
+        Type::Vec2 => executable
+            .call_vec("main", &[], 2)
+            .map(|v| GlslValue::Vec2([v[0], v[1]]))
+            .map_err(|e| {
+                if let Some(state) = executable.format_emulator_state() {
+                    anyhow::anyhow!("{}{}", e, state)
+                } else {
+                    anyhow::anyhow!("{}", e)
+                }
+            }),
+        Type::Vec3 => executable
+            .call_vec("main", &[], 3)
+            .map(|v| GlslValue::Vec3([v[0], v[1], v[2]]))
+            .map_err(|e| {
+                if let Some(state) = executable.format_emulator_state() {
+                    anyhow::anyhow!("{}{}", e, state)
+                } else {
+                    anyhow::anyhow!("{}", e)
+                }
+            }),
+        Type::Vec4 => executable
+            .call_vec("main", &[], 4)
+            .map(|v| GlslValue::Vec4([v[0], v[1], v[2], v[3]]))
+            .map_err(|e| {
+                if let Some(state) = executable.format_emulator_state() {
+                    anyhow::anyhow!("{}{}", e, state)
+                } else {
+                    anyhow::anyhow!("{}", e)
+                }
+            }),
+        Type::Mat2 => {
+            executable
+                .call_mat("main", &[], 2, 2)
+                .map(|v| {
+                    // Convert flat array to 2x2 matrix (column-major)
+                    GlslValue::Mat2x2([[v[0], v[2]], [v[1], v[3]]])
+                })
+                .map_err(|e| {
+                    if let Some(state) = executable.format_emulator_state() {
+                        anyhow::anyhow!("{}{}", e, state)
+                    } else {
+                        anyhow::anyhow!("{}", e)
+                    }
+                })
+        }
+        Type::Mat3 => {
+            executable
+                .call_mat("main", &[], 3, 3)
+                .map(|v| {
+                    // Convert flat array to 3x3 matrix (column-major)
+                    GlslValue::Mat3x3([[v[0], v[3], v[6]], [v[1], v[4], v[7]], [v[2], v[5], v[8]]])
+                })
+                .map_err(|e| {
+                    if let Some(state) = executable.format_emulator_state() {
+                        anyhow::anyhow!("{}{}", e, state)
+                    } else {
+                        anyhow::anyhow!("{}", e)
+                    }
+                })
+        }
+        Type::Mat4 => {
+            executable
+                .call_mat("main", &[], 4, 4)
+                .map(|v| {
+                    // Convert flat array to 4x4 matrix (column-major)
+                    GlslValue::Mat4x4([
+                        [v[0], v[4], v[8], v[12]],
+                        [v[1], v[5], v[9], v[13]],
+                        [v[2], v[6], v[10], v[14]],
+                        [v[3], v[7], v[11], v[15]],
+                    ])
+                })
+                .map_err(|e| {
+                    if let Some(state) = executable.format_emulator_state() {
+                        anyhow::anyhow!("{}{}", e, state)
+                    } else {
+                        anyhow::anyhow!("{}", e)
+                    }
+                })
+        }
         _ => anyhow::bail!("unsupported return type: {:?}", sig.return_type),
     }
 }
 
 /// Parse a GLSL value from a string.
+/// Supports scalars, vectors, and matrices.
 fn parse_glsl_value(s: &str) -> Result<GlslValue> {
     let s = s.trim();
 
@@ -218,6 +329,12 @@ fn parse_glsl_value(s: &str) -> Result<GlslValue> {
         _ => {}
     }
 
+    // Try parsing as vector or matrix constructor using GlslValue::parse
+    // This uses the GLSL parser to handle constructors like vec2(1.0, 2.0)
+    if let Ok(value) = GlslValue::parse(s) {
+        return Ok(value);
+    }
+
     anyhow::bail!("failed to parse GLSL value: {}", s)
 }
 
@@ -227,41 +344,25 @@ fn compare_results(
     expected: &GlslValue,
     comparison: ComparisonOp,
 ) -> Result<(), String> {
-    match (actual, expected) {
-        (GlslValue::I32(a), GlslValue::I32(e)) => {
-            if comparison == ComparisonOp::Exact && a == e {
+    match comparison {
+        ComparisonOp::Exact => {
+            if actual.eq(expected) {
                 Ok(())
-            } else if comparison == ComparisonOp::Exact {
-                Err(format!("expected {}, got {}", e, a))
             } else {
-                Err(format!("exact comparison required for integers, got ~="))
+                Err(format!("expected {:?}, got {:?}", expected, actual))
             }
         }
-        (GlslValue::F32(a), GlslValue::F32(e)) => {
-            let tolerance = 1e-4; // Default tolerance for float comparisons
-            let diff = (a - e).abs();
-            if diff <= tolerance {
+        ComparisonOp::Approx => {
+            let tolerance = GlslValue::DEFAULT_TOLERANCE;
+            if actual.approx_eq(expected, tolerance) {
                 Ok(())
             } else {
                 Err(format!(
-                    "expected {} (tolerance: {}), got {} (diff: {})",
-                    e, tolerance, a, diff
+                    "expected {:?} (tolerance: {}), got {:?}",
+                    expected, tolerance, actual
                 ))
             }
         }
-        (GlslValue::Bool(a), GlslValue::Bool(e)) => {
-            if comparison == ComparisonOp::Exact && a == e {
-                Ok(())
-            } else if comparison == ComparisonOp::Exact {
-                Err(format!("expected {}, got {}", e, a))
-            } else {
-                Err(format!("exact comparison required for booleans, got ~="))
-            }
-        }
-        _ => Err(format!(
-            "type mismatch: expected {:?}, got {:?}",
-            expected, actual
-        )),
     }
 }
 
@@ -294,4 +395,92 @@ fn parse_target(target: &str) -> Result<(RunMode, DecimalFormat)> {
     };
 
     Ok((run_mode, decimal_format))
+}
+
+/// Extract only the relevant function and generated main() from the bootstrap code
+/// for cleaner error messages. Returns just the function being tested + the generated main().
+fn extract_relevant_code_for_error(
+    original_source: &str,
+    expression_str: &str,
+    bootstrap_source: &str,
+) -> String {
+    // Extract function name from expression (e.g., "mul_ivec2(ivec2(2, 3), ivec2(4, 5))" -> "mul_ivec2")
+    let func_name = expression_str.split('(').next().unwrap_or("").trim();
+
+    // Find and extract just the function definition from the original source
+    let mut function_lines = Vec::new();
+    let lines: Vec<&str> = original_source.lines().collect();
+    let mut in_target_function = false;
+    let mut brace_depth = 0;
+
+    for line in lines.iter() {
+        let trimmed = line.trim();
+
+        // Check if this line starts the target function
+        if !in_target_function && trimmed.contains(&format!("{}(", func_name)) {
+            in_target_function = true;
+            brace_depth = 0;
+            function_lines.push(*line);
+            // Count opening braces on this line
+            brace_depth += line.matches('{').count();
+            brace_depth -= line.matches('}').count();
+            continue;
+        }
+
+        if in_target_function {
+            function_lines.push(*line);
+            brace_depth += line.matches('{').count();
+            brace_depth -= line.matches('}').count();
+
+            // If we've closed all braces, we're done with the function
+            if brace_depth == 0 {
+                break;
+            }
+        }
+    }
+
+    // Extract the generated main() function from bootstrap_source
+    let mut main_lines = Vec::new();
+    if let Some(main_start) = bootstrap_source.lines().position(|line| {
+        let trimmed = line.trim();
+        trimmed.starts_with("main()") || trimmed.contains(" main()")
+    }) {
+        let bootstrap_lines: Vec<&str> = bootstrap_source.lines().collect();
+        let mut main_brace_depth = 0;
+        for line in bootstrap_lines.iter().skip(main_start) {
+            main_lines.push(*line);
+            main_brace_depth += line.matches('{').count();
+            main_brace_depth -= line.matches('}').count();
+            // Stop after we close the main function
+            if main_brace_depth == 0 {
+                break;
+            }
+        }
+    }
+
+    // Combine function + main with a blank line between
+    if function_lines.is_empty() && main_lines.is_empty() {
+        return String::new();
+    }
+
+    let mut result = function_lines.join("\n");
+    if !main_lines.is_empty() {
+        result.push_str("\n\n"); // Blank line between function and main
+        result.push_str(&main_lines.join("\n"));
+    }
+
+    result
+}
+
+/// Format source code as a code block with line numbers for better readability
+fn format_code_block(source: &str) -> String {
+    let lines: Vec<&str> = source.lines().collect();
+    let max_line_num_width = (lines.len() + 1).to_string().len();
+
+    lines
+        .iter()
+        .enumerate()
+        .map(|(i, line)| format!("{:width$} | {}", i + 1, line, width = max_line_num_width))
+        .collect::<Vec<_>>()
+        .join("\n")
 }

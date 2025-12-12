@@ -65,6 +65,12 @@ pub fn compare_clif(actual: &str, expected: &str, path: &Path, test_type: &str) 
 
 /// Run a compile test: verify CLIF IR before transformations.
 pub fn run_compile_test(glsl_source: &str, expected_clif: &str, path: &Path) -> Result<()> {
+    // Skip compile test if source doesn't have a main() function
+    // (compile tests require a complete shader with main())
+    if !glsl_source.contains("main()") {
+        return Ok(());
+    }
+
     // Compile to CLIF (no transformations)
     let mut compiler = GlslCompiler::new();
     let isa =

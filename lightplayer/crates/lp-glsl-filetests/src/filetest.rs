@@ -98,7 +98,14 @@ pub fn parse_test_file(path: &Path) -> Result<TestFile> {
             continue;
         }
 
+        // Handle both "// run:" and "// #run:" formats
         if let Some(run_line) = trimmed.strip_prefix("// run:") {
+            let directive = parse_run_directive(run_line.trim(), line_num + 1)?;
+            run_directives.push(directive);
+            continue;
+        }
+
+        if let Some(run_line) = trimmed.strip_prefix("// #run:") {
             let directive = parse_run_directive(run_line.trim(), line_num + 1)?;
             run_directives.push(directive);
             continue;
