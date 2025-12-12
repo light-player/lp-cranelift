@@ -813,10 +813,31 @@ fn compile_clif_to_elf(module: &ClifModule) -> Result<Vec<u8>, crate::error::Gls
     module
         .link_into(&mut object_module, Linkage::Export)
         .map_err(|e| {
-            GlslError::new(
-                crate::error::ErrorCode::E0400,
-                alloc_format!("failed to link functions: {}", e),
-            )
+            // If error already has notes (detailed verifier errors), preserve them and use shorter message
+            if !e.notes.is_empty() {
+                // For verifier errors, the notes contain the detailed errors
+                // Use a shorter message to avoid duplication
+                let code = e.code; // Preserve original code (likely E0401)
+                let message = if e.message.contains("failed to define main function") {
+                    alloc_format!("failed to link functions: error in main function")
+                } else if e.message.contains("failed to define") {
+                    alloc_format!("failed to link functions: {}", e.message)
+                } else {
+                    alloc_format!("failed to link functions: {}", e.message)
+                };
+                let mut new_error = GlslError::new(code, message);
+                // Copy notes from original error (these contain the detailed verifier errors)
+                for note in e.notes {
+                    new_error = new_error.with_note(note);
+                }
+                new_error
+            } else {
+                // For non-verifier errors, wrap normally
+                GlslError::new(
+                    crate::error::ErrorCode::E0400,
+                    alloc_format!("failed to link functions: {}", e),
+                )
+            }
         })?;
 
     // Finish the module and get the object file

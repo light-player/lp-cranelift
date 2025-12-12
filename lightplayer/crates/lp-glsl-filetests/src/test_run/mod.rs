@@ -34,27 +34,18 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
 
     // Process each run directive
     for directive in &test_file.run_directives {
-        // Generate bootstrap code
-        let bootstrap_source =
+        // Generate bootstrap code with span information
+        let bootstrap_result =
             bootstrap::generate_bootstrap(&test_file.glsl_source, &directive.expression_str)?;
 
         // Compile and execute
-        // Note: bootstrap_source now contains ONLY the function being tested + main()
-        let mut executable = glsl_emu_riscv32(&bootstrap_source, options.clone()).map_err(|e| {
-            anyhow::anyhow!(
-                "Compilation failed for test case at line {}:\n\
-                     \n\
-                     Test case: {}\n\
-                     \n\
-                     Generated bootstrap code:\n\
-                     {}\n\
-                     \n\
-                     Compilation error:\n\
-                     {}",
+        // Note: bootstrap_result.source now contains ONLY the function being tested + main()
+        let mut executable = glsl_emu_riscv32(&bootstrap_result.source, options.clone()).map_err(|e| {
+            format_compilation_error(
+                &e,
+                &bootstrap_result,
                 directive.line_number,
-                directive.expression_str,
-                format_code_block(&bootstrap_source),
-                e
+                &directive.expression_str,
             )
         })?;
 
@@ -102,6 +93,52 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Format a compilation error with bootstrap code context
+fn format_compilation_error(
+    error: &lp_glsl::error::GlslError,
+    bootstrap: &bootstrap::BootstrapResult,
+    directive_line: usize,
+    expression: &str,
+) -> anyhow::Error {
+    // Check if error message already contains "Compilation error:" to avoid duplication
+    let error_msg = error.to_string();
+    let has_prefix = error_msg.contains("Compilation error:");
+    
+    // Extract notes if present (these contain detailed verifier errors)
+    let notes = if !error.notes.is_empty() {
+        format!("\n\n{}", error.notes.join("\n"))
+    } else {
+        String::new()
+    };
+    
+    // Build the error message
+    let mut msg = format!(
+        "Compilation failed for test case at line {}:\n\
+         \n\
+         Test case: {}\n\
+         \n\
+         Generated bootstrap code:\n\
+         {}\n\
+         \n\
+         {}{}{}",
+        directive_line,
+        expression,
+        format_code_block(&bootstrap.source),
+        if has_prefix { "" } else { "Compilation error:\n" },
+        error_msg,
+        notes
+    );
+    
+    // Add main function span info for reference
+    msg.push_str(&format!(
+        "\n\nNote: main() function spans lines {} to {}",
+        bootstrap.main_start_line,
+        bootstrap.main_end_line
+    ));
+    
+    anyhow::anyhow!("{}", msg)
 }
 
 /// Format source code as a code block with line numbers for better readability

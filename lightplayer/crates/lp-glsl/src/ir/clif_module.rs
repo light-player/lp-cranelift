@@ -1,10 +1,12 @@
 //! Immutable CLIF module representation holding all functions before linking/compilation.
 
-use crate::error::GlslError;
+use crate::error::{ErrorCode, GlslError};
 use crate::semantic::functions::FunctionRegistry;
 use cranelift_codegen::ir::Function;
 use cranelift_codegen::isa::OwnedTargetIsa;
-use cranelift_module::{FuncId, Linkage, Module};
+use cranelift_codegen::print_errors::pretty_verifier_error;
+use cranelift_codegen::CodegenError;
+use cranelift_module::{FuncId, Linkage, Module, ModuleError};
 use hashbrown::HashMap;
 
 #[cfg(not(feature = "std"))]
@@ -320,10 +322,7 @@ impl ClifModule {
 
             ctx.func = func_clone;
             module.define_function(new_func_id, &mut ctx).map_err(|e| {
-                GlslError::new(
-                    ErrorCode::E0400,
-                    format!("failed to define function '{}': {}", name, e),
-                )
+                extract_and_format_module_error(&e, &ctx.func, &format!("function '{}'", name))
             })?;
             module.clear_context(&mut ctx);
         }
@@ -344,15 +343,36 @@ impl ClifModule {
 
         ctx.func = main_func_clone;
         module.define_function(main_id, &mut ctx).map_err(|e| {
-            GlslError::new(
-                ErrorCode::E0400,
-                format!("failed to define main function: {}", e),
-            )
+            extract_and_format_module_error(&e, &ctx.func, "main function")
         })?;
         module.clear_context(&mut ctx);
 
         Ok(name_to_id)
     }
+}
+
+/// Extract and format verifier errors from ModuleError if present
+fn extract_and_format_module_error(
+    error: &ModuleError,
+    func: &Function,
+    context: &str,
+) -> GlslError {
+    let base_message = format!("failed to define {}: {}", context, error);
+    
+    // Check if this is a compilation error with verifier errors
+    if let ModuleError::Compilation(codegen_error) = error {
+        if let CodegenError::Verifier(verifier_errors) = codegen_error {
+            // Format verifier errors with function context
+            let formatted_errors = pretty_verifier_error(func, None, verifier_errors.clone());
+            
+            // Use E0401 (verification error) instead of E0400 when we have verifier details
+            return GlslError::new(ErrorCode::E0401, base_message)
+                .with_note(format!("Detailed verifier errors:\n{}", formatted_errors));
+        }
+    }
+    
+    // For non-verifier errors or if extraction failed, use generic error
+    GlslError::new(ErrorCode::E0400, base_message)
 }
 
 /// Builder for constructing a ClifModule

@@ -2,6 +2,16 @@
 
 use anyhow::Result;
 
+/// Result of bootstrap code generation with span information
+pub struct BootstrapResult {
+    /// The generated bootstrap source code
+    pub source: String,
+    /// Line number where the main() function starts (1-indexed)
+    pub main_start_line: usize,
+    /// Line number where the main() function ends (1-indexed, inclusive)
+    pub main_end_line: usize,
+}
+
 /// Known GLSL return types that can be inferred.
 const KNOWN_TYPES: &[&str] = &[
     "float", "int", "bool", "vec2", "vec3", "vec4", "ivec2", "ivec3", "ivec4", "mat2", "mat3",
@@ -10,7 +20,7 @@ const KNOWN_TYPES: &[&str] = &[
 
 /// Generate bootstrap GLSL code that wraps the expression in a main() function.
 /// Only includes the specific function being tested, not the entire source file.
-pub fn generate_bootstrap(original_source: &str, expression_str: &str) -> Result<String> {
+pub fn generate_bootstrap(original_source: &str, expression_str: &str) -> Result<BootstrapResult> {
     // Extract function name from expression (e.g., "divide_float(5.0, 1.0)" -> "divide_float")
     let func_name = extract_function_name(expression_str)?;
 
@@ -20,14 +30,26 @@ pub fn generate_bootstrap(original_source: &str, expression_str: &str) -> Result
     // Infer return type by extracting function name from expression and looking it up in source
     let return_type = infer_return_type_from_expression(original_source, expression_str)?;
 
+    // Count lines in the function code (for calculating main start line)
+    let function_line_count = function_code.lines().count();
+    
     // Build bootstrap with just the function + generated main()
     let mut bootstrap = function_code;
-    bootstrap.push_str(&format!(
-        "\n\n{} main() {{\n    return {};\n}}\n",
-        return_type, expression_str
-    ));
+    let main_decl = format!("\n\n{} main() {{\n    return {};\n}}\n", return_type, expression_str);
+    bootstrap.push_str(&main_decl);
 
-    Ok(bootstrap)
+    // Calculate main function span (1-indexed)
+    // Main starts after function code + 2 blank lines
+    let main_start_line = function_line_count + 3;
+    // Main ends after main_start + main_decl lines (subtract 1 because end is inclusive)
+    let main_line_count = main_decl.lines().count();
+    let main_end_line = main_start_line + main_line_count - 1;
+
+    Ok(BootstrapResult {
+        source: bootstrap,
+        main_start_line,
+        main_end_line,
+    })
 }
 
 /// Extract a specific function definition from GLSL source.

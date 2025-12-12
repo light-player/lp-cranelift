@@ -33,8 +33,8 @@ pub use backend::GlslEmulatorModule;
 pub use backend::GlslJitModule;
 pub use backend::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode};
 pub use compiler::{
-    Backend, CompilationPipeline, CompiledShader, GlslCompiler, ParseResult, SemanticResult, TransformationPass,
-    parse_program_with_registry,
+    Backend, CompilationPipeline, CompiledShader, GlslCompiler, ParseResult, SemanticResult,
+    TransformationPass, parse_program_with_registry,
 };
 pub use error::{ErrorCode, GlslError, SourceLocation};
 pub use ir::ClifModule;
