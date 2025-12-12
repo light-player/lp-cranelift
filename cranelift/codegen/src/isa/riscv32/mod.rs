@@ -7,7 +7,7 @@ use crate::isa::{
     Builder as IsaBuilder, FunctionAlignment, IsaFlagsHashKey, OwnedTargetIsa, TargetIsa,
 };
 use crate::machinst::{
-    CompiledCodeStencil, MachInst, MachTextSectionBuilder, Reg, SigSet, TextSectionBuilder, VCode,
+    CompiledCode, CompiledCodeStencil, MachInst, MachTextSectionBuilder, Reg, SigSet, TextSectionBuilder, VCode,
     compile,
 };
 use crate::result::CodegenResult;

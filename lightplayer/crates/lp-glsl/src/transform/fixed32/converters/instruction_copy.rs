@@ -223,10 +223,19 @@ pub fn copy_instruction_as_is_with_stack_slot_map(
         } => {
             // StackLoad has stack_slot and offset
             // Remap stack slot if mapping provided
-            let new_stack_slot = stack_slot_map
-                .and_then(|m| m.get(stack_slot))
-                .copied()
-                .unwrap_or(*stack_slot);
+            let new_stack_slot = if let Some(m) = stack_slot_map {
+                *m.get(stack_slot).ok_or_else(|| {
+                    GlslError::new(
+                        ErrorCode::E0301,
+                        format!(
+                            "Stack slot {:?} not found in stack_slot_map when copying instruction {:?}. This indicates a bug in function linking - all stack slots must be copied before copying instructions.",
+                            stack_slot, opcode
+                        ),
+                    )
+                })?
+            } else {
+                *stack_slot
+            };
             InstructionData::StackLoad {
                 opcode,
                 stack_slot: new_stack_slot,
@@ -243,10 +252,19 @@ pub fn copy_instruction_as_is_with_stack_slot_map(
             // StackStore has stack_slot, offset, and arg (address)
             // Value comes from inst_args[0]
             // Remap stack slot if mapping provided
-            let new_stack_slot = stack_slot_map
-                .and_then(|m| m.get(stack_slot))
-                .copied()
-                .unwrap_or(*stack_slot);
+            let new_stack_slot = if let Some(m) = stack_slot_map {
+                *m.get(stack_slot).ok_or_else(|| {
+                    GlslError::new(
+                        ErrorCode::E0301,
+                        format!(
+                            "Stack slot {:?} not found in stack_slot_map when copying instruction {:?}. This indicates a bug in function linking - all stack slots must be copied before copying instructions.",
+                            stack_slot, opcode
+                        ),
+                    )
+                })?
+            } else {
+                *stack_slot
+            };
             let stack_store_inst_data = InstructionData::StackStore {
                 opcode,
                 stack_slot: new_stack_slot,
