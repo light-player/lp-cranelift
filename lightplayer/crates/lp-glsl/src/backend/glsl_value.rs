@@ -36,6 +36,9 @@ impl GlslValue {
             format!("vec2 main() {{ return {}; }}", literal_str),
             format!("vec3 main() {{ return {}; }}", literal_str),
             format!("vec4 main() {{ return {}; }}", literal_str),
+            format!("ivec2 main() {{ return {}; }}", literal_str),
+            format!("ivec3 main() {{ return {}; }}", literal_str),
+            format!("ivec4 main() {{ return {}; }}", literal_str),
             format!("mat2 main() {{ return {}; }}", literal_str),
             format!("mat3 main() {{ return {}; }}", literal_str),
             format!("mat4 main() {{ return {}; }}", literal_str),
@@ -92,6 +95,24 @@ impl GlslValue {
                                         }
                                     }
                                     "vec4" => {
+                                        if let Ok(v) = parse_vector_constructor(args, 4) {
+                                            return Ok(GlslValue::Vec4([v[0], v[1], v[2], v[3]]));
+                                        }
+                                    }
+                                    "ivec2" => {
+                                        // Parse integer vector and convert to float Vec2
+                                        if let Ok(v) = parse_vector_constructor(args, 2) {
+                                            return Ok(GlslValue::Vec2([v[0], v[1]]));
+                                        }
+                                    }
+                                    "ivec3" => {
+                                        // Parse integer vector and convert to float Vec3
+                                        if let Ok(v) = parse_vector_constructor(args, 3) {
+                                            return Ok(GlslValue::Vec3([v[0], v[1], v[2]]));
+                                        }
+                                    }
+                                    "ivec4" => {
+                                        // Parse integer vector and convert to float Vec4
                                         if let Ok(v) = parse_vector_constructor(args, 4) {
                                             return Ok(GlslValue::Vec4([v[0], v[1], v[2], v[3]]));
                                         }

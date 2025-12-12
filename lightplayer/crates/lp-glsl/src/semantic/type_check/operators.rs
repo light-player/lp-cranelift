@@ -3,7 +3,7 @@
 
 use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use crate::semantic::types::Type;
-use glsl::syntax::{BinaryOp, UnaryOp, SourceSpan};
+use glsl::syntax::{BinaryOp, SourceSpan, UnaryOp};
 
 use super::conversion::promote_numeric;
 use super::matrix;
@@ -25,7 +25,7 @@ pub fn infer_binary_result_type(
             if lhs_ty.is_matrix() || rhs_ty.is_matrix() {
                 return matrix::infer_matrix_binary_result_type(op, lhs_ty, rhs_ty, span);
             }
-            
+
             // Vector operations
             if lhs_ty.is_vector() || rhs_ty.is_vector() {
                 // Vector + Vector: component-wise, types must match
@@ -33,50 +33,145 @@ pub fn infer_binary_result_type(
                     if lhs_ty != rhs_ty {
                         return Err(GlslError::new(
                             ErrorCode::E0106,
-                            format!("vector operation requires matching types, got {:?} and {:?}", lhs_ty, rhs_ty)
+                            format!(
+                                "vector operation requires matching types, got {:?} and {:?}",
+                                lhs_ty, rhs_ty
+                            ),
                         )
                         .with_location(source_span_to_location(&span)));
                     }
                     return Ok(lhs_ty.clone());
                 }
-                
+
                 // Vector + Scalar or Scalar + Vector: result is vector type
                 if lhs_ty.is_vector() {
                     let vec_base = lhs_ty.vector_base_type().unwrap();
                     if !rhs_ty.is_numeric() || !vec_base.is_numeric() {
                         return Err(GlslError::new(
                             ErrorCode::E0106,
-                            format!("cannot use {:?} with {:?}", rhs_ty, lhs_ty)
+                            format!("cannot use {:?} with {:?}", rhs_ty, lhs_ty),
                         )
                         .with_location(source_span_to_location(&span)));
                     }
                     return Ok(lhs_ty.clone());
                 }
-                
+
                 if rhs_ty.is_vector() {
                     let vec_base = rhs_ty.vector_base_type().unwrap();
                     if !lhs_ty.is_numeric() || !vec_base.is_numeric() {
                         return Err(GlslError::new(
                             ErrorCode::E0106,
-                            format!("cannot use {:?} with {:?}", lhs_ty, rhs_ty)
+                            format!("cannot use {:?} with {:?}", lhs_ty, rhs_ty),
                         )
                         .with_location(source_span_to_location(&span)));
                     }
                     return Ok(rhs_ty.clone());
                 }
             }
-            
+
             // Scalar operations
             if !lhs_ty.is_numeric() || !rhs_ty.is_numeric() {
                 return Err(GlslError::new(
                     ErrorCode::E0106,
-                    format!("arithmetic operator {:?} requires numeric operands", op)
+                    format!("arithmetic operator {:?} requires numeric operands", op),
                 )
                 .with_location(source_span_to_location(&span))
-                .with_note(format!("left operand has type `{:?}`, right operand has type `{:?}`", lhs_ty, rhs_ty)));
+                .with_note(format!(
+                    "left operand has type `{:?}`, right operand has type `{:?}`",
+                    lhs_ty, rhs_ty
+                )));
             }
             // Result type is the promoted type
             Ok(promote_numeric(lhs_ty, rhs_ty))
+        }
+
+        // Modulo operator: integer types only (int, ivec2, ivec3, ivec4)
+        Mod => {
+            // Modulo is only valid for integer types, not floats
+            let lhs_is_int = matches!(lhs_ty, Type::Int | Type::IVec2 | Type::IVec3 | Type::IVec4);
+            let rhs_is_int = matches!(rhs_ty, Type::Int | Type::IVec2 | Type::IVec3 | Type::IVec4);
+
+            if !lhs_is_int || !rhs_is_int {
+                return Err(GlslError::new(
+                    ErrorCode::E0106,
+                    format!(
+                        "modulo operator requires integer operands, got {:?} and {:?}",
+                        lhs_ty, rhs_ty
+                    ),
+                )
+                .with_location(source_span_to_location(&span)));
+            }
+
+            // Matrix operations (not valid for modulo)
+            if lhs_ty.is_matrix() || rhs_ty.is_matrix() {
+                return Err(GlslError::new(
+                    ErrorCode::E0106,
+                    "modulo operator not valid for matrix types",
+                )
+                .with_location(source_span_to_location(&span)));
+            }
+
+            // Vector operations
+            if lhs_ty.is_vector() || rhs_ty.is_vector() {
+                // Vector % Vector: component-wise, types must match
+                if lhs_ty.is_vector() && rhs_ty.is_vector() {
+                    if lhs_ty != rhs_ty {
+                        return Err(GlslError::new(
+                            ErrorCode::E0106,
+                            format!(
+                                "vector modulo requires matching types, got {:?} and {:?}",
+                                lhs_ty, rhs_ty
+                            ),
+                        )
+                        .with_location(source_span_to_location(&span)));
+                    }
+                    return Ok(lhs_ty.clone());
+                }
+
+                // Vector % Scalar or Scalar % Vector: result is vector type
+                if lhs_ty.is_vector() {
+                    let vec_base = lhs_ty.vector_base_type().unwrap();
+                    if !matches!(vec_base, Type::Int) || !matches!(rhs_ty, Type::Int) {
+                        return Err(GlslError::new(
+                            ErrorCode::E0106,
+                            format!(
+                                "modulo requires integer types, got {:?} and {:?}",
+                                lhs_ty, rhs_ty
+                            ),
+                        )
+                        .with_location(source_span_to_location(&span)));
+                    }
+                    return Ok(lhs_ty.clone());
+                }
+
+                if rhs_ty.is_vector() {
+                    let vec_base = rhs_ty.vector_base_type().unwrap();
+                    if !matches!(vec_base, Type::Int) || !matches!(lhs_ty, Type::Int) {
+                        return Err(GlslError::new(
+                            ErrorCode::E0106,
+                            format!(
+                                "modulo requires integer types, got {:?} and {:?}",
+                                lhs_ty, rhs_ty
+                            ),
+                        )
+                        .with_location(source_span_to_location(&span)));
+                    }
+                    return Ok(rhs_ty.clone());
+                }
+            }
+
+            // Scalar operations: both must be Int
+            if !matches!(lhs_ty, Type::Int) || !matches!(rhs_ty, Type::Int) {
+                return Err(GlslError::new(
+                    ErrorCode::E0106,
+                    format!(
+                        "modulo operator requires integer operands, got {:?} and {:?}",
+                        lhs_ty, rhs_ty
+                    ),
+                )
+                .with_location(source_span_to_location(&span)));
+            }
+            Ok(Type::Int)
         }
 
         // Comparison operators: operands must be compatible, result is bool
@@ -84,10 +179,13 @@ pub fn infer_binary_result_type(
             if !lhs_ty.is_numeric() || !rhs_ty.is_numeric() {
                 return Err(GlslError::new(
                     ErrorCode::E0106,
-                    format!("comparison operator {:?} requires numeric operands", op)
+                    format!("comparison operator {:?} requires numeric operands", op),
                 )
                 .with_location(source_span_to_location(&span))
-                .with_note(format!("left operand has type `{:?}`, right operand has type `{:?}`", lhs_ty, rhs_ty)));
+                .with_note(format!(
+                    "left operand has type `{:?}`, right operand has type `{:?}`",
+                    lhs_ty, rhs_ty
+                )));
             }
             Ok(Type::Bool)
         }
@@ -97,17 +195,20 @@ pub fn infer_binary_result_type(
             if lhs_ty != &Type::Bool || rhs_ty != &Type::Bool {
                 return Err(GlslError::new(
                     ErrorCode::E0106,
-                    format!("logical operator {:?} requires bool operands", op)
+                    format!("logical operator {:?} requires bool operands", op),
                 )
                 .with_location(source_span_to_location(&span))
-                .with_note(format!("left operand has type `{:?}`, right operand has type `{:?}`", lhs_ty, rhs_ty)));
+                .with_note(format!(
+                    "left operand has type `{:?}`, right operand has type `{:?}`",
+                    lhs_ty, rhs_ty
+                )));
             }
             Ok(Type::Bool)
         }
 
         _ => Err(GlslError::new(
             ErrorCode::E0112,
-            format!("unsupported binary operator: {:?}", op)
+            format!("unsupported binary operator: {:?}", op),
         )
         .with_location(source_span_to_location(&span))),
     }
@@ -126,7 +227,7 @@ pub fn infer_unary_result_type(
             if !operand_ty.is_numeric() {
                 return Err(GlslError::new(
                     ErrorCode::E0112,
-                    "unary minus requires numeric operand"
+                    "unary minus requires numeric operand",
                 )
                 .with_location(source_span_to_location(&span))
                 .with_note(format!("operand has type `{:?}`", operand_ty)));
@@ -136,19 +237,18 @@ pub fn infer_unary_result_type(
 
         Not => {
             if operand_ty != &Type::Bool {
-                return Err(GlslError::new(
-                    ErrorCode::E0112,
-                    "logical NOT requires bool operand"
-                )
-                .with_location(source_span_to_location(&span))
-                .with_note(format!("operand has type `{:?}`", operand_ty)));
+                return Err(
+                    GlslError::new(ErrorCode::E0112, "logical NOT requires bool operand")
+                        .with_location(source_span_to_location(&span))
+                        .with_note(format!("operand has type `{:?}`", operand_ty)),
+                );
             }
             Ok(Type::Bool)
         }
 
         _ => Err(GlslError::new(
             ErrorCode::E0112,
-            format!("unsupported unary operator: {:?}", op)
+            format!("unsupported unary operator: {:?}", op),
         )
         .with_location(source_span_to_location(&span))),
     }
@@ -157,12 +257,12 @@ pub fn infer_unary_result_type(
 /// Validate condition expression type (must be bool)
 pub fn check_condition(cond_ty: &Type) -> Result<(), GlslError> {
     if cond_ty != &Type::Bool {
-        return Err(GlslError::new(
-            ErrorCode::E0107,
-            "condition must be bool type"
-        )
-        .with_note(format!("condition has type `{:?}`, expected `Bool`", cond_ty)));
+        return Err(
+            GlslError::new(ErrorCode::E0107, "condition must be bool type").with_note(format!(
+                "condition has type `{:?}`, expected `Bool`",
+                cond_ty
+            )),
+        );
     }
     Ok(())
 }
-

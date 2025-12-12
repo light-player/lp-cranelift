@@ -24,7 +24,7 @@ pub fn translate_vector_binary(
 
     // Validate operation is allowed on vectors
     match op {
-        Add | Sub | Mult | Div => {}, // allowed
+        Add | Sub | Mult | Div | Mod => {}, // allowed
         _ => return Err(GlslError::new(ErrorCode::E0400, format!("operator {:?} not supported on vectors yet", op))),
     }
 

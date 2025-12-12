@@ -1,13 +1,17 @@
 use crate::codegen::context::CodegenContext;
-use crate::semantic::types::Type as GlslType;
-use crate::semantic::type_check::{infer_binary_result_type, promote_numeric};
 use crate::error::{ErrorCode, GlslError};
+use crate::semantic::type_check::{infer_binary_result_type, promote_numeric};
+use crate::semantic::types::Type as GlslType;
+use cranelift_codegen::ir::{
+    InstBuilder, Value,
+    condcodes::{FloatCC, IntCC},
+    types,
+};
 use glsl::syntax::Expr;
-use cranelift_codegen::ir::{types, Value, condcodes::{IntCC, FloatCC}, InstBuilder};
 
-use super::vector;
-use super::matrix;
 use super::coercion;
+use super::matrix;
+use super::vector;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -21,7 +25,7 @@ pub fn translate_binary(
     let Expr::Binary(op, lhs, rhs, span) = expr else {
         unreachable!("translate_binary called on non-binary expr");
     };
-    
+
     let (lhs_vals, lhs_ty) = ctx.translate_expr_typed(lhs)?;
     let (rhs_vals, rhs_ty) = ctx.translate_expr_typed(rhs)?;
 
@@ -29,9 +33,25 @@ pub fn translate_binary(
     if lhs_ty.is_matrix() || rhs_ty.is_matrix() {
         matrix::translate_matrix_binary(ctx, op, lhs_vals, &lhs_ty, rhs_vals, &rhs_ty, span.clone())
     } else if lhs_ty.is_vector() || rhs_ty.is_vector() {
-        vector::translate_vector_binary(ctx, op, lhs_vals, &lhs_ty, rhs_vals, &rhs_ty, Some(span.clone()))
+        vector::translate_vector_binary(
+            ctx,
+            op,
+            lhs_vals,
+            &lhs_ty,
+            rhs_vals,
+            &rhs_ty,
+            Some(span.clone()),
+        )
     } else {
-        translate_scalar_binary(ctx, op, lhs_vals[0], &lhs_ty, rhs_vals[0], &rhs_ty, span.clone())
+        translate_scalar_binary(
+            ctx,
+            op,
+            lhs_vals[0],
+            &lhs_ty,
+            rhs_vals[0],
+            &rhs_ty,
+            span.clone(),
+        )
     }
 }
 
@@ -102,22 +122,54 @@ fn translate_scalar_binary_op(
         Add => match operand_ty {
             GlslType::Int => ctx.builder.ins().iadd(lhs, rhs),
             GlslType::Float => ctx.builder.ins().fadd(lhs, rhs),
-            _ => return Err(GlslError::new(ErrorCode::E0400, format!("add not supported for {:?}", operand_ty))),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!("add not supported for {:?}", operand_ty),
+                ));
+            }
         },
         Sub => match operand_ty {
             GlslType::Int => ctx.builder.ins().isub(lhs, rhs),
             GlslType::Float => ctx.builder.ins().fsub(lhs, rhs),
-            _ => return Err(GlslError::new(ErrorCode::E0400, format!("sub not supported for {:?}", operand_ty))),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!("sub not supported for {:?}", operand_ty),
+                ));
+            }
         },
         Mult => match operand_ty {
             GlslType::Int => ctx.builder.ins().imul(lhs, rhs),
             GlslType::Float => ctx.builder.ins().fmul(lhs, rhs),
-            _ => return Err(GlslError::new(ErrorCode::E0400, format!("mult not supported for {:?}", operand_ty))),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!("mult not supported for {:?}", operand_ty),
+                ));
+            }
         },
         Div => match operand_ty {
             GlslType::Int => ctx.builder.ins().sdiv(lhs, rhs),
             GlslType::Float => ctx.builder.ins().fdiv(lhs, rhs),
-            _ => return Err(GlslError::new(ErrorCode::E0400, format!("div not supported for {:?}", operand_ty))),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!("div not supported for {:?}", operand_ty),
+                ));
+            }
+        },
+        Mod => match operand_ty {
+            GlslType::Int => ctx.builder.ins().srem(lhs, rhs),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!(
+                        "modulo not supported for {:?} (only integer types)",
+                        operand_ty
+                    ),
+                ));
+            }
         },
 
         // Comparison operators - dispatch based on type
@@ -126,63 +178,102 @@ fn translate_scalar_binary_op(
             let cmp_result = match operand_ty {
                 GlslType::Int => ctx.builder.ins().icmp(IntCC::Equal, lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fcmp(FloatCC::Equal, lhs, rhs),
-                _ => return Err(GlslError::new(ErrorCode::E0400, format!("equal not supported for {:?}", operand_ty))),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("equal not supported for {:?}", operand_ty),
+                    ));
+                }
             };
             // Convert I1 to I8: select 1 if true, 0 if false
             let one = ctx.builder.ins().iconst(types::I8, 1);
             let zero = ctx.builder.ins().iconst(types::I8, 0);
             ctx.builder.ins().select(cmp_result, one, zero)
-        },
+        }
         NonEqual => {
             let cmp_result = match operand_ty {
                 GlslType::Int => ctx.builder.ins().icmp(IntCC::NotEqual, lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fcmp(FloatCC::NotEqual, lhs, rhs),
-                _ => return Err(GlslError::new(ErrorCode::E0400, format!("nonEqual not supported for {:?}", operand_ty))),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("nonEqual not supported for {:?}", operand_ty),
+                    ));
+                }
             };
             let one = ctx.builder.ins().iconst(types::I8, 1);
             let zero = ctx.builder.ins().iconst(types::I8, 0);
             ctx.builder.ins().select(cmp_result, one, zero)
-        },
+        }
         LT => {
             let cmp_result = match operand_ty {
                 GlslType::Int => ctx.builder.ins().icmp(IntCC::SignedLessThan, lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fcmp(FloatCC::LessThan, lhs, rhs),
-                _ => return Err(GlslError::new(ErrorCode::E0400, format!("LT not supported for {:?}", operand_ty))),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("LT not supported for {:?}", operand_ty),
+                    ));
+                }
             };
             let one = ctx.builder.ins().iconst(types::I8, 1);
             let zero = ctx.builder.ins().iconst(types::I8, 0);
             ctx.builder.ins().select(cmp_result, one, zero)
-        },
+        }
         GT => {
             let cmp_result = match operand_ty {
                 GlslType::Int => ctx.builder.ins().icmp(IntCC::SignedGreaterThan, lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fcmp(FloatCC::GreaterThan, lhs, rhs),
-                _ => return Err(GlslError::new(ErrorCode::E0400, format!("GT not supported for {:?}", operand_ty))),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("GT not supported for {:?}", operand_ty),
+                    ));
+                }
             };
             let one = ctx.builder.ins().iconst(types::I8, 1);
             let zero = ctx.builder.ins().iconst(types::I8, 0);
             ctx.builder.ins().select(cmp_result, one, zero)
-        },
+        }
         LTE => {
             let cmp_result = match operand_ty {
-                GlslType::Int => ctx.builder.ins().icmp(IntCC::SignedLessThanOrEqual, lhs, rhs),
+                GlslType::Int => ctx
+                    .builder
+                    .ins()
+                    .icmp(IntCC::SignedLessThanOrEqual, lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fcmp(FloatCC::LessThanOrEqual, lhs, rhs),
-                _ => return Err(GlslError::new(ErrorCode::E0400, format!("LTE not supported for {:?}", operand_ty))),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("LTE not supported for {:?}", operand_ty),
+                    ));
+                }
             };
             let one = ctx.builder.ins().iconst(types::I8, 1);
             let zero = ctx.builder.ins().iconst(types::I8, 0);
             ctx.builder.ins().select(cmp_result, one, zero)
-        },
+        }
         GTE => {
             let cmp_result = match operand_ty {
-                GlslType::Int => ctx.builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, lhs, rhs),
-                GlslType::Float => ctx.builder.ins().fcmp(FloatCC::GreaterThanOrEqual, lhs, rhs),
-                _ => return Err(GlslError::new(ErrorCode::E0400, format!("GTE not supported for {:?}", operand_ty))),
+                GlslType::Int => ctx
+                    .builder
+                    .ins()
+                    .icmp(IntCC::SignedGreaterThanOrEqual, lhs, rhs),
+                GlslType::Float => ctx
+                    .builder
+                    .ins()
+                    .fcmp(FloatCC::GreaterThanOrEqual, lhs, rhs),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("GTE not supported for {:?}", operand_ty),
+                    ));
+                }
             };
             let one = ctx.builder.ins().iconst(types::I8, 1);
             let zero = ctx.builder.ins().iconst(types::I8, 0);
             ctx.builder.ins().select(cmp_result, one, zero)
-        },
+        }
 
         // Logical operators (bool only, already validated by type_check)
         And => {
@@ -197,12 +288,19 @@ fn translate_scalar_binary_op(
             ctx.builder.ins().select(lhs_nonzero, rhs_result, zero)
         }
         Or | Xor => {
-            return Err(GlslError::new(ErrorCode::E0400, format!("logical operator {:?} not yet implemented", op)));
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!("logical operator {:?} not yet implemented", op),
+            ));
         }
 
-        _ => return Err(GlslError::new(ErrorCode::E0400, format!("binary operator not supported yet: {:?}", op))),
+        _ => {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!("binary operator not supported yet: {:?}", op),
+            ));
+        }
     };
 
     Ok(val)
 }
-
