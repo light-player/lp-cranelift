@@ -148,13 +148,24 @@ pub fn rebuild_function_for_module<M: Module>(
 
     // 4. Copy stack slots from old function to new function
     // This must be done before creating the builder so we can access new_func directly
+    // Use offset-based mapping similar to inlining: copy all slots and map by offset
+    let stack_slot_offset = new_func.sized_stack_slots.len() as u32;
     let mut stack_slot_map: HashMap<
         cranelift_codegen::ir::StackSlot,
         cranelift_codegen::ir::StackSlot,
     > = HashMap::new();
+    
+    // Copy all stack slots and build the mapping
+    new_func
+        .sized_stack_slots
+        .reserve(old_func.sized_stack_slots.len());
     for (old_slot_idx, old_slot_data) in old_func.sized_stack_slots.iter() {
-        let new_slot = new_func.create_sized_stack_slot(old_slot_data.clone());
-        stack_slot_map.insert(old_slot_idx, new_slot);
+        new_func.sized_stack_slots.push(old_slot_data.clone());
+        // Map old slot ID to new slot ID (offset + old index)
+        let new_slot_idx = cranelift_codegen::ir::StackSlot::from_u32(
+            stack_slot_offset + old_slot_idx.as_u32(),
+        );
+        stack_slot_map.insert(old_slot_idx, new_slot_idx);
     }
 
     // 5. Create builder context (now we can borrow new_func)
