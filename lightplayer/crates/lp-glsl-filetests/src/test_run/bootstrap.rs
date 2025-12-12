@@ -32,10 +32,13 @@ pub fn generate_bootstrap(original_source: &str, expression_str: &str) -> Result
 
     // Count lines in the function code (for calculating main start line)
     let function_line_count = function_code.lines().count();
-    
+
     // Build bootstrap with just the function + generated main()
     let mut bootstrap = function_code;
-    let main_decl = format!("\n\n{} main() {{\n    return {};\n}}\n", return_type, expression_str);
+    let main_decl = format!(
+        "\n\n{} main() {{\n    return {};\n}}\n",
+        return_type, expression_str
+    );
     bootstrap.push_str(&main_decl);
 
     // Calculate main function span (1-indexed)
@@ -148,11 +151,18 @@ fn infer_type_from_heuristics(func_name: &str, expression: &str) -> String {
 
     // Check for vector/matrix types in function name
     if func_name.contains("vec") || func_name.contains("mat") {
-        if func_name.contains("vec2") || func_name.contains("ivec2") {
+        // Check for integer vectors first (ivec2, ivec3, ivec4)
+        if func_name.contains("ivec2") {
+            return "ivec2".to_string();
+        } else if func_name.contains("ivec3") {
+            return "ivec3".to_string();
+        } else if func_name.contains("ivec4") {
+            return "ivec4".to_string();
+        } else if func_name.contains("vec2") {
             return "vec2".to_string();
-        } else if func_name.contains("vec3") || func_name.contains("ivec3") {
+        } else if func_name.contains("vec3") {
             return "vec3".to_string();
-        } else if func_name.contains("vec4") || func_name.contains("ivec4") {
+        } else if func_name.contains("vec4") {
             return "vec4".to_string();
         } else if func_name.contains("mat2") {
             return "mat2".to_string();

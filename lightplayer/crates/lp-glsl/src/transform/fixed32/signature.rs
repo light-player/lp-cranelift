@@ -15,7 +15,14 @@ pub fn convert_signature(old_sig: &Signature, format: FixedPointFormat) -> Signa
         } else {
             param.value_type
         };
-        new_sig.params.push(AbiParam::new(new_type));
+        // Preserve the parameter purpose (e.g., StructReturn)
+        if param.purpose == cranelift_codegen::ir::ArgumentPurpose::Normal {
+            new_sig.params.push(AbiParam::new(new_type));
+        } else {
+            new_sig
+                .params
+                .push(AbiParam::special(new_type, param.purpose));
+        }
     }
 
     // Convert return types
@@ -25,9 +32,15 @@ pub fn convert_signature(old_sig: &Signature, format: FixedPointFormat) -> Signa
         } else {
             ret.value_type
         };
-        new_sig.returns.push(AbiParam::new(new_type));
+        // Preserve the return purpose
+        if ret.purpose == cranelift_codegen::ir::ArgumentPurpose::Normal {
+            new_sig.returns.push(AbiParam::new(new_type));
+        } else {
+            new_sig
+                .returns
+                .push(AbiParam::special(new_type, ret.purpose));
+        }
     }
 
     new_sig
 }
-

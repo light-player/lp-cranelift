@@ -23,43 +23,12 @@ pub struct GlslEmulatorModule {
     pub(crate) signatures: HashMap<String, FunctionSignature>,
     // Store Cranelift signatures for proper function calling with arguments
     pub(crate) cranelift_signatures: HashMap<String, cranelift_codegen::ir::Signature>,
-    #[allow(dead_code)]
     pub(crate) binary: Vec<u8>,
     pub(crate) main_address: u32,
-}
-
-// Helper function to convert GlslValue to DataValue
-#[cfg(feature = "emulator")]
-#[allow(dead_code)]
-fn glsl_value_to_data_value(value: &GlslValue) -> Vec<cranelift_codegen::data_value::DataValue> {
-    use cranelift_codegen::data_value::DataValue;
-    match value {
-        GlslValue::I32(v) => vec![DataValue::I32(*v)],
-        GlslValue::F32(v) => {
-            // For fixed-point, F32 is represented as I32
-            // TODO: Handle actual float when emulator supports it
-            vec![DataValue::I32(*v as i32)]
-        }
-        GlslValue::Bool(v) => vec![DataValue::I8(if *v { 1 } else { 0 })],
-        GlslValue::Vec2(v) => v.iter().map(|&f| DataValue::I32(f as i32)).collect(),
-        GlslValue::Vec3(v) => v.iter().map(|&f| DataValue::I32(f as i32)).collect(),
-        GlslValue::Vec4(v) => v.iter().map(|&f| DataValue::I32(f as i32)).collect(),
-        GlslValue::Mat2x2(m) => m
-            .iter()
-            .flatten()
-            .map(|&f| DataValue::I32(f as i32))
-            .collect(),
-        GlslValue::Mat3x3(m) => m
-            .iter()
-            .flatten()
-            .map(|&f| DataValue::I32(f as i32))
-            .collect(),
-        GlslValue::Mat4x4(m) => m
-            .iter()
-            .flatten()
-            .map(|&f| DataValue::I32(f as i32))
-            .collect(),
-    }
+    // Store main function IR for debugging error messages
+    pub(crate) main_function_ir: Option<cranelift_codegen::ir::Function>,
+    // Track next buffer allocation address (allocated from start of RAM, growing upward)
+    pub(crate) next_buffer_addr: u32,
 }
 
 #[cfg(feature = "emulator")]
@@ -85,6 +54,276 @@ impl GlslEmulatorModule {
             );
         }
     }
+
+    /// Allocate a buffer in the emulator's RAM and return its address.
+    /// Buffers are allocated from the start of RAM (growing upward), leaving space
+    /// for the stack at the end (growing downward).
+    fn allocate_buffer_in_ram(&mut self, size: usize) -> Result<u32, GlslError> {
+        // DEFAULT_RAM_START is 0x80000000 (from lp-riscv-tools/src/emu/memory.rs)
+        const DEFAULT_RAM_START: u32 = 0x80000000;
+
+        // Get current RAM size
+        let current_len = self.emulator.memory().ram().len();
+
+        // Ensure buffer size is 4-byte aligned
+        let aligned_size = (size + 3) & !3;
+
+        // Calculate buffer address (from next_buffer_addr, growing upward)
+        let buffer_addr = self.next_buffer_addr;
+
+        // Check if buffer would exceed RAM bounds
+        // Leave at least 64KB for the stack at the end of RAM
+        const STACK_RESERVE: usize = 64 * 1024;
+        let max_buffer_end = DEFAULT_RAM_START as usize + current_len - STACK_RESERVE;
+        let buffer_end = buffer_addr as usize + aligned_size;
+
+        if buffer_end > max_buffer_end {
+            return Err(GlslError::new(
+                crate::error::ErrorCode::E0400,
+                format!(
+                    "Buffer allocation would exceed RAM size (need {} bytes at addr 0x{:x}, have {} bytes RAM with {} bytes reserved for stack)",
+                    aligned_size, buffer_addr, current_len, STACK_RESERVE
+                ),
+            ));
+        }
+
+        // Initialize the buffer area with zeros by writing to each word
+        for i in 0..(aligned_size / 4) {
+            let addr = buffer_addr + (i * 4) as u32;
+            self.emulator
+                .memory_mut()
+                .write_word(addr, 0)
+                .map_err(|e| {
+                    GlslError::new(
+                        crate::error::ErrorCode::E0400,
+                        format!("Failed to initialize buffer at 0x{:x}: {:?}", addr, e),
+                    )
+                })?;
+        }
+
+        // Update next_buffer_addr for next allocation
+        self.next_buffer_addr = buffer_addr + aligned_size as u32;
+
+        Ok(buffer_addr)
+    }
+
+    /// Build an enhanced error message with CLIF IR and assembly
+    fn build_enhanced_error(
+        &self,
+        code: crate::error::ErrorCode,
+        base_message: &str,
+        function_name: &str,
+    ) -> GlslError {
+        #[cfg(not(feature = "std"))]
+        use alloc::string::ToString;
+        #[cfg(feature = "std")]
+        use std::string::ToString;
+
+        let mut error = GlslError::new(code, base_message.to_string());
+
+        // Add CLIF IR if available
+        if let Some(ref func) = self.main_function_ir {
+            // Try to format the full function, with a safe fallback
+            let func_display = self.format_function_safely(func);
+
+            error = error.with_note(format!(
+                "=== CLIF IR for function '{}' ===\n{}",
+                function_name, func_display
+            ));
+        }
+
+        // Add assembly disassembly
+        if let Ok(disasm) = self.disassemble_binary() {
+            error = error.with_note(format!("=== Assembly Disassembly ===\n{}", disasm));
+        }
+
+        error
+    }
+
+    /// Safely format a function, avoiding panics from Display
+    fn format_function_safely(&self, func: &cranelift_codegen::ir::Function) -> String {
+        #[cfg(feature = "std")]
+        {
+            use std::panic;
+            // Try full formatting first
+            match panic::catch_unwind(panic::AssertUnwindSafe(|| format!("{}", func))) {
+                Ok(s) => return s,
+                Err(_) => {
+                    // Fall through to manual formatting
+                }
+            }
+        }
+
+        // Manual formatting fallback - build CLIF IR string by iterating blocks
+        let mut result = String::new();
+        result.push_str(&format!("function {} ({})", func.name, func.signature));
+
+        // Add stack slots info
+        if !func.sized_stack_slots.is_empty() {
+            result.push_str(&format!(
+                "\n  stack slots: {}",
+                func.sized_stack_slots.len()
+            ));
+            for (slot, data) in func.sized_stack_slots.iter() {
+                result.push_str(&format!(
+                    "\n    {}: size={}, align={}",
+                    slot,
+                    data.size,
+                    1u32 << data.align_shift
+                ));
+            }
+        }
+
+        // Add blocks and instructions
+        result.push_str("\n");
+        for block in func.layout.blocks() {
+            result.push_str(&format!("\n{}", block));
+
+            // Block parameters
+            let params = func.dfg.block_params(block);
+            if !params.is_empty() {
+                result.push_str("(");
+                for (i, param) in params.iter().enumerate() {
+                    if i > 0 {
+                        result.push_str(", ");
+                    }
+                    result.push_str(&format!("{}: {}", param, func.dfg.value_type(*param)));
+                }
+                result.push_str("):");
+            } else {
+                result.push_str(":");
+            }
+
+            // Instructions
+            for inst in func.layout.block_insts(block) {
+                result.push_str("\n  ");
+
+                // Try to format instruction safely
+                #[cfg(feature = "std")]
+                {
+                    use std::panic;
+                    match panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                        format!("{}", func.dfg.display_inst(inst))
+                    })) {
+                        Ok(s) => {
+                            result.push_str(&s);
+                            continue;
+                        }
+                        Err(_) => {
+                            // Fall through to manual formatting
+                        }
+                    }
+                }
+
+                // Manual instruction formatting fallback
+                let inst_data = &func.dfg.insts[inst];
+                result.push_str(&format!("{:?}", inst_data.opcode()));
+                let inst_results = func.dfg.inst_results(inst);
+                if !inst_results.is_empty() {
+                    result.push_str(" -> ");
+                    for (i, res) in inst_results.iter().enumerate() {
+                        if i > 0 {
+                            result.push_str(", ");
+                        }
+                        result.push_str(&format!("v{}", res));
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
+    /// Disassemble the binary to assembly
+    fn disassemble_binary(&self) -> Result<String, String> {
+        let mut disasm = String::new();
+        let mut offset = 0usize;
+
+        // Disassemble up to a reasonable limit (first 2048 bytes or until binary ends)
+        let limit = core::cmp::min(self.binary.len(), 2048);
+        let mut zero_run_start: Option<usize> = None;
+        const MAX_ZERO_RUN: usize = 16; // Show up to 16 consecutive zeros before summarizing
+
+        while offset < limit {
+            if offset + 4 > self.binary.len() {
+                break;
+            }
+
+            // Read 4-byte instruction (RISC-V 32-bit, little-endian)
+            let mut inst_bytes = [0u8; 4];
+            inst_bytes.copy_from_slice(&self.binary[offset..offset + 4]);
+            let instruction = u32::from_le_bytes(inst_bytes);
+
+            if instruction == 0 {
+                // Track zero runs
+                if zero_run_start.is_none() {
+                    zero_run_start = Some(offset);
+                }
+            } else {
+                // Non-zero instruction - flush any pending zero run
+                if let Some(zero_start) = zero_run_start.take() {
+                    let zero_count = (offset - zero_start) / 4;
+                    if zero_count > MAX_ZERO_RUN {
+                        // Summarize long zero runs
+                        disasm.push_str(&format!(
+                            "  {:08x}: ... ({} zero words skipped)\n",
+                            zero_start, zero_count
+                        ));
+                    } else {
+                        // Show short zero runs
+                        for i in 0..zero_count {
+                            let inst_str = lp_riscv_tools::format_instruction(0);
+                            disasm.push_str(&format!(
+                                "  {:08x}: {:08x}    {}\n",
+                                zero_start + i * 4,
+                                0,
+                                inst_str
+                            ));
+                        }
+                    }
+                }
+
+                // Use proper disassembly formatting
+                let inst_str = lp_riscv_tools::format_instruction(instruction);
+                disasm.push_str(&format!(
+                    "  {:08x}: {:08x}    {}\n",
+                    offset, instruction, inst_str
+                ));
+            }
+
+            offset += 4;
+        }
+
+        // Flush any remaining zero run at the end
+        if let Some(zero_start) = zero_run_start {
+            let zero_count = (offset - zero_start) / 4;
+            if zero_count > MAX_ZERO_RUN {
+                disasm.push_str(&format!(
+                    "  {:08x}: ... ({} zero words skipped)\n",
+                    zero_start, zero_count
+                ));
+            } else {
+                for i in 0..zero_count {
+                    let inst_str = lp_riscv_tools::format_instruction(0);
+                    disasm.push_str(&format!(
+                        "  {:08x}: {:08x}    {}\n",
+                        zero_start + i * 4,
+                        0,
+                        inst_str
+                    ));
+                }
+            }
+        }
+
+        if offset < self.binary.len() {
+            disasm.push_str(&format!(
+                "  ... ({} more bytes)\n",
+                self.binary.len() - offset
+            ));
+        }
+
+        Ok(disasm)
+    }
 }
 
 #[cfg(feature = "emulator")]
@@ -108,9 +347,10 @@ impl GlslExecutable for GlslEmulatorModule {
             .emulator
             .call_function(MAIN_ENTRY, &[], sig)
             .map_err(|e| {
-                GlslError::new(
+                self.build_enhanced_error(
                     ErrorCode::E0400,
-                    format!("Emulator execution failed: {}", e),
+                    &format!("Emulator execution failed: {}", e),
+                    name,
                 )
             })?;
 
@@ -133,9 +373,10 @@ impl GlslExecutable for GlslEmulatorModule {
             .emulator
             .call_function(self.main_address, &[], sig)
             .map_err(|e| {
-                GlslError::new(
+                self.build_enhanced_error(
                     ErrorCode::E0400,
-                    format!("Emulator execution failed: {}", e),
+                    &format!("Emulator execution failed: {}", e),
+                    name,
                 )
             })?;
 
@@ -165,9 +406,10 @@ impl GlslExecutable for GlslEmulatorModule {
             .emulator
             .call_function(self.main_address, &[], sig)
             .map_err(|e| {
-                GlslError::new(
+                self.build_enhanced_error(
                     ErrorCode::E0400,
-                    format!("Emulator execution failed: {}", e),
+                    &format!("Emulator execution failed: {}", e),
+                    name,
                 )
             })?;
 
@@ -201,9 +443,10 @@ impl GlslExecutable for GlslEmulatorModule {
             .emulator
             .call_function(self.main_address, &[], sig)
             .map_err(|e| {
-                GlslError::new(
+                self.build_enhanced_error(
                     ErrorCode::E0400,
-                    format!("Emulator execution failed: {}", e),
+                    &format!("Emulator execution failed: {}", e),
+                    name,
                 )
             })?;
 
@@ -221,6 +464,7 @@ impl GlslExecutable for GlslEmulatorModule {
         dim: usize,
     ) -> Result<Vec<f32>, GlslError> {
         use crate::error::ErrorCode;
+        use cranelift_codegen::ir::ArgumentPurpose;
 
         Self::validate_main_only(name)?;
         Self::validate_no_args(args);
@@ -230,33 +474,80 @@ impl GlslExecutable for GlslEmulatorModule {
             GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
         })?;
 
-        // Call main via emulator (no arguments) at its actual address
-        let results = self
-            .emulator
-            .call_function(self.main_address, &[], sig)
-            .map_err(|e| {
-                GlslError::new(
-                    ErrorCode::E0400,
-                    format!("Emulator execution failed: {}", e),
-                )
-            })?;
+        // Check if function uses StructReturn
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
 
-        // Convert results from fixed-point i32 to f32
-        let mut vec_result = Vec::with_capacity(dim);
-        for result in results.iter().take(dim) {
-            match result {
-                cranelift_codegen::data_value::DataValue::I32(v) => {
-                    vec_result.push(*v as f32 / crate::codegen::constants::FIXED16X16_SCALE)
-                }
-                _ => {
-                    return Err(GlslError::new(
+        if uses_struct_return {
+            // Clone signature before mutable borrow
+            let sig = sig.clone();
+
+            // Allocate buffer in emulator RAM for struct return
+            // Each element is 4 bytes (i32 for fixed-point)
+            let buffer_size = dim * 4;
+            let buffer_addr = self.allocate_buffer_in_ram(buffer_size)?;
+
+            // Prepare arguments: StructReturn pointer as first argument
+            let call_args = vec![cranelift_codegen::data_value::DataValue::I32(
+                buffer_addr as i32,
+            )];
+
+            // Call main via emulator with struct return buffer pointer
+            self.emulator
+                .call_function(self.main_address, &call_args, &sig)
+                .map_err(|e| {
+                    self.build_enhanced_error(
                         ErrorCode::E0400,
-                        "Expected i32 return values",
-                    ));
+                        &format!("Emulator execution failed: {}", e),
+                        name,
+                    )
+                })?;
+
+            // Read results from buffer (fixed-point i32 values)
+            let mut vec_result = Vec::with_capacity(dim);
+            for i in 0..dim {
+                let addr = buffer_addr + (i * 4) as u32;
+                let value = self.emulator.memory().read_word(addr).map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Failed to read result from buffer at 0x{:08x}: {}", addr, e),
+                    )
+                })?;
+                vec_result.push(value as f32 / crate::codegen::constants::FIXED16X16_SCALE);
+            }
+            Ok(vec_result)
+        } else {
+            // No StructReturn - read from return registers (legacy path)
+            let results = self
+                .emulator
+                .call_function(self.main_address, &[], sig)
+                .map_err(|e| {
+                    self.build_enhanced_error(
+                        ErrorCode::E0400,
+                        &format!("Emulator execution failed: {}", e),
+                        name,
+                    )
+                })?;
+
+            // Convert results from fixed-point i32 to f32
+            let mut vec_result = Vec::with_capacity(dim);
+            for result in results.iter().take(dim) {
+                match result {
+                    cranelift_codegen::data_value::DataValue::I32(v) => {
+                        vec_result.push(*v as f32 / crate::codegen::constants::FIXED16X16_SCALE)
+                    }
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "Expected i32 return values",
+                        ));
+                    }
                 }
             }
+            Ok(vec_result)
         }
-        Ok(vec_result)
     }
 
     fn call_mat(
@@ -267,6 +558,7 @@ impl GlslExecutable for GlslEmulatorModule {
         cols: usize,
     ) -> Result<Vec<f32>, GlslError> {
         use crate::error::ErrorCode;
+        use cranelift_codegen::ir::ArgumentPurpose;
 
         Self::validate_main_only(name)?;
         Self::validate_no_args(args);
@@ -276,34 +568,82 @@ impl GlslExecutable for GlslEmulatorModule {
             GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
         })?;
 
-        // Call main via emulator (no arguments) at its actual address
-        let results = self
-            .emulator
-            .call_function(self.main_address, &[], sig)
-            .map_err(|e| {
-                GlslError::new(
-                    ErrorCode::E0400,
-                    format!("Emulator execution failed: {}", e),
-                )
-            })?;
+        // Check if function uses StructReturn
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
 
-        // Convert results from fixed-point i32 to f32
-        let count = rows * cols;
-        let mut mat_result = Vec::with_capacity(count);
-        for result in results.iter().take(count) {
-            match result {
-                cranelift_codegen::data_value::DataValue::I32(v) => {
-                    mat_result.push(*v as f32 / crate::codegen::constants::FIXED16X16_SCALE)
-                }
-                _ => {
-                    return Err(GlslError::new(
+        if uses_struct_return {
+            // Clone signature before mutable borrow
+            let sig = sig.clone();
+
+            // Allocate buffer in emulator RAM for struct return
+            // Each element is 4 bytes (i32 for fixed-point)
+            let count = rows * cols;
+            let buffer_size = count * 4;
+            let buffer_addr = self.allocate_buffer_in_ram(buffer_size)?;
+
+            // Prepare arguments: StructReturn pointer as first argument
+            let call_args = vec![cranelift_codegen::data_value::DataValue::I32(
+                buffer_addr as i32,
+            )];
+
+            // Call main via emulator with struct return buffer pointer
+            self.emulator
+                .call_function(self.main_address, &call_args, &sig)
+                .map_err(|e| {
+                    self.build_enhanced_error(
                         ErrorCode::E0400,
-                        "Expected i32 return values",
-                    ));
+                        &format!("Emulator execution failed: {}", e),
+                        name,
+                    )
+                })?;
+
+            // Read results from buffer (fixed-point i32 values)
+            let mut mat_result = Vec::with_capacity(count);
+            for i in 0..count {
+                let addr = buffer_addr + (i * 4) as u32;
+                let value = self.emulator.memory().read_word(addr).map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Failed to read result from buffer at 0x{:08x}: {}", addr, e),
+                    )
+                })?;
+                mat_result.push(value as f32 / crate::codegen::constants::FIXED16X16_SCALE);
+            }
+            Ok(mat_result)
+        } else {
+            // No StructReturn - read from return registers (legacy path)
+            let results = self
+                .emulator
+                .call_function(self.main_address, &[], sig)
+                .map_err(|e| {
+                    self.build_enhanced_error(
+                        ErrorCode::E0400,
+                        &format!("Emulator execution failed: {}", e),
+                        name,
+                    )
+                })?;
+
+            // Convert results from fixed-point i32 to f32
+            let count = rows * cols;
+            let mut mat_result = Vec::with_capacity(count);
+            for result in results.iter().take(count) {
+                match result {
+                    cranelift_codegen::data_value::DataValue::I32(v) => {
+                        mat_result.push(*v as f32 / crate::codegen::constants::FIXED16X16_SCALE)
+                    }
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "Expected i32 return values",
+                        ));
+                    }
                 }
             }
+            Ok(mat_result)
         }
-        Ok(mat_result)
     }
 
     fn get_function_signature(&self, name: &str) -> Option<&FunctionSignature> {

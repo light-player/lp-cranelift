@@ -149,7 +149,6 @@ pub fn rebuild_function_for_module<M: Module>(
     // 4. Copy stack slots from old function to new function
     // This must be done before creating the builder so we can access new_func directly
     // Use offset-based mapping similar to inlining: copy all slots and map by offset
-    let stack_slot_offset = new_func.sized_stack_slots.len() as u32;
     let mut stack_slot_map: HashMap<
         cranelift_codegen::ir::StackSlot,
         cranelift_codegen::ir::StackSlot,
@@ -160,26 +159,20 @@ pub fn rebuild_function_for_module<M: Module>(
         .sized_stack_slots
         .reserve(old_func.sized_stack_slots.len());
     for (old_slot_idx, old_slot_data) in old_func.sized_stack_slots.iter() {
-        // #region agent log
-        use std::fs::OpenOptions;
-        use std::io::Write;
-        let _ = OpenOptions::new().create(true).append(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log").and_then(|mut f| {
-            writeln!(f, r#"{{"id":"log_stack_slot_copy","timestamp":{},"location":"link.rs:162","message":"Copying stack slot","data":{{"old_slot_idx":{},"stack_slot_offset":{},"old_slot_size":{},"old_slot_align":{}}},"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}}"#, 
-                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
-                old_slot_idx.as_u32(), stack_slot_offset, old_slot_data.size, old_slot_data.alignment)
-        });
-        // #endregion
         // Use the actual StackSlot returned by push() instead of calculating it
         // PrimaryMap.push() returns the entity ID assigned to the new entry
         let new_slot_idx = new_func.sized_stack_slots.push(old_slot_data.clone());
-        // #region agent log
-        let _ = OpenOptions::new().create(true).append(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log").and_then(|mut f| {
-            writeln!(f, r#"{{"id":"log_stack_slot_mapped","timestamp":{},"location":"link.rs:170","message":"Stack slot mapped","data":{{"old_slot_idx":{},"new_slot_idx":{}}},"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}}"#, 
-                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
-                old_slot_idx.as_u32(), new_slot_idx.as_u32())
-        });
-        // #endregion
         stack_slot_map.insert(old_slot_idx, new_slot_idx);
+        // Verify the slot was actually added
+        if !new_func.sized_stack_slots.is_valid(new_slot_idx) {
+            return Err(GlslError::new(
+                ErrorCode::E0301,
+                format!(
+                    "Failed to create stack slot {:?} in new function (copied from {:?})",
+                    new_slot_idx, old_slot_idx
+                ),
+            ));
+        }
     }
 
     // 5. Create builder context (now we can borrow new_func)
@@ -798,10 +791,8 @@ pub fn link_glsl_for_emulator(
     }
 
     // Store main function's Cranelift signature
-    cranelift_signatures.insert(
-        String::from("main"),
-        module.main_function().signature.clone(),
-    );
+    let main_sig = module.main_function().signature.clone();
+    cranelift_signatures.insert(String::from("main"), main_sig);
 
     // Get main function's GLSL signature from ClifModule
     let main_glsl_sig = module.glsl_signature("main").ok_or_else(|| {
@@ -812,12 +803,17 @@ pub fn link_glsl_for_emulator(
     })?;
     signatures.insert(String::from("main"), main_glsl_sig.clone());
 
+    // DEFAULT_RAM_START is 0x80000000 (from lp-riscv-tools/src/emu/memory.rs)
+    const DEFAULT_RAM_START: u32 = 0x80000000;
+
     Ok(GlslEmulatorModule {
         emulator,
         signatures,
         cranelift_signatures,
         binary,
         main_address,
+        main_function_ir: Some(module.main_function().clone()),
+        next_buffer_addr: DEFAULT_RAM_START,
     })
 }
 
