@@ -41,9 +41,9 @@ use alloc::format as alloc_format;
 use std::format as alloc_format;
 
 #[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, string::String};
+use alloc::boxed::Box;
 #[cfg(feature = "std")]
-use std::{boxed::Box, string::String};
+use std::boxed::Box;
 
 /// Compile GLSL to CLIF module (internal, reusable)
 /// This is the core compilation step that can be reused for different backends

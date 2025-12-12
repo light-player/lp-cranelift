@@ -23,12 +23,14 @@ pub struct GlslEmulatorModule {
     pub(crate) signatures: HashMap<String, FunctionSignature>,
     // Store Cranelift signatures for proper function calling with arguments
     pub(crate) cranelift_signatures: HashMap<String, cranelift_codegen::ir::Signature>,
+    #[allow(dead_code)]
     pub(crate) binary: Vec<u8>,
     pub(crate) main_address: u32,
 }
 
 // Helper function to convert GlslValue to DataValue
 #[cfg(feature = "emulator")]
+#[allow(dead_code)]
 fn glsl_value_to_data_value(value: &GlslValue) -> Vec<cranelift_codegen::data_value::DataValue> {
     use cranelift_codegen::data_value::DataValue;
     match value {

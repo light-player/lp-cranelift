@@ -182,5 +182,7 @@ impl GlslOptions {
 // ============================================================================
 
 // Re-export module types for convenience
+// Note: GlslEmulatorModule is conditionally compiled and may not be used in all builds
 #[cfg(feature = "emulator")]
+#[allow(unused_imports)]
 pub use crate::backend::emu::GlslEmulatorModule;

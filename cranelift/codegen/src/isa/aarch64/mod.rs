@@ -7,8 +7,8 @@ use crate::isa::aarch64::settings as aarch64_settings;
 use crate::isa::unwind::systemv;
 use crate::isa::{Builder as IsaBuilder, FunctionAlignment, IsaFlagsHashKey, TargetIsa};
 use crate::machinst::{
-    CompiledCode, CompiledCodeStencil, MachInst, MachTextSectionBuilder, Reg, SigSet,
-    TextSectionBuilder, VCode, compile,
+    CompiledCodeStencil, MachInst, MachTextSectionBuilder, Reg, SigSet, TextSectionBuilder, VCode,
+    compile,
 };
 use crate::result::CodegenResult;
 use crate::settings as shared_settings;
@@ -16,7 +16,7 @@ use alloc::{boxed::Box, vec::Vec};
 use core::fmt;
 use cranelift_control::ControlPlane;
 use std::string::String;
-use target_lexicon::{Aarch64Architecture, Architecture, OperatingSystem, Triple};
+use target_lexicon::{Aarch64Architecture, Architecture, Triple};
 
 // New backend:
 mod abi;
@@ -121,7 +121,7 @@ impl TargetIsa for AArch64Backend {
     #[cfg(feature = "unwind")]
     fn emit_unwind_info(
         &self,
-        result: &CompiledCode,
+        result: &crate::machinst::CompiledCode,
         kind: crate::isa::unwind::UnwindInfoKind,
     ) -> CodegenResult<Option<crate::isa::unwind::UnwindInfo>> {
         use crate::isa::unwind::UnwindInfo;
@@ -148,6 +148,7 @@ impl TargetIsa for AArch64Backend {
 
     #[cfg(feature = "unwind")]
     fn create_systemv_cie(&self) -> Option<gimli::write::CommonInformationEntry> {
+        use target_lexicon::OperatingSystem;
         let is_apple_os = match self.triple.operating_system {
             OperatingSystem::Darwin(_)
             | OperatingSystem::IOS(_)
