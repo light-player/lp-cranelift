@@ -5,6 +5,7 @@ target s390x
 target riscv64
 target riscv64 has_zbb
 target riscv64 has_c has_zcb
+target riscv32 has_m
 target x86_64
 target pulley32
 target pulley32be

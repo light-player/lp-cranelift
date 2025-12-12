@@ -1,4 +1,4 @@
-test emu
+test run
 
 set unwind_info=false
 target riscv32 has_m
@@ -31,4 +31,4 @@ block0:
     return v16
 }
 
-; run: %main() == 136
+; run: %main() == 36

@@ -3,6 +3,7 @@ test run
 target aarch64
 target s390x
 target x86_64
+target riscv32 has_m
 target riscv64
 target riscv64 has_c has_zcb
 target pulley32

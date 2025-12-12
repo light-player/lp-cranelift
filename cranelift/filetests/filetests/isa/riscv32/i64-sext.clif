@@ -1,0 +1,141 @@
+test compile precise-output
+set unwind_info=false
+target riscv32 has_m
+
+;;;; I64 sext operations (tests for the sext helper I64 rule)
+
+function %sextend_i64_i64(i64) -> i64 {
+block0(v0: i64):
+    v1 = sextend.i64 v0
+    return v1
+}
+
+; VCode:
+; block0:
+;   mv a0,a0
+;   srai a1,a1,31
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   mv a0, a0
+;   srai a1, a1, 0x1f
+;   ret
+
+function %fixed_mul_pattern(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = sextend.i64 v0
+    v3 = sextend.i64 v1
+    v4 = imul v2, v3
+    v5 = iconst.i64 16
+    v6 = sshr v4, v5
+    v7 = ireduce.i32 v6
+    return v7
+}
+
+; VCode:
+; block0:
+;   slli a5,a0,32
+;   srai a0,a5,32
+;   slli a1,a1,32
+;   srai a3,a1,32
+;   mul a1,a0,a3
+;   srli a0,a1,16
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   slli a5, a0, 0x20
+;   srai a0, a5, 0x20
+;   slli a1, a1, 0x20
+;   srai a3, a1, 0x20
+;   mul a1, a0, a3
+;   srli a0, a1, 0x10
+;   ret
+
+function %ireduce_i64_i32(i64) -> i32 {
+block0(v0: i64):
+    v1 = ireduce.i32 v0
+    return v1
+}
+
+; VCode:
+; block0:
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   ret
+
+;;;; Edge cases for I64 sext operations
+
+function %sextend_i64_negative(i64) -> i64 {
+block0(v0: i64):
+    v1 = iconst.i64 -1
+    v2 = sextend.i64 v1
+    return v2
+}
+
+; VCode:
+; block0:
+;   li a0,-1
+;   li a1,-1
+;   mv a0,a0
+;   srai a1,a1,31
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   addi a0, zero, -0x1
+;   addi a1, zero, -0x1
+;   mv a0, a0
+;   srai a1, a1, 0x1f
+;   ret
+
+function %sextend_i64_zero(i64) -> i64 {
+block0(v0: i64):
+    v1 = iconst.i64 0
+    v2 = sextend.i64 v1
+    return v2
+}
+
+; VCode:
+; block0:
+;   li a0,0
+;   li a1,0
+;   mv a0,a0
+;   srai a1,a1,31
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   mv a0, zero
+;   mv a1, zero
+;   mv a0, a0
+;   srai a1, a1, 0x1f
+;   ret
+
+function %sextend_i64_max(i64) -> i64 {
+block0(v0: i64):
+    v1 = iconst.i64 9223372036854775807
+    v2 = sextend.i64 v1
+    return v2
+}
+
+; VCode:
+; block0:
+;   lui a0,0x80000
+;   addi a0,a0,-1
+;   li a1,0
+;   mv a0,a0
+;   srai a1,a1,31
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   lui a0, 0x80000
+;   addi a0, a0, -0x1
+;   mv a1, zero
+;   mv a0, a0
+;   srai a1, a1, 0x1f
+;   ret

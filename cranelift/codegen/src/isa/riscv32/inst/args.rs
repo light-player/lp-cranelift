@@ -136,38 +136,6 @@ impl AMode {
         match self {
             &AMode::SlotOffset(offset) => {
                 let final_offset = offset + i64::from(state.frame_layout().outgoing_args_size);
-                // #region agent log
-                #[cfg(feature = "std")]
-                {
-                    use std::fs::OpenOptions;
-                    use std::io::Write;
-                    let frame_layout = state.frame_layout();
-                    let log_entry = serde_json::json!({
-                        "sessionId": "debug-session",
-                        "runId": "run1",
-                        "hypothesisId": "F",
-                        "location": "riscv32/inst/args.rs:get_offset_with_state",
-                        "message": "SlotOffset to SP-relative offset",
-                        "data": {
-                            "slot_offset": offset,
-                            "outgoing_args_size": frame_layout.outgoing_args_size,
-                            "final_sp_offset": final_offset,
-                            "stackslots_size": frame_layout.stackslots_size,
-                            "fixed_frame_storage_size": frame_layout.fixed_frame_storage_size,
-                            "clobber_size": frame_layout.clobber_size,
-                            "setup_area_size": frame_layout.setup_area_size
-                        },
-                        "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
-                    });
-                    if let Ok(mut file) = OpenOptions::new()
-                        .create(true)
-                        .append(true)
-                        .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
-                    {
-                        let _ = writeln!(file, "{}", log_entry);
-                    }
-                }
-                // #endregion
                 final_offset
             }
 

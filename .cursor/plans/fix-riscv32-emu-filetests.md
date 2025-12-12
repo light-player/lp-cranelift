@@ -3,6 +3,7 @@
 ## Problem
 
 The `test emu` command for riscv32 is failing because:
+
 1. Symbol addresses are all 0x0 due to using `per_function_section(true)`
 2. Functions can't be found at correct addresses in the loaded binary
 3. Missing debugging output (VCode, disassembly, emulator state) when tests fail
@@ -10,6 +11,7 @@ The `test emu` command for riscv32 is failing because:
 ## Root Cause
 
 After comparing with `lp-glsl-filetests`:
+
 - **lp-glsl does NOT use `per_function_section(true)`** - all functions go into one `.text` section
 - **We're using `per_function_section(true)`** which creates separate sections for each function
 - When functions are in separate sections, symbol addresses are section-relative (all 0x0), not absolute offsets
@@ -21,7 +23,7 @@ After comparing with `lp-glsl-filetests`:
 
 **File**: `cranelift/filetests/src/object_runner.rs`
 
-- Remove `builder.per_function_section(true)` 
+- Remove `builder.per_function_section(true)`
 - Use default behavior (all functions in one `.text` section)
 - This ensures symbols have proper relative addresses within the text section
 
@@ -39,6 +41,7 @@ After comparing with `lp-glsl-filetests`:
 **File**: `cranelift/filetests/src/test_emu.rs`
 
 When tests fail, output (following lp-glsl-filetests pattern):
+
 - CLIF IR for the function being tested
 - VCode (capture during compilation if possible)
 - Disassembly (capture during compilation if possible)
@@ -56,19 +59,23 @@ When tests fail, output (following lp-glsl-filetests pattern):
 ## Implementation Steps
 
 1. **Fix ObjectModule configuration**
+
    - Remove `per_function_section(true)` from `object_runner.rs`
    - Verify functions are in one text section
 
 2. **Fix symbol lookup**
+
    - Use `find_symbol_address()` correctly after `load_elf()`
    - Remove manual offset calculation
    - Verify symbols have correct addresses
 
 3. **Add VCode/disassembly capture**
+
    - Modify compilation to capture VCode and disassembly
    - Store in `CompiledObjectTestFile` or pass to `EmulatorExecutor`
 
 4. **Enhance debug output**
+
    - Format emulator state nicely
    - Include VCode and disassembly in error messages
    - Match lp-glsl-filetests output format
@@ -81,6 +88,7 @@ When tests fail, output (following lp-glsl-filetests pattern):
 ## Files to Modify
 
 1. `cranelift/filetests/src/object_runner.rs`
+
    - Remove `per_function_section(true)`
 
 2. `cranelift/filetests/src/test_emu.rs`
@@ -94,4 +102,3 @@ When tests fail, output (following lp-glsl-filetests pattern):
 - `run-4-args.clif` should pass
 - Other multi-function riscv32 tests should work
 - Debug output should be comprehensive when tests fail
-

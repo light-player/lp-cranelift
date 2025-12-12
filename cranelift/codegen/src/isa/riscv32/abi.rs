@@ -22,10 +22,6 @@ use regalloc2::{MachineEnv, PReg, PRegSet};
 use alloc::borrow::ToOwned;
 use smallvec::{SmallVec, smallvec};
 #[cfg(feature = "std")]
-use std::fs::OpenOptions;
-#[cfg(feature = "std")]
-use std::io::Write;
-#[cfg(feature = "std")]
 use std::sync::OnceLock;
 
 /// Support for the Riscv32 ABI from the callee side (within a function body).
@@ -101,7 +97,7 @@ impl ABIMachineSpec for Riscv32MachineDeps {
         add_ret_area_ptr: bool,
         mut args: ArgsAccumulator,
     ) -> CodegenResult<(u32, Option<usize>)> {
-        // This implements the LP64D RISC-V ABI.
+        // This implements the ILP32 RISC-V ABI for RV32I.
 
         assert_ne!(
             call_conv,
@@ -496,34 +492,6 @@ impl ABIMachineSpec for Riscv32MachineDeps {
             + frame_layout.fixed_frame_storage_size
             + frame_layout.outgoing_args_size;
 
-        // #region agent log
-        #[cfg(feature = "std")]
-        {
-            let log_entry = serde_json::json!({
-                "sessionId": "debug-session",
-                "runId": "run1",
-                "hypothesisId": "B",
-                "location": "riscv32/abi.rs:gen_clobber_save",
-                "message": "Frame layout before saving registers",
-                "data": {
-                    "clobber_size": frame_layout.clobber_size,
-                    "fixed_frame_storage_size": frame_layout.fixed_frame_storage_size,
-                    "outgoing_args_size": frame_layout.outgoing_args_size,
-                    "stack_size": stack_size,
-                    "num_callee_saves": frame_layout.clobbered_callee_saves.len()
-                },
-                "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
-            });
-            if let Ok(mut file) = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
-            {
-                let _ = writeln!(file, "{}", log_entry);
-            }
-        }
-        // #endregion
-
         // Store each clobbered register in order at offsets from SP,
         // placing them above the fixed frame slots.
         if stack_size > 0 {
@@ -539,37 +507,6 @@ impl ABIMachineSpec for Riscv32MachineDeps {
                 };
                 cur_offset = align_to(cur_offset, ty.bytes());
                 let save_offset = stack_size - cur_offset - ty.bytes();
-
-                // #region agent log
-                #[cfg(feature = "std")]
-                {
-                    let log_entry = serde_json::json!({
-                        "sessionId": "debug-session",
-                        "runId": "run1",
-                        "hypothesisId": "B",
-                        "location": "riscv32/abi.rs:gen_clobber_save",
-                        "message": "Saving callee-saved register",
-                        "data": {
-                            "reg": format!("{:?}", r_reg),
-                            "ty_bytes": ty.bytes(),
-                            "cur_offset": cur_offset,
-                            "save_offset": save_offset,
-                            "stack_size": stack_size,
-                            "outgoing_args_size": frame_layout.outgoing_args_size,
-                            "fixed_frame_storage_size": frame_layout.fixed_frame_storage_size,
-                            "clobber_size": frame_layout.clobber_size
-                        },
-                        "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
-                    });
-                    if let Ok(mut file) = OpenOptions::new()
-                        .create(true)
-                        .append(true)
-                        .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
-                    {
-                        let _ = writeln!(file, "{}", log_entry);
-                    }
-                }
-                // #endregion
 
                 insts.push(Inst::gen_store(
                     AMode::SPOffset(i64::from(save_offset)),
@@ -761,38 +698,6 @@ impl ABIMachineSpec for Riscv32MachineDeps {
         } else {
             0
         };
-
-        // #region agent log
-        #[cfg(feature = "std")]
-        {
-            let log_entry = serde_json::json!({
-                "sessionId": "debug-session",
-                "runId": "run1",
-                "hypothesisId": "A",
-                "location": "riscv32/abi.rs:compute_frame_layout",
-                "message": "Computed frame layout",
-                "data": {
-                    "incoming_args_size": incoming_args_size,
-                    "tail_args_size": tail_args_size,
-                    "setup_area_size": setup_area_size,
-                    "clobber_size": clobber_size,
-                    "fixed_frame_storage_size": fixed_frame_storage_size,
-                    "stackslots_size": stackslots_size,
-                    "outgoing_args_size": outgoing_args_size,
-                    "num_callee_saves": regs.len(),
-                    "function_calls": format!("{:?}", function_calls)
-                },
-                "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
-            });
-            if let Ok(mut file) = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
-            {
-                let _ = writeln!(file, "{}", log_entry);
-            }
-        }
-        // #endregion
 
         // Return FrameLayout structure.
         FrameLayout {

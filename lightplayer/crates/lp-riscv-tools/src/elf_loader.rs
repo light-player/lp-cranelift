@@ -90,16 +90,6 @@ fn apply_single_relocation(
         .wrapping_sub(pc)
         .wrapping_add(reloc.addend() as u32);
 
-    // Debug logging for relocation calculation (can be enabled for debugging)
-    // std::eprintln!(
-    //     "DEBUG Relocation: offset=0x{:x}, section_addr=0x{:x}, PC=0x{:x}, target=0x{:x}, pcrel=0x{:x}",
-    //     reloc_offset,
-    //     section_load_addr,
-    //     pc,
-    //     target_addr,
-    //     pcrel
-    // );
-
     // Determine relocation type from flags
     let reloc_offset = reloc_offset as usize;
     if reloc_offset >= code_bytes.len() {

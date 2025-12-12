@@ -29,9 +29,9 @@ pub struct GlslEmulatorModule {
     pub(crate) transformed_clif: Option<String>,
     // Store formatted CLIF IR for all functions before transformation
     pub(crate) original_clif: Option<String>,
-    // Store VCode for all functions (for debugging)
+    // Store VCode for all functions (used in error diagnostics)
     pub(crate) vcode: Option<String>,
-    // Store disassembly for all functions (for debugging)
+    // Store disassembly for all functions (used in error diagnostics)
     pub(crate) disassembly: Option<String>,
     // Track next buffer allocation address (allocated from start of RAM, growing upward)
     pub(crate) next_buffer_addr: u32,

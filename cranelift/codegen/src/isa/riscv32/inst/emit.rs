@@ -1103,39 +1103,6 @@ impl Inst {
             &Inst::Store { op, src, flags, to } => {
                 let base = to.get_base_register();
                 let offset = to.get_offset_with_state(state);
-                // #region agent log
-                #[cfg(feature = "std")]
-                {
-                    use std::fs::OpenOptions;
-                    use std::io::Write;
-                    if base == Some(stack_reg()) {
-                        let log_entry = serde_json::json!({
-                            "sessionId": "debug-session",
-                            "runId": "run1",
-                            "hypothesisId": "D",
-                            "location": "riscv32/inst/emit.rs:Store",
-                            "message": "Stack store operation",
-                            "data": {
-                                "amode": format!("{:?}", to),
-                                "base": "sp",
-                                "offset": offset,
-                                "op": format!("{:?}", op),
-                                "src_reg": format!("{:?}", src),
-                                "outgoing_args_size": state.frame_layout().outgoing_args_size,
-                                "note": "Check if this overlaps with saved registers"
-                            },
-                            "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
-                        });
-                        if let Ok(mut file) = OpenOptions::new()
-                            .create(true)
-                            .append(true)
-                            .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
-                        {
-                            let _ = writeln!(file, "{}", log_entry);
-                        }
-                    }
-                }
-                // #endregion
                 let offset_imm12 = Imm12::maybe_from_i64(offset);
 
                 let (addr, imm12) = match (base, offset_imm12) {

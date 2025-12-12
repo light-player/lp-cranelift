@@ -541,8 +541,9 @@ impl Riscv32Emulator {
                     }
                     // i64 returned in register pair: (low, high)
                     let low = self.regs[reg_idx] as u32 as u64;
-                    let high = self.regs[reg_idx + 1] as u32 as u64;
-                    let value = DataValue::I64(((high << 32) | low) as i64);
+                    let high = self.regs[reg_idx + 1] as i64;
+                    // Sign-extend the high 32 bits and combine with low 32 bits
+                    let value = DataValue::I64((high << 32) | low as i64);
                     reg_idx += 2; // Consumed 2 registers
                     value
                 }

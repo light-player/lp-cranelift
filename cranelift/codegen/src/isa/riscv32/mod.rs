@@ -1,4 +1,4 @@
-//! risc-v 64-bit Instruction Set Architecture.
+//! risc-v 32-bit Instruction Set Architecture.
 
 use crate::dominator_tree::DominatorTree;
 use crate::ir::{Function, Type};
@@ -222,16 +222,10 @@ impl TargetIsa for Riscv32Backend {
     }
 
     fn default_argument_extension(&self) -> ir::ArgumentExtension {
-        // According to https://riscv.org/wp-content/uploads/2024/12/riscv-calling.pdf
-        // it says:
-        //
-        // > In RV64, 32-bit types, such as int, are stored in integer
-        // > registers as proper sign extensions of their 32-bit values; that
-        // > is, bits 63..31 are all equal. This restriction holds even for
-        // > unsigned 32-bit types.
-        //
-        // leading to `sext` here.
-        ir::ArgumentExtension::Sext
+        // For RV32I (ILP32 ABI), registers are 32-bit, so no extension is needed
+        // for 32-bit arguments. This differs from RV64I (LP64 ABI) where 32-bit
+        // values must be sign-extended to 64 bits in registers.
+        ir::ArgumentExtension::None
     }
 }
 

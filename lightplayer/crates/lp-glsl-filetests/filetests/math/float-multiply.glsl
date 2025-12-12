@@ -45,19 +45,19 @@ mat2 mul_mat2(mat2 a, mat2 b) {
     return a * b;
 }
 
-// #run: mul_mat2(mat2(vec2(1.0, 2.0), vec2(3.0, 4.0)), mat2(vec2(5.0, 6.0), vec2(7.0, 8.0))) ~= mat2(vec2(19.0, 22.0), vec2(43.0, 50.0))
+// #run: mul_mat2(mat2(vec2(1.0, 2.0), vec2(3.0, 4.0)), mat2(vec2(5.0, 6.0), vec2(7.0, 8.0))) ~= mat2(vec2(5.0, 12.0), vec2(21.0, 32.0))
 
 vec2 mul_vec2_mat2(vec2 v, mat2 m) {
     return v * m;
 }
 
-// #run: mul_vec2_mat2(vec2(1.0, 2.0), mat2(vec2(3.0, 4.0), vec2(5.0, 6.0))) ~= vec2(13.0, 16.0)
+// #run: mul_vec2_mat2(vec2(1.0, 2.0), mat2(vec2(3.0, 4.0), vec2(5.0, 6.0))) ~= vec2(4.0, 10.0)
 
 vec2 mul_mat2_vec2(mat2 m, vec2 v) {
     return m * v;
 }
 
-// #run: mul_mat2_vec2(mat2(vec2(1.0, 2.0), vec2(3.0, 4.0)), vec2(5.0, 6.0)) ~= vec2(17.0, 39.0)
+// #run: mul_mat2_vec2(mat2(vec2(1.0, 2.0), vec2(3.0, 4.0)), vec2(5.0, 6.0)) ~= vec2(4.0, 10.0)
 
 mat3 mul_mat3(mat3 a, mat3 b) {
     return a * b;

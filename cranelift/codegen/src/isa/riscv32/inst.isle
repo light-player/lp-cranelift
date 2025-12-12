@@ -826,7 +826,7 @@
 ;;
 ;; Asserts that the value goes into a XReg.
 (decl put_in_xreg (Value) XReg)
-(rule (put_in_xreg val) (xreg_new (put_in_reg val)))
+(rule (put_in_xreg val) (xreg_new (lo_reg val)))
 (convert Value XReg put_in_xreg)
 
 ;; Construct an `InstOutput` out of a single XReg register.
@@ -2171,6 +2171,10 @@
   (if (val_already_extended (ExtendOp.Signed) val))
   val)
 
+;; Handle I64 values by extracting the low 32-bit register (already sign-extended)
+(rule 3 (sext val @ (value_type $I64))
+  (xreg_new (value_regs_get val 0)))
+
 ;; Helper matcher for when a value's representation is already sign or zero
 ;; extended to the full 64-bit register representation. This is used by `zext`
 ;; and `sext` above to skip the extension instruction entirely in some
@@ -2179,9 +2183,10 @@
 (rule 0 (val_already_extended _ v @ (value_type $I64)) true)
 
 ;; When extending our backend always extends to the full register width, so
-;; there's no need to extend-an-extend.
-(rule 1 (val_already_extended (ExtendOp.Zero) (uextend _)) true)
-(rule 1 (val_already_extended (ExtendOp.Signed) (sextend _)) true)
+;; there's no need to extend-an-extend. However, on RV32, extending to I64
+;; requires special handling since it uses register pairs.
+(rule 1 (val_already_extended (ExtendOp.Zero) (uextend val @ (value_type (fits_in_32 _)))) true)
+(rule 1 (val_already_extended (ExtendOp.Signed) (sextend val @ (value_type (fits_in_32 _)))) true)
 
 ;; The result of `icmp`/`fcmp` is zero or one, meaning that it's already sign
 ;; extended to the full register width.

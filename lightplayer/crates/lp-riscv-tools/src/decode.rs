@@ -219,6 +219,14 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
                             rs1,
                             imm: imm_5_0 as i32,
                         })
+                    } else if funct6 == 0x0 {
+                        // SRLI with funct6 encoding (Cranelift style)
+                        // funct6=0x0 (0b000000), imm[5:0] contains shift amount
+                        Ok(Inst::Srli {
+                            rd,
+                            rs1,
+                            imm: imm_5_0 as i32,
+                        })
                     } else {
                         // Check for other funct6 encoded instructions
                         match funct6 {

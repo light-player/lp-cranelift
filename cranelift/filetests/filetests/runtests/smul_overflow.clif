@@ -1,5 +1,6 @@
 test interpret
 test run
+target riscv32 has_m
 target x86_64
 target x86_64 has_bmi2
 target aarch64

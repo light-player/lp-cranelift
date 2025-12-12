@@ -1,4 +1,4 @@
-test emu
+test run
 
 set unwind_info=false
 target riscv32 has_m
