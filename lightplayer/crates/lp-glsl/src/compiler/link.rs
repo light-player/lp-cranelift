@@ -154,17 +154,31 @@ pub fn rebuild_function_for_module<M: Module>(
         cranelift_codegen::ir::StackSlot,
         cranelift_codegen::ir::StackSlot,
     > = HashMap::new();
-    
+
     // Copy all stack slots and build the mapping
     new_func
         .sized_stack_slots
         .reserve(old_func.sized_stack_slots.len());
     for (old_slot_idx, old_slot_data) in old_func.sized_stack_slots.iter() {
-        new_func.sized_stack_slots.push(old_slot_data.clone());
-        // Map old slot ID to new slot ID (offset + old index)
-        let new_slot_idx = cranelift_codegen::ir::StackSlot::from_u32(
-            stack_slot_offset + old_slot_idx.as_u32(),
-        );
+        // #region agent log
+        use std::fs::OpenOptions;
+        use std::io::Write;
+        let _ = OpenOptions::new().create(true).append(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log").and_then(|mut f| {
+            writeln!(f, r#"{{"id":"log_stack_slot_copy","timestamp":{},"location":"link.rs:162","message":"Copying stack slot","data":{{"old_slot_idx":{},"stack_slot_offset":{},"old_slot_size":{},"old_slot_align":{}}},"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}}"#, 
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                old_slot_idx.as_u32(), stack_slot_offset, old_slot_data.size, old_slot_data.alignment)
+        });
+        // #endregion
+        // Use the actual StackSlot returned by push() instead of calculating it
+        // PrimaryMap.push() returns the entity ID assigned to the new entry
+        let new_slot_idx = new_func.sized_stack_slots.push(old_slot_data.clone());
+        // #region agent log
+        let _ = OpenOptions::new().create(true).append(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log").and_then(|mut f| {
+            writeln!(f, r#"{{"id":"log_stack_slot_mapped","timestamp":{},"location":"link.rs:170","message":"Stack slot mapped","data":{{"old_slot_idx":{},"new_slot_idx":{}}},"sessionId":"debug-session","runId":"run1","hypothesisId":"B"}}"#, 
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                old_slot_idx.as_u32(), new_slot_idx.as_u32())
+        });
+        // #endregion
         stack_slot_map.insert(old_slot_idx, new_slot_idx);
     }
 

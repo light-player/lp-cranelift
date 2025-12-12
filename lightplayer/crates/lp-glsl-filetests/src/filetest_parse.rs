@@ -36,7 +36,10 @@ pub fn find_section_boundaries(lines: &[String]) -> SectionBoundaries {
         }
     }
 
-    SectionBoundaries { glsl_end, run_start }
+    SectionBoundaries {
+        glsl_end,
+        run_start,
+    }
 }
 
 /// CLIF section boundaries within the expectations section.
@@ -64,7 +67,12 @@ pub fn find_clif_section_boundaries(
     let mut transform_start = None;
     let mut transform_end = None;
 
-    for (i, line) in lines.iter().enumerate().skip(expectations_start).take(expectations_end - expectations_start) {
+    for (i, line) in lines
+        .iter()
+        .enumerate()
+        .skip(expectations_start)
+        .take(expectations_end - expectations_start)
+    {
         let trimmed = line.trim();
         if trimmed.starts_with("// #compile:") {
             compile_start = Some(i);
