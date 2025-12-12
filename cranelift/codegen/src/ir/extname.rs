@@ -201,8 +201,12 @@ impl<'a> fmt::Display for DisplayableExternalName<'a> {
         match &self.name {
             ExternalName::User(func_ref) => {
                 if let Some(params) = self.params {
-                    let name = &params.user_named_funcs()[*func_ref];
-                    write!(f, "u{}:{}", name.namespace, name.index)
+                    if let Some(name) = params.user_named_funcs().get(*func_ref) {
+                        write!(f, "u{}:{}", name.namespace, name.index)
+                    } else {
+                        // user_named_funcs is empty or doesn't contain this ref - best effort
+                        write!(f, "{}", *func_ref)
+                    }
                 } else {
                     // Best effort.
                     write!(f, "{}", *func_ref)

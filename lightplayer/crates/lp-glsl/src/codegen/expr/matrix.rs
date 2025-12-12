@@ -34,7 +34,8 @@ pub fn translate_matrix_binary(
             }
             let mut result_vals = Vec::new();
             for (lhs_val, rhs_val) in lhs_vals.iter().zip(rhs_vals.iter()) {
-                result_vals.push(ctx.builder.ins().fadd(*lhs_val, *rhs_val));
+                let result = ctx.builder.ins().fadd(*lhs_val, *rhs_val);
+                result_vals.push(result);
             }
             Ok((result_vals, result_ty))
         }

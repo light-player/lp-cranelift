@@ -233,6 +233,23 @@ impl GlslCompiler {
                     param_idx += 1;
                 }
                 vals
+            } else if param.ty.is_matrix() {
+                let count = param.ty.matrix_element_count().unwrap();
+                let mut vals = Vec::new();
+                for _ in 0..count {
+                    if param_idx >= block_params.len() {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            format!(
+                                "not enough block parameters for function parameter `{}`",
+                                param.name
+                            ),
+                        ));
+                    }
+                    vals.push(block_params[param_idx]);
+                    param_idx += 1;
+                }
+                vals
             } else {
                 if param_idx >= block_params.len() {
                     return Err(GlslError::new(

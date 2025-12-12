@@ -133,7 +133,9 @@ impl Riscv32Emulator {
 
         // Update PC (2 bytes for compressed, 4 for standard)
         let pc_increment = if is_compressed { 2 } else { 4 };
-        self.pc = exec_result.new_pc.unwrap_or(self.pc.wrapping_add(pc_increment));
+        self.pc = exec_result
+            .new_pc
+            .unwrap_or(self.pc.wrapping_add(pc_increment));
 
         // Log instruction with cycle count
         let log_with_cycle = exec_result.log.set_cycle(self.instruction_count);
@@ -562,7 +564,9 @@ impl Riscv32Emulator {
                     let reg1 = self.regs[reg_idx + 1] as u32 as u128;
                     let reg2 = self.regs[reg_idx + 2] as u32 as u128;
                     let reg3 = self.regs[reg_idx + 3] as u32 as u128;
-                    let value = DataValue::I128(((reg3 << 96) | (reg2 << 64) | (reg1 << 32) | reg0) as i128);
+                    let value = DataValue::I128(
+                        ((reg3 << 96) | (reg2 << 64) | (reg1 << 32) | reg0) as i128,
+                    );
                     reg_idx += 4; // Consumed 4 registers
                     value
                 }
@@ -580,6 +584,81 @@ impl Riscv32Emulator {
         }
 
         Ok(results)
+    }
+
+    /// Helper function to format instructions while skipping long zero runs
+    fn format_instructions_with_zero_skip<F>(
+        result: &mut String,
+        instructions: &[(u32, u32, String)],
+        marker_fn: F,
+    ) where
+        F: Fn(&u32) -> &str,
+    {
+        use alloc::format;
+        const MAX_ZERO_RUN: usize = 16;
+
+        let mut zero_run_start: Option<usize> = None;
+
+        for (idx, (pc, inst_word, disasm)) in instructions.iter().enumerate() {
+            if *inst_word == 0 {
+                // Track zero runs
+                if zero_run_start.is_none() {
+                    zero_run_start = Some(idx);
+                }
+            } else {
+                // Non-zero instruction - flush any pending zero run
+                if let Some(zero_start) = zero_run_start.take() {
+                    let zero_count = idx - zero_start;
+                    if zero_count > MAX_ZERO_RUN {
+                        // Summarize long zero runs
+                        result.push_str(&format!(
+                            "  ... ({} zero instructions skipped)\n",
+                            zero_count
+                        ));
+                    } else {
+                        // Show short zero runs
+                        for i in 0..zero_count {
+                            let zero_pc = instructions[zero_start + i].0;
+                            let marker = marker_fn(&zero_pc);
+                            result.push_str(&format!(
+                                "{}{:3}: 0x{:08x}: {}\n",
+                                marker,
+                                zero_start + i,
+                                zero_pc,
+                                instructions[zero_start + i].2
+                            ));
+                        }
+                    }
+                }
+
+                // Format non-zero instruction
+                let marker = marker_fn(pc);
+                result.push_str(&format!("{}{:3}: 0x{:08x}: {}\n", marker, idx, pc, disasm));
+            }
+        }
+
+        // Flush any remaining zero run at the end
+        if let Some(zero_start) = zero_run_start {
+            let zero_count = instructions.len() - zero_start;
+            if zero_count > MAX_ZERO_RUN {
+                result.push_str(&format!(
+                    "  ... ({} zero instructions skipped)\n",
+                    zero_count
+                ));
+            } else {
+                for i in 0..zero_count {
+                    let zero_pc = instructions[zero_start + i].0;
+                    let marker = marker_fn(&zero_pc);
+                    result.push_str(&format!(
+                        "{}{:3}: 0x{:08x}: {}\n",
+                        marker,
+                        zero_start + i,
+                        zero_pc,
+                        instructions[zero_start + i].2
+                    ));
+                }
+            }
+        }
     }
 
     /// Format debug information including disassembly and execution logs.
@@ -601,8 +680,8 @@ impl Riscv32Emulator {
                 let inst_word =
                     u32::from_le_bytes([code[i], code[i + 1], code[i + 2], code[i + 3]]);
                 let pc = i as u32;
-                // Simple hex display (use Capstone externally for full disassembly)
-                let disasm = format!(".word 0x{:08x}", inst_word);
+                // Use proper disassembly formatting
+                let disasm = crate::inst::format_instruction(inst_word);
                 instructions.push((pc, inst_word, disasm));
             }
         }
@@ -636,11 +715,11 @@ impl Riscv32Emulator {
                     result.push_str("  ...\n");
                 }
             } else {
-                // Show all instructions
-                for (idx, (pc, _inst_word, disasm)) in instructions.iter().enumerate() {
-                    let marker = if *pc == error_pc { ">>> " } else { "    " };
-                    result.push_str(&format!("{}{:3}: 0x{:08x}: {}\n", marker, idx, pc, disasm));
-                }
+                // Show all instructions, skipping long zero runs
+                let error_pc = error_pc; // Capture for closure
+                Self::format_instructions_with_zero_skip(&mut result, &instructions, move |pc| {
+                    if *pc == error_pc { ">>> " } else { "    " }
+                });
             }
         } else {
             // No highlight - show recent instructions or all if small
@@ -654,10 +733,8 @@ impl Riscv32Emulator {
                     result.push_str(&format!("   {:3}: 0x{:08x}: {}\n", actual_idx, pc, disasm));
                 }
             } else {
-                // Show all instructions
-                for (idx, (pc, _inst_word, disasm)) in instructions.iter().enumerate() {
-                    result.push_str(&format!("   {:3}: 0x{:08x}: {}\n", idx, pc, disasm));
-                }
+                // Show all instructions, skipping long zero runs
+                Self::format_instructions_with_zero_skip(&mut result, &instructions, |_| "   ");
             }
         }
 

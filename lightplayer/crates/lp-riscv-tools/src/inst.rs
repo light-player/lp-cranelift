@@ -5,6 +5,31 @@
 
 use super::regs::Gpr;
 
+/// Format an immediate value for disassembly.
+/// Uses decimal for small values, hex for large values.
+fn format_imm(imm: i32) -> alloc::string::String {
+    use alloc::format;
+    if imm >= -32 && imm <= 31 {
+        format!("{}", imm)
+    } else {
+        format!("0x{:08x}", imm as u32)
+    }
+}
+
+/// Format a RISC-V instruction word as an assembly mnemonic string.
+///
+/// Decodes the instruction and formats it as assembly (e.g., "add a0, a1, a2").
+/// If decoding fails, returns a fallback format like ".word 0x12345678".
+pub fn format_instruction(inst: u32) -> alloc::string::String {
+    use crate::decode::decode_instruction;
+    use alloc::format;
+
+    match decode_instruction(inst) {
+        Ok(decoded) => decoded.format(),
+        Err(_) => format!(".word 0x{:08x}", inst),
+    }
+}
+
 /// A structured representation of a RISC-V instruction.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Inst {
@@ -292,6 +317,193 @@ pub enum Inst {
 }
 
 impl Inst {
+    /// Format this instruction as an assembly mnemonic string.
+    pub fn format(&self) -> alloc::string::String {
+        use alloc::format;
+
+        match self {
+            // Arithmetic instructions
+            Inst::Add { rd, rs1, rs2 } => format!("add {}, {}, {}", rd, rs1, rs2),
+            Inst::Sub { rd, rs1, rs2 } => format!("sub {}, {}, {}", rd, rs1, rs2),
+            Inst::Mul { rd, rs1, rs2 } => format!("mul {}, {}, {}", rd, rs1, rs2),
+            Inst::Mulh { rd, rs1, rs2 } => format!("mulh {}, {}, {}", rd, rs1, rs2),
+            Inst::Mulhsu { rd, rs1, rs2 } => format!("mulhsu {}, {}, {}", rd, rs1, rs2),
+            Inst::Mulhu { rd, rs1, rs2 } => format!("mulhu {}, {}, {}", rd, rs1, rs2),
+            Inst::Div { rd, rs1, rs2 } => format!("div {}, {}, {}", rd, rs1, rs2),
+            Inst::Divu { rd, rs1, rs2 } => format!("divu {}, {}, {}", rd, rs1, rs2),
+            Inst::Rem { rd, rs1, rs2 } => format!("rem {}, {}, {}", rd, rs1, rs2),
+            Inst::Remu { rd, rs1, rs2 } => format!("remu {}, {}, {}", rd, rs1, rs2),
+            Inst::Addi { rd, rs1, imm } => format!("addi {}, {}, {}", rd, rs1, format_imm(*imm)),
+
+            // Load/Store instructions
+            Inst::Lb { rd, rs1, imm } => format!("lb {}, {}({})", rd, format_imm(*imm), rs1),
+            Inst::Lh { rd, rs1, imm } => format!("lh {}, {}({})", rd, format_imm(*imm), rs1),
+            Inst::Lw { rd, rs1, imm } => format!("lw {}, {}({})", rd, format_imm(*imm), rs1),
+            Inst::Lbu { rd, rs1, imm } => format!("lbu {}, {}({})", rd, format_imm(*imm), rs1),
+            Inst::Lhu { rd, rs1, imm } => format!("lhu {}, {}({})", rd, format_imm(*imm), rs1),
+            Inst::Sb { rs1, rs2, imm } => format!("sb {}, {}({})", rs2, format_imm(*imm), rs1),
+            Inst::Sh { rs1, rs2, imm } => format!("sh {}, {}({})", rs2, format_imm(*imm), rs1),
+            Inst::Sw { rs1, rs2, imm } => format!("sw {}, {}({})", rs2, format_imm(*imm), rs1),
+
+            // Control flow instructions
+            Inst::Jal { rd, imm } => {
+                if *rd == Gpr::Zero {
+                    format!("j {}", format_imm(*imm))
+                } else {
+                    format!("jal {}, {}", rd, format_imm(*imm))
+                }
+            }
+            Inst::Jalr { rd, rs1, imm } => {
+                if *imm == 0 {
+                    format!("jalr {}, ({})", rd, rs1)
+                } else {
+                    format!("jalr {}, {}({})", rd, format_imm(*imm), rs1)
+                }
+            }
+            Inst::Beq { rs1, rs2, imm } => format!("beq {}, {}, {}", rs1, rs2, format_imm(*imm)),
+            Inst::Bne { rs1, rs2, imm } => format!("bne {}, {}, {}", rs1, rs2, format_imm(*imm)),
+            Inst::Blt { rs1, rs2, imm } => format!("blt {}, {}, {}", rs1, rs2, format_imm(*imm)),
+            Inst::Bge { rs1, rs2, imm } => format!("bge {}, {}, {}", rs1, rs2, format_imm(*imm)),
+            Inst::Bltu { rs1, rs2, imm } => format!("bltu {}, {}, {}", rs1, rs2, format_imm(*imm)),
+            Inst::Bgeu { rs1, rs2, imm } => format!("bgeu {}, {}, {}", rs1, rs2, format_imm(*imm)),
+
+            // Comparison instructions
+            Inst::Slt { rd, rs1, rs2 } => format!("slt {}, {}, {}", rd, rs1, rs2),
+            Inst::Slti { rd, rs1, imm } => format!("slti {}, {}, {}", rd, rs1, format_imm(*imm)),
+            Inst::Sltu { rd, rs1, rs2 } => format!("sltu {}, {}, {}", rd, rs1, rs2),
+            Inst::Sltiu { rd, rs1, imm } => format!("sltiu {}, {}, {}", rd, rs1, format_imm(*imm)),
+            Inst::Xori { rd, rs1, imm } => format!("xori {}, {}, {}", rd, rs1, format_imm(*imm)),
+
+            // Logical instructions
+            Inst::And { rd, rs1, rs2 } => format!("and {}, {}, {}", rd, rs1, rs2),
+            Inst::Andi { rd, rs1, imm } => format!("andi {}, {}, {}", rd, rs1, format_imm(*imm)),
+            Inst::Or { rd, rs1, rs2 } => format!("or {}, {}, {}", rd, rs1, rs2),
+            Inst::Ori { rd, rs1, imm } => format!("ori {}, {}, {}", rd, rs1, format_imm(*imm)),
+            Inst::Xor { rd, rs1, rs2 } => format!("xor {}, {}, {}", rd, rs1, rs2),
+
+            // Shift instructions
+            Inst::Sll { rd, rs1, rs2 } => format!("sll {}, {}, {}", rd, rs1, rs2),
+            Inst::Slli { rd, rs1, imm } => format!("slli {}, {}, {}", rd, rs1, format_imm(*imm)),
+            Inst::Srl { rd, rs1, rs2 } => format!("srl {}, {}, {}", rd, rs1, rs2),
+            Inst::Srli { rd, rs1, imm } => format!("srli {}, {}, {}", rd, rs1, format_imm(*imm)),
+            Inst::Sra { rd, rs1, rs2 } => format!("sra {}, {}, {}", rd, rs1, rs2),
+            Inst::Srai { rd, rs1, imm } => format!("srai {}, {}, {}", rd, rs1, format_imm(*imm)),
+
+            // Zbs: Single-bit instructions (immediate)
+            Inst::Bclri { rd, rs1, imm } => format!("bclri {}, {}, {}", rd, rs1, format_imm(*imm)),
+            Inst::Bseti { rd, rs1, imm } => format!("bseti {}, {}, {}", rd, rs1, format_imm(*imm)),
+            Inst::Binvi { rd, rs1, imm } => format!("binvi {}, {}, {}", rd, rs1, format_imm(*imm)),
+            Inst::Bexti { rd, rs1, imm } => format!("bexti {}, {}, {}", rd, rs1, format_imm(*imm)),
+
+            // Zbs: Single-bit instructions (register)
+            Inst::Bclr { rd, rs1, rs2 } => format!("bclr {}, {}, {}", rd, rs1, rs2),
+            Inst::Bset { rd, rs1, rs2 } => format!("bset {}, {}, {}", rd, rs1, rs2),
+            Inst::Binv { rd, rs1, rs2 } => format!("binv {}, {}, {}", rd, rs1, rs2),
+            Inst::Bext { rd, rs1, rs2 } => format!("bext {}, {}, {}", rd, rs1, rs2),
+
+            // Zbb: Count operations
+            Inst::Clz { rd, rs1 } => format!("clz {}, {}", rd, rs1),
+            Inst::Ctz { rd, rs1 } => format!("ctz {}, {}", rd, rs1),
+            Inst::Cpop { rd, rs1 } => format!("cpop {}, {}", rd, rs1),
+
+            // Zbb: Sign/zero extend
+            Inst::Sextb { rd, rs1 } => format!("sext.b {}, {}", rd, rs1),
+            Inst::Sexth { rd, rs1 } => format!("sext.h {}, {}", rd, rs1),
+            Inst::Zexth { rd, rs1 } => format!("zext.h {}, {}", rd, rs1),
+
+            // Zbb: Rotate instructions
+            Inst::Rori { rd, rs1, imm } => format!("rori {}, {}, {}", rd, rs1, format_imm(*imm)),
+            Inst::Rol { rd, rs1, rs2 } => format!("rol {}, {}, {}", rd, rs1, rs2),
+            Inst::Ror { rd, rs1, rs2 } => format!("ror {}, {}, {}", rd, rs1, rs2),
+
+            // Zbb: Byte reverse
+            Inst::Rev8 { rd, rs1 } => format!("rev8 {}, {}", rd, rs1),
+            Inst::Brev8 { rd, rs1 } => format!("brev8 {}, {}", rd, rs1),
+            Inst::Orcb { rd, rs1 } => format!("orcb {}, {}", rd, rs1),
+
+            // Zbb: Min/Max
+            Inst::Min { rd, rs1, rs2 } => format!("min {}, {}, {}", rd, rs1, rs2),
+            Inst::Minu { rd, rs1, rs2 } => format!("minu {}, {}, {}", rd, rs1, rs2),
+            Inst::Max { rd, rs1, rs2 } => format!("max {}, {}, {}", rd, rs1, rs2),
+            Inst::Maxu { rd, rs1, rs2 } => format!("maxu {}, {}, {}", rd, rs1, rs2),
+
+            // Zbb: Logical operations
+            Inst::Andn { rd, rs1, rs2 } => format!("andn {}, {}, {}", rd, rs1, rs2),
+            Inst::Orn { rd, rs1, rs2 } => format!("orn {}, {}, {}", rd, rs1, rs2),
+            Inst::Xnor { rd, rs1, rs2 } => format!("xnor {}, {}, {}", rd, rs1, rs2),
+
+            // Zba: Address generation
+            Inst::Sh1add { rd, rs1, rs2 } => format!("sh1add {}, {}, {}", rd, rs1, rs2),
+            Inst::Sh2add { rd, rs1, rs2 } => format!("sh2add {}, {}, {}", rd, rs1, rs2),
+            Inst::Sh3add { rd, rs1, rs2 } => format!("sh3add {}, {}, {}", rd, rs1, rs2),
+            Inst::SlliUw { rd, rs1, imm } => {
+                format!("slli.uw {}, {}, {}", rd, rs1, format_imm(*imm))
+            }
+
+            // Immediate generation
+            Inst::Lui { rd, imm } => format!("lui {}, 0x{:08x}", rd, *imm as u32),
+            Inst::Auipc { rd, imm } => format!("auipc {}, 0x{:08x}", rd, *imm as u32),
+
+            // System instructions
+            Inst::Ecall => alloc::string::String::from("ecall"),
+            Inst::Ebreak => alloc::string::String::from("ebreak"),
+            Inst::Fence => alloc::string::String::from("fence"),
+            Inst::FenceI => alloc::string::String::from("fence.i"),
+            Inst::Csrrw { rd, rs1, csr } => format!("csrrw {}, {}, 0x{:03x}", rd, rs1, csr),
+            Inst::Csrrs { rd, rs1, csr } => format!("csrrs {}, {}, 0x{:03x}", rd, rs1, csr),
+            Inst::Csrrc { rd, rs1, csr } => format!("csrrc {}, {}, 0x{:03x}", rd, rs1, csr),
+            Inst::Csrrwi { rd, imm, csr } => {
+                format!("csrrwi {}, {}, 0x{:03x}", rd, format_imm(*imm), csr)
+            }
+            Inst::Csrrsi { rd, imm, csr } => {
+                format!("csrrsi {}, {}, 0x{:03x}", rd, format_imm(*imm), csr)
+            }
+            Inst::Csrrci { rd, imm, csr } => {
+                format!("csrrci {}, {}, 0x{:03x}", rd, format_imm(*imm), csr)
+            }
+
+            // Atomic instructions
+            Inst::LrW { rd, rs1 } => format!("lr.w {}, ({})", rd, rs1),
+            Inst::ScW { rd, rs1, rs2 } => format!("sc.w {}, {}, ({})", rd, rs2, rs1),
+            Inst::AmoswapW { rd, rs1, rs2 } => format!("amoswap.w {}, {}, ({})", rd, rs2, rs1),
+            Inst::AmoaddW { rd, rs1, rs2 } => format!("amoadd.w {}, {}, ({})", rd, rs2, rs1),
+            Inst::AmoxorW { rd, rs1, rs2 } => format!("amoxor.w {}, {}, ({})", rd, rs2, rs1),
+            Inst::AmoandW { rd, rs1, rs2 } => format!("amoand.w {}, {}, ({})", rd, rs2, rs1),
+            Inst::AmoorW { rd, rs1, rs2 } => format!("amoor.w {}, {}, ({})", rd, rs2, rs1),
+
+            // Compressed instructions
+            Inst::CAddi { rd, imm } => format!("c.addi {}, {}", rd, format_imm(*imm)),
+            Inst::CLi { rd, imm } => format!("c.li {}, {}", rd, format_imm(*imm)),
+            Inst::CLui { rd, imm } => format!("c.lui {}, 0x{:08x}", rd, *imm as u32),
+            Inst::CMv { rd, rs } => format!("c.mv {}, {}", rd, rs),
+            Inst::CAdd { rd, rs } => format!("c.add {}, {}", rd, rs),
+            Inst::CSub { rd, rs } => format!("c.sub {}, {}", rd, rs),
+            Inst::CAnd { rd, rs } => format!("c.and {}, {}", rd, rs),
+            Inst::COr { rd, rs } => format!("c.or {}, {}", rd, rs),
+            Inst::CXor { rd, rs } => format!("c.xor {}, {}", rd, rs),
+            Inst::CLw { rd, rs, offset } => format!("c.lw {}, {}({})", rd, format_imm(*offset), rs),
+            Inst::CSw { rs1, rs2, offset } => {
+                format!("c.sw {}, {}({})", rs2, format_imm(*offset), rs1)
+            }
+            Inst::CJ { offset } => format!("c.j {}", format_imm(*offset)),
+            Inst::CJr { rs } => format!("c.jr {}", rs),
+            Inst::CJalr { rs } => format!("c.jalr {}", rs),
+            Inst::CBeqz { rs, offset } => format!("c.beqz {}, {}", rs, format_imm(*offset)),
+            Inst::CBnez { rs, offset } => format!("c.bnez {}, {}", rs, format_imm(*offset)),
+            Inst::CSlli { rd, imm } => format!("c.slli {}, {}", rd, format_imm(*imm)),
+            Inst::CSrli { rd, imm } => format!("c.srli {}, {}", rd, format_imm(*imm)),
+            Inst::CSrai { rd, imm } => format!("c.srai {}, {}", rd, format_imm(*imm)),
+            Inst::CAndi { rd, imm } => format!("c.andi {}, {}", rd, format_imm(*imm)),
+            Inst::CAddi16sp { imm } => format!("c.addi16sp {}", format_imm(*imm)),
+            Inst::CAddi4spn { rd, imm } => format!("c.addi4spn {}, {}", rd, format_imm(*imm)),
+            Inst::CLwsp { rd, offset } => format!("c.lwsp {}, {}(sp)", rd, format_imm(*offset)),
+            Inst::CSwsp { rs, offset } => format!("c.swsp {}, {}(sp)", rs, format_imm(*offset)),
+            Inst::CJal { offset } => format!("c.jal {}", format_imm(*offset)),
+            Inst::CNop => alloc::string::String::from("c.nop"),
+            Inst::CEbreak => alloc::string::String::from("c.ebreak"),
+        }
+    }
+
     /// Encode this instruction to its binary representation.
     pub fn encode(&self) -> u32 {
         use super::encode::*;

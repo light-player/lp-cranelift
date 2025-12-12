@@ -67,6 +67,13 @@ pub trait GlslExecutable {
         None
     }
 
+    /// Get CLIF IR (before and after transformation) as formatted strings, if available.
+    /// Returns (original_ir, transformed_ir) where each is Some(String) if available.
+    #[cfg(feature = "std")]
+    fn format_clif_ir(&self) -> (Option<String>, Option<String>) {
+        (None, None)
+    }
+
     // TODO: Future extensions:
     // fn set_uniform(&mut self, name: &str, value: GlslValue) -> Result<(), GlslError>;
     // fn get_uniform(&self, name: &str) -> Option<&GlslValue>;

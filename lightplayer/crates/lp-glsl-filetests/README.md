@@ -20,6 +20,12 @@ cargo test -p lp-glsl-filetests --test filetests -- --nocapture
 
 # Run specific test file (by filtering)
 cargo test -p lp-glsl-filetests --test filetests -- --nocapture 2>&1 | grep "add.glsl"
+
+# Run a single test case from a specific file (using environment variables)
+TEST_FILE=math/float-add.glsl TEST_LINE=72 cargo test -p lp-glsl-filetests --test filetests -- --nocapture
+
+# Run all test cases from a specific file
+TEST_FILE=math/float-add.glsl cargo test -p lp-glsl-filetests --test filetests -- --nocapture
 ```
 
 ### From Crate Directory

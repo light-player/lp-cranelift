@@ -1,10 +1,10 @@
 //! Helper for building Cranelift function signatures from GLSL types.
 
+use crate::semantic::functions::Parameter;
+use crate::semantic::types::Type;
 use cranelift_codegen::ir::{AbiParam, ArgumentPurpose, Signature, Type as IrType};
 use cranelift_codegen::isa::CallConv;
 use target_lexicon::Triple;
-use crate::semantic::types::Type;
-use crate::semantic::functions::Parameter;
 
 /// Builder for Cranelift function signatures from GLSL function signatures.
 pub struct SignatureBuilder;
@@ -23,13 +23,9 @@ impl SignatureBuilder {
 
     /// Build a complete signature from GLSL return type and parameters.
     /// `pointer_type` is required when the return type is a composite type (vector or matrix).
-    /// 
+    ///
     /// Note: StructReturn parameter is added FIRST (before regular params) to match ABI requirements.
-    pub fn build(
-        return_type: &Type,
-        parameters: &[Parameter],
-        pointer_type: IrType,
-    ) -> Signature {
+    pub fn build(return_type: &Type, parameters: &[Parameter], pointer_type: IrType) -> Signature {
         let mut sig = Self::new();
         // Add StructReturn FIRST if needed (before regular params, like cranelift-examples)
         Self::add_return_type(&mut sig, return_type, pointer_type);
@@ -41,7 +37,7 @@ impl SignatureBuilder {
     /// Build a complete signature from GLSL return type and parameters with ISA-specific calling convention.
     /// `pointer_type` is required when the return type is a composite type (vector or matrix).
     /// `triple` is used to determine the correct calling convention for the target ISA.
-    /// 
+    ///
     /// Note: StructReturn parameter is added FIRST (before regular params) to match ABI requirements.
     pub fn build_with_triple(
         return_type: &Type,
@@ -77,7 +73,9 @@ impl SignatureBuilder {
         if ty.is_vector() {
             // Vector: pass each component as separate parameter
             let base_ty = ty.vector_base_type().unwrap();
-            let cranelift_ty = base_ty.to_cranelift_type().expect("vector base type should be convertible");
+            let cranelift_ty = base_ty
+                .to_cranelift_type()
+                .expect("vector base type should be convertible");
             let count = ty.component_count().unwrap();
             for _ in 0..count {
                 sig.params.push(AbiParam::new(cranelift_ty));
@@ -85,13 +83,17 @@ impl SignatureBuilder {
         } else if ty.is_matrix() {
             // Matrix: pass each element as separate parameter (column-major)
             let element_count = ty.matrix_element_count().unwrap();
-            let cranelift_ty = Type::Float.to_cranelift_type().expect("Float type should be convertible");
+            let cranelift_ty = Type::Float
+                .to_cranelift_type()
+                .expect("Float type should be convertible");
             for _ in 0..element_count {
                 sig.params.push(AbiParam::new(cranelift_ty));
             }
         } else {
             // Scalar: single parameter
-            let cranelift_ty = ty.to_cranelift_type().expect("scalar type should be convertible");
+            let cranelift_ty = ty
+                .to_cranelift_type()
+                .expect("scalar type should be convertible");
             sig.params.push(AbiParam::new(cranelift_ty));
         }
     }
@@ -103,18 +105,26 @@ impl SignatureBuilder {
         if ty.is_vector() {
             // Vector: use StructReturn parameter instead of multiple return values
             // Add StructReturn parameter FIRST (like cranelift-examples)
-            sig.params.insert(0, AbiParam::special(pointer_type, ArgumentPurpose::StructReturn));
+            sig.params.insert(
+                0,
+                AbiParam::special(pointer_type, ArgumentPurpose::StructReturn),
+            );
             // StructReturn functions return void
             sig.returns.clear();
         } else if ty.is_matrix() {
             // Matrix: use StructReturn parameter instead of multiple return values
             // Add StructReturn parameter FIRST (like cranelift-examples)
-            sig.params.insert(0, AbiParam::special(pointer_type, ArgumentPurpose::StructReturn));
+            sig.params.insert(
+                0,
+                AbiParam::special(pointer_type, ArgumentPurpose::StructReturn),
+            );
             // StructReturn functions return void
             sig.returns.clear();
         } else {
             // Scalar: single return value (no StructReturn)
-            let cranelift_ty = ty.to_cranelift_type().expect("scalar return type should be convertible");
+            let cranelift_ty = ty
+                .to_cranelift_type()
+                .expect("scalar return type should be convertible");
             sig.returns.push(AbiParam::new(cranelift_ty));
         }
     }
@@ -146,4 +156,3 @@ impl SignatureBuilder {
         }
     }
 }
-

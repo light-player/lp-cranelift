@@ -33,7 +33,10 @@ impl<'a> CodegenContext<'a> {
             SimpleStatement::Selection(selection) => self.translate_selection(selection),
             SimpleStatement::Iteration(iteration) => self.translate_iteration(iteration),
             SimpleStatement::Jump(jump) => self.translate_jump(jump),
-            _ => Err(GlslError::new(ErrorCode::E0400, format!("statement type not supported: {:?}", stmt))),
+            _ => Err(GlslError::new(
+                ErrorCode::E0400,
+                format!("statement type not supported: {:?}", stmt),
+            )),
         }
     }
 
@@ -52,24 +55,26 @@ impl<'a> CodegenContext<'a> {
         &mut self,
         selection: &glsl::syntax::SelectionStatement,
     ) -> Result<(), GlslError> {
-        use glsl::syntax::SelectionRestStatement;
         use crate::error::{extract_span_from_expr, source_span_to_location};
+        use glsl::syntax::SelectionRestStatement;
 
         // Translate condition and validate type
         let (cond_vals, cond_ty) = self.translate_expr_typed(&selection.cond)?;
         // Validate that condition is bool type (GLSL spec requirement)
         if cond_ty != crate::semantic::types::Type::Bool {
             let span = extract_span_from_expr(&selection.cond);
-            let error = GlslError::new(
-                ErrorCode::E0107,
-                "condition must be bool type"
-            )
-            .with_location(source_span_to_location(&span))
-            .with_note(format!("condition has type `{:?}`, expected `Bool`", cond_ty));
+            let error = GlslError::new(ErrorCode::E0107, "condition must be bool type")
+                .with_location(source_span_to_location(&span))
+                .with_note(format!(
+                    "condition has type `{:?}`, expected `Bool`",
+                    cond_ty
+                ));
             return Err(self.add_span_to_error(error, &span));
         }
         // Condition must be scalar, so we take the first (and only) value
-        let condition_value = cond_vals.into_iter().next().ok_or_else(|| GlslError::new(ErrorCode::E0400, "condition expression produced no value"))?;
+        let condition_value = cond_vals.into_iter().next().ok_or_else(|| {
+            GlslError::new(ErrorCode::E0400, "condition expression produced no value")
+        })?;
 
         let then_block = self.builder.create_block();
         let merge_block = self.builder.create_block();
@@ -298,9 +303,14 @@ impl<'a> CodegenContext<'a> {
                 // Validate that condition is bool type (GLSL spec requirement)
                 crate::semantic::type_check::check_condition(&ty)?;
                 // Condition must be scalar, so we take the first (and only) value
-                Ok(vals.into_iter().next().ok_or_else(|| GlslError::new(ErrorCode::E0400, "condition expression produced no value"))?)
+                Ok(vals.into_iter().next().ok_or_else(|| {
+                    GlslError::new(ErrorCode::E0400, "condition expression produced no value")
+                })?)
             }
-            _ => Err(GlslError::new(ErrorCode::E0400, "only expression conditions supported")),
+            _ => Err(GlslError::new(
+                ErrorCode::E0400,
+                "only expression conditions supported",
+            )),
         }
     }
 
@@ -311,32 +321,44 @@ impl<'a> CodegenContext<'a> {
             JumpStatement::Break => self.translate_break(),
             JumpStatement::Continue => self.translate_continue(),
             JumpStatement::Return(expr) => self.translate_return(expr.as_ref().map(|v| &**v)),
-            _ => Err(GlslError::new(ErrorCode::E0400, format!("jump statement not supported: {:?}", jump))),
+            _ => Err(GlslError::new(
+                ErrorCode::E0400,
+                format!("jump statement not supported: {:?}", jump),
+            )),
         }
     }
 
     fn translate_return(&mut self, expr: Option<&glsl::syntax::Expr>) -> Result<(), GlslError> {
         use crate::error::extract_span_from_expr;
         use cranelift_codegen::ir::{ArgumentPurpose, InstBuilder, MemFlags};
-        
+
         if let Some(ret_expr) = expr {
             let span = extract_span_from_expr(ret_expr);
             let (ret_vals, ret_ty) = self.translate_expr_typed(ret_expr)?;
-            
+
             // Validate return type matches function signature
             if let Some(expected_ty) = &self.return_type {
                 // Check if function uses StructReturn
-                let uses_struct_return = self.builder.func.signature.uses_special_param(ArgumentPurpose::StructReturn);
-                
+                let uses_struct_return = self
+                    .builder
+                    .func
+                    .signature
+                    .uses_special_param(ArgumentPurpose::StructReturn);
+
                 if uses_struct_return {
                     // Function uses StructReturn - write values to buffer
                     // Use special_param() method (like cranelift-examples) to get the StructReturn pointer
-                    let struct_ret_ptr = self.builder.func
+                    let struct_ret_ptr = self
+                        .builder
+                        .func
                         .special_param(ArgumentPurpose::StructReturn)
                         .ok_or_else(|| {
-                            GlslError::new(crate::error::ErrorCode::E0400, "StructReturn parameter not found (internal error)")
+                            GlslError::new(
+                                crate::error::ErrorCode::E0400,
+                                "StructReturn parameter not found (internal error)",
+                            )
                         })?;
-                    
+
                     // Coerce and write values to buffer at offsets (4 bytes per f32)
                     let expected_base = if expected_ty.is_vector() {
                         expected_ty.vector_base_type().unwrap()
@@ -350,17 +372,27 @@ impl<'a> CodegenContext<'a> {
                     } else {
                         ret_ty.clone()
                     };
-                    
+
                     for (i, val) in ret_vals.iter().enumerate() {
                         let coerced = if ret_base == expected_base {
                             *val
                         } else {
-                            self.coerce_to_type_with_location(*val, &ret_base, &expected_base, Some(span.clone()))?
+                            self.coerce_to_type_with_location(
+                                *val,
+                                &ret_base,
+                                &expected_base,
+                                Some(span.clone()),
+                            )?
                         };
                         let offset = (i * crate::codegen::constants::F32_SIZE_BYTES) as i32;
-                        self.builder.ins().store(MemFlags::trusted(), coerced, struct_ret_ptr, offset);
+                        self.builder.ins().store(
+                            MemFlags::trusted(),
+                            coerced,
+                            struct_ret_ptr,
+                            offset,
+                        );
                     }
-                    
+
                     // Return void for StructReturn functions
                     self.builder.ins().return_(&[]);
                 } else if expected_ty.is_vector() || expected_ty.is_matrix() {
@@ -378,13 +410,18 @@ impl<'a> CodegenContext<'a> {
                     } else {
                         ret_ty.clone()
                     };
-                    
+
                     let mut coerced_vals = Vec::new();
                     for val in ret_vals {
                         let coerced = if ret_base == expected_base {
                             val
                         } else {
-                            self.coerce_to_type_with_location(val, &ret_base, &expected_base, Some(span.clone()))?
+                            self.coerce_to_type_with_location(
+                                val,
+                                &ret_base,
+                                &expected_base,
+                                Some(span.clone()),
+                            )?
                         };
                         coerced_vals.push(coerced);
                     }
@@ -393,11 +430,16 @@ impl<'a> CodegenContext<'a> {
                     // For scalars, return single value with coercion if needed
                     let expected_base = expected_ty.clone();
                     let ret_base = ret_ty.clone();
-                    
+
                     let return_val = if ret_base == expected_base {
                         ret_vals[0]
                     } else {
-                        self.coerce_to_type_with_location(ret_vals[0], &ret_base, &expected_base, Some(span.clone()))?
+                        self.coerce_to_type_with_location(
+                            ret_vals[0],
+                            &ret_base,
+                            &expected_base,
+                            Some(span.clone()),
+                        )?
                     };
                     self.builder.ins().return_(&[return_val]);
                 }
@@ -435,10 +477,9 @@ impl<'a> CodegenContext<'a> {
     }
 
     fn translate_continue(&mut self) -> Result<(), GlslError> {
-        let loop_ctx = self
-            .loop_stack
-            .last()
-            .ok_or_else(|| GlslError::new(ErrorCode::E0400, "continue statement outside of loop"))?;
+        let loop_ctx = self.loop_stack.last().ok_or_else(|| {
+            GlslError::new(ErrorCode::E0400, "continue statement outside of loop")
+        })?;
 
         self.builder.ins().jump(loop_ctx.continue_target, &[]);
 
@@ -465,7 +506,7 @@ impl<'a> CodegenContext<'a> {
                     // Handle initializer if present
                     if let Some(init) = &list.head.initializer {
                         let (init_vals, init_ty) = self.translate_initializer(init)?;
-                        
+
                         // Type check (allows implicit conversions)
                         // Extract span from initializer for error reporting
                         let init_span = match init {
@@ -478,7 +519,9 @@ impl<'a> CodegenContext<'a> {
                             Ok(()) => {}
                             Err(mut error) => {
                                 if error.location.is_none() {
-                                    error = error.with_location(crate::error::source_span_to_location(&init_span));
+                                    error = error.with_location(
+                                        crate::error::source_span_to_location(&init_span),
+                                    );
                                 }
                                 return Err(self.add_span_to_error(error, &init_span));
                             }
@@ -504,7 +547,11 @@ impl<'a> CodegenContext<'a> {
                         if vars.len() != init_vals.len() {
                             return Err(GlslError::new(
                                 ErrorCode::E0400,
-                                format!("component count mismatch: variable has {} components, initializer has {}", vars.len(), init_vals.len())
+                                format!(
+                                    "component count mismatch: variable has {} components, initializer has {}",
+                                    vars.len(),
+                                    init_vals.len()
+                                ),
                             ));
                         }
 
@@ -518,11 +565,12 @@ impl<'a> CodegenContext<'a> {
 
                 // Handle tail declarations (same type, different names)
                 for declarator in &list.tail {
-                    let vars = self.declare_variable(declarator.ident.ident.name.clone(), ty.clone())?;
+                    let vars =
+                        self.declare_variable(declarator.ident.ident.name.clone(), ty.clone())?;
 
                     if let Some(init) = &declarator.initializer {
                         let (init_vals, init_ty) = self.translate_initializer(init)?;
-                        
+
                         // Type check (allows implicit conversions)
                         crate::semantic::type_check::check_assignment(&ty, &init_ty)?;
 
@@ -546,7 +594,11 @@ impl<'a> CodegenContext<'a> {
                         if vars.len() != init_vals.len() {
                             return Err(GlslError::new(
                                 ErrorCode::E0400,
-                                format!("component count mismatch: variable has {} components, initializer has {}", vars.len(), init_vals.len())
+                                format!(
+                                    "component count mismatch: variable has {} components, initializer has {}",
+                                    vars.len(),
+                                    init_vals.len()
+                                ),
                             ));
                         }
 
@@ -560,7 +612,10 @@ impl<'a> CodegenContext<'a> {
 
                 Ok(())
             }
-            _ => Err(GlslError::new(ErrorCode::E0400, "only variable declarations supported")),
+            _ => Err(GlslError::new(
+                ErrorCode::E0400,
+                "only variable declarations supported",
+            )),
         }
     }
 
@@ -586,19 +641,31 @@ impl<'a> CodegenContext<'a> {
             TypeSpecifierNonArray::Mat2 => Ok(crate::semantic::types::Type::Mat2),
             TypeSpecifierNonArray::Mat3 => Ok(crate::semantic::types::Type::Mat3),
             TypeSpecifierNonArray::Mat4 => Ok(crate::semantic::types::Type::Mat4),
-            _ => Err(GlslError::unsupported_type(format!("{:?}", type_spec.ty.ty))),
+            _ => Err(GlslError::unsupported_type(format!(
+                "{:?}",
+                type_spec.ty.ty
+            ))),
         }
     }
 
     fn translate_initializer(
         &mut self,
         init: &glsl::syntax::Initializer,
-    ) -> Result<(Vec<cranelift_codegen::ir::Value>, crate::semantic::types::Type), GlslError> {
+    ) -> Result<
+        (
+            Vec<cranelift_codegen::ir::Value>,
+            crate::semantic::types::Type,
+        ),
+        GlslError,
+    > {
         use glsl::syntax::Initializer;
 
         match init {
             Initializer::Simple(expr) => self.translate_expr_typed(expr.as_ref()),
-            _ => Err(GlslError::new(ErrorCode::E0400, "only simple initializers supported")),
+            _ => Err(GlslError::new(
+                ErrorCode::E0400,
+                "only simple initializers supported",
+            )),
         }
     }
 }

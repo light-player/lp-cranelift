@@ -341,6 +341,45 @@ impl ClifModule {
             &name_to_id,
         )?;
 
+        // Verify stack slots exist before defining (they should be cloned from original)
+        // If the original function had 0 stack slots but instructions reference stack slots,
+        // this means the stack slots weren't persisted when the function was stored.
+        // We need to recreate them by finding the maximum slot ID referenced and creating slots up to that ID.
+        use cranelift_codegen::ir::InstructionData;
+        let blocks: Vec<_> = main_func_clone.layout.blocks().collect();
+        let mut max_slot_id = 0u32;
+
+        for block in &blocks {
+            for inst in main_func_clone.layout.block_insts(*block) {
+                let inst_data = &main_func_clone.dfg.insts[inst];
+                if let InstructionData::StackLoad { stack_slot, .. } = inst_data {
+                    max_slot_id = max_slot_id.max(stack_slot.as_u32());
+                }
+            }
+        }
+
+        // Create missing stack slots up to the maximum referenced ID
+        // For vec2 struct return, we need 8 bytes (2 * 4 bytes for f32)
+        while main_func_clone.sized_stack_slots.len() <= max_slot_id as usize {
+            let slot =
+                main_func_clone.create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
+                    cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
+                    8, // 8 bytes for vec2 (2 f32s)
+                    2, // 2^2 = 4 byte alignment (F32_ALIGN_SHIFT)
+                ));
+            // Verify we got the expected slot ID
+            if slot.as_u32() != main_func_clone.sized_stack_slots.len() as u32 - 1 {
+                return Err(GlslError::new(
+                    ErrorCode::E0301,
+                    format!(
+                        "Unexpected stack slot ID mismatch: expected {}, got {}",
+                        main_func_clone.sized_stack_slots.len() as u32 - 1,
+                        slot.as_u32()
+                    ),
+                ));
+            }
+        }
+
         ctx.func = main_func_clone;
         module
             .define_function(main_id, &mut ctx)

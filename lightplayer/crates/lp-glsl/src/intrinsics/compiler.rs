@@ -1,7 +1,7 @@
 //! Compiler for intrinsic GLSL functions.
 
-use crate::error::{ErrorCode, GlslError};
 use crate::compiler::pipeline::CompilationPipeline;
+use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::Function;
 use cranelift_codegen::isa::TargetIsa;
 
@@ -240,6 +240,23 @@ pub fn compile_intrinsic_functions(
             for param in &user_func.parameters {
                 let param_vals: Vec<cranelift_codegen::ir::Value> = if param.ty.is_vector() {
                     let count = param.ty.component_count().unwrap();
+                    let mut vals = Vec::new();
+                    for _ in 0..count {
+                        if param_idx >= block_params.len() {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!(
+                                    "not enough block parameters for function parameter `{}`",
+                                    param.name
+                                ),
+                            ));
+                        }
+                        vals.push(block_params[param_idx]);
+                        param_idx += 1;
+                    }
+                    vals
+                } else if param.ty.is_matrix() {
+                    let count = param.ty.matrix_element_count().unwrap();
                     let mut vals = Vec::new();
                     for _ in 0..count {
                         if param_idx >= block_params.len() {

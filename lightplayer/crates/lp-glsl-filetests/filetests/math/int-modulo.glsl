@@ -1,5 +1,5 @@
-
-
+// test compile
+// test transform.fixed32
 // test run
 // target riscv32.fixed32
 

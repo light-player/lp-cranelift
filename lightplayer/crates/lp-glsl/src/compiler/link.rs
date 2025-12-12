@@ -717,6 +717,7 @@ pub fn link_glsl_for_jit(
 pub fn link_glsl_for_emulator(
     module: ClifModule,
     emulator_options: &EmulatorOptions,
+    original_main_ir: Option<cranelift_codegen::ir::Function>,
 ) -> Result<crate::backend::emu::GlslEmulatorModule, crate::error::GlslError> {
     use crate::backend::emu::GlslEmulatorModule;
     use crate::error::GlslError;
@@ -813,6 +814,7 @@ pub fn link_glsl_for_emulator(
         binary,
         main_address,
         main_function_ir: Some(module.main_function().clone()),
+        original_main_function_ir: original_main_ir,
         next_buffer_addr: DEFAULT_RAM_START,
     })
 }

@@ -224,18 +224,7 @@ pub fn copy_instruction_as_is_with_stack_slot_map(
             // StackLoad has stack_slot and offset
             // This format is also used by StackAddr instruction
             // Remap stack slot if mapping provided
-            // #region agent log
-            use std::fs::OpenOptions;
-            use std::io::Write;
-            // #endregion
             let new_stack_slot = if let Some(m) = stack_slot_map {
-                // #region agent log
-                let _ = OpenOptions::new().create(true).append(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log").and_then(|mut f| {
-                    writeln!(f, r#"{{"id":"log_stack_addr_remap","timestamp":{},"location":"instruction_copy.rs:226","message":"Remapping stack slot for instruction","data":{{"opcode":"{:?}","old_stack_slot":{},"slot_in_map":{}}},"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}}"#, 
-                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
-                        opcode, stack_slot.as_u32(), m.contains_key(stack_slot))
-                });
-                // #endregion
                 *m.get(stack_slot).ok_or_else(|| {
                     GlslError::new(
                         ErrorCode::E0301,
@@ -248,13 +237,6 @@ pub fn copy_instruction_as_is_with_stack_slot_map(
             } else {
                 *stack_slot
             };
-            // #region agent log
-            let _ = OpenOptions::new().create(true).append(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log").and_then(|mut f| {
-                writeln!(f, r#"{{"id":"log_stack_addr_remapped","timestamp":{},"location":"instruction_copy.rs:243","message":"Stack slot remapped","data":{{"opcode":"{:?}","old_stack_slot":{},"new_stack_slot":{}}},"sessionId":"debug-session","runId":"run1","hypothesisId":"A"}}"#, 
-                    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
-                    opcode, stack_slot.as_u32(), new_stack_slot.as_u32())
-            });
-            // #endregion
             InstructionData::StackLoad {
                 opcode,
                 stack_slot: new_stack_slot,

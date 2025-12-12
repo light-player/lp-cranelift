@@ -38,7 +38,7 @@ pub use decode::decode_instruction;
 pub use emu::{
     EmulatorError, InstLog, LogLevel, MemoryAccessKind, Riscv32Emulator, StepResult, SyscallInfo,
 };
-pub use inst::Inst;
+pub use inst::{Inst, format_instruction};
 pub use regs::Gpr;
 
 #[cfg(feature = "std")]

@@ -47,12 +47,27 @@ fn println_colored(text: &str, color: &str) {
 fn filetests() -> Result<()> {
     let filetests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("filetests");
 
+    // Check for filtering environment variables
+    let test_file_filter = std::env::var("TEST_FILE").ok();
+    let test_line_filter: Option<usize> =
+        std::env::var("TEST_LINE").ok().and_then(|s| s.parse().ok());
+
     let mut test_files = Vec::new();
     for entry in WalkDir::new(&filetests_dir) {
         let entry = entry?;
         let path = entry.path();
 
         if path.extension().and_then(|s| s.to_str()) == Some("glsl") {
+            // Filter by file name if TEST_FILE is set
+            if let Some(ref filter) = test_file_filter {
+                let relative_path = path
+                    .strip_prefix(&filetests_dir)
+                    .unwrap_or(path)
+                    .to_string_lossy();
+                if !relative_path.contains(filter) {
+                    continue;
+                }
+            }
             test_files.push(path.to_path_buf());
         }
     }
@@ -87,7 +102,17 @@ fn filetests() -> Result<()> {
             }
         };
 
-        let test_count = test_file.run_directives.len();
+        // Count test cases (respecting filters)
+        let test_count = if let Some(ref filter_line) = test_line_filter {
+            test_file
+                .run_directives
+                .iter()
+                .filter(|d| d.line_number == *filter_line)
+                .count()
+        } else {
+            test_file.run_directives.len()
+        };
+
         let test_label = if test_count > 0 {
             format!(
                 "{} ({} test case{})",
@@ -102,12 +127,15 @@ fn filetests() -> Result<()> {
         print!("test {} ... ", test_label);
         std::io::Write::flush(&mut std::io::stdout()).unwrap();
 
-        match run_filetest(path) {
-            Ok(()) => {
+        // Catch panics so one test failure doesn't stop others
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run_filetest(path)));
+
+        match result {
+            Ok(Ok(())) => {
                 println_colored("ok", colors::GREEN);
                 passed += 1;
             }
-            Err(e) => {
+            Ok(Err(e)) => {
                 println_colored("FAILED", colors::RED);
                 // Format error output with better readability
                 let error_str = format!("{:#}", e);
@@ -140,6 +168,19 @@ fn filetests() -> Result<()> {
                         }
                     }
                 }
+                failed += 1;
+            }
+            Err(panic_payload) => {
+                println_colored("FAILED (panic)", colors::RED);
+                // Try to extract panic message
+                let panic_msg = if let Some(s) = panic_payload.downcast_ref::<String>() {
+                    s.clone()
+                } else if let Some(s) = panic_payload.downcast_ref::<&str>() {
+                    s.to_string()
+                } else {
+                    "unknown panic".to_string()
+                };
+                println!("  Panic: {}", panic_msg);
                 failed += 1;
             }
         }

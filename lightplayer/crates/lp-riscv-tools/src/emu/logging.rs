@@ -1,8 +1,5 @@
 //! Logging infrastructure for the RISC-V 32 emu.
 
-extern crate alloc;
-
-use alloc::format;
 use core::fmt;
 
 use crate::Gpr;
@@ -270,8 +267,8 @@ impl fmt::Display for InstLog {
         let cycle = self.cycle();
         let pc = self.pc();
         let instruction = self.instruction();
-        // Simple hex display (use Capstone externally for full disassembly)
-        let disassembly = format!(".word 0x{:08x}", instruction);
+        // Use proper disassembly formatting
+        let disassembly = crate::inst::format_instruction(instruction);
 
         // Print cycle count, address and instruction
         write!(f, "[{:4}] 0x{:08x}: {}", cycle, pc, disassembly)?;

@@ -113,9 +113,37 @@ pub fn glsl_emu_riscv32(
     source: &str,
     options: GlslOptions,
 ) -> Result<Box<dyn GlslExecutable>, GlslError> {
+    use crate::backend::executable::DecimalFormat;
     use link::EmulatorOptions;
 
-    let module = compile_glsl_to_clif(source, &options)?;
+    let mut compiler = GlslCompiler::new();
+    let isa = match &options.run_mode {
+        RunMode::Emulator { .. } => create_riscv32_isa()?,
+        _ => {
+            return Err(GlslError::new(
+                crate::error::ErrorCode::E0400,
+                "Invalid run mode for emulator",
+            ));
+        }
+    };
+
+    // Compile to CLIF (before transformation)
+    let original_module = compiler.compile_to_clif_module(source, isa.clone())?;
+
+    // Capture original main function IR before transformation
+    let original_main_ir = original_module.main_function().clone();
+
+    // Apply transformations if needed
+    let module = match options.decimal_format {
+        DecimalFormat::Fixed32 => transform_module(&original_module, FixedPointFormat::Fixed16x16)?,
+        DecimalFormat::Fixed64 => {
+            return Err(GlslError::new(
+                crate::error::ErrorCode::E0400,
+                "Fixed64 not yet supported",
+            ));
+        }
+        DecimalFormat::Float => original_module,
+    };
 
     let emulator_options = match &options.run_mode {
         RunMode::Emulator {
@@ -136,7 +164,8 @@ pub fn glsl_emu_riscv32(
         }
     };
 
-    let emu_module = link::link_glsl_for_emulator(module, &emulator_options)?;
+    let emu_module =
+        link::link_glsl_for_emulator(module, &emulator_options, Some(original_main_ir))?;
     Ok(Box::new(emu_module))
 }
 

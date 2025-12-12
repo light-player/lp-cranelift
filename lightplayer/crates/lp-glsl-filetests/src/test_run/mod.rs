@@ -20,6 +20,19 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
         return Ok(());
     }
 
+    // Compute relative path for rerun command
+    let filetests_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("filetests");
+    let relative_path = path
+        .strip_prefix(&filetests_dir)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .to_string();
+
+    // Check for test case filtering by line number
+    let test_line_filter = env::var("TEST_LINE")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok());
+
     // Determine target and options
     let target_str = test_file.target.as_deref().unwrap_or("riscv32.fixed32");
     let (run_mode, decimal_format) = target::parse_target(target_str)?;
@@ -34,20 +47,27 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
 
     // Process each run directive
     for directive in &test_file.run_directives {
+        // Filter by line number if TEST_LINE is set
+        if let Some(filter_line) = test_line_filter {
+            if directive.line_number != filter_line {
+                continue;
+            }
+        }
         // Generate bootstrap code with span information
         let bootstrap_result =
             bootstrap::generate_bootstrap(&test_file.glsl_source, &directive.expression_str)?;
 
         // Compile and execute
         // Note: bootstrap_result.source now contains ONLY the function being tested + main()
-        let mut executable = glsl_emu_riscv32(&bootstrap_result.source, options.clone()).map_err(|e| {
-            format_compilation_error(
-                &e,
-                &bootstrap_result,
-                directive.line_number,
-                &directive.expression_str,
-            )
-        })?;
+        let mut executable =
+            glsl_emu_riscv32(&bootstrap_result.source, options.clone()).map_err(|e| {
+                format_compilation_error(
+                    &e,
+                    &bootstrap_result,
+                    directive.line_number,
+                    &directive.expression_str,
+                )
+            })?;
 
         // Execute main() and get result
         let actual_value = execution::execute_main(&mut *executable)?;
@@ -71,19 +91,46 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
                 } else {
                     // Get emulator state if available
                     let emulator_state = executable.format_emulator_state();
+
+                    // Get CLIF IR (before and after transformation) if available
+                    let (original_ir, transformed_ir) = executable.format_clif_ir();
+                    let mut clif_ir_section = String::new();
+                    if let Some(ref orig) = original_ir {
+                        clif_ir_section.push_str("\n\n=== CLIF IR (BEFORE transformation) ===\n");
+                        clif_ir_section.push_str(orig);
+                    }
+                    if let Some(ref trans) = transformed_ir {
+                        clif_ir_section.push_str("\n\n=== CLIF IR (AFTER transformation) ===\n");
+                        clif_ir_section.push_str(trans);
+                    }
+
+                    // Generate rerun command
+                    let rerun_cmd = format!(
+                        "TEST_FILE={} TEST_LINE={} cargo test --test filetests -- --nocapture",
+                        relative_path, directive.line_number
+                    );
+
                     let error_msg = if let Some(state) = emulator_state {
                         format!(
-                            "run test failed at line {}: {}{}\n\
+                            "run test failed at line {}: {}{}{}\n\
+                             \n\
+                             To rerun just this test:\n\
+                             {}\n\
+                             \n\
                              This test assertion can be automatically updated by setting the\n\
                              CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
-                            directive.line_number, err_msg, state
+                            directive.line_number, err_msg, clif_ir_section, state, rerun_cmd
                         )
                     } else {
                         format!(
-                            "run test failed at line {}: {}\n\
+                            "run test failed at line {}: {}{}\n\
+                             \n\
+                             To rerun just this test:\n\
+                             {}\n\
+                             \n\
                              This test assertion can be automatically updated by setting the\n\
                              CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
-                            directive.line_number, err_msg
+                            directive.line_number, err_msg, clif_ir_section, rerun_cmd
                         )
                     };
                     anyhow::bail!("{}", error_msg);
@@ -105,14 +152,14 @@ fn format_compilation_error(
     // Check if error message already contains "Compilation error:" to avoid duplication
     let error_msg = error.to_string();
     let has_prefix = error_msg.contains("Compilation error:");
-    
+
     // Extract notes if present (these contain detailed verifier errors)
     let notes = if !error.notes.is_empty() {
         format!("\n\n{}", error.notes.join("\n"))
     } else {
         String::new()
     };
-    
+
     // Build the error message
     let mut msg = format!(
         "Compilation failed for test case at line {}:\n\
@@ -126,18 +173,21 @@ fn format_compilation_error(
         directive_line,
         expression,
         format_code_block(&bootstrap.source),
-        if has_prefix { "" } else { "Compilation error:\n" },
+        if has_prefix {
+            ""
+        } else {
+            "Compilation error:\n"
+        },
         error_msg,
         notes
     );
-    
+
     // Add main function span info for reference
     msg.push_str(&format!(
         "\n\nNote: main() function spans lines {} to {}",
-        bootstrap.main_start_line,
-        bootstrap.main_end_line
+        bootstrap.main_start_line, bootstrap.main_end_line
     ));
-    
+
     anyhow::anyhow!("{}", msg)
 }
 

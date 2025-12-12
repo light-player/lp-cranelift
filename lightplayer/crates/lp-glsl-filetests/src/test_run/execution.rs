@@ -12,8 +12,16 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
         .ok_or_else(|| anyhow::anyhow!("main function not found"))?;
 
     // Helper to add emulator state to error if available
-    fn format_error(e: lp_glsl::error::GlslError, executable: &dyn GlslExecutable) -> anyhow::Error {
-        let error_msg = format!("{}", e);
+    fn format_error(
+        e: lp_glsl::error::GlslError,
+        executable: &dyn GlslExecutable,
+    ) -> anyhow::Error {
+        let mut error_msg = format!("{}", e);
+        // Include notes if present (these contain CLIF IR and other debug info)
+        if !e.notes.is_empty() {
+            error_msg.push_str("\n\n");
+            error_msg.push_str(&e.notes.join("\n"));
+        }
         if let Some(state) = executable.format_emulator_state() {
             anyhow::anyhow!("{}{}", error_msg, state)
         } else {
@@ -73,6 +81,38 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
                 ])
             })
             .map_err(|e| format_error(e, executable)),
+        // Integer vectors: call_vec reads i32 and divides by FIXED16X16_SCALE (for fixed-point),
+        // but integer vectors are stored as plain i32, so we multiply back to get the integer value
+        Type::IVec2 => {
+            const SCALE: f32 = 65536.0; // FIXED16X16_SCALE
+            executable
+                .call_vec("main", &[], 2)
+                .map(|v| {
+                    // Convert back from fixed-point scale to integer, then to float for Vec2
+                    GlslValue::Vec2([v[0] * SCALE, v[1] * SCALE])
+                })
+                .map_err(|e| format_error(e, executable))
+        }
+        Type::IVec3 => {
+            const SCALE: f32 = 65536.0; // FIXED16X16_SCALE
+            executable
+                .call_vec("main", &[], 3)
+                .map(|v| {
+                    // Convert back from fixed-point scale to integer, then to float for Vec3
+                    GlslValue::Vec3([v[0] * SCALE, v[1] * SCALE, v[2] * SCALE])
+                })
+                .map_err(|e| format_error(e, executable))
+        }
+        Type::IVec4 => {
+            const SCALE: f32 = 65536.0; // FIXED16X16_SCALE
+            executable
+                .call_vec("main", &[], 4)
+                .map(|v| {
+                    // Convert back from fixed-point scale to integer, then to float for Vec4
+                    GlslValue::Vec4([v[0] * SCALE, v[1] * SCALE, v[2] * SCALE, v[3] * SCALE])
+                })
+                .map_err(|e| format_error(e, executable))
+        }
         _ => anyhow::bail!("unsupported return type: {:?}", sig.return_type),
     }
 }
