@@ -33,13 +33,14 @@ pub use backend::GlslEmulatorModule;
 pub use backend::GlslJitModule;
 pub use backend::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode};
 pub use compiler::{
-    Backend, CompilationPipeline, CompiledShader, ParseResult, SemanticResult, TransformationPass,
+    Backend, CompilationPipeline, CompiledShader, GlslCompiler, ParseResult, SemanticResult, TransformationPass,
     parse_program_with_registry,
 };
 pub use error::{ErrorCode, GlslError, SourceLocation};
 pub use ir::ClifModule;
 pub use semantic::type_check::inference::infer_expr_type_in_context;
 pub use transform::FixedPointFormat;
+pub use transform::fixed32::transform_module;
 
 // Public API functions
 pub use compiler::glsl_jit;

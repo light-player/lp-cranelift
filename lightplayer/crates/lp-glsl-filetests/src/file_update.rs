@@ -120,6 +120,139 @@ impl FileUpdate {
         fs::write(&self.path, new_test)?;
         Ok(())
     }
+
+    /// Update CLIF expectations for a test type (compile or transform.fixed32).
+    pub fn update_clif_expectations(
+        &self,
+        test_type: &str,
+        new_clif: &str,
+    ) -> Result<()> {
+        // Read the old test file
+        let old_test = fs::read_to_string(&self.path)?;
+        let lines: Vec<&str> = old_test.lines().collect();
+
+        // Find the end of GLSL code
+        let mut glsl_end = 0;
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            if !trimmed.is_empty()
+                && !trimmed.starts_with("//")
+                && !trimmed.starts_with("// test")
+                && !trimmed.starts_with("// target")
+                && !trimmed.starts_with("// run:")
+            {
+                glsl_end = i + 1;
+            }
+        }
+
+        // Find the start of run expectations
+        let mut run_start = lines.len();
+        for (i, line) in lines.iter().enumerate().skip(glsl_end) {
+            let trimmed = line.trim();
+            if trimmed.starts_with("// #run:") || trimmed.starts_with("// run:") {
+                run_start = i;
+                break;
+            }
+        }
+
+        // Find section boundaries
+        let mut compile_section_start = None;
+        let mut compile_section_end = None;
+        let mut transform_section_start = None;
+        let mut transform_section_end = None;
+
+        for (i, line) in lines.iter().enumerate().skip(glsl_end).take(run_start - glsl_end) {
+            let trimmed = line.trim();
+            if trimmed.starts_with("// #compile:") {
+                compile_section_start = Some(i);
+            } else if trimmed.starts_with("// #transform:") {
+                if compile_section_start.is_some() && compile_section_end.is_none() {
+                    compile_section_end = Some(i);
+                }
+                transform_section_start = Some(i);
+            } else if trimmed == "//" {
+                if compile_section_start.is_some() && compile_section_end.is_none() {
+                    compile_section_end = Some(i);
+                } else if transform_section_start.is_some() && transform_section_end.is_none() {
+                    transform_section_end = Some(i);
+                }
+            }
+        }
+
+        // Determine which section to update
+        let (section_start, section_end) = match test_type {
+            "compile" => {
+                if let Some(start) = compile_section_start {
+                    (start + 1, compile_section_end.unwrap_or(transform_section_start.unwrap_or(run_start)))
+                } else {
+                    // No marker found, update from glsl_end to first blank line or transform section
+                    let end = transform_section_start
+                        .or_else(|| {
+                            lines[glsl_end..run_start]
+                                .iter()
+                                .position(|l| l.trim() == "//")
+                                .map(|pos| glsl_end + pos)
+                        })
+                        .unwrap_or(run_start);
+                    (glsl_end, end)
+                }
+            }
+            "transform.fixed32" => {
+                if let Some(start) = transform_section_start {
+                    (start + 1, transform_section_end.unwrap_or(run_start))
+                } else {
+                    // No marker found, update from after compile section or glsl_end
+                    let start = compile_section_end.unwrap_or(glsl_end);
+                    (start, run_start)
+                }
+            }
+            _ => bail!("unknown test type: {}", test_type),
+        };
+
+        // Build new file content
+        let mut new_test = String::new();
+
+        // Add everything before the section
+        for line in lines.iter().take(section_start) {
+            new_test.push_str(line);
+            new_test.push('\n');
+        }
+
+        // Add section marker if it exists
+        if section_start > 0 && section_start <= lines.len() {
+            let marker_line = lines[section_start - 1].trim();
+            if marker_line.starts_with("// #compile:") || marker_line.starts_with("// #transform:") {
+                new_test.push_str(lines[section_start - 1]);
+                new_test.push('\n');
+            }
+        }
+
+        // Add new CLIF (with // prefix on each line)
+        for line in new_clif.lines() {
+            if !line.trim().is_empty() {
+                new_test.push_str("// ");
+                new_test.push_str(line);
+                new_test.push('\n');
+            } else {
+                new_test.push_str("//\n");
+            }
+        }
+
+        // Add blank separator line if needed
+        if section_end < run_start {
+            new_test.push_str("//\n");
+        }
+
+        // Add everything after the section
+        for line in lines.iter().skip(section_end) {
+            new_test.push_str(line);
+            new_test.push('\n');
+        }
+
+        // Write file back
+        fs::write(&self.path, new_test)?;
+        Ok(())
+    }
 }
 
 /// Format a GlslValue as a string for use in test files.

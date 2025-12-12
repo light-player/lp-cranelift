@@ -41,14 +41,12 @@ Tests CLIF IR **before** any fixed-point transformations. This is arch-agnostic 
 ```glsl
 // test compile
 
-float main() {
-    return 1.5 + 2.0;
+float add(float a, float b) {
+    return a + b;
 }
 
-// function u0:0() -> f32 fast {
-// block0:
-//     v0 = f32const 0x1.8p0  ; 1.5
-//     v1 = f32const 0x1.0p1  ; 2.0
+// function u0:0(f32, f32) -> f32 fast {
+// block0(v0: f32, v1: f32):
 //     v2 = fadd v0, v1
 //     return v2
 // }
@@ -69,14 +67,12 @@ Tests CLIF IR **after** fixed32 transformation. Shows how floats are converted t
 ```glsl
 // test transform.fixed32
 
-float main() {
-    return 1.5 + 2.0;
+float add(float a, float b) {
+    return a + b;
 }
 
-// function u0:0() -> i32 fast {
-// block0:
-//     v0 = iconst.i32 0x18000  ; 1.5 in fixed16.16
-//     v1 = iconst.i32 0x20000  ; 2.0 in fixed16.16
+// function u0:0(i32, i32) -> i32 fast {
+// block0(v0: i32, v1: i32):
 //     v2 = iadd v0, v1
 //     return v2
 // }
@@ -95,38 +91,33 @@ A single test file can contain multiple test types. All tests share the same GLS
 // test run host.fixed32
 // test run riscv32.fixed32
 
-float main() {
-    return 1.5 + 2.0;
+float add(float a, float b) {
+    return a + b;
 }
 
-// Pre-transform CLIF (test compile)
-// function u0:0() -> f32 fast {
-// block0:
-//     v0 = f32const 0x1.8p0  ; 1.5
-//     v1 = f32const 0x1.0p1  ; 2.0
+// #compile: initial.clif
+// function u0:0(f32, f32) -> f32 fast {
+// block0(v0: f32, v1: f32):
 //     v2 = fadd v0, v1
 //     return v2
 // }
 //
-// Post-transform CLIF (test transform.fixed32)
-// function u0:0() -> i32 fast {
-// block0:
-//     v0 = iconst.i32 0x18000  ; 1.5 in fixed16.16
-//     v1 = iconst.i32 0x20000  ; 2.0 in fixed16.16
+// #transform: fixed32.clif
+// function u0:0(i32, i32) -> i32 fast {
+// block0(v0: i32, v1: i32):
 //     v2 = iadd v0, v1
 //     return v2
 // }
 //
-// Run expectations
-// run: ~= 3.5 (tolerance: 1e-4)
+// #run: add(1.5, 2.0) ~= 3.5
 ```
 
 **Key points:**
 
 - Multiple `// test` directives at the top
 - CLIF expectations follow the GLSL code, separated by blank comment lines (`//`)
-- Sections can be labeled with comments for clarity
-- Run expectations come after all CLIF expectations
+- Sections are marked with `// #compile: initial.clif` and `// #transform: fixed32.clif` markers for clarity
+- Run expectations come after all CLIF expectations, marked with `// #run:`
 
 ## Expectation Format
 
@@ -156,18 +147,20 @@ CLIF expectations use `//` prefix (matching Cranelift's `;` prefix for `.clif` f
 When multiple test types are in one file, separate CLIF sections with blank comment lines:
 
 ```glsl
-// Pre-transform CLIF (test compile)
+// #compile: initial.clif
 // function u0:0() -> f32 fast {
 //     ...
 // }
 //
-// Post-transform CLIF (test transform.fixed32)
+// #transform: fixed32.clif
 // function u0:0() -> i32 fast {
 //     ...
 // }
+//
+// #run: add(1.5, 2.0) ~= 3.5
 ```
 
-The blank `//` line separates sections and helps the parser identify boundaries.
+Section markers (`// #compile: initial.clif` and `// #transform: fixed32.clif`) clearly identify each CLIF section. Blank `//` lines separate sections. Run expectations are marked with `// #run:`.
 
 ## Implementation Plan
 
@@ -211,10 +204,12 @@ pub struct ClifExpectations {
 1. Collect all `// test` directives
 2. Extract GLSL source (filter out directives and expectations)
 3. Extract CLIF expectations:
-   - Find section between GLSL code and first `// run:` or `// EXPECT_ERROR:`
-   - Split by blank comment lines (`//`)
-   - First section = pre-transform (if `test compile` present)
-   - Second section = post-transform (if `test transform.fixed32` present)
+   - Find section between GLSL code and first `// #run:` line or `// EXPECT_ERROR:`
+   - Look for section markers: lines starting with `// #compile:` or `// #transform:`
+   - Split by section markers (lines starting with `// #`) or blank comment lines (`//`)
+   - Section marked `// #compile: initial.clif` = pre-transform (if `test compile` present)
+   - Section marked `// #transform: fixed32.clif` = post-transform (if `test transform.fixed32` present)
+   - `// #run:` lines = run expectations (if `test run` directives present)
 
 ### Phase 2: CLIF Extraction from Compiler
 
@@ -420,14 +415,12 @@ pub fn run_filetest(path: &Path) -> Result<()> {
 ```glsl
 // test compile
 
-float main() {
-    return 1.5 + 2.0;
+float add(float a, float b) {
+    return a + b;
 }
 
-// function u0:0() -> f32 fast {
-// block0:
-//     v0 = f32const 0x1.8p0  ; 1.5
-//     v1 = f32const 0x1.0p1  ; 2.0
+// function u0:0(f32, f32) -> f32 fast {
+// block0(v0: f32, v1: f32):
 //     v2 = fadd v0, v1
 //     return v2
 // }
@@ -440,14 +433,12 @@ float main() {
 ```glsl
 // test transform.fixed32
 
-float main() {
-    return 1.5 + 2.0;
+float add(float a, float b) {
+    return a + b;
 }
 
-// function u0:0() -> i32 fast {
-// block0:
-//     v0 = iconst.i32 0x18000  ; 1.5 in fixed16.16
-//     v1 = iconst.i32 0x20000  ; 2.0 in fixed16.16
+// function u0:0(i32, i32) -> i32 fast {
+// block0(v0: i32, v1: i32):
 //     v2 = iadd v0, v1
 //     return v2
 // }
@@ -464,30 +455,25 @@ float main() {
 // test run host.fixed32
 // test run riscv32.fixed32
 
-float main() {
-    return 1.5 + 2.0;
+float add(float a, float b) {
+    return a + b;
 }
 
-// Pre-transform CLIF
-// function u0:0() -> f32 fast {
-// block0:
-//     v0 = f32const 0x1.8p0  ; 1.5
-//     v1 = f32const 0x1.0p1  ; 2.0
+// #compile: initial.clif
+// function u0:0(f32, f32) -> f32 fast {
+// block0(v0: f32, v1: f32):
 //     v2 = fadd v0, v1
 //     return v2
 // }
 //
-// Post-transform CLIF (fixed32)
-// function u0:0() -> i32 fast {
-// block0:
-//     v0 = iconst.i32 0x18000  ; 1.5 in fixed16.16
-//     v1 = iconst.i32 0x20000  ; 2.0 in fixed16.16
+// #transform: fixed32.clif
+// function u0:0(i32, i32) -> i32 fast {
+// block0(v0: i32, v1: i32):
 //     v2 = iadd v0, v1
 //     return v2
 // }
 //
-// Run expectations
-// run: ~= 3.5 (tolerance: 1e-4)
+// #run: add(1.5, 2.0) ~= 3.5
 ```
 
 **Benefits:**
@@ -510,42 +496,23 @@ float add_float(float a, float b) {
     return a + b;
 }
 
-float main() {
-    return add_float(1.5, 2.5);
-}
-
-// Pre-transform CLIF
+// #compile: initial.clif
 // function u0:0(f32, f32) -> f32 fast {
 // block0(v0: f32, v1: f32):
 //     v2 = fadd v0, v1
 //     return v2
 // }
-// function u0:1() -> f32 fast {
-// block0:
-//     v0 = f32const 0x1.8p0  ; 1.5
-//     v1 = f32const 0x1.4p1  ; 2.5
-//     v2 = call u0:0(v0, v1)
-//     return v2
-// }
 //
-// Post-transform CLIF (fixed32)
+// #transform: fixed32.clif
 // function u0:0(i32, i32) -> i32 fast {
 // block0(v0: i32, v1: i32):
 //     v2 = iadd v0, v1
 //     return v2
 // }
-// function u0:1() -> i32 fast {
-// block0:
-//     v0 = iconst.i32 0x18000  ; 1.5 in fixed16.16
-//     v1 = iconst.i32 0x28000  ; 2.5 in fixed16.16
-//     v2 = call u0:0(v0, v1)
-//     return v2
-// }
 //
-// Run expectations
-// run: ~= 4.0 (tolerance: 1e-4)
-// run: %add_float(0.0, 0.0) ~= 0.0 (tolerance: 1e-4)
-// run: %add_float(10.5, 20.5) ~= 31.0 (tolerance: 1e-4)
+// #run: add_float(1.5, 2.5) ~= 4.0
+// #run: add_float(0.0, 0.0) ~= 0.0
+// #run: add_float(10.5, 20.5) ~= 31.0
 ```
 
 ## CLIF Expectation Extraction Algorithm
@@ -555,11 +522,14 @@ float main() {
 **Algorithm:**
 
 1. Find the end of GLSL code (last non-comment, non-directive line)
-2. Find the start of run expectations (first `// run:` line) or error expectations (`// EXPECT_ERROR:`)
-3. Extract all lines between (2) and (3)
-4. Split by blank comment lines (`//` alone on a line)
-5. First section = pre-transform CLIF (if `test compile` directive present)
-6. Second section = post-transform CLIF (if `test transform.fixed32` directive present)
+2. Find the start of run expectations (first `// #run:` line) or error expectations (`// EXPECT_ERROR:`)
+3. Extract all lines between (2) and (3) - these are CLIF expectations
+4. Look for section markers: lines starting with `// #compile:` or `// #transform:`
+5. If markers found, extract sections by marker (split on lines starting with `// #`)
+6. Otherwise, split by blank comment lines (`//` alone on a line)
+7. Section marked `// #compile: initial.clif` = pre-transform CLIF (if `test compile` directive present)
+8. Section marked `// #transform: fixed32.clif` = post-transform CLIF (if `test transform.fixed32` directive present)
+9. `// #run:` lines after CLIF sections = run expectations
 
 **Edge cases:**
 

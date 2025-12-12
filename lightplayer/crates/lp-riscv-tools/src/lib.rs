@@ -42,4 +42,4 @@ pub use inst::Inst;
 pub use regs::Gpr;
 
 #[cfg(feature = "std")]
-pub use elf_loader::{find_symbol_address, load_elf, ElfLoadInfo};
+pub use elf_loader::{ElfLoadInfo, find_symbol_address, load_elf};
