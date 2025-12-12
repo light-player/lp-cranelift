@@ -126,7 +126,7 @@ impl AMode {
             &AMode::RegOffset(reg, ..) => Some(reg),
             &AMode::SPOffset(..) => Some(stack_reg()),
             &AMode::FPOffset(..) => Some(fp_reg()),
-            &AMode::SlotOffset(..) => Some(zero_reg()),
+            &AMode::SlotOffset(..) => Some(stack_reg()),
             &AMode::IncomingArg(..) => Some(stack_reg()),
             &AMode::Const(..) | AMode::Label(..) => None,
         }

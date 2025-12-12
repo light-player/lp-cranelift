@@ -1,5 +1,6 @@
 test interpret
 test run
+test compile precise-output
 
 set unwind_info=false
 target riscv32 has_m
@@ -14,4 +15,36 @@ block0:
     return v1
 }
 
-; run: %use_stack_slot() == 42
+; VCode:
+;   addi sp,sp,-8
+;   sw ra,4(sp)
+;   sw fp,0(sp)
+;   mv fp,sp
+;   addi sp,sp,-16
+; block0:
+;   li a1,42
+;   sw a1,0(slot)
+;   lw a0,0(slot)
+;   addi sp,sp,16
+;   lw ra,4(sp)
+;   lw fp,0(sp)
+;   addi sp,sp,8
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   addi sp, sp, -8
+;   sw ra, 4(sp)
+;   sw s0, 0(sp)
+;   mv s0, sp
+;   addi sp, sp, -0x10
+; block1: ; offset 0x14
+;   addi a1, zero, 0x2a
+;   sw a1, 0(sp)
+;   lw a0, 0(sp)
+;   addi sp, sp, 0x10
+;   lw ra, 4(sp)
+;   lw s0, 0(sp)
+;   addi sp, sp, 8
+;   ret
+

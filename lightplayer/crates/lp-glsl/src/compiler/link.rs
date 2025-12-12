@@ -657,9 +657,28 @@ fn format_clif_from_module(module: &ClifModule) -> Result<String, crate::error::
 
         // Clone the function and set the correct name
         let mut func_clone = (*func).clone();
-        use cranelift_codegen::ir::UserFuncName;
-        let func_id = *name_to_func_id.get(*name).unwrap();
-        func_clone.name = UserFuncName::user(0, func_id);
+        use cranelift_codegen::ir::{ExternalName, UserFuncName};
+        func_clone.name = UserFuncName::testcase(name.as_bytes());
+
+        // Update external function references to use testcase names
+        let user_named_funcs: std::collections::HashMap<_, _> = func_clone
+            .params
+            .user_named_funcs()
+            .iter()
+            .map(|(k, v)| (k, v.clone()))
+            .collect();
+        for (_, ext_func) in func_clone.dfg.ext_funcs.iter_mut() {
+            if let ExternalName::User(user_name_ref) = &ext_func.name {
+                // Look up the function name from the user_named_funcs
+                if let Some(user_name) = user_named_funcs.get(user_name_ref) {
+                    // The user_name.index should correspond to the func_id
+                    // Look up the name in the mapping
+                    if let Some(func_name) = module.func_id_to_name(user_name.index) {
+                        ext_func.name = ExternalName::testcase(func_name.as_bytes());
+                    }
+                }
+            }
+        }
 
         let mut buf = String::new();
         write_function(&mut buf, &func_clone).map_err(|e| {
@@ -675,9 +694,28 @@ fn format_clif_from_module(module: &ClifModule) -> Result<String, crate::error::
     // Format main function with correct name
     clif_ir.push_str("; function main:\n");
     let mut main_func_clone = module.main_function().clone();
-    use cranelift_codegen::ir::UserFuncName;
-    let main_func_id = *name_to_func_id.get("main").unwrap();
-    main_func_clone.name = UserFuncName::user(0, main_func_id);
+    use cranelift_codegen::ir::{ExternalName, UserFuncName};
+    main_func_clone.name = UserFuncName::testcase("main".as_bytes());
+
+    // Update external function references to use testcase names
+    let user_named_funcs: std::collections::HashMap<_, _> = main_func_clone
+        .params
+        .user_named_funcs()
+        .iter()
+        .map(|(k, v)| (k, v.clone()))
+        .collect();
+    for (_, ext_func) in main_func_clone.dfg.ext_funcs.iter_mut() {
+        if let ExternalName::User(user_name_ref) = &ext_func.name {
+            // Look up the function name from the user_named_funcs
+            if let Some(user_name) = user_named_funcs.get(user_name_ref) {
+                // The user_name.index should correspond to the func_id
+                // Look up the name in the mapping
+                if let Some(func_name) = module.func_id_to_name(user_name.index) {
+                    ext_func.name = ExternalName::testcase(func_name.as_bytes());
+                }
+            }
+        }
+    }
 
     let mut buf = String::new();
     write_function(&mut buf, &main_func_clone).map_err(|e| {
