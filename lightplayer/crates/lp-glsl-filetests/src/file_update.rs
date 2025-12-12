@@ -9,6 +9,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::filetest::ComparisonOp;
+use crate::filetest_parse;
 use lp_glsl::GlslValue;
 
 /// A helper struct to update a file in-place as test expectations are
@@ -129,55 +130,23 @@ impl FileUpdate {
     ) -> Result<()> {
         // Read the old test file
         let old_test = fs::read_to_string(&self.path)?;
-        let lines: Vec<&str> = old_test.lines().collect();
-
-        // Find the end of GLSL code
-        let mut glsl_end = 0;
-        for (i, line) in lines.iter().enumerate() {
-            let trimmed = line.trim();
-            if !trimmed.is_empty()
-                && !trimmed.starts_with("//")
-                && !trimmed.starts_with("// test")
-                && !trimmed.starts_with("// target")
-                && !trimmed.starts_with("// run:")
-            {
-                glsl_end = i + 1;
-            }
-        }
-
-        // Find the start of run expectations
-        let mut run_start = lines.len();
-        for (i, line) in lines.iter().enumerate().skip(glsl_end) {
-            let trimmed = line.trim();
-            if trimmed.starts_with("// #run:") || trimmed.starts_with("// run:") {
-                run_start = i;
-                break;
-            }
-        }
+        let lines: Vec<String> = old_test.lines().map(|s| s.to_string()).collect();
+        let lines_refs: Vec<&str> = lines.iter().map(|s| s.as_str()).collect();
 
         // Find section boundaries
-        let mut compile_section_start = None;
-        let mut compile_section_end = None;
-        let mut transform_section_start = None;
-        let mut transform_section_end = None;
+        let boundaries = filetest_parse::find_section_boundaries(&lines);
+        let clif_boundaries = filetest_parse::find_clif_section_boundaries(
+            &lines,
+            boundaries.glsl_end,
+            boundaries.run_start,
+        );
 
-        for (i, line) in lines.iter().enumerate().skip(glsl_end).take(run_start - glsl_end) {
-            let trimmed = line.trim();
-            if trimmed.starts_with("// #compile:") {
-                compile_section_start = Some(i);
-            } else if trimmed.starts_with("// #transform:") {
-                if compile_section_start.is_some() && compile_section_end.is_none() {
-                    compile_section_end = Some(i);
-                }
-                transform_section_start = Some(i);
-            } else if trimmed == "//" {
-                if compile_section_start.is_some() && compile_section_end.is_none() {
-                    compile_section_end = Some(i);
-                } else if transform_section_start.is_some() && transform_section_end.is_none() {
-                    transform_section_end = Some(i);
-                }
-            }
-        }
+        let glsl_end = boundaries.glsl_end;
+        let run_start = boundaries.run_start;
+        let compile_section_start = clif_boundaries.compile_start;
+        let compile_section_end = clif_boundaries.compile_end;
+        let transform_section_start = clif_boundaries.transform_start;
+        let transform_section_end = clif_boundaries.transform_end;
 
         // Determine which section to update
         let (section_start, section_end) = match test_type {
@@ -188,7 +157,7 @@ impl FileUpdate {
                     // No marker found, update from glsl_end to first blank line or transform section
                     let end = transform_section_start
                         .or_else(|| {
-                            lines[glsl_end..run_start]
+                            lines_refs[glsl_end..run_start]
                                 .iter()
                                 .position(|l| l.trim() == "//")
                                 .map(|pos| glsl_end + pos)
@@ -213,16 +182,16 @@ impl FileUpdate {
         let mut new_test = String::new();
 
         // Add everything before the section
-        for line in lines.iter().take(section_start) {
+        for line in lines_refs.iter().take(section_start) {
             new_test.push_str(line);
             new_test.push('\n');
         }
 
         // Add section marker if it exists
-        if section_start > 0 && section_start <= lines.len() {
-            let marker_line = lines[section_start - 1].trim();
+        if section_start > 0 && section_start <= lines_refs.len() {
+            let marker_line = lines_refs[section_start - 1].trim();
             if marker_line.starts_with("// #compile:") || marker_line.starts_with("// #transform:") {
-                new_test.push_str(lines[section_start - 1]);
+                new_test.push_str(lines_refs[section_start - 1]);
                 new_test.push('\n');
             }
         }
@@ -244,7 +213,7 @@ impl FileUpdate {
         }
 
         // Add everything after the section
-        for line in lines.iter().skip(section_end) {
+        for line in lines_refs.iter().skip(section_end) {
             new_test.push_str(line);
             new_test.push('\n');
         }
@@ -274,13 +243,22 @@ fn format_glsl_value(value: &GlslValue) -> String {
         GlslValue::Mat2x2(m) => {
             format!("[[{}, {}], [{}, {}]]", m[0][0], m[0][1], m[1][0], m[1][1])
         }
-        GlslValue::Mat3x3(_) => {
-            // For now, just return a placeholder
-            "mat3x3(...)".to_string()
+        GlslValue::Mat3x3(m) => {
+            format!(
+                "[[{}, {}, {}], [{}, {}, {}], [{}, {}, {}]]",
+                m[0][0], m[0][1], m[0][2],
+                m[1][0], m[1][1], m[1][2],
+                m[2][0], m[2][1], m[2][2]
+            )
         }
-        GlslValue::Mat4x4(_) => {
-            // For now, just return a placeholder
-            "mat4x4(...)".to_string()
+        GlslValue::Mat4x4(m) => {
+            format!(
+                "[[{}, {}, {}, {}], [{}, {}, {}, {}], [{}, {}, {}, {}], [{}, {}, {}, {}]]",
+                m[0][0], m[0][1], m[0][2], m[0][3],
+                m[1][0], m[1][1], m[1][2], m[1][3],
+                m[2][0], m[2][1], m[2][2], m[2][3],
+                m[3][0], m[3][1], m[3][2], m[3][3]
+            )
         }
     }
 }

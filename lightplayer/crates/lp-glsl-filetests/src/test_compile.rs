@@ -3,6 +3,7 @@
 //! Tests CLIF IR output before any transformations (arch-agnostic).
 
 use crate::file_update::FileUpdate;
+use crate::test_utils;
 use anyhow::{Context, Result};
 use cranelift_codegen::write_function;
 use lp_glsl::{ClifModule, GlslCompiler};
@@ -73,8 +74,8 @@ pub fn run_compile_test(glsl_source: &str, expected_clif: &str, path: &Path) -> 
 
     // Compile to CLIF (no transformations)
     let mut compiler = GlslCompiler::new();
-    let isa =
-        create_riscv32_isa().with_context(|| "failed to create riscv32 ISA for compile test")?;
+    let isa = test_utils::create_riscv32_isa()
+        .with_context(|| "failed to create riscv32 ISA for compile test")?;
     let module = compiler
         .compile_to_clif_module(glsl_source, isa)
         .with_context(|| "failed to compile GLSL to CLIF module")?;
@@ -121,38 +122,4 @@ fn format_diff(expected: &str, actual: &str) -> String {
     writeln!(result, "\nActual:").ok();
     writeln!(result, "{}", actual).ok();
     result
-}
-
-/// Create a riscv32 ISA for compilation.
-fn create_riscv32_isa() -> Result<cranelift_codegen::isa::OwnedTargetIsa> {
-    use cranelift_codegen::isa::riscv32::isa_builder;
-    use cranelift_codegen::settings::{self, Configurable};
-    use target_lexicon::{
-        Architecture, BinaryFormat, Environment, OperatingSystem, Riscv32Architecture, Triple,
-        Vendor,
-    };
-
-    let mut flag_builder = settings::builder();
-    flag_builder
-        .set("is_pic", "false")
-        .map_err(|e| anyhow::anyhow!("failed to set is_pic: {}", e))?;
-    flag_builder
-        .set("use_colocated_libcalls", "false")
-        .map_err(|e| anyhow::anyhow!("failed to set use_colocated_libcalls: {}", e))?;
-    flag_builder
-        .set("enable_multi_ret_implicit_sret", "true")
-        .map_err(|e| anyhow::anyhow!("failed to set enable_multi_ret_implicit_sret: {}", e))?;
-
-    let flags = settings::Flags::new(flag_builder);
-    let triple = Triple {
-        architecture: Architecture::Riscv32(Riscv32Architecture::Riscv32imac),
-        vendor: Vendor::Unknown,
-        operating_system: OperatingSystem::None_,
-        environment: Environment::Unknown,
-        binary_format: BinaryFormat::Elf,
-    };
-
-    isa_builder(triple)
-        .finish(flags)
-        .map_err(|e| anyhow::anyhow!("failed to create riscv32 ISA: {}", e))
 }
