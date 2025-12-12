@@ -22,6 +22,10 @@ use regalloc2::{MachineEnv, PReg, PRegSet};
 use alloc::borrow::ToOwned;
 use smallvec::{SmallVec, smallvec};
 #[cfg(feature = "std")]
+use std::fs::OpenOptions;
+#[cfg(feature = "std")]
+use std::io::Write;
+#[cfg(feature = "std")]
 use std::sync::OnceLock;
 
 /// Support for the Riscv32 ABI from the callee side (within a function body).
@@ -80,6 +84,10 @@ impl ABIMachineSpec for Riscv32MachineDeps {
         32
     }
 
+    fn word_bytes() -> u32 {
+        4
+    }
+
     /// Return required stack alignment in bytes.
     fn stack_align(_call_conv: isa::CallConv) -> u32 {
         16
@@ -117,7 +125,7 @@ impl ABIMachineSpec for Riscv32MachineDeps {
             next_x_reg += 1;
             Some(ABIArg::reg(
                 x_reg(x_start).to_real_reg().unwrap(),
-                Self::word_type(),
+                I32,
                 ir::ArgumentExtension::None,
                 ir::ArgumentPurpose::Normal,
             ))
@@ -166,7 +174,7 @@ impl ABIMachineSpec for Riscv32MachineDeps {
                     // Compute size and 16-byte stack alignment happens
                     // separately after all args.
                     let size = reg_ty.bits() / 8;
-                    let size = core::cmp::max(size, 8);
+                    let size = core::cmp::max(size, Self::word_bytes());
                     // Align.
                     debug_assert!(size.is_power_of_two());
                     next_stack = align_to(next_stack, size);
@@ -337,21 +345,22 @@ impl ABIMachineSpec for Riscv32MachineDeps {
         let mut insts = SmallVec::new();
 
         if frame_layout.setup_area_size > 0 {
-            // add  sp,sp,-16    ;; alloc stack space for fp.
-            // sd   ra,8(sp)     ;; save ra.
-            // sd   fp,0(sp)     ;; store old fp.
-            // mv   fp,sp        ;; set fp to sp.
-            insts.extend(Self::gen_sp_reg_adjust(-16));
+            // add  sp,sp,-(word_bytes*2)    ;; alloc stack space for fp and ra.
+            // sw   ra,word_bytes(sp)         ;; save ra.
+            // sw   fp,0(sp)                  ;; store old fp.
+            // mv   fp,sp                     ;; set fp to sp.
+            let word_bytes = Self::word_bytes() as i32;
+            insts.extend(Self::gen_sp_reg_adjust(-(word_bytes * 2)));
             insts.push(Inst::gen_store(
-                AMode::SPOffset(8),
+                AMode::SPOffset(word_bytes as i64),
                 link_reg(),
-                I64,
+                I32,
                 MemFlags::trusted(),
             ));
             insts.push(Inst::gen_store(
                 AMode::SPOffset(0),
                 fp_reg(),
-                I64,
+                I32,
                 MemFlags::trusted(),
             ));
 
@@ -365,7 +374,7 @@ impl ABIMachineSpec for Riscv32MachineDeps {
             insts.push(Inst::Mov {
                 rd: writable_fp_reg(),
                 rm: stack_reg(),
-                ty: I64,
+                ty: I32,
             });
         }
 
@@ -381,19 +390,20 @@ impl ABIMachineSpec for Riscv32MachineDeps {
         let mut insts = SmallVec::new();
 
         if frame_layout.setup_area_size > 0 {
+            let word_bytes = Self::word_bytes() as i64;
             insts.push(Inst::gen_load(
                 writable_link_reg(),
-                AMode::SPOffset(8),
-                I64,
+                AMode::SPOffset(word_bytes),
+                I32,
                 MemFlags::trusted(),
             ));
             insts.push(Inst::gen_load(
                 writable_fp_reg(),
                 AMode::SPOffset(0),
-                I64,
+                I32,
                 MemFlags::trusted(),
             ));
-            insts.extend(Self::gen_sp_reg_adjust(16));
+            insts.extend(Self::gen_sp_reg_adjust((word_bytes * 2) as i32));
         }
 
         if call_conv == isa::CallConv::Tail && frame_layout.tail_args_size > 0 {
@@ -444,27 +454,28 @@ impl ABIMachineSpec for Riscv32MachineDeps {
             if setup_frame {
                 // Write the lr position on the stack again, as it hasn't changed since it was
                 // pushed in `gen_prologue_frame_setup`
+                let word_bytes = Self::word_bytes() as i64;
                 insts.push(Inst::gen_store(
-                    AMode::SPOffset(8),
+                    AMode::SPOffset(word_bytes),
                     link_reg(),
-                    I64,
+                    I32,
                     MemFlags::trusted(),
                 ));
                 insts.push(Inst::gen_load(
                     writable_fp_reg(),
                     AMode::SPOffset(i64::from(incoming_args_diff)),
-                    I64,
+                    I32,
                     MemFlags::trusted(),
                 ));
                 insts.push(Inst::gen_store(
                     AMode::SPOffset(0),
                     fp_reg(),
-                    I64,
+                    I32,
                     MemFlags::trusted(),
                 ));
 
                 // Finally, sync the frame pointer with SP
-                insts.push(Inst::gen_move(writable_fp_reg(), stack_reg(), I64));
+                insts.push(Inst::gen_move(writable_fp_reg(), stack_reg(), I32));
             }
         }
 
@@ -485,6 +496,34 @@ impl ABIMachineSpec for Riscv32MachineDeps {
             + frame_layout.fixed_frame_storage_size
             + frame_layout.outgoing_args_size;
 
+        // #region agent log
+        #[cfg(feature = "std")]
+        {
+            let log_entry = serde_json::json!({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "B",
+                "location": "riscv32/abi.rs:gen_clobber_save",
+                "message": "Frame layout before saving registers",
+                "data": {
+                    "clobber_size": frame_layout.clobber_size,
+                    "fixed_frame_storage_size": frame_layout.fixed_frame_storage_size,
+                    "outgoing_args_size": frame_layout.outgoing_args_size,
+                    "stack_size": stack_size,
+                    "num_callee_saves": frame_layout.clobbered_callee_saves.len()
+                },
+                "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+            });
+            if let Ok(mut file) = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
+            {
+                let _ = writeln!(file, "{}", log_entry);
+            }
+        }
+        // #endregion
+
         // Store each clobbered register in order at offsets from SP,
         // placing them above the fixed frame slots.
         if stack_size > 0 {
@@ -494,13 +533,46 @@ impl ABIMachineSpec for Riscv32MachineDeps {
             for reg in &frame_layout.clobbered_callee_saves {
                 let r_reg = reg.to_reg();
                 let ty = match r_reg.class() {
-                    RegClass::Int => I64,
+                    RegClass::Int => I32,
                     RegClass::Float => F64,
                     RegClass::Vector => I8X16,
                 };
                 cur_offset = align_to(cur_offset, ty.bytes());
+                let save_offset = stack_size - cur_offset - ty.bytes();
+
+                // #region agent log
+                #[cfg(feature = "std")]
+                {
+                    let log_entry = serde_json::json!({
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "B",
+                        "location": "riscv32/abi.rs:gen_clobber_save",
+                        "message": "Saving callee-saved register",
+                        "data": {
+                            "reg": format!("{:?}", r_reg),
+                            "ty_bytes": ty.bytes(),
+                            "cur_offset": cur_offset,
+                            "save_offset": save_offset,
+                            "stack_size": stack_size,
+                            "outgoing_args_size": frame_layout.outgoing_args_size,
+                            "fixed_frame_storage_size": frame_layout.fixed_frame_storage_size,
+                            "clobber_size": frame_layout.clobber_size
+                        },
+                        "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+                    });
+                    if let Ok(mut file) = OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
+                    {
+                        let _ = writeln!(file, "{}", log_entry);
+                    }
+                }
+                // #endregion
+
                 insts.push(Inst::gen_store(
-                    AMode::SPOffset(i64::from(stack_size - cur_offset - ty.bytes())),
+                    AMode::SPOffset(i64::from(save_offset)),
                     Reg::from(reg.to_reg()),
                     ty,
                     MemFlags::trusted(),
@@ -516,7 +588,7 @@ impl ABIMachineSpec for Riscv32MachineDeps {
                 }
 
                 cur_offset += ty.bytes();
-                assert!(cur_offset <= stack_size);
+                assert!(cur_offset <= frame_layout.clobber_size);
             }
         }
         insts
@@ -537,7 +609,7 @@ impl ABIMachineSpec for Riscv32MachineDeps {
         for reg in &frame_layout.clobbered_callee_saves {
             let rreg = reg.to_reg();
             let ty = match rreg.class() {
-                RegClass::Int => I64,
+                RegClass::Int => I32,
                 RegClass::Float => F64,
                 RegClass::Vector => I8X16,
             };
@@ -569,7 +641,7 @@ impl ABIMachineSpec for Riscv32MachineDeps {
         let arg0 = Writable::from_reg(x_reg(10));
         let arg1 = Writable::from_reg(x_reg(11));
         let arg2 = Writable::from_reg(x_reg(12));
-        let tmp = alloc_tmp(Self::word_type());
+        let tmp = alloc_tmp(I32);
         insts.extend(Inst::load_constant_u64(tmp, size as u64));
         insts.push(Inst::Call {
             info: Box::new(CallInfo {
@@ -604,10 +676,11 @@ impl ABIMachineSpec for Riscv32MachineDeps {
         _target_vector_bytes: u32,
         isa_flags: &RiscvFlags,
     ) -> u32 {
-        // We allocate in terms of 8-byte slots.
+        // We allocate in terms of word-sized slots.
         match rc {
             RegClass::Int => 1,
             RegClass::Float => 1,
+            // Vector registers are allocated in 8-byte chunks for alignment
             RegClass::Vector => (isa_flags.min_vec_reg_size() / 8) as u32,
         }
     }
@@ -684,14 +757,46 @@ impl ABIMachineSpec for Riscv32MachineDeps {
             || clobber_size > 0
             || fixed_frame_storage_size > 0
         {
-            16 // FP, LR
+            Self::word_bytes() * 2 // FP, LR
         } else {
             0
         };
 
+        // #region agent log
+        #[cfg(feature = "std")]
+        {
+            let log_entry = serde_json::json!({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "A",
+                "location": "riscv32/abi.rs:compute_frame_layout",
+                "message": "Computed frame layout",
+                "data": {
+                    "incoming_args_size": incoming_args_size,
+                    "tail_args_size": tail_args_size,
+                    "setup_area_size": setup_area_size,
+                    "clobber_size": clobber_size,
+                    "fixed_frame_storage_size": fixed_frame_storage_size,
+                    "stackslots_size": stackslots_size,
+                    "outgoing_args_size": outgoing_args_size,
+                    "num_callee_saves": regs.len(),
+                    "function_calls": format!("{:?}", function_calls)
+                },
+                "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+            });
+            if let Ok(mut file) = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
+            {
+                let _ = writeln!(file, "{}", log_entry);
+            }
+        }
+        // #endregion
+
         // Return FrameLayout structure.
         FrameLayout {
-            word_bytes: 8,
+            word_bytes: Self::word_bytes(),
             incoming_args_size,
             tail_args_size,
             setup_area_size,
@@ -784,7 +889,7 @@ fn compute_clobber_size(clobbers: &[Writable<RealReg>]) -> u32 {
     for reg in clobbers {
         match reg.to_reg().class() {
             RegClass::Int => {
-                clobbered_size += 8;
+                clobbered_size += 4; // riscv32: 4 bytes per integer register
             }
             RegClass::Float => {
                 clobbered_size += 8;
