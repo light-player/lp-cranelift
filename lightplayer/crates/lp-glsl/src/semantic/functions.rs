@@ -1,25 +1,26 @@
 //! User-defined function registry and type checking
 
 use crate::error::{ErrorCode, GlslError};
-use crate::semantic::types::Type;
 use crate::semantic::type_check::can_implicitly_convert;
+use crate::semantic::types::Type;
 use hashbrown::HashMap;
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-
 #[cfg(feature = "std")]
-use std::string::String;
+use std::vec::Vec;
+
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
-
 #[cfg(feature = "std")]
-use std::format;
+use std::string::String;
+
 #[cfg(not(feature = "std"))]
 use alloc::format;
+#[cfg(feature = "std")]
+use std::format;
 
+#[derive(Clone)]
 pub struct FunctionRegistry {
     functions: HashMap<String, Vec<FunctionSignature>>,
 }
@@ -40,9 +41,9 @@ pub struct Parameter {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParamQualifier {
-    In,     // Copy in (default)
-    Out,    // Copy out (Phase 8)
-    InOut,  // Copy in and out (Phase 8)
+    In,    // Copy in (default)
+    Out,   // Copy out (Phase 8)
+    InOut, // Copy in and out (Phase 8)
 }
 
 impl FunctionRegistry {
@@ -60,12 +61,15 @@ impl FunctionRegistry {
         Ok(())
     }
 
-    pub fn lookup_function(&self, name: &str, arg_types: &[Type]) -> Result<&FunctionSignature, GlslError> {
-        let overloads = self.functions.get(name)
-            .ok_or_else(|| {
-                GlslError::new(ErrorCode::E0101, format!("undefined function `{}`", name))
-                    .with_note(format!("function `{}` is not defined", name))
-            })?;
+    pub fn lookup_function(
+        &self,
+        name: &str,
+        arg_types: &[Type],
+    ) -> Result<&FunctionSignature, GlslError> {
+        let overloads = self.functions.get(name).ok_or_else(|| {
+            GlslError::new(ErrorCode::E0101, format!("undefined function `{}`", name))
+                .with_note(format!("function `{}` is not defined", name))
+        })?;
 
         // Try exact match first
         for sig in overloads {
@@ -83,30 +87,36 @@ impl FunctionRegistry {
 
         Err(GlslError::new(
             ErrorCode::E0114,
-            format!("no matching overload for function `{}`", name)
+            format!("no matching overload for function `{}`", name),
         )
-        .with_note(format!("cannot find function `{}` that accepts arguments of type {:?}", name, arg_types)))
+        .with_note(format!(
+            "cannot find function `{}` that accepts arguments of type {:?}",
+            name, arg_types
+        )))
     }
 
     fn exact_match(sig: &FunctionSignature, arg_types: &[Type]) -> bool {
         if sig.parameters.len() != arg_types.len() {
             return false;
         }
-        sig.parameters.iter().zip(arg_types).all(|(p, a)| p.ty == *a)
+        sig.parameters
+            .iter()
+            .zip(arg_types)
+            .all(|(p, a)| p.ty == *a)
     }
 
     fn convertible_match(sig: &FunctionSignature, arg_types: &[Type]) -> bool {
         if sig.parameters.len() != arg_types.len() {
             return false;
         }
-        
+
         for (param, arg_ty) in sig.parameters.iter().zip(arg_types) {
             // For 'in' parameters, arg must be convertible to param type
             if !can_implicitly_convert(arg_ty, &param.ty) {
                 return false;
             }
         }
-        
+
         true
     }
 }
@@ -116,4 +126,3 @@ impl Default for FunctionRegistry {
         Self::new()
     }
 }
-

@@ -130,11 +130,8 @@ pub fn glsl_emu_riscv32(
     // Compile to CLIF (before transformation)
     let original_module = compiler.compile_to_clif_module(source, isa.clone())?;
 
-    // Capture original main function IR before transformation
-    let original_main_ir = original_module.main_function().clone();
-
     // Apply transformations if needed
-    let module = match options.decimal_format {
+    let transformed_module = match options.decimal_format {
         DecimalFormat::Fixed32 => transform_module(&original_module, FixedPointFormat::Fixed16x16)?,
         DecimalFormat::Fixed64 => {
             return Err(GlslError::new(
@@ -142,7 +139,7 @@ pub fn glsl_emu_riscv32(
                 "Fixed64 not yet supported",
             ));
         }
-        DecimalFormat::Float => original_module,
+        DecimalFormat::Float => original_module.clone(),
     };
 
     let emulator_options = match &options.run_mode {
@@ -165,7 +162,7 @@ pub fn glsl_emu_riscv32(
     };
 
     let emu_module =
-        link::link_glsl_for_emulator(module, &emulator_options, Some(original_main_ir))?;
+        link::link_glsl_for_emulator(original_module, transformed_module, &emulator_options)?;
     Ok(Box::new(emu_module))
 }
 

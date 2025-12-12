@@ -12,6 +12,7 @@ pub mod test_compile;
 pub mod test_run;
 pub mod test_transform;
 pub mod test_utils;
+pub mod validation;
 
 use anyhow::Result;
 use std::path::Path;

@@ -625,6 +625,72 @@ pub(crate) struct EmulatorOptions {
     pub max_instructions: u64,
 }
 
+/// Format CLIF IR from a ClifModule by setting correct function names
+/// This is used for the original module before transformations
+#[cfg(feature = "emulator")]
+fn format_clif_from_module(module: &ClifModule) -> Result<String, crate::error::GlslError> {
+    use crate::error::GlslError;
+    use cranelift_codegen::write_function;
+
+    let mut clif_ir = String::new();
+
+    // Create a mapping from function names to sequential FuncIds
+    // This mimics the order that would be assigned during linking
+    let mut name_to_func_id = HashMap::new();
+    let mut next_func_id = 0u32;
+
+    // User functions get sequential IDs in iteration order
+    // Sort by name for deterministic output
+    let mut user_funcs: Vec<_> = module.user_functions().iter().collect();
+    user_funcs.sort_by_key(|(name, _)| *name);
+
+    for (name, _) in &user_funcs {
+        name_to_func_id.insert((*name).clone(), next_func_id);
+        next_func_id += 1;
+    }
+    // Main function gets the next ID
+    name_to_func_id.insert(String::from("main"), next_func_id);
+
+    // Format user functions with correct names (in sorted order for deterministic output)
+    for (name, func) in &user_funcs {
+        clif_ir.push_str(&format!("; function {}:\n", name));
+
+        // Clone the function and set the correct name
+        let mut func_clone = (*func).clone();
+        use cranelift_codegen::ir::UserFuncName;
+        let func_id = *name_to_func_id.get(*name).unwrap();
+        func_clone.name = UserFuncName::user(0, func_id);
+
+        let mut buf = String::new();
+        write_function(&mut buf, &func_clone).map_err(|e| {
+            GlslError::new(
+                crate::error::ErrorCode::E0400,
+                format!("failed to write function '{}': {}", name, e),
+            )
+        })?;
+        clif_ir.push_str(&buf);
+        clif_ir.push('\n');
+    }
+
+    // Format main function with correct name
+    clif_ir.push_str("; function main:\n");
+    let mut main_func_clone = module.main_function().clone();
+    use cranelift_codegen::ir::UserFuncName;
+    let main_func_id = *name_to_func_id.get("main").unwrap();
+    main_func_clone.name = UserFuncName::user(0, main_func_id);
+
+    let mut buf = String::new();
+    write_function(&mut buf, &main_func_clone).map_err(|e| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            format!("failed to write main function: {}", "main"),
+        )
+    })?;
+    clif_ir.push_str(&buf);
+
+    Ok(clif_ir)
+}
+
 /// Link CLIF module for JIT execution
 /// Works in both std and no_std (JITModule supports no_std)
 pub fn link_glsl_for_jit(
@@ -652,7 +718,7 @@ pub fn link_glsl_for_jit(
     let builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
     let mut jit_module = JITModule::new(builder);
 
-    let name_to_id = module.link_into(&mut jit_module, Linkage::Export)?;
+    let (name_to_id, _clif_ir) = module.link_into(&mut jit_module, Linkage::Export)?;
 
     jit_module.finalize_definitions().map_err(|e| {
         GlslError::new(
@@ -712,12 +778,126 @@ pub fn link_glsl_for_jit(
 }
 
 /// Link CLIF module for emulator execution
+/// Generate VCode and disassembly for all functions in a ClifModule for debugging purposes
+#[cfg(feature = "emulator")]
+fn generate_vcode_and_disassembly(
+    module: &ClifModule,
+) -> Result<(Option<String>, Option<String>), crate::error::GlslError> {
+    use crate::error::GlslError;
+    use cranelift_codegen::Context;
+    use cranelift_control::ControlPlane;
+
+    let isa = module.isa();
+    let mut vcode_output = String::new();
+    let mut disassembly_output = String::new();
+
+    // Process user functions
+    for (func_name, func) in module.user_functions() {
+        if let Ok((vcode, disasm)) = generate_function_vcode_and_disassembly(func, isa) {
+            if !vcode_output.is_empty() {
+                vcode_output.push_str(&format!("\n// function {}:\n", func_name));
+            } else {
+                vcode_output.push_str(&format!("// function {}:\n", func_name));
+            }
+            vcode_output.push_str(&vcode);
+
+            if !disassembly_output.is_empty() {
+                disassembly_output.push_str(&format!("\n// function {}:\n", func_name));
+            } else {
+                disassembly_output.push_str(&format!("// function {}:\n", func_name));
+            }
+            disassembly_output.push_str(&disasm);
+        }
+    }
+
+    // Process main function
+    if let Ok((vcode, disasm)) =
+        generate_function_vcode_and_disassembly(module.main_function(), isa)
+    {
+        if !vcode_output.is_empty() {
+            vcode_output.push_str("\n// function main:\n");
+        } else {
+            vcode_output.push_str("// function main:\n");
+        }
+        vcode_output.push_str(&vcode);
+
+        if !disassembly_output.is_empty() {
+            disassembly_output.push_str("\n// function main:\n");
+        } else {
+            disassembly_output.push_str("// function main:\n");
+        }
+        disassembly_output.push_str(&disasm);
+    }
+
+    Ok((
+        if vcode_output.is_empty() {
+            None
+        } else {
+            Some(vcode_output)
+        },
+        if disassembly_output.is_empty() {
+            None
+        } else {
+            Some(disassembly_output)
+        },
+    ))
+}
+
+/// Generate VCode and disassembly for a single function
+#[cfg(feature = "emulator")]
+fn generate_function_vcode_and_disassembly(
+    func: &cranelift_codegen::ir::Function,
+    isa: &dyn cranelift_codegen::isa::TargetIsa,
+) -> Result<(String, String), crate::error::GlslError> {
+    use crate::error::GlslError;
+    use cranelift_codegen::Context;
+    use cranelift_control::ControlPlane;
+
+    let params = func.params.clone();
+    let mut comp_ctx = Context::for_function(func.clone());
+
+    // Request disassembly results
+    comp_ctx.set_disasm(true);
+
+    let compiled_code = comp_ctx
+        .compile(isa, &mut ControlPlane::default())
+        .map_err(|e| {
+            GlslError::new(
+                crate::error::ErrorCode::E0400,
+                format!("Failed to compile function for disassembly: {:?}", e),
+            )
+        })?;
+
+    let vcode = compiled_code.vcode.as_ref().ok_or_else(|| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            "No VCode available after compilation",
+        )
+    })?;
+
+    // Generate disassembly using Capstone (RISC-V only for now)
+    let cs = isa.to_capstone().map_err(|e| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            format!("Failed to create Capstone disassembler: {}", e),
+        )
+    })?;
+    let dis = compiled_code.disassemble(Some(&params), &cs).map_err(|e| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            format!("Capstone disassembly failed: {}", e),
+        )
+    })?;
+
+    Ok((vcode.clone(), dis))
+}
+
 /// Requires `emulator` feature flag to be enabled
 #[cfg(feature = "emulator")]
 pub fn link_glsl_for_emulator(
-    module: ClifModule,
+    original_module: ClifModule,
+    transformed_module: ClifModule,
     emulator_options: &EmulatorOptions,
-    original_main_ir: Option<cranelift_codegen::ir::Function>,
 ) -> Result<crate::backend::emu::GlslEmulatorModule, crate::error::GlslError> {
     use crate::backend::emu::GlslEmulatorModule;
     use crate::error::GlslError;
@@ -726,8 +906,11 @@ pub fn link_glsl_for_emulator(
     use lp_riscv_tools::elf_loader::{find_symbol_address, load_elf};
     use lp_riscv_tools::emu::emulator::Riscv32Emulator;
 
-    // Compile to ELF
-    let elf_bytes = compile_clif_to_elf(&module)?;
+    // Format CLIF from original module (before transformations)
+    let original_clif = format_clif_from_module(&original_module)?;
+
+    // Build ObjectModule from transformed module to get ELF and CLIF
+    let (elf_bytes, transformed_clif) = transformed_module.build_object_module()?;
 
     // Load ELF and apply relocations
     let load_info = load_elf(&elf_bytes)
@@ -773,16 +956,16 @@ pub fn link_glsl_for_emulator(
     emulator.set_register(Gpr::Sp, stack_base as i32);
     emulator.set_pc(0);
 
-    // Extract signatures (both GLSL and Cranelift)
+    // Extract signatures (both GLSL and Cranelift) from transformed module
     let mut signatures = HashMap::new();
     let mut cranelift_signatures = HashMap::new();
 
-    for (name, func) in module.user_functions() {
+    for (name, func) in transformed_module.user_functions() {
         // Store Cranelift signature for argument handling
         cranelift_signatures.insert(name.clone(), func.signature.clone());
 
         // Get GLSL signature from ClifModule
-        let glsl_sig = module.glsl_signature(name).ok_or_else(|| {
+        let glsl_sig = transformed_module.glsl_signature(name).ok_or_else(|| {
             GlslError::new(
                 crate::error::ErrorCode::E0400,
                 format!("GLSL signature for function '{}' not found", name),
@@ -792,17 +975,20 @@ pub fn link_glsl_for_emulator(
     }
 
     // Store main function's Cranelift signature
-    let main_sig = module.main_function().signature.clone();
+    let main_sig = transformed_module.main_function().signature.clone();
     cranelift_signatures.insert(String::from("main"), main_sig);
 
     // Get main function's GLSL signature from ClifModule
-    let main_glsl_sig = module.glsl_signature("main").ok_or_else(|| {
+    let main_glsl_sig = transformed_module.glsl_signature("main").ok_or_else(|| {
         GlslError::new(
             crate::error::ErrorCode::E0400,
             "GLSL signature for 'main' not found",
         )
     })?;
     signatures.insert(String::from("main"), main_glsl_sig.clone());
+
+    // Generate VCode and disassembly for debugging
+    let (vcode, disassembly) = generate_vcode_and_disassembly(&transformed_module)?;
 
     // DEFAULT_RAM_START is 0x80000000 (from lp-riscv-tools/src/emu/memory.rs)
     const DEFAULT_RAM_START: u32 = 0x80000000;
@@ -813,8 +999,10 @@ pub fn link_glsl_for_emulator(
         cranelift_signatures,
         binary,
         main_address,
-        main_function_ir: Some(module.main_function().clone()),
-        original_main_function_ir: original_main_ir,
+        transformed_clif: Some(transformed_clif),
+        original_clif: Some(original_clif),
+        vcode,
+        disassembly,
         next_buffer_addr: DEFAULT_RAM_START,
     })
 }
@@ -824,74 +1012,8 @@ pub fn link_glsl_for_emulator(
 /// Returns the ELF bytes
 #[cfg(feature = "emulator")]
 fn compile_clif_to_elf(module: &ClifModule) -> Result<Vec<u8>, crate::error::GlslError> {
-    use crate::error::GlslError;
-    use cranelift_module::Linkage;
-    use cranelift_object::{ObjectBuilder, ObjectModule};
-
-    // Create ObjectModule for proper linking with relocations
-    let isa = module.isa();
-    let isa_builder = cranelift_codegen::isa::Builder::from_target_isa(isa);
-    let flags = isa.flags().clone();
-    let owned_isa = isa_builder.finish(flags).map_err(|e| {
-        GlslError::new(
-            crate::error::ErrorCode::E0400,
-            alloc_format!("failed to recreate ISA: {:?}", e),
-        )
-    })?;
-
-    let builder = ObjectBuilder::new(
-        owned_isa,
-        "glsl_module",
-        cranelift_module::default_libcall_names(),
-    )
-    .map_err(|e| {
-        GlslError::new(
-            crate::error::ErrorCode::E0400,
-            alloc_format!("failed to create ObjectBuilder: {:?}", e),
-        )
-    })?;
-
-    let mut object_module = ObjectModule::new(builder);
-
-    // Link all functions into the ObjectModule (handles relocations)
-    module
-        .link_into(&mut object_module, Linkage::Export)
-        .map_err(|e| {
-            // If error already has notes (detailed verifier errors), preserve them and use shorter message
-            if !e.notes.is_empty() {
-                // For verifier errors, the notes contain the detailed errors
-                // Use a shorter message to avoid duplication
-                let code = e.code; // Preserve original code (likely E0401)
-                let message = if e.message.contains("failed to define main function") {
-                    alloc_format!("failed to link functions: error in main function")
-                } else if e.message.contains("failed to define") {
-                    alloc_format!("failed to link functions: {}", e.message)
-                } else {
-                    alloc_format!("failed to link functions: {}", e.message)
-                };
-                let mut new_error = GlslError::new(code, message);
-                // Copy notes from original error (these contain the detailed verifier errors)
-                for note in e.notes {
-                    new_error = new_error.with_note(note);
-                }
-                new_error
-            } else {
-                // For non-verifier errors, wrap normally
-                GlslError::new(
-                    crate::error::ErrorCode::E0400,
-                    alloc_format!("failed to link functions: {}", e),
-                )
-            }
-        })?;
-
-    // Finish the module and get the object file
-    let object_product = object_module.finish();
-    let object_bytes = object_product.emit().map_err(|e| {
-        GlslError::new(
-            crate::error::ErrorCode::E0400,
-            alloc_format!("failed to emit object: {:?}", e),
-        )
-    })?;
-
-    Ok(object_bytes)
+    // Use the new build_object_module method which returns (elf_bytes, clif_ir)
+    // We only need the ELF bytes here
+    let (elf_bytes, _clif_ir) = module.build_object_module()?;
+    Ok(elf_bytes)
 }

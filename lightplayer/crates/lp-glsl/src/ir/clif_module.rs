@@ -6,6 +6,7 @@ use cranelift_codegen::CodegenError;
 use cranelift_codegen::ir::Function;
 use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_codegen::print_errors::pretty_verifier_error;
+use cranelift_codegen::write_function;
 use cranelift_module::{FuncId, Linkage, Module, ModuleError};
 use hashbrown::HashMap;
 
@@ -19,10 +20,16 @@ use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
+#[cfg(not(feature = "std"))]
+use alloc::format as alloc_format;
+#[cfg(feature = "std")]
+use std::format as alloc_format;
+
 /// Immutable module representation holding CLIF IR functions before linking/compilation.
 ///
 /// This structure holds all functions (user functions and main) in CLIF IR form,
 /// along with metadata needed for later compilation or transformation.
+#[derive(Clone)]
 pub struct ClifModule {
     user_functions: HashMap<String, Function>,
     main_function: Function,
@@ -96,15 +103,17 @@ impl ClifModule {
     }
 
     /// Link all functions from this module into a Cranelift Module (JITModule, ObjectModule, etc.)
-    /// Returns a mapping of function names to their FuncIds in the target module
+    /// Returns a mapping of function names to their FuncIds in the target module,
+    /// along with the formatted CLIF IR string for all functions
     pub fn link_into<M: Module>(
         &self,
         module: &mut M,
         main_linkage: Linkage,
-    ) -> Result<HashMap<String, FuncId>, GlslError> {
+    ) -> Result<(HashMap<String, FuncId>, String), GlslError> {
         use crate::error::{ErrorCode, GlslError};
 
         let mut name_to_id = HashMap::new();
+        let mut clif_functions = Vec::new(); // Store (name, clif_text) pairs in declaration order
 
         // Declare all functions first to get their FuncIds
         for (name, func) in &self.user_functions {
@@ -320,10 +329,55 @@ impl ClifModule {
             // Remap FuncRefs to point to new module's FuncIds
             remap_func_refs(&mut func_clone, module, &self.func_id_to_name, &name_to_id)?;
 
+            // Verify stack slots exist before defining (they should be cloned from original)
+            // If the original function had 0 stack slots but instructions reference stack slots,
+            // this means the stack slots weren't persisted when the function was stored.
+            // We need to recreate them by finding the maximum slot ID referenced and creating slots up to that ID.
+            use cranelift_codegen::ir::InstructionData;
+            let blocks: Vec<_> = func_clone.layout.blocks().collect();
+            let mut max_slot_id = 0u32;
+
+            for block in &blocks {
+                for inst in func_clone.layout.block_insts(*block) {
+                    let inst_data = &func_clone.dfg.insts[inst];
+                    if let Some(stack_slot) = inst_data.stack_slot() {
+                        max_slot_id = max_slot_id.max(stack_slot.as_u32());
+                    }
+                }
+            }
+
+            // Create missing stack slots up to the maximum referenced ID
+            // Use a conservative size that can handle common cases like mat4 (64 bytes)
+            while func_clone.sized_stack_slots.len() <= max_slot_id as usize {
+                let slot =
+                    func_clone.create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
+                        cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
+                        64, // 64 bytes to handle mat4 (16 f32s) and other large structs
+                        2,  // 2^2 = 4 byte alignment (F32_ALIGN_SHIFT)
+                    ));
+                // Verify we got the expected slot ID
+                if slot.as_u32() != func_clone.sized_stack_slots.len() as u32 - 1 {
+                    return Err(GlslError::new(
+                        ErrorCode::E0301,
+                        format!(
+                            "Unexpected stack slot ID mismatch for function '{}': expected {}, got {}",
+                            name,
+                            func_clone.sized_stack_slots.len() as u32 - 1,
+                            slot.as_u32()
+                        ),
+                    ));
+                }
+            }
+
             ctx.func = func_clone;
             module.define_function(new_func_id, &mut ctx).map_err(|e| {
                 extract_and_format_module_error(&e, &ctx.func, &format!("function '{}'", name))
             })?;
+
+            // Capture CLIF with correct function name before clearing context
+            let clif_text = format_function_clif(&ctx.func)?;
+            clif_functions.push((name.clone(), clif_text));
+
             module.clear_context(&mut ctx);
         }
 
@@ -352,20 +406,21 @@ impl ClifModule {
         for block in &blocks {
             for inst in main_func_clone.layout.block_insts(*block) {
                 let inst_data = &main_func_clone.dfg.insts[inst];
-                if let InstructionData::StackLoad { stack_slot, .. } = inst_data {
+                if let Some(stack_slot) = inst_data.stack_slot() {
                     max_slot_id = max_slot_id.max(stack_slot.as_u32());
                 }
             }
         }
 
         // Create missing stack slots up to the maximum referenced ID
-        // For vec2 struct return, we need 8 bytes (2 * 4 bytes for f32)
+        // Use a conservative size that can handle common cases like mat4 (64 bytes)
+        // TODO: Could be improved to infer exact sizes from instruction context
         while main_func_clone.sized_stack_slots.len() <= max_slot_id as usize {
             let slot =
                 main_func_clone.create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
                     cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
-                    8, // 8 bytes for vec2 (2 f32s)
-                    2, // 2^2 = 4 byte alignment (F32_ALIGN_SHIFT)
+                    64, // 64 bytes to handle mat4 (16 f32s) and other large structs
+                    2,  // 2^2 = 4 byte alignment (F32_ALIGN_SHIFT)
                 ));
             // Verify we got the expected slot ID
             if slot.as_u32() != main_func_clone.sized_stack_slots.len() as u32 - 1 {
@@ -384,10 +439,80 @@ impl ClifModule {
         module
             .define_function(main_id, &mut ctx)
             .map_err(|e| extract_and_format_module_error(&e, &ctx.func, "main function"))?;
+
+        // Capture CLIF with correct function name before clearing context
+        let clif_text = format_function_clif(&ctx.func)?;
+        clif_functions.push((String::from("main"), clif_text));
+
         module.clear_context(&mut ctx);
 
-        Ok(name_to_id)
+        // Format CLIF IR for all functions in declaration order
+        let mut clif_ir = String::new();
+
+        for (name, clif_text) in &clif_functions {
+            clif_ir.push_str(&format!("; function {}:\n", name));
+            clif_ir.push_str(clif_text);
+            clif_ir.push('\n');
+        }
+
+        Ok((name_to_id, clif_ir))
     }
+
+    /// Build an ObjectModule from this CLIF module and extract both ELF bytes and CLIF IR
+    /// Returns (ELF bytes, formatted CLIF IR string)
+    pub fn build_object_module(&self) -> Result<(Vec<u8>, String), GlslError> {
+        use cranelift_module::Linkage;
+        use cranelift_object::{ObjectBuilder, ObjectModule};
+
+        // Create ObjectModule for proper linking with relocations
+        let isa = self.isa();
+        let isa_builder = cranelift_codegen::isa::Builder::from_target_isa(isa);
+        let flags = isa.flags().clone();
+        let owned_isa = isa_builder.finish(flags).map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                alloc_format!("failed to recreate ISA: {:?}", e),
+            )
+        })?;
+
+        let builder = ObjectBuilder::new(
+            owned_isa,
+            "glsl_module",
+            cranelift_module::default_libcall_names(),
+        )
+        .map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                alloc_format!("failed to create ObjectBuilder: {:?}", e),
+            )
+        })?;
+
+        let mut object_module = ObjectModule::new(builder);
+
+        // Link all functions into the ObjectModule (handles relocations)
+        // This returns (name_to_id, clif_ir) where clif_ir contains the formatted CLIF
+        let (_name_to_id, clif_ir) = self.link_into(&mut object_module, Linkage::Export)?;
+
+        // Finish the module and get the object file
+        let object_product = object_module.finish();
+        let object_bytes = object_product.emit().map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                alloc_format!("failed to emit object: {:?}", e),
+            )
+        })?;
+
+        Ok((object_bytes, clif_ir))
+    }
+}
+
+/// Format a single function as raw CLIF text (without // prefix)
+fn format_function_clif(func: &Function) -> Result<String, GlslError> {
+    let mut buf = String::new();
+    write_function(&mut buf, func).map_err(|e| {
+        GlslError::new(ErrorCode::E0400, format!("failed to write function: {}", e))
+    })?;
+    Ok(buf)
 }
 
 /// Extract and format verifier errors from ModuleError if present

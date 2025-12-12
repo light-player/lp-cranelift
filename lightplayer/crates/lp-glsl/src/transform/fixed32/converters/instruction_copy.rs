@@ -6,7 +6,7 @@
 
 use crate::error::{ErrorCode, GlslError};
 use crate::ir_utils::value_map::map_value;
-use cranelift_codegen::ir::{Function, Inst, InstructionData, StackSlot, Value, types};
+use cranelift_codegen::ir::{Function, Inst, InstructionData, Opcode, StackSlot, Value, types};
 use cranelift_frontend::FunctionBuilder;
 
 #[cfg(not(feature = "std"))]
@@ -237,6 +237,7 @@ pub fn copy_instruction_as_is_with_stack_slot_map(
             } else {
                 *stack_slot
             };
+            // Both StackLoad and StackAddr use the same format
             InstructionData::StackLoad {
                 opcode,
                 stack_slot: new_stack_slot,
@@ -289,8 +290,8 @@ pub fn copy_instruction_as_is_with_stack_slot_map(
             return Err(GlslError::new(
                 ErrorCode::E0301,
                 format!(
-                    "Instruction {:?} with format {:?} not yet supported in copy_instruction_as_is. Please add explicit converter.",
-                    opcode, inst_data
+                    "Instruction {:?} with format {:?} not yet supported in copy_instruction_as_is. Please add explicit converter. inst_data: {:?}",
+                    opcode, inst_data, inst_data
                 ),
             ));
         }

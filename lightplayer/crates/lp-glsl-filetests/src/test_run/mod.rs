@@ -7,7 +7,7 @@ pub mod value_ops;
 
 use crate::file_update::FileUpdate;
 use crate::filetest::TestFile;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use lp_glsl::GlslOptions;
 use lp_glsl::glsl_emu_riscv32;
 use std::env;
@@ -19,6 +19,11 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
         // Not a test run file, skip
         return Ok(());
     }
+
+    // Read the original file lines to pass to bootstrap generation
+    let file_contents = std::fs::read_to_string(path)
+        .with_context(|| format!("failed to read {}", path.display()))?;
+    let file_lines: Vec<String> = file_contents.lines().map(|s| s.to_string()).collect();
 
     // Compute relative path for rerun command
     let filetests_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("filetests");
@@ -54,8 +59,11 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
             }
         }
         // Generate bootstrap code with span information
-        let bootstrap_result =
-            bootstrap::generate_bootstrap(&test_file.glsl_source, &directive.expression_str)?;
+        let bootstrap_result = bootstrap::generate_bootstrap(
+            &file_lines,
+            directive.line_number,
+            &directive.expression_str,
+        )?;
 
         // Compile and execute
         // Note: bootstrap_result.source now contains ONLY the function being tested + main()
@@ -66,11 +74,20 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
                     &bootstrap_result,
                     directive.line_number,
                     &directive.expression_str,
+                    &relative_path,
                 )
             })?;
 
         // Execute main() and get result
-        let actual_value = execution::execute_main(&mut *executable)?;
+        let actual_value = execution::execute_main(&mut *executable).map_err(|e| {
+            // Add rerun command to execution errors
+            let error_str = format!("{:#}", e);
+            let rerun_cmd = format!(
+                "TEST_FILE={} TEST_LINE={} cargo test --test filetests -- --nocapture",
+                relative_path, directive.line_number
+            );
+            anyhow::anyhow!("{}\n\nTo rerun just this test:\n{}", error_str, rerun_cmd)
+        })?;
 
         // Parse expected value
         let expected_value = value_ops::parse_glsl_value(&directive.expected_str)?;
@@ -148,6 +165,7 @@ fn format_compilation_error(
     bootstrap: &bootstrap::BootstrapResult,
     directive_line: usize,
     expression: &str,
+    relative_path: &str,
 ) -> anyhow::Error {
     // Check if error message already contains "Compilation error:" to avoid duplication
     let error_msg = error.to_string();
@@ -159,6 +177,12 @@ fn format_compilation_error(
     } else {
         String::new()
     };
+
+    // Generate rerun command
+    let rerun_cmd = format!(
+        "TEST_FILE={} TEST_LINE={} cargo test --test filetests -- --nocapture",
+        relative_path, directive_line
+    );
 
     // Build the error message
     let mut msg = format!(
@@ -187,6 +211,9 @@ fn format_compilation_error(
         "\n\nNote: main() function spans lines {} to {}",
         bootstrap.main_start_line, bootstrap.main_end_line
     ));
+
+    // Add rerun command
+    msg.push_str(&format!("\n\nTo rerun just this test:\n{}", rerun_cmd));
 
     anyhow::anyhow!("{}", msg)
 }

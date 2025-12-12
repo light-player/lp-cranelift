@@ -25,10 +25,14 @@ pub struct GlslEmulatorModule {
     pub(crate) cranelift_signatures: HashMap<String, cranelift_codegen::ir::Signature>,
     pub(crate) binary: Vec<u8>,
     pub(crate) main_address: u32,
-    // Store main function IR for debugging error messages (after transformation)
-    pub(crate) main_function_ir: Option<cranelift_codegen::ir::Function>,
-    // Store original main function IR (before transformation) for debugging
-    pub(crate) original_main_function_ir: Option<cranelift_codegen::ir::Function>,
+    // Store formatted CLIF IR for all functions after transformation
+    pub(crate) transformed_clif: Option<String>,
+    // Store formatted CLIF IR for all functions before transformation
+    pub(crate) original_clif: Option<String>,
+    // Store VCode for all functions (for debugging)
+    pub(crate) vcode: Option<String>,
+    // Store disassembly for all functions (for debugging)
+    pub(crate) disassembly: Option<String>,
     // Track next buffer allocation address (allocated from start of RAM, growing upward)
     pub(crate) next_buffer_addr: u32,
 }
@@ -124,27 +128,34 @@ impl GlslEmulatorModule {
         let mut error = GlslError::new(code, base_message.to_string());
 
         // Add CLIF IR if available (both before and after transformation)
-        if let Some(ref original_func) = self.original_main_function_ir {
-            let original_display = self.format_function_safely(original_func);
+        if let Some(ref original_clif) = self.original_clif {
             error = error.with_note(format!(
-                "=== CLIF IR (BEFORE transformation) for function '{}' ===\n{}",
-                function_name, original_display
+                "=== CLIF IR (BEFORE transformation) ===\n{}",
+                original_clif
             ));
         }
 
-        if let Some(ref func) = self.main_function_ir {
-            // Try to format the full function, with a safe fallback
-            let func_display = self.format_function_safely(func);
-
+        if let Some(ref transformed_clif) = self.transformed_clif {
             error = error.with_note(format!(
-                "=== CLIF IR (AFTER transformation) for function '{}' ===\n{}",
-                function_name, func_display
+                "=== CLIF IR (AFTER transformation) ===\n{}",
+                transformed_clif
             ));
         }
 
-        // Add assembly disassembly
-        if let Ok(disasm) = self.disassemble_binary() {
-            error = error.with_note(format!("=== Assembly Disassembly ===\n{}", disasm));
+        // Add VCode and disassembly if available (from compilation)
+        if let Some(ref vcode) = self.vcode {
+            error = error.with_note(format!("VCode:\n{}", vcode));
+        }
+
+        if let Some(ref disassembly) = self.disassembly {
+            error = error.with_note(format!("Disassembled:\n{}", disassembly));
+        }
+
+        // Fall back to runtime disassembly if stored disassembly not available
+        if self.vcode.is_none() && self.disassembly.is_none() {
+            if let Ok(disasm) = self.disassemble_binary() {
+                error = error.with_note(format!("=== Assembly Disassembly ===\n{}", disasm));
+            }
         }
 
         error
@@ -676,14 +687,6 @@ impl GlslExecutable for GlslEmulatorModule {
 
     #[cfg(feature = "std")]
     fn format_clif_ir(&self) -> (Option<String>, Option<String>) {
-        let original = self
-            .original_main_function_ir
-            .as_ref()
-            .map(|f| self.format_function_safely(f));
-        let transformed = self
-            .main_function_ir
-            .as_ref()
-            .map(|f| self.format_function_safely(f));
-        (original, transformed)
+        (self.original_clif.clone(), self.transformed_clif.clone())
     }
 }

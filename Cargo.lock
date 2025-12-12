@@ -774,6 +774,7 @@ dependencies = [
  "rustc-hash",
  "serde",
  "serde_derive",
+ "serde_json",
  "sha2",
  "similar",
  "smallvec",

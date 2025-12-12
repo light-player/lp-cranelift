@@ -76,6 +76,8 @@ pub fn get_isle_compilations(
     let src_isa_s390x = codegen_crate_dir.join("src").join("isa").join("s390x");
     let src_isa_riscv32 = codegen_crate_dir.join("src").join("isa").join("riscv32");
     let src_isa_riscv64 = codegen_crate_dir.join("src").join("isa").join("riscv64");
+    #[cfg(feature = "x86")]
+    let src_isa_x64 = codegen_crate_dir.join("src").join("isa").join("x64");
     #[cfg(feature = "pulley")]
     let src_isa_pulley_shared = codegen_crate_dir
         .join("src")

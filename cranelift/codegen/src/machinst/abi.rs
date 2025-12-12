@@ -99,6 +99,8 @@
 //! ABI. See each platform's `abi.rs` implementation for details.
 
 use crate::CodegenError;
+use crate::FxHashMap;
+use crate::HashMap;
 use crate::entity::SecondaryMap;
 use crate::ir::{ArgumentExtension, ArgumentPurpose, ExceptionTag, Signature};
 use crate::ir::{StackSlotKey, types::*};
@@ -107,11 +109,9 @@ use crate::settings::ProbestackStrategy;
 use crate::{ir, isa};
 use crate::{machinst::*, trace};
 use alloc::boxed::Box;
-use regalloc2::{MachineEnv, PReg, PRegSet};
-use crate::FxHashMap;
-use smallvec::smallvec;
-use crate::HashMap;
 use core::marker::PhantomData;
+use regalloc2::{MachineEnv, PReg, PRegSet};
+use smallvec::smallvec;
 
 /// A small vector of instructions (with some reasonable size); appropriate for
 /// a small fixed sequence implementing one operation.
@@ -1120,6 +1120,36 @@ impl FrameLayout {
         let islot = spillslot.index() as i64;
         let spill_off = islot * self.word_bytes as i64;
         let sp_off = self.stackslots_size as i64 + spill_off;
+
+        // #region agent log
+        #[cfg(feature = "std")]
+        {
+            use std::fs::OpenOptions;
+            use std::io::Write;
+            let log_entry = serde_json::json!({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "E",
+                "location": "machinst/abi.rs:spillslot_offset",
+                "message": "Spill slot access",
+                "data": {
+                    "spillslot_index": islot,
+                    "spill_off": spill_off,
+                    "stackslots_size": self.stackslots_size,
+                    "sp_off": sp_off,
+                    "note": "sp_off is relative to start of stack slot area, final SP offset will be sp_off + outgoing_args_size"
+                },
+                "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+            });
+            if let Ok(mut file) = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
+            {
+                let _ = writeln!(file, "{}", log_entry);
+            }
+        }
+        // #endregion
 
         sp_off
     }
@@ -2159,7 +2189,7 @@ impl<M: ABIMachineSpec> Callee<M> {
     ) -> M::I {
         // Offset from beginning of stackslot area.
         let stack_off = self.sized_stackslots[slot] as i64;
-        let sp_off: i64 = stack_off + (offset as i64);
+        let sp_off = stack_off;
         M::gen_get_stack_addr(StackAMode::Slot(sp_off), into_reg)
     }
 
@@ -2200,6 +2230,36 @@ impl<M: ABIMachineSpec> Callee<M> {
         function_calls: FunctionCalls,
     ) {
         let bytes = M::word_bytes();
+        // #region agent log
+        #[cfg(feature = "std")]
+        {
+            use std::fs::OpenOptions;
+            use std::io::Write;
+            let log_entry = serde_json::json!({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "E",
+                "location": "machinst/abi.rs:compute_frame_layout",
+                "message": "Computing fixed_frame_storage_size",
+                "data": {
+                    "stackslots_size": self.stackslots_size,
+                    "spillslots": spillslots,
+                    "bytes": bytes,
+                    "calculated_spillslots_size": bytes * spillslots as u32,
+                    "calculated_total": self.stackslots_size + bytes * spillslots as u32,
+                    "note": "fixed_frame_storage_size should be stackslots_size + spillslots_size"
+                },
+                "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+            });
+            if let Ok(mut file) = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
+            {
+                let _ = writeln!(file, "{}", log_entry);
+            }
+        }
+        // #endregion
         let total_stacksize = self.stackslots_size + bytes * spillslots as u32;
         let mask = M::stack_align(self.call_conv) - 1;
         let total_stacksize = (total_stacksize + mask) & !mask; // 16-align the stack.
@@ -2388,6 +2448,41 @@ impl<M: ABIMachineSpec> Callee<M> {
         let sp_off = self.get_spillslot_offset(to_slot);
         trace!("gen_spill: {from_reg:?} into slot {to_slot:?} at offset {sp_off}");
 
+        // #region agent log
+        #[cfg(feature = "std")]
+        {
+            use std::fs::OpenOptions;
+            use std::io::Write;
+            let frame_layout = self.frame_layout();
+            let log_entry = serde_json::json!({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "F",
+                "location": "machinst/abi.rs:gen_spill",
+                "message": "Register spill",
+                "data": {
+                    "from_reg": format!("{:?}", from_reg),
+                    "to_slot": format!("{:?}", to_slot),
+                    "sp_off": sp_off,
+                    "outgoing_args_size": frame_layout.outgoing_args_size,
+                    "final_sp_off": sp_off + i64::from(frame_layout.outgoing_args_size),
+                    "stackslots_size": frame_layout.stackslots_size,
+                    "fixed_frame_storage_size": frame_layout.fixed_frame_storage_size,
+                    "clobber_size": frame_layout.clobber_size,
+                    "ty": format!("{:?}", ty)
+                },
+                "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+            });
+            if let Ok(mut file) = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
+            {
+                let _ = writeln!(file, "{}", log_entry);
+            }
+        }
+        // #endregion
+
         let from = StackAMode::Slot(sp_off);
         <M>::gen_store_stack(from, Reg::from(from_reg), ty)
     }
@@ -2399,6 +2494,41 @@ impl<M: ABIMachineSpec> Callee<M> {
 
         let sp_off = self.get_spillslot_offset(from_slot);
         trace!("gen_reload: {to_reg:?} from slot {from_slot:?} at offset {sp_off}");
+
+        // #region agent log
+        #[cfg(feature = "std")]
+        {
+            use std::fs::OpenOptions;
+            use std::io::Write;
+            let frame_layout = self.frame_layout();
+            let log_entry = serde_json::json!({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "F",
+                "location": "machinst/abi.rs:gen_reload",
+                "message": "Register reload",
+                "data": {
+                    "to_reg": format!("{:?}", to_reg.to_reg()),
+                    "from_slot": format!("{:?}", from_slot),
+                    "sp_off": sp_off,
+                    "outgoing_args_size": frame_layout.outgoing_args_size,
+                    "final_sp_off": sp_off + i64::from(frame_layout.outgoing_args_size),
+                    "stackslots_size": frame_layout.stackslots_size,
+                    "fixed_frame_storage_size": frame_layout.fixed_frame_storage_size,
+                    "clobber_size": frame_layout.clobber_size,
+                    "ty": format!("{:?}", ty)
+                },
+                "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+            });
+            if let Ok(mut file) = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
+            {
+                let _ = writeln!(file, "{}", log_entry);
+            }
+        }
+        // #endregion
 
         let from = StackAMode::Slot(sp_off);
         <M>::gen_load_stack(from, to_reg.map(Reg::from), ty)

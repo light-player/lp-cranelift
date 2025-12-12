@@ -180,6 +180,69 @@ pub fn infer_expr_type_with_registry(
             }
         }
 
+        Expr::Bracket(array_expr, array_spec, span) => {
+            // Matrix/vector indexing: mat[col] or vec[index]
+            let array_ty = infer_expr_type_with_registry(array_expr, symbols, func_registry)?;
+
+            if !array_ty.is_matrix() && !array_ty.is_vector() {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "indexing only supported for matrices and vectors",
+                )
+                .with_location(source_span_to_location(span)));
+            }
+
+            use glsl::syntax::ArraySpecifierDimension;
+            if array_spec.dimensions.0.is_empty() {
+                return Err(
+                    GlslError::new(ErrorCode::E0400, "indexing requires explicit index")
+                        .with_location(source_span_to_location(span)),
+                );
+            }
+
+            // Process dimensions one at a time
+            let mut current_ty = array_ty;
+
+            for dimension in &array_spec.dimensions.0 {
+                let index_expr = match dimension {
+                    ArraySpecifierDimension::ExplicitlySized(expr) => expr,
+                    ArraySpecifierDimension::Unsized => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "indexing requires explicit index",
+                        )
+                        .with_location(source_span_to_location(span)));
+                    }
+                };
+
+                // Check that index is int (but don't need to evaluate it for type inference)
+                let index_ty = infer_expr_type_with_registry(index_expr, symbols, func_registry)?;
+                if index_ty != Type::Int {
+                    return Err(GlslError::new(ErrorCode::E0106, "index must be int")
+                        .with_location(source_span_to_location(span)));
+                }
+
+                if current_ty.is_matrix() {
+                    // Matrix indexing: mat[col] returns column vector
+                    current_ty = current_ty.matrix_column_type().unwrap();
+                } else if current_ty.is_vector() {
+                    // Vector indexing: vec[index] returns scalar component
+                    current_ty = current_ty.vector_base_type().unwrap();
+                } else {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!(
+                            "cannot index into {:?} (only matrices and vectors can be indexed)",
+                            current_ty
+                        ),
+                    )
+                    .with_location(source_span_to_location(span)));
+                }
+            }
+
+            Ok(current_ty)
+        }
+
         _ => {
             let span = extract_span_from_expr(expr);
             Err(GlslError::new(

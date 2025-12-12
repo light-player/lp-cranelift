@@ -22,8 +22,8 @@ use crate::{
     machinst::{ArgPair, CallArgList, CallRetList, InstOutput},
 };
 use alloc::boxed::Box;
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
 use regalloc2::PReg;
 use wasmtime_math::{f32_cvt_to_int_bounds, f64_cvt_to_int_bounds};
 
@@ -77,6 +77,36 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
     ) -> BoxCallInfo {
         let stack_ret_space = self.lower_ctx.sigs()[sig].sized_stack_ret_space();
         let stack_arg_space = self.lower_ctx.sigs()[sig].sized_stack_arg_space();
+
+        // #region agent log
+        #[cfg(feature = "std")]
+        {
+            use std::fs::OpenOptions;
+            use std::io::Write;
+            let log_entry = serde_json::json!({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "A",
+                "location": "riscv32/lower/isle.rs:gen_call_info",
+                "message": "Accumulating outgoing args size",
+                "data": {
+                    "stack_ret_space": stack_ret_space,
+                    "stack_arg_space": stack_arg_space,
+                    "total": stack_ret_space + stack_arg_space,
+                    "dest": format!("{:?}", dest)
+                },
+                "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+            });
+            if let Ok(mut file) = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
+            {
+                let _ = writeln!(file, "{}", log_entry);
+            }
+        }
+        // #endregion
+
         self.lower_ctx
             .abi_mut()
             .accumulate_outgoing_args_size(stack_ret_space + stack_arg_space);
@@ -546,6 +576,39 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
         // Offset from beginning of stackslot area.
         let stack_off = self.lower_ctx.abi().sized_stackslot_offsets()[ss] as i64;
         let sp_off: i64 = stack_off + offset;
+
+        // #region agent log
+        #[cfg(feature = "std")]
+        {
+            use std::fs::OpenOptions;
+            use std::io::Write;
+            // Note: sp_off is relative to stack slot area start.
+            // Final SP offset will be sp_off + outgoing_args_size (added at emission time).
+            let log_entry = serde_json::json!({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "C",
+                "location": "riscv32/lower/isle.rs:gen_stack_slot_amode",
+                "message": "Stack slot access",
+                "data": {
+                    "stack_slot": format!("{:?}", ss),
+                    "stack_off": stack_off,
+                    "offset": offset,
+                    "sp_off": sp_off,
+                    "note": "Final SP offset will be sp_off + outgoing_args_size"
+                },
+                "timestamp": std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+            });
+            if let Ok(mut file) = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log")
+            {
+                let _ = writeln!(file, "{}", log_entry);
+            }
+        }
+        // #endregion
+
         AMode::SlotOffset(sp_off)
     }
 

@@ -19,21 +19,22 @@ const KNOWN_TYPES: &[&str] = &[
 ];
 
 /// Generate bootstrap GLSL code that wraps the expression in a main() function.
-/// Only includes the specific function being tested, not the entire source file.
-pub fn generate_bootstrap(original_source: &str, expression_str: &str) -> Result<BootstrapResult> {
-    // Extract function name from expression (e.g., "divide_float(5.0, 1.0)" -> "divide_float")
-    let func_name = extract_function_name(expression_str)?;
-
-    // Extract only the function being tested from the original source
-    let function_code = extract_function_definition(original_source, &func_name)?;
+/// Includes all GLSL code that appears before the test directive line.
+pub fn generate_bootstrap(
+    file_lines: &[String],
+    directive_line_number: usize,
+    expression_str: &str,
+) -> Result<BootstrapResult> {
+    // Extract all GLSL code that appears before the directive line
+    let function_code = extract_code_before_directive(file_lines, directive_line_number)?;
 
     // Infer return type by extracting function name from expression and looking it up in source
-    let return_type = infer_return_type_from_expression(original_source, expression_str)?;
+    let return_type = infer_return_type_from_expression(&function_code, expression_str)?;
 
     // Count lines in the function code (for calculating main start line)
     let function_line_count = function_code.lines().count();
 
-    // Build bootstrap with just the function + generated main()
+    // Build bootstrap with all functions + generated main()
     let mut bootstrap = function_code;
     let main_decl = format!(
         "\n\n{} main() {{\n    return {};\n}}\n",
@@ -55,48 +56,34 @@ pub fn generate_bootstrap(original_source: &str, expression_str: &str) -> Result
     })
 }
 
-/// Extract a specific function definition from GLSL source.
-fn extract_function_definition(source: &str, func_name: &str) -> Result<String> {
-    let lines: Vec<&str> = source.lines().collect();
-    let mut function_lines = Vec::new();
-    let mut in_target_function = false;
-    let mut brace_depth = 0;
-    let pattern = format!("{}(", func_name);
+/// Extract all GLSL code that appears before the directive line.
+/// This includes all function definitions and code up to (but not including) the directive.
+fn extract_code_before_directive(
+    file_lines: &[String],
+    directive_line_number: usize,
+) -> Result<String> {
+    let mut glsl_code = String::new();
 
-    for line in lines.iter() {
+    // Extract all lines from the start up to (but not including) the directive line
+    // Note: directive_line_number is 1-indexed, so we take up to directive_line_number - 1
+    for line in file_lines.iter().take(directive_line_number - 1) {
         let trimmed = line.trim();
 
-        // Check if this line starts the target function
-        if !in_target_function && trimmed.contains(&pattern) {
-            in_target_function = true;
-            brace_depth = 0;
-            function_lines.push(*line);
-            // Count opening braces on this line
-            brace_depth += line.matches('{').count();
-            brace_depth -= line.matches('}').count();
+        // Skip directive lines (test, target, run directives)
+        if trimmed.starts_with("// test")
+            || trimmed.starts_with("// target")
+            || trimmed.starts_with("// #run:")
+            || trimmed.starts_with("// run:")
+        {
             continue;
         }
 
-        if in_target_function {
-            function_lines.push(*line);
-            brace_depth += line.matches('{').count();
-            brace_depth -= line.matches('}').count();
-
-            // If we've closed all braces, we're done with the function
-            if brace_depth == 0 {
-                break;
-            }
-        }
+        // Include all other lines (GLSL code)
+        glsl_code.push_str(line);
+        glsl_code.push('\n');
     }
 
-    if function_lines.is_empty() {
-        return Err(anyhow::anyhow!(
-            "Function '{}' not found in source",
-            func_name
-        ));
-    }
-
-    Ok(function_lines.join("\n"))
+    Ok(glsl_code.trim_end().to_string())
 }
 
 /// Infer the return type of an expression by looking up the called function's return type.

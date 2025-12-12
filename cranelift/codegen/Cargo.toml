@@ -35,6 +35,7 @@ target-lexicon = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, optional = true }
 serde_derive = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 pulley-interpreter = { workspace = true, optional = true }
 postcard = { workspace = true, optional = true }
 gimli = { workspace = true, features = ["write", "std"], optional = true }
@@ -66,7 +67,7 @@ default = ["riscv32"]
 # The "std" feature enables use of libstd. The "core" feature enables use
 # of some minimal std-like replacement libraries. At least one of these two
 # features need to be enabled.
-std = ["serde?/std", "rustc-hash/std", "timing"]
+std = ["serde?/std", "rustc-hash/std", "timing", "serde_json"]
 
 # The "core" feature used to enable a hashmap workaround, but is now
 # deprecated (we (i) always use hashbrown, and (ii) don't support a

@@ -4,6 +4,7 @@
 
 use crate::file_update::FileUpdate;
 use crate::test_utils;
+use crate::validation::validate_clif_module;
 use anyhow::{Context, Result};
 use cranelift_codegen::write_function;
 use lp_glsl::{ClifModule, GlslCompiler};
@@ -77,8 +78,12 @@ pub fn run_compile_test(glsl_source: &str, expected_clif: &str, path: &Path) -> 
     let isa = test_utils::create_riscv32_isa()
         .with_context(|| "failed to create riscv32 ISA for compile test")?;
     let module = compiler
-        .compile_to_clif_module(glsl_source, isa)
+        .compile_to_clif_module(glsl_source, isa.clone())
         .with_context(|| "failed to compile GLSL to CLIF module")?;
+
+    // Validate CLIF module
+    validate_clif_module(&module, isa.as_ref())
+        .with_context(|| "CLIF validation failed after compilation")?;
 
     // Extract CLIF text
     let actual_clif = format_clif_module(&module)?;
