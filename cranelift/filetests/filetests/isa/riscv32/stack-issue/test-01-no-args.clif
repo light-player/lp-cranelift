@@ -1,32 +1,13 @@
+test interpret
 test run
 
 set unwind_info=false
 target riscv32 has_m
 
-function %return_constant() -> i32 system_v {
+function %return_constant() -> i32 {
 block0:
     v0 = iconst.i32 42
     return v0
 }
 
-; function test:
-function %test() -> i32 system_v {
-    sig0 = () -> i32 system_v
-    fn0 = colocated %return_constant sig0
-
-block0:
-    v0 = call fn0()
-    return v0
-}
-
-; function main:
-function %main() -> i32 system_v {
-    sig0 = () -> i32 system_v
-    fn0 = colocated %test sig0
-
-block0:
-    v0 = call fn0()
-    return v0
-}
-
-; run: %main() == 42
+; run: %return_constant() == 42
