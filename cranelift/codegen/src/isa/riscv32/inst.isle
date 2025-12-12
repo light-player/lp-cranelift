@@ -2183,10 +2183,9 @@
 (rule 0 (val_already_extended _ v @ (value_type $I64)) true)
 
 ;; When extending our backend always extends to the full register width, so
-;; there's no need to extend-an-extend. However, on RV32, extending to I64
-;; requires special handling since it uses register pairs.
-(rule 1 (val_already_extended (ExtendOp.Zero) (uextend val @ (value_type (fits_in_32 _)))) true)
-(rule 1 (val_already_extended (ExtendOp.Signed) (sextend val @ (value_type (fits_in_32 _)))) true)
+;; there's no need to extend-an-extend.
+(rule 1 (val_already_extended (ExtendOp.Zero) (uextend _)) true)
+(rule 1 (val_already_extended (ExtendOp.Signed) (sextend _)) true)
 
 ;; The result of `icmp`/`fcmp` is zero or one, meaning that it's already sign
 ;; extended to the full register width.
