@@ -146,11 +146,22 @@ pub fn rebuild_function_for_module<M: Module>(
         func_ref_map.insert(*old_func_ref, new_func_ref);
     }
 
-    // 4. Create builder context (now we can borrow new_func)
+    // 4. Copy stack slots from old function to new function
+    // This must be done before creating the builder so we can access new_func directly
+    let mut stack_slot_map: HashMap<
+        cranelift_codegen::ir::StackSlot,
+        cranelift_codegen::ir::StackSlot,
+    > = HashMap::new();
+    for (old_slot_idx, old_slot_data) in old_func.sized_stack_slots.iter() {
+        let new_slot = new_func.create_sized_stack_slot(old_slot_data.clone());
+        stack_slot_map.insert(old_slot_idx, new_slot);
+    }
+
+    // 5. Create builder context (now we can borrow new_func)
     let mut builder_ctx = FunctionBuilderContext::new();
     let mut builder = FunctionBuilder::new(&mut new_func, &mut builder_ctx);
 
-    // 5. Create blocks and map them (builder now owns new_func)
+    // 6. Create blocks and map them (builder now owns new_func)
     let mut block_map: HashMap<Block, Block> = HashMap::new();
     let old_blocks: Vec<Block> = old_func.layout.blocks().collect();
     for old_block in &old_blocks {
@@ -158,7 +169,7 @@ pub fn rebuild_function_for_module<M: Module>(
         block_map.insert(*old_block, new_block);
     }
 
-    // 6. Map function parameters (entry block params)
+    // 7. Map function parameters (entry block params)
     let entry_block = old_func
         .layout
         .entry_block()
@@ -169,7 +180,7 @@ pub fn rebuild_function_for_module<M: Module>(
     // Use the helper method that matches the function signature
     builder.append_block_params_for_function_params(new_entry_block);
 
-    // 7. Map values (parameters)
+    // 8. Map values (parameters)
     let mut value_map: HashMap<Value, Value> = HashMap::new();
     let old_params = old_func.dfg.block_params(entry_block);
     let new_params = builder.block_params(new_entry_block);
@@ -189,7 +200,7 @@ pub fn rebuild_function_for_module<M: Module>(
         value_map.insert(*old_param, *new_param);
     }
 
-    // 8. Copy all instructions block-by-block
+    // 9. Copy all instructions block-by-block
     // We need to handle block parameters on-demand as we encounter jumps/brifs
     builder.switch_to_block(new_entry_block);
     builder.seal_block(new_entry_block);
@@ -237,20 +248,21 @@ pub fn rebuild_function_for_module<M: Module>(
                 &mut value_map,
                 &func_ref_map,
                 &block_map,
+                &stack_slot_map,
             )?;
         }
     }
 
-    // 9. Seal all blocks
+    // 10. Seal all blocks
     builder.seal_all_blocks();
 
-    // 10. Finalize builder
+    // 11. Finalize builder
     builder.finalize();
 
     Ok(new_func)
 }
 
-/// Copy a single instruction, remapping FuncRefs and Values
+/// Copy a single instruction, remapping FuncRefs, Values, and StackSlots
 fn copy_instruction(
     old_func: &Function,
     old_inst: Inst,
@@ -258,6 +270,7 @@ fn copy_instruction(
     value_map: &mut HashMap<Value, Value>,
     func_ref_map: &HashMap<cranelift_codegen::ir::FuncRef, cranelift_codegen::ir::FuncRef>,
     block_map: &HashMap<Block, Block>,
+    stack_slot_map: &HashMap<cranelift_codegen::ir::StackSlot, cranelift_codegen::ir::StackSlot>,
 ) -> Result<(), GlslError> {
     use cranelift_codegen::ir::Opcode;
 
@@ -283,7 +296,15 @@ fn copy_instruction(
         }
         _ => {
             // For other instructions, copy as-is (no type conversion needed)
-            copy_instruction_as_is(old_func, old_inst, builder, value_map)?;
+            use crate::transform::fixed32::converters;
+            converters::copy_instruction_as_is_with_stack_slot_map(
+                old_func,
+                old_inst,
+                builder,
+                value_map,
+                false, // check_f32 = false for linking (no type conversion)
+                Some(&stack_slot_map),
+            )?;
         }
     }
 

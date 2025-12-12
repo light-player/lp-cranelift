@@ -6,7 +6,7 @@
 
 use crate::error::{ErrorCode, GlslError};
 use crate::ir_utils::value_map::map_value;
-use cranelift_codegen::ir::{Function, Inst, InstructionData, Value, types};
+use cranelift_codegen::ir::{Function, Inst, InstructionData, StackSlot, Value, types};
 use cranelift_frontend::FunctionBuilder;
 
 #[cfg(not(feature = "std"))]
@@ -30,6 +30,19 @@ pub fn copy_instruction_as_is(
     builder: &mut FunctionBuilder,
     value_map: &mut HashMap<Value, Value>,
     check_f32: bool, // If true, verify no F32 types (for fixed-point conversion)
+) -> Result<(), GlslError> {
+    copy_instruction_as_is_with_stack_slot_map(
+        old_func, old_inst, builder, value_map, check_f32, None,
+    )
+}
+
+pub fn copy_instruction_as_is_with_stack_slot_map(
+    old_func: &Function,
+    old_inst: Inst,
+    builder: &mut FunctionBuilder,
+    value_map: &mut HashMap<Value, Value>,
+    check_f32: bool, // If true, verify no F32 types (for fixed-point conversion)
+    stack_slot_map: Option<&HashMap<StackSlot, StackSlot>>, // Map old stack slot IDs to new ones
 ) -> Result<(), GlslError> {
     let opcode = old_func.dfg.insts[old_inst].opcode();
     let inst_data = &old_func.dfg.insts[old_inst];
@@ -173,7 +186,10 @@ pub fn copy_instruction_as_is(
             constant_handle: *constant_handle,
         },
         InstructionData::Load {
-            flags, offset, arg: _, ..
+            flags,
+            offset,
+            arg: _,
+            ..
         } => InstructionData::Load {
             opcode,
             flags: *flags,
@@ -205,11 +221,15 @@ pub fn copy_instruction_as_is(
         InstructionData::StackLoad {
             stack_slot, offset, ..
         } => {
-            // StackLoad has stack_slot and offset, but the address comes from inst_args
-            // We need to construct it and then add the address argument
+            // StackLoad has stack_slot and offset
+            // Remap stack slot if mapping provided
+            let new_stack_slot = stack_slot_map
+                .and_then(|m| m.get(stack_slot))
+                .copied()
+                .unwrap_or(*stack_slot);
             InstructionData::StackLoad {
                 opcode,
-                stack_slot: *stack_slot,
+                stack_slot: new_stack_slot,
                 offset: *offset,
             }
         }
@@ -222,9 +242,14 @@ pub fn copy_instruction_as_is(
             // Stack store is handled separately - it has no results
             // StackStore has stack_slot, offset, and arg (address)
             // Value comes from inst_args[0]
+            // Remap stack slot if mapping provided
+            let new_stack_slot = stack_slot_map
+                .and_then(|m| m.get(stack_slot))
+                .copied()
+                .unwrap_or(*stack_slot);
             let stack_store_inst_data = InstructionData::StackStore {
                 opcode,
-                stack_slot: *stack_slot,
+                stack_slot: new_stack_slot,
                 offset: *offset,
                 arg: mapped_args[1], // address is the second argument (value is first)
             };
