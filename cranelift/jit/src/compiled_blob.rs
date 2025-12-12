@@ -45,7 +45,7 @@ impl CompiledBlob {
                     let base = get_address(name);
                     let what = unsafe { base.offset(isize::try_from(addend).unwrap()) };
                     unsafe {
-                        write_unaligned(at as *mut u32, u32::try_from(what as usize).unwrap())
+                        write_unaligned(at as *mut u32, what as usize as u32)
                     };
                 }
                 Reloc::Abs8 => {

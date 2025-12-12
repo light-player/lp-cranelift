@@ -13,6 +13,7 @@ use std::path::Path;
 mod concurrent;
 pub mod function_runner;
 mod match_directive;
+mod object_runner;
 mod runner;
 mod runone;
 mod subtest;
@@ -21,6 +22,7 @@ mod test_alias_analysis;
 mod test_cat;
 mod test_compile;
 mod test_domtree;
+mod test_emu;
 mod test_inline;
 mod test_interpret;
 mod test_legalizer;
@@ -90,6 +92,7 @@ fn new_subtest(parsed: &TestCommand) -> anyhow::Result<Box<dyn subtest::SubTest>
         "cat" => test_cat::subtest(parsed),
         "compile" => test_compile::subtest(parsed),
         "domtree" => test_domtree::subtest(parsed),
+        "emu" => test_emu::subtest(parsed),
         "inline" => test_inline::subtest(parsed),
         "interpret" => test_interpret::subtest(parsed),
         "legalizer" => test_legalizer::subtest(parsed),

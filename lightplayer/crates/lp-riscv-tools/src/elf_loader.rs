@@ -53,6 +53,7 @@ pub fn find_symbol_address(
 fn apply_single_relocation(
     reloc: object::Relocation,
     reloc_offset: u64,
+    section_load_addr: u64,
     code_bytes: &mut [u8],
     symbol_map: &HashMap<String, u32>,
     obj: &object::File,
@@ -83,10 +84,21 @@ fn apply_single_relocation(
     })?;
 
     // Calculate PC-relative offset
-    let pc = reloc_offset as u32;
+    // reloc_offset is relative to section start, so PC = section_load_addr + reloc_offset
+    let pc = (section_load_addr + reloc_offset) as u32;
     let pcrel = target_addr
         .wrapping_sub(pc)
         .wrapping_add(reloc.addend() as u32);
+
+    // Debug logging for relocation calculation (can be enabled for debugging)
+    // std::eprintln!(
+    //     "DEBUG Relocation: offset=0x{:x}, section_addr=0x{:x}, PC=0x{:x}, target=0x{:x}, pcrel=0x{:x}",
+    //     reloc_offset,
+    //     section_load_addr,
+    //     pc,
+    //     target_addr,
+    //     pcrel
+    // );
 
     // Determine relocation type from flags
     let reloc_offset = reloc_offset as usize;
@@ -179,6 +191,21 @@ fn apply_single_relocation(
                     let patched = (inst_word & 0xFFFFF) | (lo12 << 20);
                     inst_bytes.copy_from_slice(&patched.to_le_bytes());
                 }
+                object::elf::R_RISCV_32 => {
+                    // RISC-V 32-bit absolute relocation
+                    // Write the absolute target address directly
+                    if reloc_offset + 4 > code_bytes.len() {
+                        return Err(format!(
+                            "R_RISCV_32 relocation at offset {} requires 4 bytes",
+                            reloc_offset
+                        ));
+                    }
+                    // target_addr is relative to section base, so absolute address is:
+                    // section_load_addr + target_addr
+                    let absolute_addr = (section_load_addr + target_addr as u64) as u32;
+                    let reloc_bytes = &mut code_bytes[reloc_offset..reloc_offset + 4];
+                    reloc_bytes.copy_from_slice(&absolute_addr.to_le_bytes());
+                }
                 _ => {
                     // For other relocation types, try simple PC-relative patching
                     if reloc_offset + 4 <= code_bytes.len() {
@@ -236,8 +263,16 @@ fn apply_relocations(
     // Find text section and apply relocations
     for section in obj.sections() {
         if section.index() == text_section_id {
+            let section_load_addr = section.address();
             for (reloc_offset, reloc) in section.relocations() {
-                apply_single_relocation(reloc, reloc_offset, code_bytes, &symbol_map, obj)?;
+                apply_single_relocation(
+                    reloc,
+                    reloc_offset,
+                    section_load_addr,
+                    code_bytes,
+                    &symbol_map,
+                    obj,
+                )?;
             }
             break;
         }

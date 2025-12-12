@@ -2076,10 +2076,10 @@ impl Inst {
                 // it.
                 //
                 // Emit the following code:
-                //   ld rd, label_data
+                //   lw rd, label_data
                 //   j label_end
                 // label_data:
-                //   <8 byte space>           # ABS8
+                //   <4 byte space>           # ABS4
                 // label_end:
 
                 let label_data = sink.get_label();
@@ -2088,7 +2088,7 @@ impl Inst {
                 // Load the value from a label
                 Inst::Load {
                     rd,
-                    op: LoadOP::Ld,
+                    op: LoadOP::Lw,
                     flags: MemFlags::trusted(),
                     from: AMode::Label(label_data),
                 }
@@ -2098,8 +2098,8 @@ impl Inst {
                 Inst::gen_jump(label_end).emit(sink, emit_info, state);
 
                 sink.bind_label(label_data, &mut state.ctrl_plane);
-                sink.add_reloc(Reloc::Abs8, name.as_ref(), offset);
-                sink.put8(0);
+                sink.add_reloc(Reloc::Abs4, name.as_ref(), offset);
+                sink.put4(0);
 
                 sink.bind_label(label_end, &mut state.ctrl_plane);
             }
