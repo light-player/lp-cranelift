@@ -15,6 +15,15 @@ use std::path::Path;
 
 /// Run all tests in a test file.
 pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
+    run_test_file_with_line_filter(test_file, path, None)
+}
+
+/// Run all tests in a test file with optional line number filtering.
+pub fn run_test_file_with_line_filter(
+    test_file: &TestFile,
+    path: &Path,
+    line_filter: Option<usize>,
+) -> Result<()> {
     if !test_file.is_test_run {
         // Not a test run file, skip
         return Ok(());
@@ -33,10 +42,8 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
         .to_string_lossy()
         .to_string();
 
-    // Check for test case filtering by line number
-    let test_line_filter = env::var("TEST_LINE")
-        .ok()
-        .and_then(|s| s.parse::<usize>().ok());
+    // Use provided line filter
+    let test_line_filter = line_filter;
 
     // Determine target and options
     let target_str = test_file.target.as_deref().unwrap_or("riscv32.fixed32");
@@ -83,7 +90,7 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
             // Add rerun command to execution errors
             let error_str = format!("{:#}", e);
             let rerun_cmd = format!(
-                "TEST_FILE={} TEST_LINE={} cargo test --test filetests -- --nocapture",
+                "cargo run --bin lp-test -- test {}:{}",
                 relative_path, directive.line_number
             );
             anyhow::anyhow!("{}\n\nTo rerun just this test:\n{}", error_str, rerun_cmd)
@@ -123,7 +130,7 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
 
                     // Generate rerun command
                     let rerun_cmd = format!(
-                        "TEST_FILE={} TEST_LINE={} cargo test --test filetests -- --nocapture",
+                        "cargo run --bin lp-test -- test {}:{}",
                         relative_path, directive.line_number
                     );
 
@@ -131,22 +138,22 @@ pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
                         format!(
                             "run test failed at line {}: {}{}{}\n\
                              \n\
-                             To rerun just this test:\n\
-                             {}\n\
-                             \n\
                              This test assertion can be automatically updated by setting the\n\
-                             CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
+                             CRANELIFT_TEST_BLESS=1 environment variable when running this test.\n\
+                             \n\
+                             To rerun just this test:\n\
+                             {}",
                             directive.line_number, err_msg, clif_ir_section, state, rerun_cmd
                         )
                     } else {
                         format!(
                             "run test failed at line {}: {}{}\n\
                              \n\
-                             To rerun just this test:\n\
-                             {}\n\
-                             \n\
                              This test assertion can be automatically updated by setting the\n\
-                             CRANELIFT_TEST_BLESS=1 environment variable when running this test.",
+                             CRANELIFT_TEST_BLESS=1 environment variable when running this test.\n\
+                             \n\
+                             To rerun just this test:\n\
+                             {}",
                             directive.line_number, err_msg, clif_ir_section, rerun_cmd
                         )
                     };
@@ -180,7 +187,7 @@ fn format_compilation_error(
 
     // Generate rerun command
     let rerun_cmd = format!(
-        "TEST_FILE={} TEST_LINE={} cargo test --test filetests -- --nocapture",
+        "cargo run --bin lp-test -- test {}:{}",
         relative_path, directive_line
     );
 

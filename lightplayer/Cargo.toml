@@ -8,6 +8,7 @@ members = [
     "crates/lp-riscv-tools",
     "apps/embive-program",
     "apps/esp32-glsl-jit",
+    "apps/lp-test",
     "apps/test-structreturn",
 ]
 
@@ -60,3 +61,4 @@ hashbrown = { version = "0.15", default-features = false, features = ["alloc", "
 anyhow = { version = "1.0.100", default-features = false }
 regex = "1.9.1"
 object = { version = "0.37.3", default-features = false, features = ['read_core', 'elf'] }
+
