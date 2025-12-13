@@ -399,7 +399,9 @@
   (let ((a_ext XReg (zext a))
         (b_ext XReg (zext b))
         (sum XReg (rv_add a_ext b_ext))
-        (overflow XReg (rv_sltiu sum (imm12_const 0x10000))))
+        ;; Check if result >= 0x10000 (overflow if high 16 bits non-zero)
+        (high_bits XReg (rv_srli sum (imm12_const 16)))
+        (overflow XReg (rv_snez high_bits)))
     (output_pair sum overflow)))
 
 ;;;; Rules for sadd_overflow ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -571,7 +573,9 @@
   (let ((a_ext XReg (zext a))
         (b_ext XReg (zext b))
         (result XReg (rv_mul a_ext b_ext))
-        (overflow XReg (rv_sltiu result (imm12_const 0x10000))))
+        ;; Check if result >= 0x10000 (overflow if high 16 bits non-zero)
+        (high_bits XReg (rv_srli result (imm12_const 16)))
+        (overflow XReg (rv_snez high_bits)))
     (output_pair result overflow)))
 
 ;;;; Rules for smul_overflow ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -621,8 +625,11 @@
   (let ((a_ext XReg (sext a))
         (b_ext XReg (sext b))
         (result XReg (rv_mul a_ext b_ext))
-        ;; TODO: Implement proper i16 overflow detection (constants too large for imm12)
-        (overflow XReg (imm $I8 0)))
+        ;; Check signed overflow: result should be sign-extended from i16
+        (expected_sign XReg (rv_srai result (imm12_const 15)))
+        (high_bits XReg (rv_srli result (imm12_const 16)))
+        (high_sign_ext XReg (rv_srai (rv_slli high_bits (imm12_const 16)) (imm12_const 16)))
+        (overflow XReg (rv_xor expected_sign high_sign_ext)))
     (output_pair result overflow)))
 
 ;;;; Rules for `isub` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
