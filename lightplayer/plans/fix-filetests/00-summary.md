@@ -8,13 +8,18 @@ This plan addresses 39 test failures when running Cranelift filetests with the r
 
 - **Phase 1-2**: Instruction decoding (14 tests) - Missing instruction encodings
 - **Phase 3**: i64 handling (10 tests) - Register pair bugs
-- **Phase 4**: ISLE panics (6 tests) - Missing patterns
-- **Phase 5**: Unsupported features (4 tests) - StructReturn, small type overflow
-- **Phase 6**: Register allocator (2 tests) - Invalid register indices
+- **Phase 4**: ISLE panics (6 tests) - Missing patterns ✅ **COMPLETED**
+- **Phase 5**: Unsupported features (7 tests) - StructReturn, small type overflow, **f64 operations** (3 tests from Phase 4)
+- **Phase 6**: Register allocator (4 tests) - Invalid register indices (**+2 tests from Phase 4**: return-call-loop, spill-reload)
 - **Phase 7**: Memory access (1 test) - Stack setup issues
-- **Phase 8**: Compilation errors (2 tests) - Global value type mismatches
+- **Phase 8**: Compilation/runtime errors (2 tests) - Global value type mismatches, **runtime relocation** (call_indirect from Phase 4)
 
 **Total**: 39 failures across 8 categories
+
+**Note**: After Phase 4 completion, some tests that previously panicked now fail with different errors:
+- 3 call tests fail with f64 compilation errors (moved to Phase 5)
+- 2 call tests fail with regalloc panics (moved to Phase 6)
+- 1 call test fails with runtime relocation (moved to Phase 8)
 
 ## Phase Order
 

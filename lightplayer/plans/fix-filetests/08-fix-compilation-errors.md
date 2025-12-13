@@ -1,18 +1,19 @@
 # Phase 8: Fix Compilation Errors
 
 ## Goal
-Fix compilation errors related to global values and other riscv32-specific issues.
+Fix compilation errors and runtime issues related to global values, relocations, and other riscv32-specific issues.
 
 ## Prerequisites
-- Previous phases completed: Core functionality works
+- Phase 4 completed: ISLE panics fixed (tests now compile successfully)
 
 ## Affected Test Files
 
-These tests fail with compilation errors:
+These tests fail with compilation or runtime errors:
 
 ```bash
 # Test the fixes:
 cargo run --bin clif-util -- test filetests/filetests/runtests/global_value.clif
+cargo run --bin clif-util -- test filetests/filetests/runtests/call_indirect.clif
 # (Other compilation errors may appear in various tests)
 ```
 
@@ -23,7 +24,14 @@ cargo run --bin clif-util -- test filetests/filetests/runtests/global_value.clif
    error: inst0 (v1 = global_value.i64 gv0): global_value instruction with type i64 references global value with type i32
    ```
 
-2. **Other compilation errors**: Various verifier errors during compilation
+2. **Runtime relocation errors** (NEW - discovered in Phase 4):
+   ```
+   Emulator setup failed: ELF load failed: Could not resolve relocation target at offset 80
+   ```
+   
+   **Note**: After Phase 4 ISLE panic fixes, `call_indirect.clif` compiles successfully but fails at runtime with relocation errors. This indicates the code generation works, but the emulator can't resolve function pointer relocations.
+
+3. **Other compilation errors**: Various verifier errors during compilation
 
 ## Root Cause Analysis
 
@@ -87,7 +95,43 @@ function %simple(i64 vmctx) -> i64 {
 - Add skip logic for global_value.clif on riscv32
 - Document that i64 global values aren't supported
 
-### Step 4: Check Other Compilation Errors
+### Step 4: Fix Runtime Relocation Errors
+
+**Issue**: `call_indirect.clif` compiles successfully but fails at runtime with:
+```
+ELF load failed: Could not resolve relocation target at offset 80
+```
+
+**Root Cause**: The emulator can't resolve function pointer relocations for indirect calls.
+
+**Files to check**:
+- `cranelift/filetests/src/object_runner.rs` - How relocations are handled
+- `lightplayer/crates/lp-riscv-tools/src/emu/` - Emulator relocation resolution
+
+**Investigation**:
+1. What type of relocation is at offset 80?
+2. Is the relocation target (function address) available?
+3. Does the emulator support this relocation type?
+
+**Potential fixes**:
+1. **Add relocation resolution** in emulator:
+   ```rust
+   // In emulator.rs or object_runner.rs
+   fn resolve_relocation(&mut self, reloc: &Relocation, symbol: &str) -> Result<u64, Error> {
+       // Look up function address by name
+       if let Some(addr) = self.functions.get(symbol) {
+           Ok(*addr)
+       } else {
+           Err(format!("Unknown function: {}", symbol))
+       }
+   }
+   ```
+
+2. **Ensure function addresses are available**: When loading ELF, collect all function addresses and make them available for relocation resolution.
+
+3. **Handle RISC-V relocation types**: RISC-V uses specific relocation types (R_RISCV_CALL, R_RISCV_PCREL_HI20, etc.) that need proper handling.
+
+### Step 5: Check Other Compilation Errors
 
 Look for other compilation errors in test output:
 
@@ -109,6 +153,9 @@ After making changes:
 ```bash
 # Test compilation error fixes:
 cargo run --bin clif-util -- test filetests/filetests/runtests/global_value.clif
+
+# Test runtime relocation fixes:
+cargo run --bin clif-util -- test filetests/filetests/runtests/call_indirect.clif
 ```
 
 ## Common Fixes
@@ -116,12 +163,15 @@ cargo run --bin clif-util -- test filetests/filetests/runtests/global_value.clif
 1. **Type mismatch**: Ensure global value types match their usage
 2. **Missing patterns**: Add ISLE patterns for global value access
 3. **ABI issues**: Fix calling convention for global values
+4. **Relocation resolution**: Ensure emulator can resolve function pointer relocations for indirect calls
 
 ## Success Criteria
 
-- Test compiles without verifier errors
-- Test may still fail for other reasons (execution errors, etc.)
+- `global_value.clif` compiles without verifier errors
+- `call_indirect.clif` compiles and runs without relocation errors
+- Tests may still fail for other reasons (execution errors, etc.)
 - No more "global_value instruction with type i64 references global value with type i32" errors
+- No more "Could not resolve relocation target" errors
 
 ## Summary
 

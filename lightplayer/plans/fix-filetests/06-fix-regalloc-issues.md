@@ -14,7 +14,13 @@ These tests panic with register allocator errors:
 # Test the fixes:
 cargo run --bin clif-util -- test filetests/filetests/runtests/bitops.clif
 cargo run --bin clif-util -- test filetests/filetests/runtests/integer-minmax.clif
+
+# Additional tests discovered in Phase 4:
+cargo run --bin clif-util -- test filetests/filetests/runtests/return-call-loop.clif
+cargo run --bin clif-util -- test filetests/filetests/runtests/spill-reload.clif
 ```
+
+**Note**: After Phase 4 ISLE panic fixes, `return-call-loop.clif` and `spill-reload.clif` now fail with regalloc2 panics instead of ISLE panics, indicating they've progressed past the ISLE lowering stage.
 
 ## Error Pattern
 
@@ -127,6 +133,8 @@ After making changes:
 # Test register allocator fixes:
 cargo run --bin clif-util -- test filetests/filetests/runtests/bitops.clif
 cargo run --bin clif-util -- test filetests/filetests/runtests/integer-minmax.clif
+cargo run --bin clif-util -- test filetests/filetests/runtests/return-call-loop.clif
+cargo run --bin clif-util -- test filetests/filetests/runtests/spill-reload.clif
 ```
 
 ## Common Issues
@@ -138,16 +146,22 @@ cargo run --bin clif-util -- test filetests/filetests/runtests/integer-minmax.cl
 2. **Incorrect index calculation**: Bit manipulation errors in index calculation
    - **Fix**: Verify bit shifts and masks are correct
    - **Fix**: Add assertions to catch invalid indices early
+   - **Note**: The index `2097151` (0x1FFFFF) suggests a bit manipulation error - check for wrong shift/mask operations
 
 3. **SSA value to register mapping**: Incorrect mapping between SSA values and physical registers
    - **Fix**: Verify value numbering is correct
    - **Fix**: Check that register classes match
 
+4. **Call-related register pressure**: Tests like `return-call-loop.clif` and `spill-reload.clif` may have high register pressure
+   - **Fix**: Ensure spill/reload logic handles register pairs correctly
+   - **Fix**: Verify that spilled i64 values are handled as pairs
+
 ## Success Criteria
 
-- Both tests compile without regalloc panics
+- All 4 tests compile without regalloc panics
 - Tests may still fail for other reasons (wrong results, etc.)
 - No more "index out of bounds" errors from regalloc2
+- The suspicious index `2097151` (0x1FFFFF) is resolved
 
 ## Next Phase
 
