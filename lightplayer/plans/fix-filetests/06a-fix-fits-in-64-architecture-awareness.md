@@ -114,6 +114,7 @@ Modify rules to explicitly check architecture and use different logic.
 ### ✅ **Phase 1-2: Partial Implementation (Completed)**
 
 **What was implemented:**
+
 1. **Added validation** in `compile.rs` to catch invalid register indices before regalloc
 2. **LP-specific simplifications**:
    - `ty_reg_pair` now only matches I64 (not I128/F128) since LP doesn't need 128-bit support
@@ -122,11 +123,13 @@ Modify rules to explicitly check architecture and use different logic.
    - Modified bxor rules to use architecture-appropriate extractors
 
 **What works:**
+
 - Validation catches invalid register indices with clear error messages
 - I64 operations on RV32 correctly use register-pair instructions
 - Smaller types (I32, I16, I8) use single-register instructions
 
 **What still needs work:**
+
 - The `fits_in_64` extractor is not architecture-aware (affects all architectures)
 - Need proper architecture-aware implementation
 
@@ -137,11 +140,13 @@ Modify rules to explicitly check architecture and use different logic.
 **Proposed approaches:**
 
 #### **Option A: ISLE Context Architecture Awareness (Complex)**
+
 1. Add register width context to ISLE trait
 2. Modify `fits_in_64` to use `self.register_width_bits()`
 3. Requires changes to ISLE generated code and trait definitions
 
 #### **Option B: Architecture-Specific Rule Overrides (Recommended for LP)**
+
 1. Keep `fits_in_64` as-is (works for other architectures)
 2. Override problematic rules in RV32 to use RV32-specific extractors
 3. Apply this pattern to all operations affected by the i64 issue:
@@ -152,6 +157,7 @@ Modify rules to explicitly check architecture and use different logic.
    - Other operations using `fits_in_64`
 
 #### **Option C: Global Architecture Dispatch (Future)**
+
 Modify Cranelift's architecture system to allow extractors to be architecture-aware, but this would be a major change affecting the entire codebase.
 
 ### **Recommended Next Steps for LP**
@@ -166,11 +172,13 @@ Since LP only targets RV32 and the current fixes work for the reported issues, r
 ### **Implementation Details**
 
 #### **Current RV32-Specific Fixes**
+
 - `ty_reg_pair`: Only matches I64
 - `fits_in_rv32_reg`: New extractor for types ≤ 32 bits
 - `lower_i64_binary`: Renamed from `lower_b128_binary`
 
 #### **Rules Modified**
+
 ```isle
 ;; I64 bxor uses register pairs
 (rule 0 (lower (has_type (ty_reg_pair _) (bxor x y)))
@@ -182,6 +190,7 @@ Since LP only targets RV32 and the current fixes work for the reported issues, r
 ```
 
 #### **Testing Status**
+
 - ✅ Validation catches invalid register indices
 - ✅ I64 operations work correctly on RV32
 - ⚠️ Need to verify other operations (band, bor, bnot) work similarly

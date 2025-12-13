@@ -1413,6 +1413,11 @@ impl<'func, I: VCodeInst> Lower<'func, I> {
     }
 
     /// Returns the memory flags of a given memory access.
+    /// Get the compilation flags.
+    pub fn flags(&self) -> &Flags {
+        &self.flags
+    }
+
     pub fn memflags(&self, ir_inst: Inst) -> Option<MemFlags> {
         match &self.f.dfg.insts[ir_inst] {
             &InstructionData::AtomicCas { flags, .. } => Some(flags),
