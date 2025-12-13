@@ -270,21 +270,25 @@ impl EmulatorExecutor {
         let mut signatures = std::collections::HashMap::new();
 
         for (func_name, defined_func) in &compiled_testfile.defined_functions {
-            let symbol_name = match func_name {
+            // Use the original symbol name from ELF, not the renamed internal name
+            let symbol_name = &defined_func.original_symbol_name;
+
+            // Find function address using the loaded ELF
+            let address = find_symbol_address(&obj, symbol_name, text_section_base)
+                .map_err(|e| format!("Failed to find symbol {}: {}", symbol_name, e))?;
+
+            // Store using the original function name for lookup
+            let lookup_key = match func_name {
                 ir::UserFuncName::User(ext_name) => ext_name.to_string(),
                 ir::UserFuncName::Testcase(tc) => tc.to_string(),
             };
-
-            // Find function address using the loaded ELF
-            let address = find_symbol_address(&obj, &symbol_name, text_section_base)
-                .map_err(|e| format!("Failed to find symbol {}: {}", symbol_name, e))?;
-
-            function_addresses.insert(symbol_name.clone(), address);
-            signatures.insert(symbol_name, defined_func.signature.clone());
+            function_addresses.insert(lookup_key.clone(), address);
+            signatures.insert(lookup_key, defined_func.signature.clone());
         }
 
         // Create emulator
         let ram_size = 1024 * 1024; // 1MB RAM
+
         let mut emulator =
             lp_riscv_tools::emu::emulator::Riscv32Emulator::new(load_info.code, vec![0; ram_size])
                 .with_max_instructions(10_000)
@@ -378,7 +382,14 @@ impl EmulatorExecutor {
         let result = self
             .emulator
             .call_function(*address, args, signature)
-            .map_err(|e| format!("Emulator execution failed: {}", e))?;
+            .map_err(|e| {
+                format!(
+                    "Emulator execution failed: {} (PC: 0x{:08x}, instructions: {})",
+                    e,
+                    self.emulator.get_pc(),
+                    self.emulator.get_instruction_count()
+                )
+            })?;
 
         let final_instruction_count = self.emulator.get_instruction_count();
         if final_instruction_count == initial_instruction_count {
@@ -403,6 +414,19 @@ fn generate_debug_info(
     // Add CLIF IR
     debug_output.push_str("\n=== CLIF IR ===\n");
     debug_output.push_str(&func.display().to_string());
+
+    // Add V-Code and Disassembly for this function
+    if let Some(defined_func) = testfile.defined_functions.get(&func.name) {
+        if let Some(ref vcode) = defined_func.vcode {
+            debug_output.push_str("\n=== V-CODE ===\n");
+            debug_output.push_str(vcode);
+        }
+
+        if let Some(ref disasm) = defined_func.disassembly {
+            debug_output.push_str("\n=== DISASSEMBLY ===\n");
+            debug_output.push_str(disasm);
+        }
+    }
 
     // Add ELF info
     debug_output.push_str("\n=== ELF SYMBOLS ===\n");

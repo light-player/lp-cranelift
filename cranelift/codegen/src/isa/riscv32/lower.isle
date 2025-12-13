@@ -45,8 +45,9 @@
 ;;;; Rules for `iadd` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Base case, simply adding things in registers.
-;; Base case for RV32: use rv_add for all integer types (XLEN=32)
-(rule 0 (lower (has_type (ty_int ty) (iadd x y)))
+;; Base case for RV32: use rv_add for types that fit in 32 bits (XLEN=32)
+;; This excludes i64, which needs register pair handling
+(rule 0 (lower (has_type (fits_in_32 (ty_int ty)) (iadd x y)))
   (rv_add x y))
 
 ;; I64 case - use 2-register pattern with carry propagation (similar to RV64 I128)
@@ -388,7 +389,7 @@
 ;;;; Rules for `isub` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Base case for RV32: use rv_sub for all integer types (XLEN=32)
 
-(rule 0 (lower (has_type (ty_int ty) (isub x y)))
+(rule 0 (lower (has_type (fits_in_32 (ty_int ty)) (isub x y)))
   (rv_sub x y))
 
 ;; I64 case - use 2-register pattern with borrow propagation
@@ -513,8 +514,12 @@
 
 ;;;; Rules for `ineg` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(rule (lower (has_type (ty_int ty) (ineg val)))
+(rule (lower (has_type (fits_in_32 (ty_int ty)) (ineg val)))
   (neg ty val))
+
+;; I64 negation using register pair operations
+(rule 1 (lower (has_type $I64 (ineg val)))
+  (neg $I64 val))
 
 ;; (rule 1 (lower (has_type (ty_supported_vec ty) (ineg x)))
 ;;   (rv_vneg_v x (unmasked) ty))
@@ -522,8 +527,9 @@
 
 ;;;; Rules for `imul` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Base case for RV32: use rv_mul for all integer types (XLEN=32)
-(rule 0 (lower (has_type (ty_int ty) (imul x y)))
+;; Base case for RV32: use rv_mul for types that fit in 32 bits (XLEN=32)
+;; This excludes i64, which needs register pair handling
+(rule 0 (lower (has_type (fits_in_32 (ty_int ty)) (imul x y)))
   (rv_mul x y))
 
 ;; for I64 (2-register pattern on RV32)
@@ -665,14 +671,15 @@
   (if (safe_divisor_from_imm64 $I32 imm))
   (rv_divu x y))
 
-(rule 2 (lower (has_type $I64 (udiv x y)))
-  (if-let true (has_m))
-  (rv_divu x (nonzero_divisor y)))
+;; I64 division not yet implemented for riscv32 (needs register pair operations)
+;; (rule 2 (lower (has_type $I64 (udiv x y)))
+;;   (if-let true (has_m))
+;;   (rv_divu x (nonzero_divisor y)))
 
-(rule 3 (lower (has_type $I64 (udiv x y @ (iconst imm))))
-  (if-let true (has_m))
-  (if (safe_divisor_from_imm64 $I64 imm))
-  (rv_divu x y))
+;; (rule 3 (lower (has_type $I64 (udiv x y @ (iconst imm))))
+;;   (if-let true (has_m))
+;;   (if (safe_divisor_from_imm64 $I64 imm))
+;;   (rv_divu x y))
 
 ;; Traps if the input register is zero, otherwise returns the same register.
 (decl nonzero_divisor (XReg) XReg)
@@ -702,14 +709,15 @@
   (if (safe_divisor_from_imm64 $I32 imm))
   (rv_div x y))
 
-(rule 2 (lower (has_type $I64 (sdiv x y)))
-  (if-let true (has_m))
-  (rv_div x (safe_sdiv_divisor $I64 x y)))
+;; I64 division not yet implemented for riscv32 (needs register pair operations)
+;; (rule 2 (lower (has_type $I64 (sdiv x y)))
+;;   (if-let true (has_m))
+;;   (rv_div x (safe_sdiv_divisor $I64 x y)))
 
-(rule 3 (lower (has_type $I64 (sdiv x y @ (iconst imm))))
-  (if-let true (has_m))
-  (if (safe_divisor_from_imm64 $I64 imm))
-  (rv_div x y))
+;; (rule 3 (lower (has_type $I64 (sdiv x y @ (iconst imm))))
+;;   (if-let true (has_m))
+;;   (if (safe_divisor_from_imm64 $I64 imm))
+;;   (rv_div x y))
 
 ;; Check for two trapping conditions:
 ;;
@@ -750,14 +758,15 @@
   (if (safe_divisor_from_imm64 $I32 imm))
   (rv_remu x y))
 
-(rule 2 (lower (has_type $I64 (urem x y)))
-  (if-let true (has_m))
-  (rv_remu x (nonzero_divisor y)))
+;; I64 remainder not yet implemented for riscv32 (needs register pair operations)
+;; (rule 2 (lower (has_type $I64 (urem x y)))
+;;   (if-let true (has_m))
+;;   (rv_remu x (nonzero_divisor y)))
 
-(rule 3 (lower (has_type $I64 (urem x y @ (iconst imm))))
-  (if-let true (has_m))
-  (if (safe_divisor_from_imm64 $I64 imm))
-  (rv_remu x y))
+;; (rule 3 (lower (has_type $I64 (urem x y @ (iconst imm))))
+;;   (if-let true (has_m))
+;;   (if (safe_divisor_from_imm64 $I64 imm))
+;;   (rv_remu x y))
 
 ;;;; Rules for `srem` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -779,14 +788,15 @@
   (if (safe_divisor_from_imm64 $I32 imm))
   (rv_rem x y))
 
-(rule 2 (lower (has_type $I64 (srem x y)))
-  (if-let true (has_m))
-  (rv_rem x (nonzero_divisor y)))
+;; I64 remainder not yet implemented for riscv32 (needs register pair operations)
+;; (rule 2 (lower (has_type $I64 (srem x y)))
+;;   (if-let true (has_m))
+;;   (rv_rem x (nonzero_divisor y)))
 
-(rule 3 (lower (has_type $I64 (srem x y @ (iconst imm))))
-  (if-let true (has_m))
-  (if (safe_divisor_from_imm64 $I64 imm))
-  (rv_rem x y))
+;; (rule 3 (lower (has_type $I64 (srem x y @ (iconst imm))))
+;;   (if-let true (has_m))
+;;   (if (safe_divisor_from_imm64 $I64 imm))
+;;   (rv_rem x y))
 
 ;;;; Rules for `and` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (rule -1 (lower (has_type (fits_in_64 ty) (band x y)))
@@ -926,8 +936,12 @@
   (rv_bexti x (imm12_and y 63)))
 
 ;;;; Rules for `or` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(rule -1 (lower (has_type (ty_int ty) (bor x y)))
+(rule -1 (lower (has_type (fits_in_32 (ty_int ty)) (bor x y)))
   (gen_or ty x y))
+
+;; I64 case - use register pair operations
+(rule -2 (lower (has_type $I64 (bor x y)))
+  (gen_or $I64 x y))
 
 (rule 0 (lower (has_type $F128 (bor x y)))
   (gen_or $I128 x y))
@@ -1243,9 +1257,10 @@
   (if-let true (has_zbb))
   (rv_clz x))
 
-(rule 6 (lower (has_type $I64 (clz x)))
-  (if-let true (has_zbb))
-  (rv_clz x))
+;; I64 clz single instruction not available on riscv32
+;; (rule 6 (lower (has_type $I64 (clz x)))
+;;   (if-let true (has_zbb))
+;;   (rv_clz x))
 
 (decl gen_clz (XReg) XReg)
 (rule 0 (gen_clz rs)

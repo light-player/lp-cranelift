@@ -38,11 +38,20 @@ pub struct DefinedFunction {
     /// occurred.
     new_name: UserExternalName,
 
+    /// The original symbol name used in the ELF file
+    pub original_symbol_name: String,
+
     /// The function signature
     pub signature: ir::Signature,
 
     /// Object [FuncId]
     func_id: cranelift_module::FuncId,
+
+    /// V-Code generated during compilation (for debugging)
+    pub vcode: Option<String>,
+
+    /// Disassembly generated during compilation (for debugging)
+    pub disassembly: Option<String>,
 }
 
 /// Compile a test case to object format for emulator execution.
@@ -129,8 +138,11 @@ impl ObjectTestFileCompiler {
 
                 v.insert(DefinedFunction {
                     new_name: UserExternalName::new(TESTFILE_NAMESPACE, next_id),
+                    original_symbol_name: name,
                     signature: func.signature.clone(),
                     func_id,
+                    vcode: None,
+                    disassembly: None,
                 });
             }
         };
@@ -193,17 +205,85 @@ impl ObjectTestFileCompiler {
     ) -> Result<()> {
         Self::replace_hostcall_references(&mut func);
 
-        let defined_func = self
-            .defined_functions
-            .get(&func.name)
-            .ok_or(anyhow!("Undeclared function {} found!", &func.name))?;
+        // Get func_id and new_name before mutable borrow
+        let original_func_name = func.name.clone();
+        let func_id = {
+            let defined_func = self
+                .defined_functions
+                .get(&original_func_name)
+                .ok_or(anyhow!("Undeclared function {} found!", &original_func_name))?;
+            defined_func.func_id
+        };
+        
+        let new_name = {
+            let defined_func = self
+                .defined_functions
+                .get(&original_func_name)
+                .ok_or(anyhow!("Undeclared function {} found!", &original_func_name))?;
+            defined_func.new_name.clone()
+        };
 
-        self.ctx.func = self.apply_func_rename(func, defined_func)?;
+        // Apply function rename (needs immutable access to self.defined_functions)
+        self.ctx.func = self.apply_func_rename(func, &DefinedFunction {
+            new_name,
+            original_symbol_name: String::new(), // Not needed for rename
+            signature: ir::Signature::new(cranelift_codegen::isa::CallConv::SystemV),
+            func_id,
+            vcode: None,
+            disassembly: None,
+        })?;
+        
+        // Enable disassembly for debugging
+        self.ctx.set_disasm(true);
+        
+        // Store function params and ISA for later use
+        let func_params = self.ctx.func.params.clone();
+        let isa = self.module.isa();
+        
         self.module.define_function_with_control_plane(
-            defined_func.func_id,
+            func_id,
             &mut self.ctx,
             ctrl_plane,
         )?;
+        
+        // Capture V-Code and disassembly if available
+        // Note: compiled_code is available after define_function_with_control_plane
+        let (vcode, disassembly) = if let Some(compiled_code) = self.ctx.compiled_code() {
+            // The vcode field contains disassembly when want_disasm is true
+            // Capture it as disassembly
+            let mut disasm = compiled_code.vcode.as_ref().map(|s| s.clone());
+            
+            // Try to generate disassembly using Capstone if vcode wasn't available
+            #[cfg(feature = "disas")]
+            {
+                if disasm.is_none() {
+                    if let Ok(cs) = isa.to_capstone() {
+                        if let Ok(disasm_str) = compiled_code.disassemble(
+                            Some(&func_params),
+                            &cs,
+                        ) {
+                            disasm = Some(disasm_str);
+                        }
+                    }
+                }
+            }
+            
+            // For V-Code, we'd need to format the VCode struct before emission
+            // For now, we'll use the disassembly as V-Code placeholder
+            // TODO: Capture actual pre-regalloc V-Code if needed
+            let vcode = disasm.clone();
+            (vcode, disasm)
+        } else {
+            (None, None)
+        };
+        
+        // Now update defined_func with captured vcode and disassembly
+        // Use original function name since that's the key in the map
+        if let Some(defined_func) = self.defined_functions.get_mut(&original_func_name) {
+            defined_func.vcode = vcode;
+            defined_func.disassembly = disassembly;
+        }
+        
         self.module.clear_context(&mut self.ctx);
         Ok(())
     }

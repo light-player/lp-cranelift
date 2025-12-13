@@ -1,9 +1,11 @@
 # Phase 2: Fix Instruction Decoding
 
 ## Goal
+
 Add missing instruction decodings to the emulator so it recognizes all instructions that Cranelift generates.
 
 ## Prerequisites
+
 - Phase 1 completed: You understand what instruction encodings Cranelift uses
 
 ## Affected Test Files
@@ -37,16 +39,19 @@ File: `lightplayer/crates/lp-riscv-tools/src/decode.rs`
 Location: Around lines 170-260 where I-type instructions with funct3=0x5 are handled
 
 **Current logic**:
+
 - Checks funct6 first for SLLIUW and other funct6-encoded instructions
 - Falls through to funct12 check for CLZ (0x600), CTZ (0x601), CPOP (0x602), etc.
 - Doesn't handle funct12=0x20, 0x30, 0x38
 
 **What to add**:
+
 1. Based on Phase 1 findings, add cases for the missing funct12 values
 2. If these are shift instructions with non-standard encoding, handle them appropriately
 3. If these are Zbb instructions with different encodings, add them to the match statement
 
 **Example pattern** (adjust based on Phase 1 findings):
+
 ```rust
 match funct12 {
     0x600 => Ok(Inst::Clz { rd, rs1 }),
@@ -65,6 +70,7 @@ match funct12 {
 File: `lightplayer/crates/lp-riscv-tools/src/emu/executor.rs`
 
 If new instruction types were added to the `Inst` enum, add execution handlers:
+
 - CLZ handler exists (lines 1337-1359)
 - CTZ handler exists (lines 1361-1383)
 - Other handlers exist for Zbb instructions
@@ -76,11 +82,13 @@ If new instruction types were added to the `Inst` enum, add execution handlers:
 After making changes:
 
 1. **Test a single file first**:
+
    ```bash
    cargo run --bin clif-util -- test filetests/filetests/runtests/arithmetic-extends.clif
    ```
 
 2. **If it passes, test all affected files**:
+
    ```bash
    cargo run --bin clif-util -- test filetests/filetests/runtests/arithmetic-extends.clif filetests/filetests/runtests/udiv.clif filetests/filetests/runtests/shifts.clif
    ```
@@ -101,4 +109,3 @@ After making changes:
 ## Next Phase
 
 Once decoding is fixed, proceed to Phase 3 to fix i64 value handling bugs.
-

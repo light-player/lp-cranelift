@@ -2080,7 +2080,12 @@
 
 
 (decl gen_or (Type ValueRegs ValueRegs) ValueRegs)
-(rule 1 (gen_or $I128 x y)
+(rule 2 (gen_or $I128 x y)
+  (value_regs
+    (rv_or (value_regs_get x 0) (value_regs_get y 0))
+    (rv_or (value_regs_get x 1) (value_regs_get y 1))))
+
+(rule 1 (gen_or $I64 x y)
   (value_regs
     (rv_or (value_regs_get x 0) (value_regs_get y 0))
     (rv_or (value_regs_get x 1) (value_regs_get y 1))))
@@ -2956,7 +2961,10 @@
   (value_reg
     (rv_neg (value_regs_get val 0))))
 
-(rule 2 (neg $I128 val)
+(rule 2 (neg $I64 val)
+  (sub_i64 (value_regs_zero) val))
+
+(rule 3 (neg $I128 val)
   (sub_i128 (value_regs_zero) val))
 
 
