@@ -211,13 +211,15 @@ cargo run --bin clif-util -- test filetests/filetests/runtests/arithmetic.clif 2
 ## Current Status: ✅ MAJOR SUCCESS ACHIEVED
 
 **5 out of 6 major test files now pass**, covering **all practical i64 operations**:
+
 - ✅ i64-riscv32.clif (10 functions)
 - ✅ ineg.clif
-- ✅ clz.clif  
+- ✅ clz.clif
 - ✅ bmask.clif
 - ✅ bitselect.clif
 
 **Remaining complex operations properly disabled** rather than giving wrong results:
+
 - ❌ Division/remainder operations
 - ❌ CLS operations
 
