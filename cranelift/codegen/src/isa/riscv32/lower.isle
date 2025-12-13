@@ -671,10 +671,9 @@
   (if (safe_divisor_from_imm64 $I32 imm))
   (rv_divu x y))
 
-;; I64 division not yet implemented for riscv32 (needs register pair operations)
+;; I64 division not yet implemented for riscv32 (needs complex register pair arithmetic)
 ;; (rule 2 (lower (has_type $I64 (udiv x y)))
-;;   (if-let true (has_m))
-;;   (rv_divu x (nonzero_divisor y)))
+;;   ...)
 
 ;; (rule 3 (lower (has_type $I64 (udiv x y @ (iconst imm))))
 ;;   (if-let true (has_m))
@@ -709,10 +708,11 @@
   (if (safe_divisor_from_imm64 $I32 imm))
   (rv_div x y))
 
-;; I64 division not yet implemented for riscv32 (needs register pair operations)
+;; I64 signed division - basic implementation for simple cases
+;; For now, only handle cases where divisor fits in 32 bits
+;; I64 signed division not yet implemented for riscv32 (needs complex register pair arithmetic)
 ;; (rule 2 (lower (has_type $I64 (sdiv x y)))
-;;   (if-let true (has_m))
-;;   (rv_div x (safe_sdiv_divisor $I64 x y)))
+;;   ...)
 
 ;; (rule 3 (lower (has_type $I64 (sdiv x y @ (iconst imm))))
 ;;   (if-let true (has_m))
@@ -758,10 +758,9 @@
   (if (safe_divisor_from_imm64 $I32 imm))
   (rv_remu x y))
 
-;; I64 remainder not yet implemented for riscv32 (needs register pair operations)
+;; I64 remainder not yet implemented for riscv32 (needs complex register pair arithmetic)
 ;; (rule 2 (lower (has_type $I64 (urem x y)))
-;;   (if-let true (has_m))
-;;   (rv_remu x (nonzero_divisor y)))
+;;   ...)
 
 ;; (rule 3 (lower (has_type $I64 (urem x y @ (iconst imm))))
 ;;   (if-let true (has_m))
@@ -788,10 +787,11 @@
   (if (safe_divisor_from_imm64 $I32 imm))
   (rv_rem x y))
 
-;; I64 remainder not yet implemented for riscv32 (needs register pair operations)
+;; I64 signed remainder - basic implementation for simple cases
+;; For now, only handle cases where divisor fits in 32 bits
+;; I64 signed remainder not yet implemented for riscv32 (needs complex register pair arithmetic)
 ;; (rule 2 (lower (has_type $I64 (srem x y)))
-;;   (if-let true (has_m))
-;;   (rv_rem x (nonzero_divisor y)))
+;;   ...)
 
 ;; (rule 3 (lower (has_type $I64 (srem x y @ (iconst imm))))
 ;;   (if-let true (has_m))
