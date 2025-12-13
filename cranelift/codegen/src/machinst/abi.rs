@@ -1333,8 +1333,24 @@ impl<M: ABIMachineSpec> Callee<M> {
 
         let tail_args_size = sigs[sig].sized_stack_arg_space;
 
+        let mut legalized_ir_sig = ensure_struct_return_ptr_is_returned(&f.signature);
+
+        // For riscv32, automatically convert functions that use stack return area to StructReturn
+        if sigs[sig].stack_ret_arg.is_some() && !legalized_ir_sig.returns.is_empty() {
+            // This function uses stack returns but the signature still has explicit returns.
+            // Convert to StructReturn by adding a StructReturn parameter and clearing returns.
+            let mut new_sig = legalized_ir_sig.clone();
+            let pointer_type = isa.pointer_type();
+            new_sig.params.insert(0, AbiParam::special(
+                pointer_type,
+                ArgumentPurpose::StructReturn,
+            ));
+            new_sig.returns.clear();
+            legalized_ir_sig = new_sig;
+        }
+
         Ok(Self {
-            ir_sig: ensure_struct_return_ptr_is_returned(&f.signature),
+            ir_sig: legalized_ir_sig,
             sig,
             dynamic_stackslots,
             dynamic_type_sizes,

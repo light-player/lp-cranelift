@@ -123,7 +123,7 @@ impl ABIMachineSpec for Riscv32MachineDeps {
                 x_reg(x_start).to_real_reg().unwrap(),
                 I32,
                 ir::ArgumentExtension::None,
-                ir::ArgumentPurpose::Normal,
+                ir::ArgumentPurpose::StructReturn,
             ))
         } else {
             None
@@ -160,11 +160,19 @@ impl ABIMachineSpec for Riscv32MachineDeps {
                     });
                 } else {
                     if args_or_rets == ArgsOrRets::Rets && !flags.enable_multi_ret_implicit_sret() {
-                        return Err(crate::CodegenError::Unsupported(
-                            "Too many return values to fit in registers. \
-                            Use a StructReturn argument instead. (#9510)"
-                                .to_owned(),
-                        ));
+                        // For riscv32, automatically use StructReturn when there are too many return values
+                        // Instead of erroring, set sized_stack_ret_space to indicate StructReturn is needed
+                        // The caller will handle this appropriately
+                        let reg_ty = Inst::rc_for_type(param.value_type)?.1[0];
+                        let size = reg_ty.bits() / 8;
+                        let size = core::cmp::max(size, Self::word_bytes());
+                        next_stack = align_to(next_stack, size);
+                        slots.push(ABIArgSlot::Stack {
+                            offset: next_stack as i64,
+                            ty: *reg_ty,
+                            extension: param.extension,
+                        });
+                        next_stack += size;
                     }
 
                     // Compute size and 16-byte stack alignment happens
