@@ -367,6 +367,37 @@
 
     ;; A pseudoinstruction that serves as a sequence point.
     (SequencePoint)
+
+    ;; 64-bit division instructions (using register pairs)
+    (DivI64U
+      (dividend ValueRegs)  ; (low, high) register pair - input
+      (divisor ValueRegs)   ; (low, high) register pair - input
+      (quotient ValueRegs)  ; (low, high) register pair - output
+      (rem ValueRegs)       ; (low, high) register pair - temp (for remainder calculation)
+      (counter WritableReg)) ; temp register for loop counter
+
+    (DivI64S
+      (dividend ValueRegs)
+      (divisor ValueRegs)
+      (quotient ValueRegs)
+      (rem ValueRegs)
+      (counter WritableReg)
+      (sign WritableReg))    ; temp to store sign information
+
+    (RemI64U
+      (dividend ValueRegs)
+      (divisor ValueRegs)
+      (remainder ValueRegs) ; (low, high) register pair - output
+      (quotient ValueRegs)  ; temp for quotient calculation
+      (counter WritableReg))
+
+    (RemI64S
+      (dividend ValueRegs)
+      (divisor ValueRegs)
+      (remainder ValueRegs)
+      (quotient ValueRegs)
+      (counter WritableReg)
+      (sign WritableReg))
 ))
 
 (type AtomicOP (enum
@@ -1060,6 +1091,69 @@
 ;; Helper that matches types which are stored in a pair of integer registers (I128 and F128)
 (decl ty_reg_pair (Type) Type)
 (extern extractor ty_reg_pair ty_reg_pair)
+
+;; 64-bit division helpers
+;; 64-bit unsigned division instruction
+(decl div_i64_inst (ValueRegs ValueRegs) ValueRegs)
+(rule (div_i64_inst dividend divisor)
+  (let (
+      (quotient_lo WritableXReg (temp_writable_xreg))
+      (quotient_hi WritableXReg (temp_writable_xreg))
+      (quotient ValueRegs (value_regs quotient_lo quotient_hi))
+      (rem_lo WritableXReg (temp_writable_xreg))
+      (rem_hi WritableXReg (temp_writable_xreg))
+      (rem ValueRegs (value_regs rem_lo rem_hi))
+      (counter WritableXReg (temp_writable_xreg))
+      (_ Unit (emit (MInst.DivI64U dividend divisor quotient rem counter)))
+    )
+    quotient))
+
+;; 64-bit signed division instruction
+(decl div_i64_signed_inst (ValueRegs ValueRegs) ValueRegs)
+(rule (div_i64_signed_inst dividend divisor)
+  (let (
+      (quotient_lo WritableXReg (temp_writable_xreg))
+      (quotient_hi WritableXReg (temp_writable_xreg))
+      (quotient ValueRegs (value_regs quotient_lo quotient_hi))
+      (rem_lo WritableXReg (temp_writable_xreg))
+      (rem_hi WritableXReg (temp_writable_xreg))
+      (rem ValueRegs (value_regs rem_lo rem_hi))
+      (counter WritableXReg (temp_writable_xreg))
+      (sign WritableXReg (temp_writable_xreg))
+      (_ Unit (emit (MInst.DivI64S dividend divisor quotient rem counter sign)))
+    )
+    quotient))
+
+;; 64-bit unsigned remainder instruction
+(decl rem_i64_inst (ValueRegs ValueRegs) ValueRegs)
+(rule (rem_i64_inst dividend divisor)
+  (let (
+      (remainder_lo WritableXReg (temp_writable_xreg))
+      (remainder_hi WritableXReg (temp_writable_xreg))
+      (remainder ValueRegs (value_regs remainder_lo remainder_hi))
+      (quotient_lo WritableXReg (temp_writable_xreg))
+      (quotient_hi WritableXReg (temp_writable_xreg))
+      (quotient ValueRegs (value_regs quotient_lo quotient_hi))
+      (counter WritableXReg (temp_writable_xreg))
+      (_ Unit (emit (MInst.RemI64U dividend divisor remainder quotient counter)))
+    )
+    remainder))
+
+;; 64-bit signed remainder instruction
+(decl rem_i64_signed_inst (ValueRegs ValueRegs) ValueRegs)
+(rule (rem_i64_signed_inst dividend divisor)
+  (let (
+      (remainder_lo WritableXReg (temp_writable_xreg))
+      (remainder_hi WritableXReg (temp_writable_xreg))
+      (remainder ValueRegs (value_regs remainder_lo remainder_hi))
+      (quotient_lo WritableXReg (temp_writable_xreg))
+      (quotient_hi WritableXReg (temp_writable_xreg))
+      (quotient ValueRegs (value_regs quotient_lo quotient_hi))
+      (counter WritableXReg (temp_writable_xreg))
+      (sign WritableXReg (temp_writable_xreg))
+      (_ Unit (emit (MInst.RemI64S dividend divisor remainder quotient counter sign)))
+    )
+    remainder))
 
 
 ;;;; Instruction Helpers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

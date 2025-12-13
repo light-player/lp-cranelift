@@ -671,14 +671,18 @@
   (if (safe_divisor_from_imm64 $I32 imm))
   (rv_divu x y))
 
-;; I64 division not yet implemented for riscv32 (needs complex register pair arithmetic)
-;; (rule 2 (lower (has_type $I64 (udiv x y)))
-;;   ...)
+;;;; Rules for `udiv` i64 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; (rule 3 (lower (has_type $I64 (udiv x y @ (iconst imm))))
-;;   (if-let true (has_m))
-;;   (if (safe_divisor_from_imm64 $I64 imm))
-;;   (rv_divu x y))
+(rule 4 (lower (has_type $I64 (udiv x y)))
+  (if-let true (has_m))
+  (let (
+      (x_regs ValueRegs x)
+      (y_regs ValueRegs y)
+      ;; For now, always use full division
+      ;; TODO: Add optimized path for 32-bit divisor
+      (quotient ValueRegs (div_i64_inst x_regs y_regs))
+    )
+    quotient))
 
 ;; Traps if the input register is zero, otherwise returns the same register.
 (decl nonzero_divisor (XReg) XReg)
@@ -708,16 +712,18 @@
   (if (safe_divisor_from_imm64 $I32 imm))
   (rv_div x y))
 
-;; I64 signed division - basic implementation for simple cases
-;; For now, only handle cases where divisor fits in 32 bits
-;; I64 signed division not yet implemented for riscv32 (needs complex register pair arithmetic)
-;; (rule 2 (lower (has_type $I64 (sdiv x y)))
-;;   ...)
+;;;; Rules for `sdiv` i64 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; (rule 3 (lower (has_type $I64 (sdiv x y @ (iconst imm))))
-;;   (if-let true (has_m))
-;;   (if (safe_divisor_from_imm64 $I64 imm))
-;;   (rv_div x y))
+(rule 4 (lower (has_type $I64 (sdiv x y)))
+  (if-let true (has_m))
+  (let (
+      (x_regs ValueRegs x)
+      (y_regs ValueRegs y)
+      ;; Check for division by zero and overflow
+      (y_safe ValueRegs (safe_sdiv_divisor_i64 x_regs y_regs))
+      (quotient ValueRegs (div_i64_signed_inst x_regs y_safe))
+    )
+    quotient))
 
 ;; Check for two trapping conditions:
 ;;
@@ -737,6 +743,49 @@
                       no_int_overflow (zero_reg)
                       (TrapCode.INTEGER_OVERFLOW))))
       y))
+
+(decl safe_sdiv_divisor_i64 (ValueRegs ValueRegs) ValueRegs)
+(rule (safe_sdiv_divisor_i64 dividend divisor)
+  (let (
+      ;; Check divisor is not zero: (divisor_lo | divisor_hi) == 0
+      (divisor_lo XReg (value_regs_get divisor 0))
+      (divisor_hi XReg (value_regs_get divisor 1))
+      (divisor_zero XReg (rv_or divisor_lo divisor_hi))
+      (_ InstOutput (gen_trapif (IntCC.Equal) divisor_zero (zero_reg) (TrapCode.INTEGER_DIVISION_BY_ZERO)))
+
+      ;; Check for INT_MIN / -1 overflow
+      ;; INT_MIN = 0x80000000_00000000 (high=0x80000000, low=0x00000000)
+      ;; -1 = 0xFFFFFFFF_FFFFFFFF (high=0xFFFFFFFF, low=0xFFFFFFFF)
+      (dividend_lo XReg (value_regs_get dividend 0))
+      (dividend_hi XReg (value_regs_get dividend 1))
+
+      ;; Check dividend_hi == 0x80000000
+      (int_min_hi XReg (imm $I32 0x80000000))
+      (dividend_is_min_hi XReg (rv_xor dividend_hi int_min_hi))
+      (dividend_is_min_hi_eq XReg (rv_seqz dividend_is_min_hi))
+
+      ;; Check dividend_lo == 0x00000000
+      (dividend_is_min_lo XReg (rv_seqz dividend_lo))
+
+      ;; Check divisor_hi == 0xFFFFFFFF
+      (neg_one_hi XReg (imm $I32 0xFFFFFFFF))
+      (divisor_is_neg_one_hi XReg (rv_xor divisor_hi neg_one_hi))
+      (divisor_is_neg_one_hi_eq XReg (rv_seqz divisor_is_neg_one_hi))
+
+      ;; Check divisor_lo == 0xFFFFFFFF
+      (neg_one_lo XReg (imm $I32 0xFFFFFFFF))
+      (divisor_is_neg_one_lo XReg (rv_xor divisor_lo neg_one_lo))
+      (divisor_is_neg_one_lo_eq XReg (rv_seqz divisor_is_neg_one_lo))
+
+      ;; Combine checks: dividend == INT_MIN && divisor == -1
+      (dividend_is_min XReg (rv_and dividend_is_min_hi_eq dividend_is_min_lo))
+      (divisor_is_neg_one XReg (rv_and divisor_is_neg_one_hi_eq divisor_is_neg_one_lo_eq))
+      (overflow_condition XReg (rv_and dividend_is_min divisor_is_neg_one))
+
+      ;; Trap if overflow condition is true
+      (_ InstOutput (gen_trapif (IntCC.NotEqual) overflow_condition (zero_reg) (TrapCode.INTEGER_OVERFLOW)))
+    )
+    divisor))
 
 ;;;; Rules for `urem` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -759,13 +808,21 @@
   (rv_remu x y))
 
 ;; I64 remainder not yet implemented for riscv32 (needs complex register pair arithmetic)
-;; (rule 2 (lower (has_type $I64 (urem x y)))
-;;   ...)
+;;;; Rules for `urem` i64 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; (rule 3 (lower (has_type $I64 (urem x y @ (iconst imm))))
-;;   (if-let true (has_m))
-;;   (if (safe_divisor_from_imm64 $I64 imm))
-;;   (rv_remu x y))
+(rule 4 (lower (has_type $I64 (urem x y)))
+  (if-let true (has_m))
+  (let (
+      (x_regs ValueRegs x)
+      (y_regs ValueRegs y)
+      ;; Check if entire divisor is zero: (y_lo | y_hi) == 0
+      (y_lo XReg (value_regs_get y_regs 0))
+      (y_hi XReg (value_regs_get y_regs 1))
+      (divisor_zero XReg (rv_or y_lo y_hi))
+      (_ InstOutput (gen_trapif (IntCC.Equal) divisor_zero (zero_reg) (TrapCode.INTEGER_DIVISION_BY_ZERO)))
+      (remainder ValueRegs (rem_i64_inst x_regs y_regs))
+    )
+    remainder))
 
 ;;;; Rules for `srem` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -790,13 +847,17 @@
 ;; I64 signed remainder - basic implementation for simple cases
 ;; For now, only handle cases where divisor fits in 32 bits
 ;; I64 signed remainder not yet implemented for riscv32 (needs complex register pair arithmetic)
-;; (rule 2 (lower (has_type $I64 (srem x y)))
-;;   ...)
+;;;; Rules for `srem` i64 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; (rule 3 (lower (has_type $I64 (srem x y @ (iconst imm))))
-;;   (if-let true (has_m))
-;;   (if (safe_divisor_from_imm64 $I64 imm))
-;;   (rv_rem x y))
+(rule 4 (lower (has_type $I64 (srem x y)))
+  (if-let true (has_m))
+  (let (
+      (x_regs ValueRegs x)
+      (y_regs ValueRegs y)
+      (y_safe ValueRegs (safe_sdiv_divisor_i64 x_regs y_regs))
+      (remainder ValueRegs (rem_i64_signed_inst x_regs y_safe))
+    )
+    remainder))
 
 ;;;; Rules for `and` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (rule -1 (lower (has_type (fits_in_64 ty) (band x y)))

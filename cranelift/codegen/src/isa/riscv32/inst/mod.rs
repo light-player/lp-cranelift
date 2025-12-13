@@ -702,6 +702,102 @@ fn riscv32_get_operands(inst: &mut Inst, collector: &mut impl OperandVisitor) {
             collector.reg_def(dst);
         }
         Inst::SequencePoint { .. } => {}
+
+        Inst::DivI64U {
+            dividend,
+            divisor,
+            quotient,
+            rem,
+            counter,
+        } => {
+            // Inputs: dividend and divisor register pairs
+            for reg in dividend.regs_mut() {
+                collector.reg_use(reg);
+            }
+            for reg in divisor.regs_mut() {
+                collector.reg_use(reg);
+            }
+            // Outputs: quotient register pair
+            for reg in quotient.regs_mut() {
+                collector.reg_early_def(reg); // Use early_def to prevent overlap with inputs
+            }
+            // Temps: rem and counter (clobbered)
+            for reg in rem.regs_mut() {
+                collector.reg_early_def(reg);
+            }
+            collector.reg_early_def(counter);
+        }
+
+        Inst::DivI64S {
+            dividend,
+            divisor,
+            quotient,
+            rem,
+            counter,
+            sign,
+        } => {
+            // Similar to DivI64U, plus sign temp
+            for reg in dividend.regs_mut() {
+                collector.reg_use(reg);
+            }
+            for reg in divisor.regs_mut() {
+                collector.reg_use(reg);
+            }
+            for reg in quotient.regs_mut() {
+                collector.reg_early_def(reg);
+            }
+            for reg in rem.regs_mut() {
+                collector.reg_early_def(reg);
+            }
+            collector.reg_early_def(counter);
+            collector.reg_early_def(sign);
+        }
+
+        Inst::RemI64U {
+            dividend,
+            divisor,
+            remainder,
+            quotient,
+            counter,
+        } => {
+            for reg in dividend.regs_mut() {
+                collector.reg_use(reg);
+            }
+            for reg in divisor.regs_mut() {
+                collector.reg_use(reg);
+            }
+            for reg in remainder.regs_mut() {
+                collector.reg_early_def(reg);
+            }
+            for reg in quotient.regs_mut() {
+                collector.reg_early_def(reg);
+            }
+            collector.reg_early_def(counter);
+        }
+
+        Inst::RemI64S {
+            dividend,
+            divisor,
+            remainder,
+            quotient,
+            counter,
+            sign,
+        } => {
+            for reg in dividend.regs_mut() {
+                collector.reg_use(reg);
+            }
+            for reg in divisor.regs_mut() {
+                collector.reg_use(reg);
+            }
+            for reg in remainder.regs_mut() {
+                collector.reg_early_def(reg);
+            }
+            for reg in quotient.regs_mut() {
+                collector.reg_early_def(reg);
+            }
+            collector.reg_early_def(counter);
+            collector.reg_early_def(sign);
+        }
     }
 }
 
@@ -1709,6 +1805,66 @@ impl Inst {
 
             Inst::SequencePoint {} => {
                 format!("sequence_point")
+            }
+
+            &Inst::DivI64U {
+                dividend,
+                divisor,
+                quotient,
+                ..
+            } => {
+                let dividend_regs = format_regs(dividend.regs());
+                let divisor_regs = format_regs(divisor.regs());
+                let quotient_regs = format_regs(quotient.regs());
+                format!(
+                    "div.i64u {}, {} -> {}",
+                    dividend_regs, divisor_regs, quotient_regs
+                )
+            }
+
+            &Inst::DivI64S {
+                dividend,
+                divisor,
+                quotient,
+                ..
+            } => {
+                let dividend_regs = format_regs(dividend.regs());
+                let divisor_regs = format_regs(divisor.regs());
+                let quotient_regs = format_regs(quotient.regs());
+                format!(
+                    "div.i64s {}, {} -> {}",
+                    dividend_regs, divisor_regs, quotient_regs
+                )
+            }
+
+            &Inst::RemI64U {
+                dividend,
+                divisor,
+                remainder,
+                ..
+            } => {
+                let dividend_regs = format_regs(dividend.regs());
+                let divisor_regs = format_regs(divisor.regs());
+                let remainder_regs = format_regs(remainder.regs());
+                format!(
+                    "rem.i64u {}, {} -> {}",
+                    dividend_regs, divisor_regs, remainder_regs
+                )
+            }
+
+            &Inst::RemI64S {
+                dividend,
+                divisor,
+                remainder,
+                ..
+            } => {
+                let dividend_regs = format_regs(dividend.regs());
+                let divisor_regs = format_regs(divisor.regs());
+                let remainder_regs = format_regs(remainder.regs());
+                format!(
+                    "rem.i64s {}, {} -> {}",
+                    dividend_regs, divisor_regs, remainder_regs
+                )
             }
         }
     }

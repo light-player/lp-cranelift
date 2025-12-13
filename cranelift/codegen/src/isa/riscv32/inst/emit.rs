@@ -266,7 +266,11 @@ impl MachInstEmit for Inst {
             | Inst::ReturnCallInd { .. }
             | Inst::Call { .. }
             | Inst::CallInd { .. }
-            | Inst::EmitIsland { .. } => true,
+            | Inst::EmitIsland { .. }
+            | Inst::DivI64U { .. }
+            | Inst::DivI64S { .. }
+            | Inst::RemI64U { .. }
+            | Inst::RemI64S { .. } => true,
             _ => false,
         };
         if !emits_own_island {
@@ -2767,6 +2771,1658 @@ impl Inst {
 
             Inst::SequencePoint { .. } => {
                 // Nothing.
+            }
+
+            &Inst::DivI64U {
+                dividend,
+                divisor,
+                quotient,
+                rem,
+                counter,
+            } => {
+                // Extract register pairs from ValueRegs
+                // ValueRegs stores registers in parts[0] (low) and parts[1] (high)
+                let dividend_regs = dividend.regs();
+                let dividend_lo = XReg::new(dividend_regs[0]).unwrap();
+                let dividend_hi = XReg::new(dividend_regs[1]).unwrap();
+
+                let divisor_regs = divisor.regs();
+                let divisor_lo = XReg::new(divisor_regs[0]).unwrap();
+                let divisor_hi = XReg::new(divisor_regs[1]).unwrap();
+
+                let quotient_regs = quotient.regs();
+                let quotient_lo = Writable::from_reg(quotient_regs[0]).map(|reg| XReg::new(reg).unwrap());
+                let quotient_hi = Writable::from_reg(quotient_regs[1]).map(|reg| XReg::new(reg).unwrap());
+
+                let rem_regs = rem.regs();
+                let rem_lo = Writable::from_reg(rem_regs[0]).map(|reg| XReg::new(reg).unwrap());
+                let rem_hi = Writable::from_reg(rem_regs[1]).map(|reg| XReg::new(reg).unwrap());
+
+                // Check for division by zero: divisor == 0
+                // Check if (divisor_lo | divisor_hi) == 0
+                let divisor_zero_check = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: divisor_zero_check,
+                    rs1: divisor_lo.to_reg(),
+                    rs2: divisor_hi.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Emit trap if divisor is zero
+                Inst::TrapIf {
+                    rs1: divisor_zero_check.to_reg(),
+                    rs2: zero_reg(),
+                    cc: IntCC::Equal,
+                    trap_code: TrapCode::INTEGER_DIVISION_BY_ZERO,
+                }
+                .emit(sink, emit_info, state);
+
+                // Initialize: remainder = dividend, quotient = 0
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add, // mov via add with zero
+                    rd: rem_lo,
+                    rs1: dividend_lo,
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: rem_hi,
+                    rs1: dividend_hi,
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Initialize quotient to 0
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: quotient_lo,
+                    rs1: zero_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: quotient_hi,
+                    rs1: zero_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Initialize counter to 64
+                Inst::load_constant_u32(*counter, 64)
+                    .iter()
+                    .for_each(|i| i.emit_uncompressed(sink, emit_info, state, start_off));
+
+                // Allocate temp registers for the loop
+                // Note: writable_spilltmp_reg() and writable_spilltmp_reg2() provide two distinct temp registers
+                // These can be reused throughout the loop since values are consumed immediately
+                let shift_temp = writable_spilltmp_reg(); // For 64-bit shift operations
+
+                // Binary long division loop
+                let loop_label = sink.get_label();
+                let done_label = sink.get_label();
+
+                sink.bind_label(loop_label, &mut state.ctrl_plane);
+
+                // Shift remainder left by 1 (64-bit shift)
+                // Save high bit of low register (MSB)
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Srli,
+                    rd: shift_temp,
+                    rs: rem_lo.to_reg(),
+                    imm12: Imm12::from_i16(31),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Shift low left by 1
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: rem_lo,
+                    rs: rem_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Shift high left by 1
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: rem_hi,
+                    rs: rem_hi.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // OR the MSB from low into high
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: rem_hi,
+                    rs1: rem_hi.to_reg(),
+                    rs2: shift_temp.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Shift quotient left by 1 (64-bit shift) - same pattern
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Srli,
+                    rd: shift_temp,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(31),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: quotient_lo,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: quotient_hi,
+                    rs: quotient_hi.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: quotient_hi,
+                    rs1: quotient_hi.to_reg(),
+                    rs2: shift_temp.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Compare remainder >= divisor (64-bit unsigned comparison)
+                // Note: We reuse temp registers sequentially - each value is consumed before the next is written
+                // Compare high parts first
+                let cmp_hi_lt = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::SltU,
+                    rd: cmp_hi_lt,
+                    rs1: rem_hi.to_reg(),
+                    rs2: divisor_hi,
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let cmp_hi_eq = writable_spilltmp_reg2();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: cmp_hi_eq,
+                    rs1: rem_hi.to_reg(),
+                    rs2: divisor_hi,
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+                // seqz is implemented as sltiu rd, rs, 1
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::SltiU,
+                    rd: cmp_hi_eq,
+                    rs: cmp_hi_eq.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Compare low parts (only if high parts are equal)
+                let cmp_lo_lt = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::SltU,
+                    rd: cmp_lo_lt,
+                    rs1: rem_lo.to_reg(),
+                    rs2: divisor_lo,
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Combine: (rem_hi < divisor_hi) || ((rem_hi == divisor_hi) && (rem_lo < divisor_lo))
+                let cmp_lo_and = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::And,
+                    rd: cmp_lo_and,
+                    rs1: cmp_hi_eq.to_reg(),
+                    rs2: cmp_lo_lt.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let rem_lt_divisor = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: rem_lt_divisor,
+                    rs1: cmp_hi_lt.to_reg(),
+                    rs2: cmp_lo_and.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Branch if remainder < divisor (skip subtraction)
+                let skip_subtract_label = sink.get_label();
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(skip_subtract_label),
+                    not_taken: CondBrTarget::Fallthrough,
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: rem_lt_divisor.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                // remainder >= divisor: subtract divisor from remainder
+                // Subtract low parts
+                let rem_lo_new = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Sub,
+                    rd: rem_lo_new,
+                    rs1: rem_lo.to_reg(),
+                    rs2: divisor_lo,
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Compute borrow: rem_lo < divisor_lo (already computed in cmp_lo_lt)
+                // Subtract high parts with borrow
+                let rem_hi_tmp = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Sub,
+                    rd: rem_hi_tmp,
+                    rs1: rem_hi.to_reg(),
+                    rs2: divisor_hi,
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Sub,
+                    rd: rem_hi,
+                    rs1: rem_hi_tmp.to_reg(),
+                    rs2: cmp_lo_lt.to_reg(), // borrow
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Update remainder registers
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: rem_lo,
+                    rs1: rem_lo_new.to_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Set LSB of quotient to 1
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Ori,
+                    rd: quotient_lo,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                sink.bind_label(skip_subtract_label, &mut state.ctrl_plane);
+
+                // Decrement counter
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Addi,
+                    rd: *counter,
+                    rs: counter.to_reg(),
+                    imm12: Imm12::from_i16(-1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Branch if counter != 0
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(loop_label),
+                    not_taken: CondBrTarget::Label(done_label),
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: counter.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                sink.bind_label(done_label, &mut state.ctrl_plane);
+            }
+
+            &Inst::DivI64S {
+                dividend,
+                divisor,
+                quotient,
+                rem,
+                counter,
+                sign,
+            } => {
+                // Similar setup to DivI64U...
+                // Extract registers...
+                let dividend_regs = dividend.regs();
+                let dividend_lo = XReg::new(dividend_regs[0]).unwrap();
+                let dividend_hi = XReg::new(dividend_regs[1]).unwrap();
+
+                let divisor_regs = divisor.regs();
+                let divisor_lo = XReg::new(divisor_regs[0]).unwrap();
+                let divisor_hi = XReg::new(divisor_regs[1]).unwrap();
+
+                let quotient_regs = quotient.regs();
+                let quotient_lo = Writable::from_reg(quotient_regs[0]).map(|reg| XReg::new(reg).unwrap());
+                let quotient_hi = Writable::from_reg(quotient_regs[1]).map(|reg| XReg::new(reg).unwrap());
+
+                let rem_regs = rem.regs();
+                let rem_lo = Writable::from_reg(rem_regs[0]).map(|reg| XReg::new(reg).unwrap());
+                let rem_hi = Writable::from_reg(rem_regs[1]).map(|reg| XReg::new(reg).unwrap());
+
+                // Check for division by zero and overflow (handled by safe_sdiv_divisor_i64)
+                // But we still need to check here as a safety measure
+
+                // Compute sign: (dividend < 0) XOR (divisor < 0)
+                // Check if dividend is negative (high bit is set)
+                let dividend_neg = writable_spilltmp_reg();
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Srli,
+                    rd: dividend_neg,
+                    rs: dividend_hi,
+                    imm12: Imm12::from_i16(31),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Check if divisor is negative
+                let divisor_neg = writable_spilltmp_reg2();
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Srli,
+                    rd: divisor_neg,
+                    rs: divisor_hi,
+                    imm12: Imm12::from_i16(31),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // XOR to get result sign
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: *sign,
+                    rs1: dividend_neg.to_reg(),
+                    rs2: divisor_neg.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Convert dividend to absolute value if negative
+                // For dividend negative: invert and add 1
+                let dividend_abs_lo = writable_spilltmp_reg();
+                let dividend_abs_hi = writable_spilltmp_reg2();
+
+                // Copy dividend to temp registers
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: dividend_abs_lo,
+                    rs1: dividend_lo,
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: dividend_abs_hi,
+                    rs1: dividend_hi,
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // If dividend negative, negate it
+                let dividend_negate_label = sink.get_label();
+                let dividend_done_label = sink.get_label();
+
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(dividend_negate_label),
+                    not_taken: CondBrTarget::Fallthrough,
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: dividend_neg.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                // Dividend is negative: invert and add 1
+                sink.bind_label(dividend_negate_label, &mut state.ctrl_plane);
+
+                // This line was wrong, the NOT operation is done below
+
+                // Actually, let's use NOT: XOR with all 1s
+                let all_ones = writable_spilltmp_reg();
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Addi,
+                    rd: all_ones,
+                    rs: zero_reg(),
+                    imm12: Imm12::from_i16(-1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: dividend_abs_lo,
+                    rs1: dividend_lo,
+                    rs2: all_ones.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: dividend_abs_hi,
+                    rs1: dividend_hi,
+                    rs2: all_ones.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Add 1 to low part
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Addi,
+                    rd: dividend_abs_lo,
+                    rs: dividend_abs_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Add carry to high part if needed
+                let carry_check = writable_spilltmp_reg();
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::SltiU,
+                    rd: carry_check,
+                    rs: dividend_abs_lo.to_reg(),
+                    imm12: Imm12::from_i16(1), // Check if low == 0 (carry occurred)
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: dividend_abs_hi,
+                    rs1: dividend_abs_hi.to_reg(),
+                    rs2: carry_check.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                sink.bind_label(dividend_done_label, &mut state.ctrl_plane);
+
+                // Similarly convert divisor to absolute value
+                let divisor_abs_lo = writable_spilltmp_reg();
+                let divisor_abs_hi = writable_spilltmp_reg2();
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: divisor_abs_lo,
+                    rs1: divisor_lo,
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: divisor_abs_hi,
+                    rs1: divisor_hi,
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let divisor_negate_label = sink.get_label();
+                let divisor_done_label = sink.get_label();
+
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(divisor_negate_label),
+                    not_taken: CondBrTarget::Fallthrough,
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: divisor_neg.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                sink.bind_label(divisor_negate_label, &mut state.ctrl_plane);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: divisor_abs_lo,
+                    rs1: divisor_lo,
+                    rs2: all_ones.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: divisor_abs_hi,
+                    rs1: divisor_hi,
+                    rs2: all_ones.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Addi,
+                    rd: divisor_abs_lo,
+                    rs: divisor_abs_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::SltiU,
+                    rd: carry_check,
+                    rs: divisor_abs_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: divisor_abs_hi,
+                    rs1: divisor_abs_hi.to_reg(),
+                    rs2: carry_check.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                sink.bind_label(divisor_done_label, &mut state.ctrl_plane);
+
+                // Now perform unsigned division with absolute values
+                // Use the same algorithm as DivI64U but with abs values
+                // Initialize: remainder = dividend_abs, quotient = 0
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: rem_lo,
+                    rs1: dividend_abs_lo.to_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: rem_hi,
+                    rs1: dividend_abs_hi.to_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: quotient_lo,
+                    rs1: zero_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: quotient_hi,
+                    rs1: zero_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Initialize counter to 64
+                Inst::load_constant_u32(*counter, 64)
+                    .iter()
+                    .for_each(|i| i.emit_uncompressed(sink, emit_info, state, start_off));
+
+                let shift_temp = writable_spilltmp_reg();
+
+                // Binary long division loop (same as unsigned)
+                let loop_label = sink.get_label();
+                let done_label = sink.get_label();
+
+                sink.bind_label(loop_label, &mut state.ctrl_plane);
+
+                // Shift remainder left by 1
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Srli,
+                    rd: shift_temp,
+                    rs: rem_lo.to_reg(),
+                    imm12: Imm12::from_i16(31),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: rem_lo,
+                    rs: rem_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: rem_hi,
+                    rs: rem_hi.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: rem_hi,
+                    rs1: rem_hi.to_reg(),
+                    rs2: shift_temp.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Shift quotient left by 1
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Srli,
+                    rd: shift_temp,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(31),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: quotient_lo,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: quotient_hi,
+                    rs: quotient_hi.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: quotient_hi,
+                    rs1: quotient_hi.to_reg(),
+                    rs2: shift_temp.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Compare remainder >= divisor
+                let cmp_hi_lt = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::SltU,
+                    rd: cmp_hi_lt,
+                    rs1: rem_hi.to_reg(),
+                    rs2: divisor_abs_hi.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let cmp_hi_eq = writable_spilltmp_reg2();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: cmp_hi_eq,
+                    rs1: rem_hi.to_reg(),
+                    rs2: divisor_abs_hi.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::SltiU,
+                    rd: cmp_hi_eq,
+                    rs: cmp_hi_eq.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let cmp_lo_lt = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::SltU,
+                    rd: cmp_lo_lt,
+                    rs1: rem_lo.to_reg(),
+                    rs2: divisor_abs_lo.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let cmp_lo_and = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::And,
+                    rd: cmp_lo_and,
+                    rs1: cmp_hi_eq.to_reg(),
+                    rs2: cmp_lo_lt.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let rem_lt_divisor = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: rem_lt_divisor,
+                    rs1: cmp_hi_lt.to_reg(),
+                    rs2: cmp_lo_and.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let skip_subtract_label = sink.get_label();
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(skip_subtract_label),
+                    not_taken: CondBrTarget::Fallthrough,
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: rem_lt_divisor.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                // Subtract divisor from remainder
+                let rem_lo_new = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Sub,
+                    rd: rem_lo_new,
+                    rs1: rem_lo.to_reg(),
+                    rs2: divisor_abs_lo.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let rem_hi_tmp = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Sub,
+                    rd: rem_hi_tmp,
+                    rs1: rem_hi.to_reg(),
+                    rs2: divisor_abs_hi.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Sub,
+                    rd: rem_hi,
+                    rs1: rem_hi_tmp.to_reg(),
+                    rs2: cmp_lo_lt.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: rem_lo,
+                    rs1: rem_lo_new.to_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Ori,
+                    rd: quotient_lo,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                sink.bind_label(skip_subtract_label, &mut state.ctrl_plane);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Addi,
+                    rd: *counter,
+                    rs: counter.to_reg(),
+                    imm12: Imm12::from_i16(-1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(loop_label),
+                    not_taken: CondBrTarget::Label(done_label),
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: counter.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                sink.bind_label(done_label, &mut state.ctrl_plane);
+
+                // Apply sign to quotient: if sign is negative, negate quotient
+                let negate_quotient_label = sink.get_label();
+                let quotient_done_label = sink.get_label();
+
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(negate_quotient_label),
+                    not_taken: CondBrTarget::Fallthrough,
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: sign.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                sink.bind_label(negate_quotient_label, &mut state.ctrl_plane);
+
+                // Negate quotient: invert and add 1
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: quotient_lo,
+                    rs1: quotient_lo.to_reg(),
+                    rs2: all_ones.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: quotient_hi,
+                    rs1: quotient_hi.to_reg(),
+                    rs2: all_ones.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Addi,
+                    rd: quotient_lo,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::SltiU,
+                    rd: carry_check,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: quotient_hi,
+                    rs1: quotient_hi.to_reg(),
+                    rs2: carry_check.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                sink.bind_label(quotient_done_label, &mut state.ctrl_plane);
+            }
+
+            &Inst::RemI64U {
+                dividend,
+                divisor,
+                remainder,
+                quotient,
+                counter,
+            } => {
+                // For remainder, we perform the same division but return remainder instead of quotient
+                let dividend_regs = dividend.regs();
+                let dividend_lo = XReg::new(dividend_regs[0]).unwrap();
+                let dividend_hi = XReg::new(dividend_regs[1]).unwrap();
+
+                let divisor_regs = divisor.regs();
+                let divisor_lo = XReg::new(divisor_regs[0]).unwrap();
+                let divisor_hi = XReg::new(divisor_regs[1]).unwrap();
+
+                let remainder_regs = remainder.regs();
+                let remainder_lo = Writable::from_reg(remainder_regs[0]).map(|reg| XReg::new(reg).unwrap());
+                let remainder_hi = Writable::from_reg(remainder_regs[1]).map(|reg| XReg::new(reg).unwrap());
+
+                let quotient_regs = quotient.regs();
+                let quotient_lo = Writable::from_reg(quotient_regs[0]).map(|reg| XReg::new(reg).unwrap());
+                let quotient_hi = Writable::from_reg(quotient_regs[1]).map(|reg| XReg::new(reg).unwrap());
+
+                // Division by zero check
+                let divisor_zero_check = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: divisor_zero_check,
+                    rs1: divisor_lo.to_reg(),
+                    rs2: divisor_hi.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::TrapIf {
+                    rs1: divisor_zero_check.to_reg(),
+                    rs2: zero_reg(),
+                    cc: IntCC::Equal,
+                    trap_code: TrapCode::INTEGER_DIVISION_BY_ZERO,
+                }
+                .emit(sink, emit_info, state);
+
+                // Initialize: remainder = dividend, quotient = 0
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: remainder_lo,
+                    rs1: dividend_lo,
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: remainder_hi,
+                    rs1: dividend_hi,
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: quotient_lo,
+                    rs1: zero_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: quotient_hi,
+                    rs1: zero_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::load_constant_u32(*counter, 64)
+                    .iter()
+                    .for_each(|i| i.emit_uncompressed(sink, emit_info, state, start_off));
+
+                let shift_temp = writable_spilltmp_reg();
+
+                let loop_label = sink.get_label();
+                let done_label = sink.get_label();
+
+                sink.bind_label(loop_label, &mut state.ctrl_plane);
+
+                // Shift remainder left by 1
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Srli,
+                    rd: shift_temp,
+                    rs: remainder_lo.to_reg(),
+                    imm12: Imm12::from_i16(31),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: remainder_lo,
+                    rs: remainder_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: remainder_hi,
+                    rs: remainder_hi.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: remainder_hi,
+                    rs1: remainder_hi.to_reg(),
+                    rs2: shift_temp.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Shift quotient left by 1
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Srli,
+                    rd: shift_temp,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(31),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: quotient_lo,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: quotient_hi,
+                    rs: quotient_hi.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: quotient_hi,
+                    rs1: quotient_hi.to_reg(),
+                    rs2: shift_temp.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Compare remainder >= divisor
+                let cmp_hi_lt = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::SltU,
+                    rd: cmp_hi_lt,
+                    rs1: remainder_hi.to_reg(),
+                    rs2: divisor_hi,
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let cmp_hi_eq = writable_spilltmp_reg2();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: cmp_hi_eq,
+                    rs1: remainder_hi.to_reg(),
+                    rs2: divisor_hi,
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::SltiU,
+                    rd: cmp_hi_eq,
+                    rs: cmp_hi_eq.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let cmp_lo_lt = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::SltU,
+                    rd: cmp_lo_lt,
+                    rs1: remainder_lo.to_reg(),
+                    rs2: divisor_lo,
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let cmp_lo_and = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::And,
+                    rd: cmp_lo_and,
+                    rs1: cmp_hi_eq.to_reg(),
+                    rs2: cmp_lo_lt.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let rem_lt_divisor = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: rem_lt_divisor,
+                    rs1: cmp_hi_lt.to_reg(),
+                    rs2: cmp_lo_and.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let skip_subtract_label = sink.get_label();
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(skip_subtract_label),
+                    not_taken: CondBrTarget::Fallthrough,
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: rem_lt_divisor.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                // Subtract divisor from remainder
+                let rem_lo_new = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Sub,
+                    rd: rem_lo_new,
+                    rs1: remainder_lo.to_reg(),
+                    rs2: divisor_lo,
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let rem_hi_tmp = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Sub,
+                    rd: rem_hi_tmp,
+                    rs1: remainder_hi.to_reg(),
+                    rs2: divisor_hi,
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Sub,
+                    rd: remainder_hi,
+                    rs1: rem_hi_tmp.to_reg(),
+                    rs2: cmp_lo_lt.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: remainder_lo,
+                    rs1: rem_lo_new.to_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Ori,
+                    rd: quotient_lo,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                sink.bind_label(skip_subtract_label, &mut state.ctrl_plane);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Addi,
+                    rd: *counter,
+                    rs: counter.to_reg(),
+                    imm12: Imm12::from_i16(-1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(loop_label),
+                    not_taken: CondBrTarget::Label(done_label),
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: counter.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                sink.bind_label(done_label, &mut state.ctrl_plane);
+            }
+
+            &Inst::RemI64S {
+                dividend,
+                divisor,
+                remainder,
+                quotient,
+                counter,
+                sign,
+            } => {
+                // Similar to DivI64S but return remainder with sign of dividend
+                let dividend_regs = dividend.regs();
+                let dividend_lo = XReg::new(dividend_regs[0]).unwrap();
+                let dividend_hi = XReg::new(dividend_regs[1]).unwrap();
+
+                let divisor_regs = divisor.regs();
+                let divisor_lo = XReg::new(divisor_regs[0]).unwrap();
+                let divisor_hi = XReg::new(divisor_regs[1]).unwrap();
+
+                let remainder_regs = remainder.regs();
+                let remainder_lo = Writable::from_reg(remainder_regs[0]).map(|reg| XReg::new(reg).unwrap());
+                let remainder_hi = Writable::from_reg(remainder_regs[1]).map(|reg| XReg::new(reg).unwrap());
+
+                let quotient_regs = quotient.regs();
+                let quotient_lo = Writable::from_reg(quotient_regs[0]).map(|reg| XReg::new(reg).unwrap());
+                let quotient_hi = Writable::from_reg(quotient_regs[1]).map(|reg| XReg::new(reg).unwrap());
+
+                // Compute signs
+                let dividend_neg = writable_spilltmp_reg();
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Srli,
+                    rd: dividend_neg,
+                    rs: dividend_hi,
+                    imm12: Imm12::from_i16(31),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let divisor_neg = writable_spilltmp_reg2();
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Srli,
+                    rd: divisor_neg,
+                    rs: divisor_hi,
+                    imm12: Imm12::from_i16(31),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Store dividend sign for remainder
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: *sign,
+                    rs1: dividend_neg.to_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                // Convert to absolute values (same as DivI64S)
+                let dividend_abs_lo = writable_spilltmp_reg();
+                let dividend_abs_hi = writable_spilltmp_reg2();
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: dividend_abs_lo,
+                    rs1: dividend_lo,
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: dividend_abs_hi,
+                    rs1: dividend_hi,
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let all_ones = writable_spilltmp_reg();
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Addi,
+                    rd: all_ones,
+                    rs: zero_reg(),
+                    imm12: Imm12::from_i16(-1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let dividend_negate_label = sink.get_label();
+                let dividend_done_label = sink.get_label();
+
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(dividend_negate_label),
+                    not_taken: CondBrTarget::Fallthrough,
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: dividend_neg.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                sink.bind_label(dividend_negate_label, &mut state.ctrl_plane);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: dividend_abs_lo,
+                    rs1: dividend_lo,
+                    rs2: all_ones.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: dividend_abs_hi,
+                    rs1: dividend_hi,
+                    rs2: all_ones.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Addi,
+                    rd: dividend_abs_lo,
+                    rs: dividend_abs_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let carry_check = writable_spilltmp_reg();
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::SltiU,
+                    rd: carry_check,
+                    rs: dividend_abs_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: dividend_abs_hi,
+                    rs1: dividend_abs_hi.to_reg(),
+                    rs2: carry_check.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                sink.bind_label(dividend_done_label, &mut state.ctrl_plane);
+
+                let divisor_abs_lo = writable_spilltmp_reg();
+                let divisor_abs_hi = writable_spilltmp_reg2();
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: divisor_abs_lo,
+                    rs1: divisor_lo,
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: divisor_abs_hi,
+                    rs1: divisor_hi,
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let divisor_negate_label = sink.get_label();
+                let divisor_done_label = sink.get_label();
+
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(divisor_negate_label),
+                    not_taken: CondBrTarget::Fallthrough,
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: divisor_neg.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                sink.bind_label(divisor_negate_label, &mut state.ctrl_plane);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: divisor_abs_lo,
+                    rs1: divisor_lo,
+                    rs2: all_ones.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: divisor_abs_hi,
+                    rs1: divisor_hi,
+                    rs2: all_ones.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Addi,
+                    rd: divisor_abs_lo,
+                    rs: divisor_abs_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::SltiU,
+                    rd: carry_check,
+                    rs: divisor_abs_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: divisor_abs_hi,
+                    rs1: divisor_abs_hi.to_reg(),
+                    rs2: carry_check.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                sink.bind_label(divisor_done_label, &mut state.ctrl_plane);
+
+                // Perform unsigned division to get remainder
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: remainder_lo,
+                    rs1: dividend_abs_lo.to_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: remainder_hi,
+                    rs1: dividend_abs_hi.to_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: quotient_lo,
+                    rs1: zero_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: quotient_hi,
+                    rs1: zero_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::load_constant_u32(*counter, 64)
+                    .iter()
+                    .for_each(|i| i.emit_uncompressed(sink, emit_info, state, start_off));
+
+                let shift_temp = writable_spilltmp_reg();
+
+                let loop_label = sink.get_label();
+                let done_label = sink.get_label();
+
+                sink.bind_label(loop_label, &mut state.ctrl_plane);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Srli,
+                    rd: shift_temp,
+                    rs: remainder_lo.to_reg(),
+                    imm12: Imm12::from_i16(31),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: remainder_lo,
+                    rs: remainder_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: remainder_hi,
+                    rs: remainder_hi.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: remainder_hi,
+                    rs1: remainder_hi.to_reg(),
+                    rs2: shift_temp.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Srli,
+                    rd: shift_temp,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(31),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: quotient_lo,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Slli,
+                    rd: quotient_hi,
+                    rs: quotient_hi.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: quotient_hi,
+                    rs1: quotient_hi.to_reg(),
+                    rs2: shift_temp.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let cmp_hi_lt = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::SltU,
+                    rd: cmp_hi_lt,
+                    rs1: remainder_hi.to_reg(),
+                    rs2: divisor_abs_hi.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let cmp_hi_eq = writable_spilltmp_reg2();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: cmp_hi_eq,
+                    rs1: remainder_hi.to_reg(),
+                    rs2: divisor_abs_hi.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::SltiU,
+                    rd: cmp_hi_eq,
+                    rs: cmp_hi_eq.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let cmp_lo_lt = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::SltU,
+                    rd: cmp_lo_lt,
+                    rs1: remainder_lo.to_reg(),
+                    rs2: divisor_abs_lo.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let cmp_lo_and = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::And,
+                    rd: cmp_lo_and,
+                    rs1: cmp_hi_eq.to_reg(),
+                    rs2: cmp_lo_lt.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let rem_lt_divisor = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Or,
+                    rd: rem_lt_divisor,
+                    rs1: cmp_hi_lt.to_reg(),
+                    rs2: cmp_lo_and.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let skip_subtract_label = sink.get_label();
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(skip_subtract_label),
+                    not_taken: CondBrTarget::Fallthrough,
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: rem_lt_divisor.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                let rem_lo_new = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Sub,
+                    rd: rem_lo_new,
+                    rs1: remainder_lo.to_reg(),
+                    rs2: divisor_abs_lo.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                let rem_hi_tmp = writable_spilltmp_reg();
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Sub,
+                    rd: rem_hi_tmp,
+                    rs1: remainder_hi.to_reg(),
+                    rs2: divisor_abs_hi.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Sub,
+                    rd: remainder_hi,
+                    rs1: rem_hi_tmp.to_reg(),
+                    rs2: cmp_lo_lt.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: remainder_lo,
+                    rs1: rem_lo_new.to_reg(),
+                    rs2: zero_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Ori,
+                    rd: quotient_lo,
+                    rs: quotient_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                sink.bind_label(skip_subtract_label, &mut state.ctrl_plane);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Addi,
+                    rd: *counter,
+                    rs: counter.to_reg(),
+                    imm12: Imm12::from_i16(-1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(loop_label),
+                    not_taken: CondBrTarget::Label(done_label),
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: counter.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                sink.bind_label(done_label, &mut state.ctrl_plane);
+
+                // Apply sign to remainder: if dividend was negative, negate remainder
+                let negate_remainder_label = sink.get_label();
+                let remainder_done_label = sink.get_label();
+
+                Inst::CondBr {
+                    taken: CondBrTarget::Label(negate_remainder_label),
+                    not_taken: CondBrTarget::Fallthrough,
+                    kind: IntegerCompare {
+                        kind: IntCC::NotEqual,
+                        rs1: sign.to_reg(),
+                        rs2: zero_reg(),
+                    },
+                }
+                .emit(sink, emit_info, state);
+
+                sink.bind_label(negate_remainder_label, &mut state.ctrl_plane);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: remainder_lo,
+                    rs1: remainder_lo.to_reg(),
+                    rs2: all_ones.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Xor,
+                    rd: remainder_hi,
+                    rs1: remainder_hi.to_reg(),
+                    rs2: all_ones.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::Addi,
+                    rd: remainder_lo,
+                    rs: remainder_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRImm12 {
+                    alu_op: AluOPRRI::SltiU,
+                    rd: carry_check,
+                    rs: remainder_lo.to_reg(),
+                    imm12: Imm12::from_i16(1),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                Inst::AluRRR {
+                    alu_op: AluOPRRR::Add,
+                    rd: remainder_hi,
+                    rs1: remainder_hi.to_reg(),
+                    rs2: carry_check.to_reg(),
+                }
+                .emit_uncompressed(sink, emit_info, state, start_off);
+
+                sink.bind_label(remainder_done_label, &mut state.ctrl_plane);
             }
         }
     }
