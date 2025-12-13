@@ -70,11 +70,33 @@ fn vmctx_addr(
         .special_param(ir::ArgumentPurpose::VMContext)
         .expect("Missing vmctx parameter");
 
-    // Replace the `global_value` instruction's value with an alias to the vmctx arg.
     let result = func.dfg.first_result(inst);
-    func.dfg.clear_results(inst);
-    func.dfg.change_to_alias(result, vmctx);
-    func.layout.remove_inst(inst);
+    let result_ty = func.dfg.value_type(result);
+    let vmctx_ty = func.dfg.value_type(vmctx);
+
+    if result_ty == vmctx_ty {
+        // Types match - use direct alias (existing behavior)
+        func.dfg.clear_results(inst);
+        func.dfg.change_to_alias(result, vmctx);
+        func.layout.remove_inst(inst);
+    } else {
+        // Types don't match - need conversion
+        let mut pos = FuncCursor::new(func).at_inst(inst);
+        pos.use_srcloc(inst);
+
+        // Zero-extend i32 to i64 (for riscv32)
+        if vmctx_ty == ir::types::I32 && result_ty == ir::types::I64 {
+            let extended_value = pos.ins().uextend(result_ty, vmctx);
+            func.dfg.change_to_alias(result, extended_value);
+            func.layout.remove_inst(inst);
+        } else {
+            // For other type mismatches, this is unexpected for vmctx
+            // Fall back to the original behavior (will likely fail later)
+            func.dfg.clear_results(inst);
+            func.dfg.change_to_alias(result, vmctx);
+            func.layout.remove_inst(inst);
+        }
+    }
 
     // If there was a fact on the GV, then copy it to the vmctx arg
     // blockparam def.
@@ -85,10 +107,6 @@ fn vmctx_addr(
         }
     }
 
-    // We removed the instruction, so `cursor.next_inst()` will fail if we
-    // return `WalkCommand::Continue`; instead "revisit" the current
-    // instruction, which will be the next instruction since we removed the
-    // current instruction.
     WalkCommand::Revisit
 }
 

@@ -51,7 +51,7 @@ pub fn find_symbol_address(
 
 /// Apply a single relocation to code bytes.
 fn apply_single_relocation(
-    reloc: object::Relocation,
+    reloc: &object::Relocation,
     reloc_offset: u64,
     section_load_addr: u64,
     code_bytes: &mut [u8],
@@ -236,16 +236,33 @@ fn apply_relocations(
     text_section_id: object::SectionIndex,
     text_section_base: u64,
 ) -> Result<(), String> {
-    // Build symbol map (name -> address relative to text section base)
+    // Build comprehensive symbol map (name -> address)
     let mut symbol_map: HashMap<String, u32> = HashMap::new();
+
+    // Include ALL symbols, not just Text
     for symbol in obj.symbols() {
-        if symbol.kind() == object::SymbolKind::Text {
-            if let Ok(name) = symbol.name() {
-                let addr = symbol.address();
-                if addr >= text_section_base {
-                    let offset = (addr - text_section_base) as u32;
-                    symbol_map.insert(name.to_string(), offset);
-                }
+        if let Ok(name) = symbol.name() {
+            if name.is_empty() {
+                continue; // Skip unnamed symbols
+            }
+
+            let addr = symbol.address();
+            let symbol_kind = symbol.kind();
+
+            // For symbols in text section, use relative offset
+            if addr >= text_section_base {
+                let offset = (addr - text_section_base) as u32;
+                symbol_map.insert(name.to_string(), offset);
+            } else {
+                // For symbols in other sections, store absolute address
+                // These will be handled differently during relocation
+                symbol_map.insert(format!("{}_abs", name), addr as u32);
+            }
+
+            // Also store the original symbol regardless of address
+            // This handles cases where symbols might be at address 0 or in different sections
+            if !symbol_map.contains_key(name) {
+                symbol_map.insert(name.to_string(), addr as u32);
             }
         }
     }
@@ -256,13 +273,34 @@ fn apply_relocations(
             let section_load_addr = section.address();
             for (reloc_offset, reloc) in section.relocations() {
                 apply_single_relocation(
-                    reloc,
+                    &reloc,
                     reloc_offset,
                     section_load_addr,
                     code_bytes,
                     &symbol_map,
                     obj,
-                )?;
+                )
+                .map_err(|e| {
+                    // Add context about which symbol failed
+                    use object::{RelocationFlags, RelocationTarget};
+                    match reloc.target() {
+                        RelocationTarget::Symbol(sym_idx) => {
+                            if let Ok(sym) = obj.symbol_by_index(sym_idx) {
+                                if let Ok(name) = sym.name() {
+                                    return format!(
+                                        "{} (symbol: '{}', offset: 0x{:x})",
+                                        e, name, reloc_offset
+                                    );
+                                }
+                            }
+                            format!(
+                                "{} (symbol index: {}, offset: 0x{:x})",
+                                e, sym_idx.0, reloc_offset
+                            )
+                        }
+                        _ => format!("{} (offset: 0x{:x})", e, reloc_offset),
+                    }
+                })?;
             }
             break;
         }

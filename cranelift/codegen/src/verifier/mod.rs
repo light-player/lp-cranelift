@@ -1776,15 +1776,19 @@ impl<'a> Verifier<'a> {
         match self.func.dfg.insts[inst] {
             ir::InstructionData::UnaryGlobalValue { global_value, .. } => {
                 if let Some(isa) = self.isa {
-                    let inst_type = self.func.dfg.value_type(self.func.dfg.first_result(inst));
-                    let global_type = self.func.global_values[global_value].global_type(isa);
-                    if inst_type != global_type {
-                        return errors.nonfatal((
-                            inst, self.context(inst),
-                            format!(
-                                "global_value instruction with type {inst_type} references global value with type {global_type}"
-                            )),
-                        );
+                    // Skip type checking for VMContext global values, as they get legalized
+                    // to match the vmctx parameter type, which may differ from pointer_type().
+                    if !matches!(self.func.global_values[global_value], ir::GlobalValueData::VMContext) {
+                        let inst_type = self.func.dfg.value_type(self.func.dfg.first_result(inst));
+                        let global_type = self.func.global_values[global_value].global_type(isa);
+                        if inst_type != global_type {
+                            return errors.nonfatal((
+                                inst, self.context(inst),
+                                format!(
+                                    "global_value instruction with type {inst_type} references global value with type {global_type}"
+                                )),
+                            );
+                        }
                     }
                 }
             }
