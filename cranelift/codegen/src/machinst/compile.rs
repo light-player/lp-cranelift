@@ -61,21 +61,23 @@ pub fn compile<B: LowerBackend + TargetIsa>(
         for iix in 0..vcode.num_insts() {
             let inst_idx = InsnIndex::new(iix);
             let mut inst = vcode[inst_idx].clone();
-            let mut invalid_regs = Vec::new();
+            let mut invalid_regs: Vec<(usize, Reg, String)> = Vec::new();
             inst.get_operands(&mut |reg: &mut Reg, _, _, _| {
-                if let Some(vreg) = reg.to_virtual_reg() {
+                if reg.is_invalid_sentinel() {
+                    invalid_regs.push((iix, reg.clone(), String::from("invalid_sentinel")));
+                } else if let Some(vreg) = reg.to_virtual_reg() {
                     let index = vreg.index();
                     // Check for suspiciously large indices that indicate corruption
                     if index >= 1000000 {  // Much larger than typical VReg counts
-                        invalid_regs.push((iix, reg.clone(), index));
+                        invalid_regs.push((iix, reg.clone(), format!("VReg index {}", index)));
                     }
                 }
             });
             if !invalid_regs.is_empty() {
                 log::error!("Found invalid register indices in VCode before regalloc:");
                 log::error!("  Instruction {}: {:?}", iix, inst);
-                for (inst_idx, reg, index) in invalid_regs {
-                    log::error!("  Inst {}: Reg {:?} has VReg index {}", inst_idx, reg, index);
+                for (inst_idx, reg, reason) in invalid_regs {
+                    log::error!("  Inst {}: Reg {:?} - {}", inst_idx, reg, reason);
                 }
                 panic!("Invalid register indices detected before register allocation");
             }
