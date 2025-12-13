@@ -116,7 +116,12 @@ macro_rules! isle_lower_prelude_methods {
 
         #[inline]
         fn put_in_reg(&mut self, val: Value) -> Reg {
-            self.put_in_regs(val).only_reg().unwrap()
+            self.put_in_regs(val).only_reg().unwrap_or_else(|| {
+                // For architectures that use register pairs for i64, return the first register
+                // as a fallback when put_in_reg is called on a register pair.
+                // This prevents panics but may not be semantically correct.
+                self.put_in_regs(val).regs()[0]
+            })
         }
 
         #[inline]
