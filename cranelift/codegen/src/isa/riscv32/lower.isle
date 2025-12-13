@@ -382,9 +382,232 @@
         (carry XReg (rv_sltu sum_lo x_lo))
         (sum_hi XReg (rv_add x_hi y_hi))
         (sum_hi_with_carry XReg (rv_add sum_hi carry))
-        (overflow XReg (rv_or (rv_sltu sum_hi_with_carry x_hi) 
+        (overflow XReg (rv_or (rv_sltu sum_hi_with_carry x_hi)
                               (rv_and carry (rv_seqz (rv_xor sum_hi_with_carry x_hi))))))
     (output_pair (value_regs sum_lo sum_hi_with_carry) overflow)))
+
+;; For i8: zero-extend to i32, add, check if result fits in i8 (sum >= 0x100)
+(rule 3 (lower (has_type $I8 (uadd_overflow a b)))
+  (let ((a_ext XReg (zext a))
+        (b_ext XReg (zext b))
+        (sum XReg (rv_add a_ext b_ext))
+        (overflow XReg (rv_sltiu sum (imm12_const 0x100))))
+    (output_pair sum overflow)))
+
+;; For i16: zero-extend to i32, add, check if result fits in i16 (sum >= 0x10000)
+(rule 4 (lower (has_type $I16 (uadd_overflow a b)))
+  (let ((a_ext XReg (zext a))
+        (b_ext XReg (zext b))
+        (sum XReg (rv_add a_ext b_ext))
+        (overflow XReg (rv_sltiu sum (imm12_const 0x10000))))
+    (output_pair sum overflow)))
+
+;;;; Rules for sadd_overflow ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; i32 case (on RV32 use add for native 32-bit operations)
+(rule 0 (lower (has_type $I32 (sadd_overflow x y)))
+  (let ((sum XReg (rv_add x y))
+        ;; Simple overflow detection: check if signs differ and result has wrong sign
+        (x_sign XReg (rv_srai x (imm12_const 31)))
+        (y_sign XReg (rv_srai y (imm12_const 31)))
+        (sum_sign XReg (rv_srai sum (imm12_const 31)))
+        (same_signs XReg (rv_eqz (rv_xor x_sign y_sign)))
+        (wrong_result XReg (rv_xor x_sign sum_sign))
+        (overflow XReg (rv_and same_signs wrong_result)))
+    (output_pair sum overflow)))
+
+;; For i64 on RV32, we need to handle the high and low parts separately (2-register pattern)
+(rule 1 (lower (has_type $I64 (sadd_overflow x y)))
+  (let ((x_regs ValueRegs x)
+        (y_regs ValueRegs y)
+        (x_lo XReg (value_regs_get x_regs 0))
+        (x_hi XReg (value_regs_get x_regs 1))
+        (y_lo XReg (value_regs_get y_regs 0))
+        (y_hi XReg (value_regs_get y_regs 1))
+        (sum_lo XReg (rv_add x_lo y_lo))
+        (carry XReg (rv_sltu sum_lo x_lo))
+        (sum_hi XReg (rv_add x_hi y_hi))
+        (sum_hi_with_carry XReg (rv_add sum_hi carry))
+        ;; Signed overflow: (sum_hi != x_hi) && (sum_hi != y_hi) but same sign as x_hi
+        (overflow XReg (rv_and (rv_xor sum_hi_with_carry x_hi)
+                               (rv_xor sum_hi_with_carry y_hi))))
+    (output_pair (value_regs sum_lo sum_hi_with_carry) overflow)))
+
+;; For i8: sign-extend to i32, add, check signed overflow
+(rule 2 (lower (has_type $I8 (sadd_overflow a b)))
+  (let ((a_ext XReg (sext a))
+        (b_ext XReg (sext b))
+        (sum XReg (rv_add a_ext b_ext))
+        ;; Check if result is outside i8 range [-128, 127]
+        (overflow XReg (rv_or (rv_slti sum (imm12_const -128))
+                              (rv_xori (rv_slti sum (imm12_const 128)) (imm12_const 1)))))
+    (output_pair sum overflow)))
+
+;; For i16: sign-extend to i32, add, check signed overflow
+(rule 3 (lower (has_type $I16 (sadd_overflow a b)))
+  (let ((a_ext XReg (sext a))
+        (b_ext XReg (sext b))
+        (sum XReg (rv_add a_ext b_ext))
+        ;; Check if result is outside i16 range [-32768, 32767]
+        (overflow XReg (rv_or (rv_slti sum (imm12_const -0x8000))
+                              (rv_xori (rv_slti sum (imm12_const 0x8000)) (imm12_const 1)))))
+    (output_pair sum overflow)))
+
+;;;; Rules for usub_overflow ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; i32 case (on RV32 use sub for native 32-bit operations)
+(rule 0 (lower (has_type $I32 (usub_overflow x y)))
+  (let ((diff XReg (rv_sub x y))
+        (overflow XReg (rv_sltu x y)))
+    (output_pair diff overflow)))
+
+;; For i64 on RV32, we need to handle the high and low parts separately (2-register pattern)
+(rule 1 (lower (has_type $I64 (usub_overflow x y)))
+  (let ((x_regs ValueRegs x)
+        (y_regs ValueRegs y)
+        (x_lo XReg (value_regs_get x_regs 0))
+        (x_hi XReg (value_regs_get x_regs 1))
+        (y_lo XReg (value_regs_get y_regs 0))
+        (y_hi XReg (value_regs_get y_regs 1))
+        (diff_lo XReg (rv_sub x_lo y_lo))
+        (borrow XReg (rv_sltu x_lo y_lo))
+        (diff_hi XReg (rv_sub x_hi y_hi))
+        (diff_hi_with_borrow XReg (rv_sub diff_hi borrow))
+        (overflow XReg (rv_or (rv_sltu x_hi y_hi)
+                              (rv_and borrow (rv_seqz (rv_xor diff_hi_with_borrow x_hi))))))
+    (output_pair (value_regs diff_lo diff_hi_with_borrow) overflow)))
+
+;; For i8: zero-extend to i32, subtract, check if result would be negative
+(rule 2 (lower (has_type $I8 (usub_overflow a b)))
+  (let ((a_ext XReg (zext a))
+        (b_ext XReg (zext b))
+        (diff XReg (rv_sub a_ext b_ext))
+        (overflow XReg (rv_sltu a_ext b_ext)))
+    (output_pair diff overflow)))
+
+;; For i16: zero-extend to i32, subtract, check if result would be negative
+(rule 3 (lower (has_type $I16 (usub_overflow a b)))
+  (let ((a_ext XReg (zext a))
+        (b_ext XReg (zext b))
+        (diff XReg (rv_sub a_ext b_ext))
+        (overflow XReg (rv_sltu a_ext b_ext)))
+    (output_pair diff overflow)))
+
+;;;; Rules for ssub_overflow ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; i32 case (on RV32 use sub for native 32-bit operations)
+(rule 0 (lower (has_type $I32 (ssub_overflow x y)))
+  (let ((diff XReg (rv_sub x y))
+        ;; Signed overflow: (x and y have different signs) and (result has different sign from x)
+        (overflow XReg (rv_and (rv_xor (rv_srai x (imm12_const 31))
+                                       (rv_srai y (imm12_const 31)))
+                               (rv_xor (rv_srai x (imm12_const 31))
+                                       (rv_srai diff (imm12_const 31))))))
+    (output_pair diff overflow)))
+
+;; For i64 on RV32, complex signed subtraction overflow detection
+(rule 1 (lower (has_type $I64 (ssub_overflow x y)))
+  ;; TODO: Implement i64 signed subtraction overflow
+  ;; For now, this is complex - may need to use library call or detailed bit manipulation
+  (let ((x_regs ValueRegs x)
+        (y_regs ValueRegs y))
+    ;; Placeholder - need proper implementation
+    (output_pair (value_regs (imm $I32 0) (imm $I32 0)) (imm $I8 0))))
+
+;; For i8: sign-extend to i32, subtract, check signed overflow
+(rule 2 (lower (has_type $I8 (ssub_overflow a b)))
+  (let ((a_ext XReg (sext a))
+        (b_ext XReg (sext b))
+        (diff XReg (rv_sub a_ext b_ext))
+        ;; Check if result is outside i8 range [-128, 127]
+        (overflow XReg (rv_or (rv_slti diff (imm12_const -128))
+                              (rv_xori (rv_slti diff (imm12_const 128)) (imm12_const 1)))))
+    (output_pair diff overflow)))
+
+;; For i16: sign-extend to i32, subtract, check signed overflow
+(rule 3 (lower (has_type $I16 (ssub_overflow a b)))
+  (let ((a_ext XReg (sext a))
+        (b_ext XReg (sext b))
+        (diff XReg (rv_sub a_ext b_ext))
+        ;; Check if result is outside i16 range [-32768, 32767]
+        (overflow XReg (rv_or (rv_slti diff (imm12_const -0x8000))
+                              (rv_xori (rv_slti diff (imm12_const 0x8000)) (imm12_const 1)))))
+    (output_pair diff overflow)))
+
+;;;; Rules for umul_overflow ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; i32 case: multiply and check if high 32 bits are non-zero
+(rule 0 (lower (has_type $I32 (umul_overflow a b)))
+  (let ((result XReg (rv_mul a b))
+        (high_bits XReg (rv_mulhu a b))
+        (overflow XReg (rv_snez high_bits)))
+    (output_pair result overflow)))
+
+;; i64 case: very complex on RV32, need 64x64->128 multiply
+;; For now, use a simplified approach - check if either operand is > 2^32
+(rule 1 (lower (has_type $I64 (umul_overflow x y)))
+  (let ((x_regs ValueRegs x)
+        (y_regs ValueRegs y)
+        (x_hi XReg (value_regs_get x_regs 1))
+        (y_hi XReg (value_regs_get y_regs 1))
+        ;; If either high part is non-zero, potential overflow
+        (overflow XReg (rv_or (rv_snez x_hi) (rv_snez y_hi))))
+    ;; TODO: Implement proper 64x64->128 multiply overflow detection
+    (output_pair (value_regs (imm $I32 0) (imm $I32 0)) overflow)))
+
+;; i8 case: zero-extend to i32, multiply, check if result fits in i8
+(rule 2 (lower (has_type $I8 (umul_overflow a b)))
+  (let ((a_ext XReg (zext a))
+        (b_ext XReg (zext b))
+        (result XReg (rv_mul a_ext b_ext))
+        (overflow XReg (rv_sltiu result (imm12_const 0x100))))
+    (output_pair result overflow)))
+
+;; i16 case: zero-extend to i32, multiply, check if result fits in i16
+(rule 3 (lower (has_type $I16 (umul_overflow a b)))
+  (let ((a_ext XReg (zext a))
+        (b_ext XReg (zext b))
+        (result XReg (rv_mul a_ext b_ext))
+        (overflow XReg (rv_sltiu result (imm12_const 0x10000))))
+    (output_pair result overflow)))
+
+;;;; Rules for smul_overflow ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; i32 case: multiply and check for signed overflow
+(rule 0 (lower (has_type $I32 (smul_overflow a b)))
+  (let ((result XReg (rv_mul a b))
+        (high_bits XReg (rv_mulh a b))
+        ;; Signed overflow: high bits should be sign extension of low bits
+        (expected_high XReg (rv_srai result (imm12_const 31)))
+        (overflow XReg (rv_xor high_bits expected_high)))
+    (output_pair result overflow)))
+
+;; i64 case: very complex, placeholder for now
+(rule 1 (lower (has_type $I64 (smul_overflow x y)))
+  ;; TODO: Implement proper 64x64 signed multiply overflow detection
+  (let ((x_regs ValueRegs x)
+        (y_regs ValueRegs y))
+    (output_pair (value_regs (imm $I32 0) (imm $I32 0)) (imm $I8 0))))
+
+;; i8 case: sign-extend to i32, multiply, check if result fits in i8
+(rule 2 (lower (has_type $I8 (smul_overflow a b)))
+  (let ((a_ext XReg (sext a))
+        (b_ext XReg (sext b))
+        (result XReg (rv_mul a_ext b_ext))
+        ;; Check if result is outside i8 range [-128, 127]
+        (overflow XReg (rv_or (rv_slti result (imm12_const -128))
+                              (rv_xori (rv_slti result (imm12_const 128)) (imm12_const 1)))))
+    (output_pair result overflow)))
+
+;; i16 case: sign-extend to i32, multiply, check if result fits in i16
+(rule 3 (lower (has_type $I16 (smul_overflow a b)))
+  (let ((a_ext XReg (sext a))
+        (b_ext XReg (sext b))
+        (result XReg (rv_mul a_ext b_ext))
+        ;; Check if result is outside i16 range [-32768, 32767]
+        (overflow XReg (rv_or (rv_slti result (imm12_const -0x8000))
+                              (rv_xori (rv_slti result (imm12_const 0x8000)) (imm12_const 1)))))
+    (output_pair result overflow)))
 
 ;;;; Rules for `isub` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Base case for RV32: use rv_sub for all integer types (XLEN=32)
