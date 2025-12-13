@@ -108,6 +108,17 @@ impl Memory {
             });
         }
 
+        // Prevent writes to address 0 (null pointer)
+        if address == 0 {
+            return Err(EmulatorError::InvalidMemoryAccess {
+                address,
+                size: 4,
+                kind: MemoryAccessKind::Write,
+                pc: 0, // Will be filled in by caller
+                regs: [0; 32],
+            });
+        }
+
         // Only allow writes to RAM region
         if address < self.ram_start {
             return Err(EmulatorError::InvalidMemoryAccess {
@@ -216,6 +227,17 @@ impl Memory {
 
     /// Write a byte to memory.
     pub fn write_byte(&mut self, address: u32, value: i8) -> Result<(), EmulatorError> {
+        // Prevent writes to address 0 (null pointer)
+        if address == 0 {
+            return Err(EmulatorError::InvalidMemoryAccess {
+                address,
+                size: 1,
+                kind: MemoryAccessKind::Write,
+                pc: 0,
+                regs: [0; 32],
+            });
+        }
+
         // Only allow writes to RAM region
         if address < self.ram_start {
             return Err(EmulatorError::InvalidMemoryAccess {
@@ -249,6 +271,17 @@ impl Memory {
             return Err(EmulatorError::UnalignedAccess {
                 address,
                 alignment: 2,
+                pc: 0,
+                regs: [0; 32],
+            });
+        }
+
+        // Prevent writes to address 0 (null pointer)
+        if address == 0 {
+            return Err(EmulatorError::InvalidMemoryAccess {
+                address,
+                size: 2,
+                kind: MemoryAccessKind::Write,
                 pc: 0,
                 regs: [0; 32],
             });

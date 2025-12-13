@@ -295,8 +295,10 @@ impl EmulatorExecutor {
                 .with_log_level(lp_riscv_tools::emu::LogLevel::Instructions);
 
         // Set up stack pointer (stack starts at top of RAM, grows downward)
-        let stack_base = ram_size as u32;
-        emulator.set_register(Gpr::Sp, stack_base as i32);
+        // Note: call_function will override this, but we set it here for consistency
+        let stack_base = lp_riscv_tools::emu::emulator::DEFAULT_RAM_START + ram_size as u32;
+        let stack_pointer = stack_base - 16; // 16-byte aligned, with some space
+        emulator.set_register(Gpr::Sp, stack_pointer as i32);
         emulator.set_pc(0);
 
         Ok(Self {

@@ -15,6 +15,9 @@ use crate::Gpr;
 use cranelift_codegen::data_value::DataValue;
 use cranelift_codegen::ir::Signature;
 
+/// Default RAM start address (0x80000000, matching embive's RAM_OFFSET).
+pub const DEFAULT_RAM_START: u32 = 0x80000000;
+
 /// Result of a single step.
 #[derive(Debug, Clone)]
 pub enum StepResult {
