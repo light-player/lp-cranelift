@@ -2357,8 +2357,12 @@
 
 ;;;;;  Rules for `stack_addr`;;;;;;;;;
 (rule
-  (lower (stack_addr ss offset))
+  (lower (has_type $I32 (stack_addr ss offset)))
   (gen_stack_addr ss offset))
+
+(rule
+  (lower (has_type $I64 (stack_addr ss offset)))
+  (value_regs (gen_stack_addr ss offset) (imm $I32 0)))
 
 ;;;;;  Rules for `select`;;;;;;;;;
 
