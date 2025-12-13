@@ -18,7 +18,7 @@ use crate::scoped_hash_map::{Entry as ScopedEntry, ScopedHashMap};
 use crate::settings::Flags;
 use crate::take_and_replace::TakeAndReplace;
 use crate::trace;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use core::cmp::Ordering;
 use core::hash::Hasher;
 use cranelift_control::ControlPlane;

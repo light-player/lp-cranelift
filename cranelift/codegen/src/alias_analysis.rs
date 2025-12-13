@@ -61,6 +61,7 @@
 //! must be correct likely reduce the potential benefit, we don't yet
 //! do this.
 
+use alloc::vec;
 use crate::{
     cursor::{Cursor, FuncCursor},
     dominator_tree::DominatorTree,

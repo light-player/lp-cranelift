@@ -185,10 +185,8 @@ use core::cmp::Ordering;
 use cranelift_control::ControlPlane;
 use cranelift_entity::{PrimaryMap, SecondaryMap, entity_impl};
 use smallvec::SmallVec;
-use alloc::collections::BinaryHeap;
+use alloc::{collections::BinaryHeap, format, string::String, vec, vec::Vec};
 use core::mem;
-use alloc::string::String;
-use alloc::vec::Vec;
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};

@@ -1571,7 +1571,7 @@
 
 ;; On RV32, extending to I64 requires 2 registers
 (rule 1 (lower (has_type $I64 (uextend val)))
-  (value_regs val (imm $I32 0)))
+  (value_regs val (xreg_to_reg (zero_reg))))
 
 (rule 2 (lower (has_type $I128 (uextend val)))
   (value_regs (zext val) (imm $I64 0)))

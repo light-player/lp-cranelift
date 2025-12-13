@@ -9,8 +9,7 @@ use crate::ir::immediates::Ieee128;
 use crate::ir::pcc::Fact;
 use crate::ir::{Block, DataFlowGraph, Function, Inst, Opcode, SigRef, Type, Value, ValueDef};
 use crate::packed_option::ReservedValue;
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
+use alloc::{format, string::{String, ToString}, vec, vec::Vec};
 use core::fmt::{self, Write};
 
 /// A `FuncWriter` used to decorate functions during printing.

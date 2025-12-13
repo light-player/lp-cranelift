@@ -15,8 +15,7 @@ use crate::ir::Signature;
 use crate::isa::riscv32::settings::Flags as RiscvFlags;
 use crate::isa::unwind::UnwindInst;
 use crate::settings;
-use alloc::boxed::Box;
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec, vec::Vec};
 use regalloc2::{MachineEnv, PReg, PRegSet};
 
 use alloc::borrow::ToOwned;

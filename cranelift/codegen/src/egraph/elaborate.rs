@@ -11,7 +11,7 @@ use crate::ir::{Block, Function, Inst, Value, ValueDef};
 use crate::loop_analysis::{Loop, LoopAnalysis};
 use crate::scoped_hash_map::ScopedHashMap;
 use crate::trace;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use cranelift_control::ControlPlane;
 use cranelift_entity::{SecondaryMap, packed_option::ReservedValue};
 use crate::{FxHashMap, FxHashSet};

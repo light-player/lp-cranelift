@@ -80,9 +80,7 @@ use crate::isa::{CallConv, TargetIsa};
 use crate::print_errors::pretty_verifier_error;
 use crate::settings::FlagsOrIsa;
 use crate::timing;
-use alloc::collections::BTreeSet;
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
+use alloc::{collections::BTreeSet, format, string::{String, ToString}, vec, vec::Vec};
 use core::fmt::{self, Display, Formatter};
 
 /// A verifier error.

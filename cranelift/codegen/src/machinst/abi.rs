@@ -108,7 +108,7 @@ use crate::isa::TargetIsa;
 use crate::settings::ProbestackStrategy;
 use crate::{ir, isa};
 use crate::{machinst::*, trace};
-use alloc::boxed::Box;
+use alloc::{boxed::Box, format, vec, vec::Vec};
 use core::marker::PhantomData;
 use regalloc2::{MachineEnv, PReg, PRegSet};
 use smallvec::smallvec;

@@ -22,7 +22,7 @@ use crate::machinst::{
 };
 use crate::settings::Flags;
 use crate::{CodegenError, CodegenResult, trace};
-use alloc::vec::Vec;
+use alloc::{format, vec, vec::Vec};
 use cranelift_control::ControlPlane;
 use crate::{FxHashMap, FxHashSet};
 use smallvec::{SmallVec, smallvec};

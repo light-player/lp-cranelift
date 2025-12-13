@@ -31,6 +31,7 @@ use regalloc2::{
 };
 use crate::FxHashMap;
 
+use alloc::{format, vec, vec::Vec};
 use core::cmp::Ordering;
 use core::fmt::{self, Write};
 use core::mem::take;

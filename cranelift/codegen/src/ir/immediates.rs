@@ -4,7 +4,7 @@
 //! Each type here should have a corresponding definition in the
 //! `cranelift-codegen/meta/src/shared/immediates` crate in the meta language.
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use core::cmp::Ordering;
 use core::fmt::{self, Display, Formatter};
 use core::ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Sub};

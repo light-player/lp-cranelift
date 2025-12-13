@@ -19,7 +19,7 @@
 use crate::ir::entities::{ExceptionTag, SigRef};
 use crate::ir::instructions::ValueListPool;
 use crate::ir::{BlockCall, Value};
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use core::fmt::{self, Display, Formatter};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};

@@ -5,7 +5,7 @@ use crate::flowgraph::{BlockPredecessor, ControlFlowGraph};
 use crate::ir::{Block, Function, Layout, ProgramPoint};
 use crate::packed_option::PackedOption;
 use crate::timing;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use core::cmp;
 use core::cmp::Ordering;
 use core::mem;
