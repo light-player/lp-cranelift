@@ -1274,7 +1274,7 @@
 (rule (lower (has_type (fits_in_32 ty) (cls x)))
   (let ((tmp XReg (sext x))
         (tmp2 XReg (gen_select_xreg (cmp_ltz tmp) (rv_not tmp) tmp))
-        (tmp3 XReg (gen_clz tmp2)))
+        (tmp3 XReg (gen_cltz true tmp2 $I32)))
     ;; clz counted the full register width, so subtract (32-$width), and then
     ;; additionally subtract one more, meaning here -33+width is added.
     (rv_addi tmp3 (imm12_const_add (ty_bits ty) -33))))
@@ -2136,11 +2136,27 @@
 ;;;;;  Rules for `bitselect`;;;;;;;;;
 
 ;; Do a (c & x) | (~c & y) operation.
-(rule 0 (lower (has_type (ty_int_ref_scalar_64 ty) (bitselect c x y)))
+(rule 0 (lower (has_type (fits_in_32 (ty_int ty)) (bitselect c x y)))
   (let ((tmp_x XReg (rv_and c x))
         (c_inverse XReg (rv_not c))
         (tmp_y XReg (rv_and c_inverse y)))
     (rv_or tmp_x tmp_y)))
+
+;; I64 bitselect using register pairs
+(rule 1 (lower (has_type $I64 (bitselect c x y)))
+  (let ((c_low XReg (value_regs_get c 0))
+        (c_high XReg (value_regs_get c 1))
+        (x_low XReg (value_regs_get x 0))
+        (x_high XReg (value_regs_get x 1))
+        (y_low XReg (value_regs_get y 0))
+        (y_high XReg (value_regs_get y 1)))
+    (let ((tmp_x_low XReg (rv_and c_low x_low))
+          (tmp_x_high XReg (rv_and c_high x_high))
+          (c_inverse_low XReg (rv_not c_low))
+          (c_inverse_high XReg (rv_not c_high))
+          (tmp_y_low XReg (rv_and c_inverse_low y_low))
+          (tmp_y_high XReg (rv_and c_inverse_high y_high)))
+      (value_regs (rv_or tmp_x_low tmp_y_low) (rv_or tmp_x_high tmp_y_high)))))
 
 ;; For vectors, we also do the same operation.
 ;; We can technically use any type in the bitwise operations, but prefer
