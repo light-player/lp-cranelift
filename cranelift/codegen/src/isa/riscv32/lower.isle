@@ -1229,12 +1229,12 @@
 (rule 1 (lower (has_type $I64 (clz x)))
   (let ((x_lo XReg (value_regs_get x 0))
         (x_hi XReg (value_regs_get x 1))
-        ;; Count both halves
-        (high XReg (gen_clz x_hi))
-        (low XReg (gen_clz x_lo))
-        ;; Only add the bottom zeros if the top half is zero
-        (low XReg (gen_select_xreg (cmp_eqz x_hi) low (zero_reg))))
-    (value_regs (rv_add high low) (imm $I32 0))))
+        ;; Count leading zeros in each 32-bit half
+        (high XReg (gen_cltz true x_hi $I32))
+        (low XReg (gen_cltz true x_lo $I32))
+        ;; If high half is zero, add low half zeros, otherwise just return high half zeros
+        (result XReg (gen_select_xreg (cmp_eqz x_hi) (rv_add high low) high)))
+    (value_regs result (imm $I32 0))))
 
 (rule 2 (lower (has_type $I128 (clz x)))
   (let ((x_lo XReg (value_regs_get x 0))

@@ -3059,7 +3059,10 @@
 (rule 0 (gen_bmask val @ (value_type (fits_in_64 _)))
   (let ((non_zero XReg (rv_snez (sext val))))
     (rv_neg non_zero)))
-(rule 1 (gen_bmask val @ (value_type $I128))
+(rule 1 (gen_bmask val @ (value_type $I64))
+  (let ((non_zero XReg (rv_snez (rv_or (value_regs_get val 0) (value_regs_get val 1)))))
+    (rv_neg non_zero)))
+(rule 2 (gen_bmask val @ (value_type $I128))
   (let ((non_zero XReg (rv_snez (rv_or (value_regs_get val 0) (value_regs_get val 1)))))
     (rv_neg non_zero)))
 
@@ -3067,13 +3070,16 @@
 ;; be omitted because the result of the icmp or fcmp is a 0 or 1 directly. This
 ;; means we can go straight to the `neg` instruction to produce the final
 ;; result.
-(rule 2 (gen_bmask val @ (maybe_uextend (icmp _ _ _))) (rv_neg val))
-(rule 2 (gen_bmask val @ (maybe_uextend (fcmp _ _ _))) (rv_neg val))
+(rule 3 (gen_bmask val @ (maybe_uextend (icmp _ _ _))) (rv_neg val))
+(rule 4 (gen_bmask val @ (maybe_uextend (fcmp _ _ _))) (rv_neg val))
 
 (decl lower_bmask (Value Type) ValueRegs)
 (rule 0 (lower_bmask val (fits_in_64 _))
   (value_reg (gen_bmask val)))
-(rule 1 (lower_bmask val $I128)
+(rule 1 (lower_bmask val $I64)
+  (let ((bits XReg (gen_bmask val)))
+    (value_regs bits bits)))
+(rule 2 (lower_bmask val $I128)
   (let ((bits XReg (gen_bmask val)))
     (value_regs bits bits)))
 
