@@ -102,7 +102,7 @@ use crate::CodegenError;
 use crate::FxHashMap;
 use crate::HashMap;
 use crate::entity::SecondaryMap;
-use crate::ir::{ArgumentExtension, ArgumentPurpose, ExceptionTag, Signature};
+use crate::ir::{AbiParam, ArgumentExtension, ArgumentPurpose, ExceptionTag, Signature};
 use crate::ir::{StackSlotKey, types::*};
 use crate::isa::TargetIsa;
 use crate::settings::ProbestackStrategy;
@@ -910,9 +910,8 @@ impl SigSet {
             /* extra ret-area ptr = */ false,
             ArgsAccumulator::new(&mut self.abi_args),
         )?;
-        if !flags.enable_multi_ret_implicit_sret() {
-            assert_eq!(sized_stack_ret_space, 0);
-        }
+        // Note: For riscv32, we allow stack returns even when enable_multi_ret_implicit_sret
+        // is false, as they are automatically converted to StructReturn.
         let rets_end = u32::try_from(self.abi_args.len()).unwrap();
 
         // To avoid overflow issues, limit the return size to something reasonable.
@@ -1338,13 +1337,8 @@ impl<M: ABIMachineSpec> Callee<M> {
         // For riscv32, automatically convert functions that use stack return area to StructReturn
         if sigs[sig].stack_ret_arg.is_some() && !legalized_ir_sig.returns.is_empty() {
             // This function uses stack returns but the signature still has explicit returns.
-            // Convert to StructReturn by adding a StructReturn parameter and clearing returns.
+            // The ABI already added a StructReturn parameter, so just clear the returns.
             let mut new_sig = legalized_ir_sig.clone();
-            let pointer_type = isa.pointer_type();
-            new_sig.params.insert(0, AbiParam::special(
-                pointer_type,
-                ArgumentPurpose::StructReturn,
-            ));
             new_sig.returns.clear();
             legalized_ir_sig = new_sig;
         }

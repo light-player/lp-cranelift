@@ -1284,18 +1284,19 @@
 (extern constructor bseti_imm bseti_imm)
 
 ;;;; Rules for `xor` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(rule 0 (lower (has_type (fits_in_64 (ty_int ty)) (bxor x y)))
+(rule 0 (lower (has_type (ty_reg_pair _) (bxor x y)))
+  (lower_i64_binary (AluOPRRR.Xor) x y))
+
+;; General case for types that fit in RV32 registers
+(rule 1 (lower (has_type (fits_in_rv32_reg (ty_int ty)) (bxor x y)))
   (rv_xor x y))
 
 ;; Special cases for when one operand is an immediate that fits in 12 bits.
-(rule 1 (lower (has_type (fits_in_64 (ty_int ty)) (bxor x (imm12_from_value y))))
+(rule 2 (lower (has_type (fits_in_rv32_reg (ty_int ty)) (bxor x (imm12_from_value y))))
   (rv_xori x y))
 
-(rule 2 (lower (has_type (fits_in_64 (ty_int ty)) (bxor (imm12_from_value x) y)))
+(rule 3 (lower (has_type (fits_in_rv32_reg (ty_int ty)) (bxor (imm12_from_value x) y)))
   (rv_xori y x))
-
-(rule 3 (lower (has_type (ty_reg_pair _) (bxor x y)))
-  (lower_b128_binary (AluOPRRR.Xor) x y))
 
 (rule 4 (lower (has_type (ty_supported_float_size ty) (bxor x y)))
   (lower_float_binary (AluOPRRR.Xor) x y ty))

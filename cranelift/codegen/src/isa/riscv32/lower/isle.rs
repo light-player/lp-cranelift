@@ -280,8 +280,17 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
     fn ty_reg_pair(&mut self, ty: Type) -> Option<Type> {
         match ty {
             // On RV32, I64 requires a register pair
-            I64 | I128 | F128 => Some(ty),
+            I64 => Some(ty),
             _ => None,
+        }
+    }
+
+    fn fits_in_rv32_reg(&mut self, ty: Type) -> Option<Type> {
+        // On RV32, only types <= 32 bits fit in a single register
+        if ty.bits() <= 32 && !ty.is_dynamic_vector() {
+            Some(ty)
+        } else {
+            None
         }
     }
 

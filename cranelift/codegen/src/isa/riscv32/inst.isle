@@ -1061,6 +1061,9 @@
 (decl ty_reg_pair (Type) Type)
 (extern extractor ty_reg_pair ty_reg_pair)
 
+;; Helper that matches types which fit in a single RV32 register (<= 32 bits)
+(decl fits_in_rv32_reg (Type) Type)
+(extern extractor fits_in_rv32_reg fits_in_rv32_reg)
 
 ;;;; Instruction Helpers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -2213,9 +2216,9 @@
     (Zero)
     (Signed)))
 
-(decl lower_b128_binary (AluOPRRR ValueRegs ValueRegs) ValueRegs)
+(decl lower_i64_binary (AluOPRRR ValueRegs ValueRegs) ValueRegs)
 (rule
-  (lower_b128_binary op a b)
+  (lower_i64_binary op a b)
   (let
     ( ;; low part.
       (low XReg (alu_rrr op (value_regs_get a 0) (value_regs_get b 0)))

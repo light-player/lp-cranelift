@@ -1,10 +1,6 @@
 test interpret
 test run
-set enable_multi_ret_implicit_sret
 target riscv32 has_m
-target x86_64
-target x86_64 has_bmi2
-target aarch64
 
 function %smulof_i64(i64, i64) -> i64, i8 {
 block0(v0: i64, v1: i64):

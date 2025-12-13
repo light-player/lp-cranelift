@@ -11,6 +11,7 @@ This plan addresses 39 test failures when running Cranelift filetests with the r
 - **Phase 4**: ISLE panics (6 tests) - Missing patterns ✅ **COMPLETED**
 - **Phase 5**: Unsupported features (7 tests) - StructReturn, small type overflow, **f64 operations** (3 tests from Phase 4)
 - **Phase 6**: Register allocator (4 tests) - Invalid register indices (**+2 tests from Phase 4**: return-call-loop, spill-reload)
+- **Phase 6a**: Fix `fits_in_64` architecture-awareness - Root cause fix for Phase 6 regalloc issues
 - **Phase 7**: Memory access (1 test) - Stack setup issues
 - **Phase 8**: Compilation/runtime errors (2 tests) - Global value type mismatches, **runtime relocation** (call_indirect from Phase 4)
 
@@ -28,7 +29,8 @@ This plan addresses 39 test failures when running Cranelift filetests with the r
 3. **Phase 3**: Fix i64 handling (fixes 10 tests)
 4. **Phase 4**: Fix ISLE panics (fixes 6 tests)
 5. **Phase 5**: Handle unsupported features (skips 4 tests)
-6. **Phase 6**: Fix register allocator (fixes 2 tests)
+6. **Phase 6**: Fix register allocator (fixes 2 tests) - Partial: validation added
+6a. **Phase 6a**: Fix `fits_in_64` architecture-awareness (completes Phase 6 root cause fix)
 7. **Phase 7**: Fix memory access (fixes 1 test)
 8. **Phase 8**: Fix compilation errors (fixes 2 tests)
 
@@ -63,11 +65,12 @@ cargo run --bin clif-util -- test filetests/filetests/runtests/arithmetic.clif
 - Phase 3: 3-4 hours (i64 fixes)
 - Phase 4: 2-3 hours (ISLE fixes)
 - Phase 5: 1 hour (skip logic)
-- Phase 6: 2-3 hours (regalloc fixes)
+- Phase 6: 2-3 hours (regalloc fixes - partial)
+- Phase 6a: 4-6 days (architecture-aware `fits_in_64` - root cause fix)
 - Phase 7: 1 hour (memory fixes)
 - Phase 8: 1-2 hours (compilation fixes)
 
-**Total**: ~15-22 hours
+**Total**: ~15-22 hours + 4-6 days for Phase 6a
 
 ## Success Criteria
 
