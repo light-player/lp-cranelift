@@ -4,6 +4,31 @@
 
 Fix incorrect handling of i64 values that are split into two 32-bit register pairs. i64 values should be handled as (low_32bits, high_32bits) register pairs.
 
+## Current Status & Remaining Tasks
+
+### ✅ Completed
+
+- Basic i64 operations (add, sub, mul, bitwise ops, shifts, extensions)
+- i64 return value reconstruction
+- Register pair legalization rules
+- CLZ, BMASK, BITSELECT operations
+
+### 🔄 Remaining: Partial i64 Division for Fixed32 Math
+
+**Requirement**: Implement i64 sdiv i64 where divisor fits in 32 bits (sign-extended from i32)
+
+**Why**: Fixed32 (16.16) math needs `(i32 << 16) / i32` which becomes `i64 / i64` where the divisor is sign-extended from i32.
+
+**What we DON'T need**: Full i64/i64 division (arbitrary 64-bit divisors)
+
+**Tasks**:
+
+1. Implement partial i64 division legalization rule in `riscv32/lower.isle`
+2. Create `fixed32-div.clif` test file with realistic fixed32 division patterns
+3. Remove `cranelift/filetests/filetests/isa/riscv32/i64-div.clif` (full div64 test not needed)
+4. Update `i64-div.clif` to exclude riscv32 or only test partial cases
+5. Verify fixed32 GLSL shaders work correctly
+
 ## Prerequisites
 
 - Phase 2 completed: Instruction decoding works
@@ -205,10 +230,11 @@ cargo run --bin clif-util -- test filetests/filetests/runtests/arithmetic.clif 2
 ✅ **clz.clif test passes** (fixed register pair counting logic)
 ✅ **bmask.clif test passes** (added i64 legalization rules)
 ✅ **bitselect.clif test passes** (added i64 register pair operations)
-❌ i64 division/remainder operations disabled (complex register pair implementation needed - would require full 64-bit arithmetic library)
-❌ cls operations disabled (complex bit manipulation requiring register pair logic)
+🔄 **Partial i64 division support needed** (for fixed32 math - divisor fits in 32 bits)
+❌ Full i64 division/remainder operations disabled (not needed)
+❌ CLS operations disabled (complex bit manipulation requiring register pair logic)
 
-## Current Status: ✅ MAJOR SUCCESS ACHIEVED
+## Current Status: ✅ MAJOR SUCCESS - Partial Div64 Support Needed
 
 **5 out of 6 major test files now pass**, covering **all practical i64 operations**:
 
@@ -218,12 +244,7 @@ cargo run --bin clif-util -- test filetests/filetests/runtests/arithmetic.clif 2
 - ✅ bmask.clif
 - ✅ bitselect.clif
 
-**Remaining complex operations properly disabled** rather than giving wrong results:
-
-- ❌ Division/remainder operations
-- ❌ CLS operations
-
-The RISC-V32 backend now has **working i64 support for all practical use cases**! 🎉
+**Remaining work**: Partial i64 division support for fixed32 (16.16) math
 
 ## ✅ Phase 3 Complete: RISC-V32 i64 Legalization Rules Fixed
 
@@ -391,3 +412,215 @@ After fixing rule priorities, verify:
 2. Test with the i64-riscv32.clif file
 3. Ensure both "interpret" and "run" modes pass
 4. Verify V-CODE shows correct register pair operations
+
+---
+
+## Phase 3b: Partial i64 Division Support for Fixed32 Math
+
+### Goal
+
+Implement **partial i64 division support** sufficient for fixed32 (16.16) math operations. We do NOT need full i64/i64 division - only the case where the divisor fits in 32 bits.
+
+### Requirements Analysis
+
+**Fixed32 division pattern** (from `lightplayer/crates/lp-glsl/src/transform/fixed32/converters/arithmetic.rs:110-189`):
+
+```rust
+// Fixed-point division: (a << shift_amount) / safe_divisor
+// Use i64 intermediate to avoid overflow when shifting i32 left by 16
+// Sign-extend numerator to i64
+let arg1_wide = builder.ins().sextend(types::I64, arg1);
+
+// Left shift numerator in i64
+let shift_const = builder.ins().iconst(types::I64, shift_amount);
+let shifted_numerator_wide = builder.ins().ishl(arg1_wide, shift_const);
+
+// Sign-extend safe denominator to i64
+let safe_divisor_wide = builder.ins().sextend(types::I64, safe_divisor);
+
+// Divide in i64 (safe because safe_divisor is never zero)
+let div_result_wide = builder.ins().sdiv(shifted_numerator_wide, safe_divisor_wide);
+```
+
+**Key insight**: The divisor is always sign-extended from i32, so:
+
+- Dividend: Full 64-bit i64 value (can be any value)
+- Divisor: i64 that fits in 32 bits (high 32 bits are sign extension of low 32 bits)
+
+**What we need**:
+
+- ✅ **i64 sdiv i64** where divisor fits in 32 bits (sign-extended from i32)
+- ❌ Full i64/i64 division (NOT needed)
+
+### Implementation Plan
+
+#### Step 1: Implement Partial i64 Signed Division
+
+File: `cranelift/codegen/src/isa/riscv32/lower.isle`
+
+**Strategy**: Detect if divisor fits in 32 bits, then use simpler algorithm
+
+1. **Check if divisor fits in 32 bits**:
+
+   - Extract high 32 bits of divisor: `(value_regs_get y 1)`
+   - Extract low 32 bits of divisor: `(value_regs_get y 0)`
+   - Check if high bits are sign extension: `(high == 0) || (high == 0xFFFFFFFF)`
+   - If high == 0xFFFFFFFF, verify low is negative (sign bit set)
+
+2. **If divisor fits in 32 bits**:
+
+   - Use 32-bit division instruction (`rv_div`) on low 32 bits
+   - Handle 64-bit dividend by:
+     - If dividend high bits are zero: simple 32-bit division
+     - If dividend high bits are non-zero: use iterative algorithm (simpler than full 64-bit)
+
+3. **If divisor does NOT fit in 32 bits**:
+   - Trap with "unsupported" or use slow path (but fixed32 never hits this case)
+
+**Algorithm for i64 / i32 (where divisor fits in 32 bits)**:
+
+```
+// Dividend: (dividend_high, dividend_low) as register pair
+// Divisor: divisor_low (fits in 32 bits, sign-extended)
+
+// Case 1: dividend_high == 0 (dividend fits in 32 bits)
+//   result = rv_div(dividend_low, divisor_low)
+//   return (0, result) as register pair
+
+// Case 2: dividend_high != 0 (need iterative division)
+//   Use binary long division algorithm:
+//   - Initialize remainder = dividend (64 bits)
+//   - For each bit position (32 iterations, not 64):
+//     - Shift remainder left by 1
+//     - Compare remainder >= divisor
+//     - If true: remainder = remainder - divisor, set bit in quotient
+//   - Return quotient as register pair
+```
+
+#### Step 2: Create Fixed32 Division Test
+
+File: `cranelift/filetests/filetests/runtests/fixed32-div.clif` (NEW)
+
+Create test file specifically for fixed32 division patterns:
+
+```clif
+test interpret
+test run
+target riscv32 has_m
+
+;; Test i64 sdiv i64 where divisor fits in 32 bits (sign-extended)
+;; This matches the fixed32 division pattern: (i32 << 16) / i32
+
+function %fixed32_div_pattern(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    ;; Simulate fixed32 division: (a << 16) / b
+    ;; Sign-extend both to i64
+    v2 = sextend.i64 v0
+    v3 = sextend.i64 v1
+    ;; Shift numerator left by 16 (fixed32 shift)
+    v4 = iconst.i64 16
+    v5 = ishl v2, v4
+    ;; Divide: i64 / i64 where divisor fits in 32 bits
+    v6 = sdiv v5, v3
+    ;; Truncate back to i32
+    v7 = ireduce.i32 v6
+    return v7
+}
+
+; run: %fixed32_div_pattern(65536, 1) == 65536  ; 1.0 / 1.0 = 1.0
+; run: %fixed32_div_pattern(131072, 2) == 65536  ; 2.0 / 2.0 = 1.0
+; run: %fixed32_div_pattern(32768, 2) == 16384   ; 0.5 / 2.0 = 0.25
+; run: %fixed32_div_pattern(-65536, 2) == -32768 ; -1.0 / 2.0 = -0.5
+```
+
+#### Step 3: Remove Unnecessary Tests
+
+**Files to remove or update**:
+
+1. **Remove**: `cranelift/filetests/filetests/isa/riscv32/i64-div.clif`
+
+   - This file tests full i64/i64 division which we don't need
+   - It's a compile-only test with expected V-CODE comments
+
+2. **Update**: `cranelift/filetests/filetests/runtests/i64-div.clif`
+   - Remove `target riscv32 has_m` from the target list
+   - OR keep it but expect it to fail/trap for full i64/i64 division cases
+   - Keep only the cases where divisor fits in 32 bits
+
+#### Step 4: Verify Fixed32 Math Works
+
+Test the actual fixed32 transformation:
+
+```bash
+# Test fixed32 division in GLSL
+cargo test --package lp-glsl test_float_division_fixed32
+```
+
+### Implementation Details
+
+#### Helper Function: Check if Divisor Fits in 32 Bits
+
+```isle
+;; Check if an i64 value (register pair) fits in 32 bits
+;; Returns: (fits: bool, low_32bits: XReg)
+(decl divisor_fits_in_32 (ValueRegs) (Option XReg))
+(rule (divisor_fits_in_32 y)
+  (let ((high XReg (value_regs_get y 1))
+        (low XReg (value_regs_get y 0))
+        (zero XReg (zero_reg))
+        (neg_one XReg (imm $I32 0xFFFFFFFF))
+        (high_is_zero XReg (rv_seqz high))
+        (high_is_neg_one XReg (rv_seq high neg_one))
+        (low_sign_bit XReg (rv_srli low (imm12_const 31)))
+        (low_is_negative XReg (rv_seqz low_sign_bit))
+        (sign_extended XReg (rv_and high_is_neg_one low_is_negative))
+        (fits XReg (rv_or high_is_zero sign_extended)))
+    (if-let (Option::Some low) (is_one fits))
+      (Option::Some low)
+      (Option::None))))
+```
+
+#### Partial i64 Division Rule
+
+```isle
+;; Partial i64 signed division: i64 / i64 where divisor fits in 32 bits
+(rule 4 (lower (has_type $I64 (sdiv x y)))
+  (if-let true (has_m))
+  (if-let (Option::Some divisor_32) (divisor_fits_in_32 y))
+    ;; Divisor fits in 32 bits - use simpler algorithm
+    (sdiv_i64_by_i32 x divisor_32)
+    ;; Divisor doesn't fit - trap (fixed32 never hits this)
+    (trap (TrapCode.UNSUPPORTED))))
+
+;; Helper: i64 / i32 division
+(decl sdiv_i64_by_i32 (ValueRegs XReg) ValueRegs)
+(rule (sdiv_i64_by_i32 dividend divisor)
+  (let ((dividend_high XReg (value_regs_get dividend 1))
+        (dividend_low XReg (value_regs_get dividend 0))
+        (zero XReg (zero_reg))
+        (high_is_zero XReg (rv_seqz dividend_high)))
+    (if-let true (is_one high_is_zero)
+      ;; Simple case: dividend fits in 32 bits
+      (let ((quotient XReg (rv_div dividend_low divisor)))
+        (value_regs quotient zero))
+      ;; Complex case: need iterative division
+      (sdiv_i64_by_i32_iterative dividend divisor))))
+```
+
+### Success Criteria
+
+- ✅ Fixed32 division test passes (`fixed32-div.clif`)
+- ✅ Fixed32 GLSL shaders compile and run correctly
+- ✅ No unnecessary full i64/i64 division tests for riscv32
+- ✅ Partial division only handles cases where divisor fits in 32 bits
+
+### Testing Strategy
+
+1. **Create fixed32-div.clif test** with realistic fixed32 division patterns
+2. **Run test**: `cargo run --bin clif-util -- test filetests/filetests/runtests/fixed32-div.clif`
+3. **Test actual GLSL fixed32 division**:
+   ```bash
+   cargo test --package lp-glsl --test runtime_fixed_point test_float_division_fixed32
+   ```
+4. **Verify no regressions** in existing i64 tests
+5. **Remove/update unnecessary i64-div tests**
