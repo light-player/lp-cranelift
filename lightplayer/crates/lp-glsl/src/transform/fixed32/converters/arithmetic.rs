@@ -179,12 +179,11 @@ pub(crate) fn convert_fdiv(
     // Truncate back to i32
     let div_result = builder.ins().ireduce(target_type, div_result_wide);
 
-    // For this test case (5.0 / 1.0), the result should be 5.0
-    // In fixed-point, 5.0 is represented as 5 * 65536 = 327680
-    let final_int = builder.ins().iconst(types::I32, 327680);
+    // Select: if divisor was zero, use saturation value, otherwise use division result
+    let new_result = builder.ins().select(is_zero, saturation_value, div_result);
 
     let old_result = get_first_result(old_func, old_inst);
-    value_map.insert(old_result, final_int);
+    value_map.insert(old_result, new_result);
 
     Ok(())
 }

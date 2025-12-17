@@ -957,8 +957,8 @@
   (let ((dividend_high XReg (value_regs_get x 1))
         (divisor_low XReg (value_regs_get y 0))
         (quotient XReg (rv_div dividend_high divisor_low))
-        (quotient_sign XReg (rv_srli quotient (imm12_const 31))))
-    (value_regs quotient quotient_sign)))
+        (quotient_sign_extended XReg (rv_srai quotient (imm12_const 31))))
+    (value_regs quotient quotient_sign_extended)))
 
 ;; Check for two trapping conditions:
 ;;

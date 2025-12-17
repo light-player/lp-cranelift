@@ -93,7 +93,7 @@ pub fn translate_matrix_indexing(
     let mut current_vals = array_vals;
     let mut current_ty = array_ty;
 
-    for (dim_idx, dimension) in array_spec.dimensions.0.iter().enumerate() {
+    for (_dim_idx, dimension) in array_spec.dimensions.0.iter().enumerate() {
         let index_expr = match dimension {
             ArraySpecifierDimension::ExplicitlySized(expr) => expr,
             ArraySpecifierDimension::Unsized => {
