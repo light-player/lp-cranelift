@@ -1,0 +1,73 @@
+test interpret
+test run
+target riscv32
+
+; Basic arithmetic operations for 32-bit target
+; Note: Division and multiplication require M extension (enabled in RV32IMAC)
+
+function %test_iadd(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = iadd v0, v1
+    return v2
+}
+; run: %test_iadd(0, 0) == 0
+; run: %test_iadd(5, 3) == 8
+; run: %test_iadd(-1, 1) == 0
+; run: %test_iadd(0x7FFFFFFF, 0x7FFFFFFF) == -2
+
+function %test_isub(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = isub v0, v1
+    return v2
+}
+; run: %test_isub(10, 3) == 7
+; run: %test_isub(5, 10) == -5
+; run: %test_isub(0, 0) == 0
+
+; Requires M extension (enabled in RV32IMAC)
+function %test_imul(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = imul v0, v1
+    return v2
+}
+; run: %test_imul(6, 7) == 42
+; run: %test_imul(-3, 4) == -12
+; run: %test_imul(0, 100) == 0
+
+; Requires M extension (enabled in RV32IMAC)
+function %test_sdiv(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = sdiv v0, v1
+    return v2
+}
+; run: %test_sdiv(20, 4) == 5
+; run: %test_sdiv(-20, 4) == -5
+; run: %test_sdiv(21, 4) == 5
+
+; Requires M extension (enabled in RV32IMAC)
+function %test_udiv(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = udiv v0, v1
+    return v2
+}
+; run: %test_udiv(20, 4) == 5
+; run: %test_udiv(21, 4) == 5
+
+; Requires M extension (enabled in RV32IMAC)
+function %test_srem(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = srem v0, v1
+    return v2
+}
+; run: %test_srem(20, 3) == 2
+; run: %test_srem(-20, 3) == -2
+; run: %test_srem(21, 4) == 1
+
+; Requires M extension (enabled in RV32IMAC)
+function %test_urem(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = urem v0, v1
+    return v2
+}
+; run: %test_urem(20, 3) == 2
+; run: %test_urem(21, 4) == 1

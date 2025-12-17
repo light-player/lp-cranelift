@@ -174,7 +174,8 @@ pub fn required_extensions(opcode: Opcode, types: &[Type]) -> Vec<RiscvExtension
         Opcode::Iadd | Opcode::Isub | Opcode::Band | Opcode::Bor | Opcode::Bxor
         | Opcode::Bnot | Opcode::Ishl | Opcode::Ushr | Opcode::Sshr
         | Opcode::Jump | Opcode::Brif | Opcode::Return | Opcode::Call
-        | Opcode::Load | Opcode::Store | Opcode::Nop => vec![],
+        | Opcode::Load | Opcode::Store | Opcode::Iconst | Opcode::Icmp
+        | Opcode::Nop => vec![],
 
         // Default: check if in extension requirements map (for less common opcodes)
         _ => extension_requirements().get(&opcode)
@@ -219,14 +220,32 @@ pub fn is_type_supported(ty: Type) -> bool {
 }
 
 const SUPPORTED_OPCODES: &[Opcode] = &[
+    // Arithmetic (base ISA)
+    Opcode::Iadd,
+    Opcode::Isub,
+
+    // Arithmetic (requires M extension)
+    Opcode::Imul,
+    Opcode::Sdiv,
+    Opcode::Udiv,
+    Opcode::Srem,
+    Opcode::Urem,
+
     // Control flow
     Opcode::Jump,
     Opcode::Brif,
-    Opcode::BrTable,
-    Opcode::Trap,
     Opcode::Return,
     Opcode::Call,
-    // ... etc
+
+    // Memory
+    Opcode::Load,
+    Opcode::Store,
+
+    // Constants
+    Opcode::Iconst,
+
+    // Comparisons (for control flow)
+    Opcode::Icmp,
 ];
 
 // Fallback map for opcodes not covered in the match statement above

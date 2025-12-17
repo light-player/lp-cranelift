@@ -1,0 +1,19 @@
+// Test that unsupported types are rejected
+test compile
+target riscv32
+
+function %test_i128_type() -> i128 {
+block0:
+    v0 = iconst.i128 0
+    return v0
+}
+
+// This should fail with validation error: Unsupported type i128 on riscv32
+
+function %test_f128_type() -> f128 {
+block0:
+    v0 = f128const 0.0
+    return v0
+}
+
+// This should fail with validation error: Unsupported type f128 on riscv32

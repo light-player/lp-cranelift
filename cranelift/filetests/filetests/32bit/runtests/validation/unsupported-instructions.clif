@@ -1,0 +1,15 @@
+// Test that unsupported instructions are rejected
+test compile
+target riscv32
+
+function %test_unsupported_instruction() {
+block0:
+    ; Try to use an instruction that's not supported on riscv32
+    ; For now, we'll use an instruction that exists but isn't in our supported list
+    ; This will be updated as we discover more unsupported instructions
+    v0 = iconst.i32 42
+    return
+}
+
+// This should eventually contain tests for instructions not supported on riscv32
+// Currently, most basic instructions are supported, so this is a placeholder

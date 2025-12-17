@@ -1,0 +1,61 @@
+test interpret
+test run
+target riscv32
+
+; Basic memory operations for 32-bit target
+
+function %test_load_store(i32) -> i32 {
+block0(v0: i32):
+    ; Create a stack slot for i32
+    v1 = stack_slot.i32 4
+    ; Store the input value
+    store v0, v1
+    ; Load it back
+    v2 = load.i32 v1
+    return v2
+}
+; run: %test_load_store(42) == 42
+; run: %test_load_store(0) == 0
+; run: %test_load_store(-1) == -1
+
+function %test_multiple_slots(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    ; Create two stack slots
+    v2 = stack_slot.i32 4
+    v3 = stack_slot.i32 4
+
+    ; Store values
+    store v0, v2
+    store v1, v3
+
+    ; Load and add them
+    v4 = load.i32 v2
+    v5 = load.i32 v3
+    v6 = iadd v4, v5
+
+    return v6
+}
+; run: %test_multiple_slots(10, 20) == 30
+; run: %test_multiple_slots(0, 0) == 0
+; run: %test_multiple_slots(-5, 5) == 0
+
+function %test_load_modify_store(i32) -> i32 {
+block0(v0: i32):
+    v1 = stack_slot.i32 4
+
+    ; Store initial value
+    store v0, v1
+
+    ; Load, modify, store back
+    v2 = load.i32 v1
+    v3 = iconst.i32 1
+    v4 = iadd v2, v3
+    store v4, v1
+
+    ; Load final value
+    v5 = load.i32 v1
+    return v5
+}
+; run: %test_load_modify_store(10) == 11
+; run: %test_load_modify_store(0) == 1
+; run: %test_load_modify_store(-1) == 0
