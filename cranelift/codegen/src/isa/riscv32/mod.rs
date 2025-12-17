@@ -22,6 +22,7 @@ mod abi;
 pub(crate) mod inst;
 mod lower;
 mod settings;
+mod validator;
 #[cfg(feature = "unwind")]
 use crate::isa::unwind::systemv;
 
@@ -71,6 +72,9 @@ impl TargetIsa for Riscv32Backend {
         want_disasm: bool,
         ctrl_plane: &mut ControlPlane,
     ) -> CodegenResult<CompiledCodeStencil> {
+        // Validate function before compilation
+        validator::validate_function(self, func)?;
+
         let (vcode, regalloc_result) = self.compile_vcode(func, domtree, ctrl_plane)?;
 
         let want_disasm = want_disasm || log::log_enabled!(log::Level::Debug);
