@@ -103,7 +103,31 @@ impl RiscvExtension {
 
 /// Check if an opcode is supported on riscv32
 pub fn is_opcode_supported(opcode: Opcode) -> bool {
-    SUPPORTED_OPCODES.contains(&opcode)
+    match opcode {
+        // Arithmetic (base ISA)
+        Opcode::Iadd | Opcode::Isub => true,
+
+        // Arithmetic (requires M extension)
+        Opcode::Imul | Opcode::Sdiv | Opcode::Udiv | Opcode::Srem | Opcode::Urem => true,
+
+        // Control flow
+        Opcode::Jump | Opcode::Brif | Opcode::Return | Opcode::Call => true,
+
+        // Memory
+        Opcode::Load | Opcode::Store => true,
+
+        // Constants
+        Opcode::Iconst | Opcode::F32const | Opcode::F64const => true,
+
+        // Comparisons (for control flow)
+        Opcode::Icmp => true,
+
+        // Floating point (requires F extension, but allow for now to see if validation works)
+        Opcode::Fadd | Opcode::Fsub | Opcode::Fmul | Opcode::Fdiv => true,
+
+        // Not supported
+        _ => false,
+    }
 }
 
 /// Get the required extensions for a CLIF opcode and its types
