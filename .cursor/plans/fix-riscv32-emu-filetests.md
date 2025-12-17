@@ -102,3 +102,4 @@ When tests fail, output (following lp-glsl-filetests pattern):
 - `run-4-args.clif` should pass
 - Other multi-function riscv32 tests should work
 - Debug output should be comprehensive when tests fail
+

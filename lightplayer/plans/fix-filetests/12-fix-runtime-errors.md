@@ -15,6 +15,7 @@ Fix 8 tests that fail with runtime errors ("run" failures) when executing compil
 ### Current Failures
 
 **8 tests failing with "run" errors**:
+
 - `cls.clif`
 - `integer-minmax.clif`
 - `smul_overflow.clif`
@@ -27,6 +28,7 @@ Fix 8 tests that fail with runtime errors ("run" failures) when executing compil
 ### Error Pattern
 
 Tests compile successfully but fail when executing:
+
 - "run" test failures (execution doesn't match expected results)
 - May be memory access violations
 - May be stack setup issues
@@ -36,17 +38,20 @@ Tests compile successfully but fail when executing:
 ### Potential Root Causes
 
 1. **Memory Access Issues**:
+
    - Stack pointer not properly initialized
    - Stack overflow/underflow
    - Invalid memory addresses
    - Memory alignment issues
 
 2. **Register Handling Issues**:
+
    - Return values not properly reconstructed
    - Function arguments not properly passed
    - Register pairs not properly handled
 
 3. **Overflow Detection Issues**:
+
    - Overflow operations (`uadd_overflow`, `smul_overflow`, etc.) may not work correctly
    - Overflow flags not properly set or checked
 
@@ -72,6 +77,7 @@ RUST_LOG=debug cargo run --package cranelift-tools --bin clif-util -- test crane
 **File**: `lightplayer/crates/lp-riscv-tools/src/emu/emulator.rs`
 
 Verify:
+
 - Stack pointer is properly initialized
 - Stack has enough space
 - Stack alignment is correct
@@ -82,6 +88,7 @@ Verify:
 **File**: `lightplayer/crates/lp-riscv-tools/src/emu/memory.rs`
 
 Verify:
+
 - Memory addresses are valid
 - Memory access is properly bounds-checked
 - Memory alignment is correct
@@ -89,11 +96,13 @@ Verify:
 
 ### Step 4: Check Overflow Operations
 
-**Files**: 
+**Files**:
+
 - `cranelift/codegen/src/isa/riscv32/lower.isle` - Overflow operation lowering
 - `lightplayer/crates/lp-riscv-tools/src/emu/executor.rs` - Overflow execution
 
 Verify:
+
 - Overflow operations are correctly lowered
 - Overflow flags are correctly set
 - Overflow results are correctly returned
@@ -103,6 +112,7 @@ Verify:
 **File**: `lightplayer/crates/lp-riscv-tools/src/emu/emulator.rs`
 
 Verify:
+
 - Return values are correctly extracted from registers
 - Register pairs are correctly reconstructed
 - Return value types match expected types
@@ -116,6 +126,7 @@ Verify:
 **Issue**: Stack pointer may not be properly initialized or stack may not have enough space.
 
 **Fix**:
+
 - Ensure stack pointer is initialized to a valid address
 - Ensure stack has enough space for function calls
 - Ensure stack alignment is correct (16-byte aligned)
@@ -128,6 +139,7 @@ Verify:
 **Issue**: Memory access may fail due to invalid addresses or bounds.
 
 **Fix**:
+
 - Ensure memory addresses are valid
 - Ensure memory access is properly bounds-checked
 - Ensure memory alignment is correct
@@ -135,13 +147,15 @@ Verify:
 
 ### Fix 3: Fix Overflow Operations (if needed)
 
-**Files**: 
+**Files**:
+
 - `cranelift/codegen/src/isa/riscv32/lower.isle` - Overflow operation lowering
 - `lightplayer/crates/lp-riscv-tools/src/emu/executor.rs` - Overflow execution
 
 **Issue**: Overflow operations may not be correctly implemented.
 
 **Fix**:
+
 - Ensure overflow operations are correctly lowered
 - Ensure overflow flags are correctly set
 - Ensure overflow results are correctly returned
@@ -154,6 +168,7 @@ Verify:
 **Issue**: Return values may not be correctly extracted or reconstructed.
 
 **Fix**:
+
 - Ensure return values are correctly extracted from registers
 - Ensure register pairs are correctly reconstructed for i64
 - Ensure return value types match expected types
@@ -164,23 +179,28 @@ Verify:
 Investigate each failing test individually:
 
 1. **`stack.clif`**: Stack operations test
+
    - Check stack pointer initialization
    - Check stack memory access
    - Check stack alignment
 
 2. **`uadd_overflow.clif`**: Unsigned addition overflow
+
    - Check overflow detection
    - Check overflow result handling
 
 3. **`smul_overflow.clif`**: Signed multiplication overflow
+
    - Check overflow detection
    - Check overflow result handling
 
 4. **`umul_overflow.clif`**: Unsigned multiplication overflow
+
    - Check overflow detection
    - Check overflow result handling
 
 5. **`cls.clif`**: Count leading sign bits
+
    - Check instruction execution
    - Check result handling
 

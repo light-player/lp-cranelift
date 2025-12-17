@@ -63,12 +63,14 @@ For arbitrary 64-bit divisors, use binary long division (restoring division):
 **File**: `cranelift/codegen/src/isa/riscv32/inst.isle`
 
 Add new instruction variants:
+
 - `DivI64U` - Unsigned i64 division
-- `DivI64S` - Signed i64 division  
+- `DivI64S` - Signed i64 division
 - `RemI64U` - Unsigned i64 remainder
 - `RemI64S` - Signed i64 remainder
 
 Each needs:
+
 - Dividend register pair (ValueRegs)
 - Divisor register pair (ValueRegs)
 - Quotient/remainder output (ValueRegs)
@@ -79,6 +81,7 @@ Each needs:
 **File**: `cranelift/codegen/src/isa/riscv32/lower.isle`
 
 Add helper function declarations:
+
 ```isle
 (decl div_i64_inst (ValueRegs ValueRegs) ValueRegs)
 (decl div_i64_signed_inst (ValueRegs ValueRegs) ValueRegs)
@@ -105,23 +108,24 @@ Add implementation in `emit_uncompressed` function:
     let divisor_regs = divisor.regs();
     let quotient_regs = quotient.regs();
     let rem_regs = rem.regs();
-    
+
     // Check for division by zero
     // Emit trap if divisor == 0
-    
+
     // Initialize: remainder = dividend, quotient = 0
-    
+
     // Binary long division loop (64 iterations)
     // For each bit position:
     //   - Shift remainder left
     //   - Try subtracting divisor
     //   - Update quotient and remainder
-    
+
     // Emit all instructions
 }
 ```
 
 **Key considerations**:
+
 - Use temporary registers for algorithm state
 - Handle register pair operations correctly
 - Emit proper RISC-V instructions
@@ -130,6 +134,7 @@ Add implementation in `emit_uncompressed` function:
 ### Step 4: Implement Signed Division
 
 Similar to unsigned, but:
+
 - Handle sign extension
 - Handle overflow cases (e.g., INT64_MIN / -1)
 - Convert to unsigned, perform division, adjust signs
@@ -187,6 +192,7 @@ Uncomment and implement the lowering rules:
 **File**: `cranelift/codegen/src/isa/riscv32/inst.rs`
 
 Add operand tracking in `riscv32_get_operands`:
+
 - `reg_use` for dividend and divisor inputs
 - `reg_early_def` for quotient/remainder outputs
 - `reg_use` for temporary registers
@@ -196,6 +202,7 @@ Add operand tracking in `riscv32_get_operands`:
 **File**: `cranelift/codegen/src/isa/riscv32/inst.rs`
 
 Either:
+
 - Emit as an "island" (separate code block)
 - Exclude from worst_case_size check
 - Provide accurate size estimate

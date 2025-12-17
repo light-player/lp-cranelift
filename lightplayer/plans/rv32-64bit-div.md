@@ -1132,3 +1132,4 @@ These will be used by the register allocator to:
 - **x64 division implementation**: `cranelift/codegen/src/isa/x64/lower.isle` (lines 4349-4441) - hardware-supported division
 - **Existing plan**: `lightplayer/plans/fix-filetests/i64-division-plan.md`
 
+

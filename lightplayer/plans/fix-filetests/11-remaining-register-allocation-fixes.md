@@ -13,6 +13,7 @@
 **Primary Issue**: Operations that return i64 values are creating invalid register pairs where the second register is `<invalid>` (index 2097151).
 
 **Affected Tests**:
+
 - `bitrev.clif` - Returns i64, second register in RetPair is invalid
 - `brif.clif` - May have similar issues with i64 values
 - `i64-riscv32.clif` - Various i64 operations
@@ -23,9 +24,10 @@
 ### Issue 1: Return Value Register Pairs for i64 Operations
 
 **Error Pattern**:
+
 ```
 Instruction 37: Rets { rets: [
-    RetPair { vreg: v234, preg: p10i }, 
+    RetPair { vreg: v234, preg: p10i },
     RetPair { vreg: <invalid>, preg: p11i }  // <-- Invalid register!
 ]}
 ```
@@ -35,6 +37,7 @@ Instruction 37: Rets { rets: [
 **Location**: `cranelift/codegen/src/machinst/abi.rs::gen_copy_regs_to_retval()`
 
 **Current Behavior**:
+
 - When an i64 operation returns a `ValueRegs` with only one register
 - The return value handling code expects `from_regs.len() == slots.len()`
 - For i64 returns, there should be 2 slots but only 1 register in `from_regs`
@@ -43,6 +46,7 @@ Instruction 37: Rets { rets: [
 ### Issue 2: Operations That Return i64 Need Register Pair Support
 
 **Affected Operations**:
+
 - `bitrev.i64` - Currently returns single register, needs pair
 - `popcnt.i64` - May need pair support
 - `iabs.i64` - May need pair support
@@ -53,6 +57,7 @@ Instruction 37: Rets { rets: [
 ### Issue 3: stack_addr.i64 Type Mismatch
 
 **Error Pattern**:
+
 ```
 assertion `left == right` failed: Aliasing v4 to v0 would change its type i32 to i64
   left: types::I32
@@ -62,6 +67,7 @@ assertion `left == right` failed: Aliasing v4 to v0 would change its type i32 to
 **Root Cause**: On riscv32, addresses are 32-bit (i32), but the frontend is creating `stack_addr.i64` instructions. When the lowering tries to alias the result, it fails because the types don't match.
 
 **Solution Options**:
+
 1. Fix frontend to not create `stack_addr.i64` on riscv32 (preferred)
 2. Add legalization pass to convert `stack_addr.i64` to `stack_addr.i32` + `uextend.i64`
 3. Handle the type conversion in the lowering rule
@@ -73,12 +79,14 @@ assertion `left == right` failed: Aliasing v4 to v0 would change its type i32 to
 **File**: `cranelift/codegen/src/isa/riscv32/lower.isle`
 
 **Operations to Fix**:
+
 1. `bitrev.i64` - Currently returns single register via `gen_bitrev`
 2. `popcnt.i64` - Check if it returns pairs
 3. `iabs.i64` - Check if it returns pairs
 4. Other i64 operations that may return single registers
 
 **Implementation**:
+
 ```isle
 ;; For bitrev.i64 on riscv32, we need to return a register pair
 ;; The gen_bitrev function returns a single XReg, but we need two
@@ -92,6 +100,7 @@ assertion `left == right` failed: Aliasing v4 to v0 would change its type i32 to
 ```
 
 **Note**: This is complex because `bitrev` operates on the full 64-bit value, so we can't just split it. We may need to:
+
 - Implement a proper 64-bit bitrev that works on register pairs
 - Or ensure the operation properly handles the register pair throughout
 
@@ -102,11 +111,13 @@ assertion `left == right` failed: Aliasing v4 to v0 would change its type i32 to
 **Issue**: When `from_regs.len() < slots.len()`, we need to create the missing registers.
 
 **Current Code** (around line 1699):
+
 ```rust
 assert_eq!(from_regs.len(), slots.len());
 ```
 
 **Fix**: Instead of asserting, handle the case where we need to create additional registers:
+
 ```rust
 // If we have fewer registers than slots, we need to create the missing ones
 if from_regs.len() < slots.len() {
@@ -122,14 +133,17 @@ if from_regs.len() < slots.len() {
 ### Fix 3: Fix stack_addr.i64 Type Issue
 
 **Option A: Frontend Fix (Preferred)**
+
 - Modify the frontend to never create `stack_addr.i64` on riscv32
 - Always use `stack_addr.i32` and extend if needed
 
 **Option B: Legalization Fix**
+
 - Add a legalization pass that converts `stack_addr.i64` to `stack_addr.i32` + `uextend.i64`
 - File: `cranelift/codegen/src/legalizer/`
 
 **Option C: Lowering Fix**
+
 - Handle the type conversion in the lowering rule
 - Convert i64 result to i32 + uextend
 
@@ -140,6 +154,7 @@ if from_regs.len() < slots.len() {
 **File**: `cranelift/codegen/src/machinst/lower.rs` or `abi.rs`
 
 **Enhancement**: Add validation in `gen_copy_regs_to_retval` to ensure:
+
 - If return type is i64 on riscv32, `from_regs` must have 2 registers
 - If it doesn't, create the missing register(s) with appropriate values
 
@@ -168,6 +183,7 @@ grep -n "has_type.*\$I64" cranelift/codegen/src/isa/riscv32/lower.isle | grep -v
 ### Step 4: Test Each Affected Operation
 
 Create minimal test cases for each operation:
+
 ```clif
 test run
 target riscv32
@@ -182,14 +198,17 @@ block0(v0: i64):
 ## Implementation Priority
 
 1. **High Priority**: Fix `gen_copy_regs_to_retval` to handle incomplete pairs
+
    - This will fix multiple tests at once
    - Estimated: 2-3 hours
 
 2. **Medium Priority**: Fix `bitrev.i64` to return proper register pairs
+
    - Specific operation fix
    - Estimated: 2-3 hours
 
 3. **Medium Priority**: Fix `stack_addr.i64` type issue
+
    - May require frontend changes
    - Estimated: 1-2 hours
 
@@ -217,6 +236,7 @@ done
 ### Create Minimal Test Cases
 
 Create test cases that isolate each issue:
+
 - `test_bitrev_i64_return.clif` - Tests bitrev returning i64
 - `test_stack_addr_i64.clif` - Tests stack_addr.i64 issue
 
@@ -251,4 +271,3 @@ Create test cases that isolate each issue:
 - This occurs when `ValueRegs` doesn't have enough registers for the expected register pair
 - The fix needs to ensure that all i64 values are represented as register pairs throughout the lowering process
 - Some operations may need architecture-specific implementations for riscv32 to properly handle i64 register pairs
-

@@ -15,6 +15,7 @@ Fix invalid register indices (specifically `<invalid>` registers with index 2097
 ### Current Failures
 
 **12 tests failing with "Invalid register indices detected before register allocation"**:
+
 - `call.clif`
 - `call_indirect.clif`
 - `extend.clif`
@@ -29,6 +30,7 @@ Fix invalid register indices (specifically `<invalid>` registers with index 2097
 - `umulhi.clif`
 
 **3 tests failing with "assertion failed: reg.is_virtual()"**:
+
 - `bitrev.clif`
 - `brif.clif`
 - `i64-riscv32.clif`
@@ -45,9 +47,9 @@ When i64 values are created (e.g., from `uextend`, `sextend`, or operations), th
 ### Error Pattern
 
 ```
-Instruction 6: CallInd { info: CallInfo { 
+Instruction 6: CallInd { info: CallInfo {
     uses: [
-        CallArgPair { vreg: v202, preg: p10i }, 
+        CallArgPair { vreg: v202, preg: p10i },
         CallArgPair { vreg: <invalid>, preg: p11i }  // <-- Invalid register!
     ],
     ...
@@ -64,10 +66,12 @@ Inst 6: Reg <invalid> has VReg index 2097151
 **Issue**: There may be specific rules for `uextend`/`sextend` in contexts like `iadd`, but no general rule for standalone `uextend`/`sextend` from i32 to i64.
 
 **Solution**: Add lowering rules that extend i32 to i64 by:
+
 - Using the i32 value as the low 32 bits
 - Setting the high 32 bits to zero (uextend) or sign-extending (sextend)
 
 **Implementation**:
+
 ```isle
 ;; General uextend from i32 to i64 on riscv32
 ;; Zero-extend: low 32 bits = input, high 32 bits = 0
@@ -93,12 +97,14 @@ Inst 6: Reg <invalid> has VReg index 2097151
 **Issue**: When preparing function call arguments, i64 values split into register pairs may not have both registers properly initialized.
 
 **Investigation Points**:
+
 1. Check `gen_call()` function around line 580-650
 2. Verify that when an i64 value is used as an argument, both registers in the pair are extracted
 3. Ensure `CallArgPair` entries are created for both registers
 4. Validate that both registers are valid before creating call info
 
 **Potential Fix**: Ensure that when processing i64 arguments:
+
 - Extract both registers from the `ValueRegs`
 - Create `CallArgPair` entries for both registers
 - Validate that both registers are valid before creating call info
@@ -111,6 +117,7 @@ Inst 6: Reg <invalid> has VReg index 2097151
 **Issue**: When functions return i64 values, the return value reconstruction may not properly handle register pairs.
 
 **Fix**: Ensure that:
+
 - Return value pairs are properly extracted from return registers
 - Both registers in the pair are valid
 - Return value reconstruction handles register pairs correctly
@@ -122,11 +129,13 @@ Inst 6: Reg <invalid> has VReg index 2097151
 **Issue**: Some operations expect virtual registers but receive physical registers or invalid registers.
 
 **Investigation**: Check where `reg.is_virtual()` assertions fail:
+
 - `bitrev.clif`
 - `brif.clif`
 - `i64-riscv32.clif`
 
 **Fix**: Ensure that:
+
 - Register pairs are properly converted to virtual registers when needed
 - Physical registers are not used where virtual registers are expected
 - Invalid registers are caught earlier (validation already added in Phase 6)
@@ -142,6 +151,7 @@ Inst 6: Reg <invalid> has VReg index 2097151
 ### Fix 6: Fix Specific Operations That Create Register Pairs
 
 **Investigation**: Check specific operations that may create incomplete register pairs:
+
 - `uextend.i64` from i32
 - `sextend.i64` from i32
 - `iconcat` (if used)
@@ -158,6 +168,7 @@ grep -r "uextend\|sextend" cranelift/codegen/src/isa/riscv32/lower.isle
 ### Step 2: Test uextend/sextend Lowering
 
 Create a minimal test case:
+
 ```clif
 test run
 target riscv32
@@ -178,6 +189,7 @@ block0(v0: i32):
 ### Step 3: Trace Function Call Argument Preparation
 
 Add debug logging in `gen_call()` to see how i64 arguments are processed:
+
 - What registers are extracted?
 - Are both registers in the pair valid?
 - How are `CallArgPair` entries created?
@@ -185,6 +197,7 @@ Add debug logging in `gen_call()` to see how i64 arguments are processed:
 ### Step 4: Check ValueRegs Handling
 
 Verify that when an i64 value is used:
+
 - Both registers in the `ValueRegs` are properly extracted
 - Both registers are valid virtual registers
 - Register pairs are complete before use
@@ -192,6 +205,7 @@ Verify that when an i64 value is used:
 ### Step 5: Check Return Value Handling
 
 Verify that when functions return i64 values:
+
 - Both return registers are properly extracted
 - Return value pairs are correctly reconstructed
 - Both registers in the pair are valid

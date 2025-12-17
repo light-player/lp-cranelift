@@ -18,14 +18,17 @@ After fixing register allocation and runtime errors, there may be 1-2 tests stil
 ### Potential Issues
 
 1. **Global Value Type Mismatches**:
+
    - Global values may have incorrect types
    - Type conversion may not be working correctly
 
 2. **Missing ISLE Patterns**:
+
    - Some instruction combinations may not have lowering rules
    - May need additional ISLE patterns
 
 3. **ABI Issues**:
+
    - Function signatures may not match ABI requirements
    - Return value handling may be incorrect
 
@@ -46,6 +49,7 @@ cargo run --package cranelift-tools --bin clif-util -- test $(find cranelift/fil
 ### Step 2: Categorize Failures
 
 Categorize remaining failures:
+
 - Compilation errors
 - Runtime errors
 - Unsupported features
@@ -54,6 +58,7 @@ Categorize remaining failures:
 ### Step 3: Investigate Each Failure
 
 For each compilation error:
+
 1. Read the error message
 2. Check the test file
 3. Identify the root cause
@@ -68,6 +73,7 @@ For each compilation error:
 **Issue**: Global values may have type mismatches (e.g., i32 global value used as i64).
 
 **Fix**: Ensure type conversion works correctly:
+
 - i32 -> i64 conversion (uextend)
 - Proper handling of global value types
 - Correct type checking
@@ -79,6 +85,7 @@ For each compilation error:
 **Issue**: Some instruction combinations may not have lowering rules.
 
 **Fix**: Add missing ISLE patterns:
+
 - Check error messages for missing patterns
 - Add lowering rules for missing patterns
 - Test that patterns work correctly
@@ -90,6 +97,7 @@ For each compilation error:
 **Issue**: Function signatures may not match ABI requirements.
 
 **Fix**: Ensure ABI compliance:
+
 - Function argument handling
 - Return value handling
 - Calling conventions
@@ -101,6 +109,7 @@ For each compilation error:
 **Issue**: Type conversions or type checking may not be working correctly.
 
 **Fix**: Ensure type system works correctly:
+
 - Type conversions
 - Type checking
 - Type inference

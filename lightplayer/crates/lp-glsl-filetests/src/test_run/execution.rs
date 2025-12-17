@@ -116,3 +116,4 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
         _ => anyhow::bail!("unsupported return type: {:?}", sig.return_type),
     }
 }
+

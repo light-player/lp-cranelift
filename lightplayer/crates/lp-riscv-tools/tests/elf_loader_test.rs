@@ -623,3 +623,4 @@ fn test_code_buffer_initialization() {
         load_info.code.len()
     );
 }
+

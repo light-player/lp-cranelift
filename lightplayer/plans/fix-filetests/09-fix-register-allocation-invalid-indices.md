@@ -194,3 +194,4 @@ cargo run --package cranelift-tools --bin clif-util -- test /tmp/test_uextend.cl
 - This suggests that one register in a pair is not being properly initialized
 - The issue manifests specifically when i64 values created from uextend are used in function calls
 - May also affect other operations that use i64 register pairs
+

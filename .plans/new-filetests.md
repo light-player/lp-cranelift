@@ -655,3 +655,4 @@ When `CRANELIFT_TEST_BLESS=1` is set:
 - Tolerance: keep per-target defaults, allow per-run override `// run: ~= 3.5 (tol=1e-3)`.
 - Shorthand for “run on all supported targets”: add `// test run all` meaning host + riscv32 for supported formats; expands at parse time so adding new targets later is automatic. Explicit directives still allowed for selective coverage.
 - Fixed64: omit fixed64 directives for now; add when backend exists.
+

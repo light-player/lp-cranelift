@@ -43,3 +43,4 @@ pub fn create_riscv32_isa() -> Result<OwnedTargetIsa> {
         .finish(flags)
         .map_err(|e| anyhow::anyhow!("failed to create riscv32 ISA: {}", e))
 }
+

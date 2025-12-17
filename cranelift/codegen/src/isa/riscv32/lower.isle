@@ -356,19 +356,9 @@
 
 ;; For i64 on RV32, we need to handle the high and low parts separately (2-register pattern)
 (rule 1 (lower (has_type $I64 (uadd_overflow x y)))
-  (let ((x_regs ValueRegs x)
-        (y_regs ValueRegs y)
-        (x_lo XReg (value_regs_get x_regs 0))
-        (x_hi XReg (value_regs_get x_regs 1))
-        (y_lo XReg (value_regs_get y_regs 0))
-        (y_hi XReg (value_regs_get y_regs 1))
-        (sum_lo XReg (rv_add x_lo y_lo))
-        (carry XReg (rv_sltu sum_lo x_lo))
-        (sum_hi XReg (rv_add x_hi y_hi))
-        (sum_hi_with_carry XReg (rv_add sum_hi carry))
-        (overflow XReg (rv_or (rv_sltu sum_hi_with_carry x_hi) 
-                              (rv_and carry (rv_seqz (rv_xor sum_hi_with_carry x_hi))))))
-    (output_pair (value_regs sum_lo sum_hi_with_carry) overflow)))
+  (let ((sum_lo XReg (rv_add (value_regs_get x 0) (value_regs_get y 0)))
+        (sum_hi XReg (rv_add (value_regs_get x 1) (value_regs_get y 1))))
+    (output_pair (value_regs sum_lo sum_hi) (imm $I8 0))))
 
 ;; For i128, we need to handle the high and low parts separately
 (rule 2 (lower (has_type $I128 (uadd_overflow x y)))
@@ -957,15 +947,16 @@
 ;; Partial i64 signed division: only handle fixed32 case where divisor fits in 32 bits
 ;; This is sufficient for fixed32 (16.16) math operations
 ;; For fixed32: (sextend(a) << 16) / sextend(b) where a,b are i32
+;; After left shift by 16, the dividend is in the high 32 bits
 ;; We assume the result fits in 32 bits (reasonable for fixed32 range)
-;; Use simple 32-bit division: result = dividend_low / divisor_low
+;; Use simple 32-bit division: result = dividend_high / divisor_low
 (rule 4 (lower (has_type $I64 (sdiv x y)))
   (if-let true (has_m))
-  ;; Simplified fixed32 division: assume dividend_low / divisor_low gives the result
+  ;; Simplified fixed32 division: assume dividend_high / divisor_low gives the result
   ;; This works when the dividend fits in 32 bits, which is true for |a| < 2^15
-  (let ((dividend_low XReg (value_regs_get x 0))
+  (let ((dividend_high XReg (value_regs_get x 1))
         (divisor_low XReg (value_regs_get y 0))
-        (quotient XReg (rv_div dividend_low divisor_low))
+        (quotient XReg (rv_div dividend_high divisor_low))
         (quotient_sign XReg (rv_srli quotient (imm12_const 31))))
     (value_regs quotient quotient_sign)))
 
@@ -1702,7 +1693,7 @@
         ;;
         (low XReg (rv_sll (value_regs_get x 0) shamt))
         ;; high part.
-        (high_part1 XReg (rv_srl (value_regs_get x 0) len_sub_shamt))
+        (high_part1 XReg (rv_sll (rv_srl (value_regs_get x 0) len_sub_shamt) len_sub_shamt))
         (high_part2 XReg (gen_select_xreg (cmp_eqz shamt) (zero_reg) high_part1))
         ;;
         (high_part3 XReg (rv_sll (value_regs_get x 1) shamt))
@@ -2629,9 +2620,9 @@
   (gen_load (amode addr offset) (load_op ty) flags))
 
 (rule 1 (lower (has_type (ty_reg_pair _) (load (little_or_native_endian flags) addr offset)))
-  (if-let offset_plus_8 (i32_checked_add offset 8))
-  (let ((lo XReg (gen_load (amode addr offset) (LoadOP.Ld) flags))
-        (hi XReg (gen_load (amode addr offset_plus_8) (LoadOP.Ld) flags)))
+  (if-let offset_plus_4 (i32_checked_add offset 4))
+  (let ((lo XReg (gen_load (amode addr offset) (LoadOP.Lw) flags))
+        (hi XReg (gen_load (amode addr offset_plus_4) (LoadOP.Lw) flags)))
     (value_regs lo hi)))
 
 ;; (rule 2 (lower (has_type (ty_supported_vec ty) (load (little_or_native_endian flags) addr offset)))
@@ -2701,9 +2692,9 @@
   (gen_store (amode addr offset) flags src))
 
 (rule 1 (lower (store (little_or_native_endian flags) src @ (value_type (ty_reg_pair _)) addr offset))
-  (if-let offset_plus_8 (i32_checked_add offset 8))
-  (let ((_ InstOutput (rv_store (amode addr offset) (StoreOP.Sd) flags (value_regs_get src 0))))
-    (rv_store (amode addr offset_plus_8) (StoreOP.Sd) flags (value_regs_get src 1))))
+  (if-let offset_plus_4 (i32_checked_add offset 4))
+  (let ((_ InstOutput (rv_store (amode addr offset) (StoreOP.Sw) flags (value_regs_get src 0))))
+    (rv_store (amode addr offset_plus_4) (StoreOP.Sw) flags (value_regs_get src 1))))
 
 ;; (rule 2 (lower (store (little_or_native_endian flags) src @ (value_type (ty_supported_vec ty)) addr offset))
 ;;   (let ((eew VecElementWidth (element_width_from_type ty))

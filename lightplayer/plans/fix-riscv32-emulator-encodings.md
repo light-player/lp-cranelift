@@ -154,3 +154,4 @@
 2. **Then fix i64 handling** - This will fix another 10+ failures
 3. **Fix ISLE panics** - Critical for stability
 4. **Handle remaining edge cases** - Unsupported features, register allocator, memory access
+

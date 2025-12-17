@@ -330,3 +330,4 @@ match reloc.flags() {
 - The `CompiledBlob::perform_relocations` logic in `cranelift/jit/src/compiled_blob.rs` is the reference for how to apply relocations correctly
 - ELF relocation types are defined in `object::elf` module
 - The current heuristic detection (checking for auipc/jalr opcodes) should be replaced with proper relocation type checking via `reloc.flags()`
+
