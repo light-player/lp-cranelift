@@ -1,0 +1,8 @@
+test compile expect-fail
+target riscv32
+
+function %test_i128_add(i128, i128) -> i128 {
+block0(v0: i128, v1: i128):
+    v2 = iadd v0, v1
+    return v2
+}

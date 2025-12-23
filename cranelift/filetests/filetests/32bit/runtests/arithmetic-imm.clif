@@ -1,0 +1,103 @@
+test interpret
+test run
+target aarch64
+target s390x
+target x86_64
+target riscv64 has_m
+target riscv64 has_c has_zcb
+target riscv32 has_m
+target pulley32
+target pulley32be
+target pulley64
+target pulley64be
+
+; Immediate arithmetic instructions for riscv32
+; Tests basic immediate arithmetic operations
+
+; Basic immediate addition
+function %test_iadd_imm(i32) -> i32 {
+block0(v0: i32):
+    v1 = iadd_imm v0, 42
+    return v1
+}
+; run: %test_iadd_imm(10) == 52
+
+; Immediate multiplication (requires M extension)
+function %test_imul_imm(i32) -> i32 {
+block0(v0: i32):
+    v1 = imul_imm v0, 7
+    return v1
+}
+; run: %test_imul_imm(6) == 42
+
+; Large immediate (may require multiple instructions)
+function %test_iadd_imm_large(i32) -> i32 {
+block0(v0: i32):
+    v1 = iadd_imm v0, 0x1000
+    return v1
+}
+; run: %test_iadd_imm_large(0) == 4096
+
+; Immediate bitwise AND
+function %test_band_imm(i32) -> i32 {
+block0(v0: i32):
+    v1 = band_imm v0, 0xFF
+    return v1
+}
+; run: %test_band_imm(0x1234ABCD) == 0xCD
+
+; Immediate bitwise OR
+function %test_bor_imm(i32) -> i32 {
+block0(v0: i32):
+    v1 = bor_imm v0, 0xF0
+    return v1
+}
+; run: %test_bor_imm(0x1234ABCD) == 0x1234ABFD
+
+; Immediate bitwise XOR
+function %test_bxor_imm(i32) -> i32 {
+block0(v0: i32):
+    v1 = bxor_imm v0, 0xFF
+    return v1
+}
+; run: %test_bxor_imm(0x1234ABCD) == 0x1234AB32
+
+; Immediate left shift
+function %test_ishl_imm(i32) -> i32 {
+block0(v0: i32):
+    v1 = ishl_imm v0, 3
+    return v1
+}
+; run: %test_ishl_imm(5) == 40
+
+; Immediate logical right shift
+function %test_ushr_imm(i32) -> i32 {
+block0(v0: i32):
+    v1 = ushr_imm v0, 2
+    return v1
+}
+; run: %test_ushr_imm(16) == 4
+
+; Immediate arithmetic right shift
+function %test_sshr_imm(i32) -> i32 {
+block0(v0: i32):
+    v1 = sshr_imm v0, 2
+    return v1
+}
+; run: %test_sshr_imm(-16) == -4
+
+; Test with i16 types
+function %test_iadd_imm_i16(i16) -> i16 {
+block0(v0: i16):
+    v1 = iadd_imm v0, 10
+    return v1
+}
+; run: %test_iadd_imm_i16(5) == 15
+
+; Test with i8 types
+function %test_iadd_imm_i8(i8) -> i8 {
+block0(v0: i8):
+    v1 = iadd_imm v0, 3
+    return v1
+}
+; run: %test_iadd_imm_i8(2) == 5

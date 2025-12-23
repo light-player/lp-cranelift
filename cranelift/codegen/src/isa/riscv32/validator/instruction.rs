@@ -1,13 +1,15 @@
-use crate::ir::{Function, Inst, Opcode, DataFlowGraph};
-use crate::CodegenResult;
 use super::error::ValidationError;
 use super::supported;
-use alloc::vec::Vec;
-use alloc::vec;
+use crate::CodegenResult;
+use crate::ir::{DataFlowGraph, Function, Inst, Opcode, types::*};
 use alloc::format;
+use alloc::vec::Vec;
 
 /// Validate all instructions in a function
-pub fn validate_instructions(func: &Function, backend: &super::super::Riscv32Backend) -> CodegenResult<()> {
+pub fn validate_instructions(
+    func: &Function,
+    backend: &super::super::Riscv32Backend,
+) -> CodegenResult<()> {
     for block in func.layout.blocks() {
         for inst in func.layout.block_insts(block) {
             validate_instruction(func, inst, backend)?;
@@ -17,7 +19,11 @@ pub fn validate_instructions(func: &Function, backend: &super::super::Riscv32Bac
 }
 
 /// Validate a single instruction
-pub fn validate_instruction(func: &Function, inst: Inst, backend: &super::super::Riscv32Backend) -> CodegenResult<()> {
+pub fn validate_instruction(
+    func: &Function,
+    inst: Inst,
+    backend: &super::super::Riscv32Backend,
+) -> CodegenResult<()> {
     let opcode = func.dfg.insts[inst].opcode();
     let data = &func.dfg.insts[inst];
 
@@ -52,9 +58,13 @@ pub fn validate_instruction(func: &Function, inst: Inst, backend: &super::super:
                 reason: format!(
                     "{} requires {} extension ({}), but it is not enabled. \
                      Enable {} extension in target flags to use this instruction.",
-                    opcode, ext.name(), ext.description(), ext.name()
+                    opcode,
+                    ext.name(),
+                    ext.description(),
+                    ext.name()
                 ),
-            }.into());
+            }
+            .into());
         }
     }
 
@@ -64,6 +74,7 @@ pub fn validate_instruction(func: &Function, inst: Inst, backend: &super::super:
         Opcode::Iadd => validate_iadd(func, inst, &func.dfg)?,
         Opcode::Sdiv => validate_sdiv(func, inst, &func.dfg)?,
         Opcode::Fadd => validate_fadd(func, inst, &func.dfg)?,
+
         // ... other opcodes
         _ => {
             // Check if opcode is in supported list
@@ -72,7 +83,8 @@ pub fn validate_instruction(func: &Function, inst: Inst, backend: &super::super:
                     inst,
                     opcode,
                     reason: format!("{} is not supported on riscv32", opcode),
-                }.into());
+                }
+                .into());
             }
         }
     }
@@ -90,6 +102,35 @@ fn validate_sdiv(_func: &Function, _inst: Inst, _data: &DataFlowGraph) -> Codege
 }
 
 fn validate_fadd(_func: &Function, _inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
+    Ok(())
+}
+
+fn validate_overflow_instruction(
+    func: &Function,
+    inst: Inst,
+    opcode: Opcode,
+    data: &DataFlowGraph,
+) -> CodegenResult<()> {
+    // Get result type for overflow instructions
+    if let Some(result) = func.dfg.inst_results(inst).first() {
+        let result_ty = func.dfg.value_type(*result);
+
+        // Overflow instructions do not support i128 on riscv32
+        if result_ty == I128 {
+            return Err(super::error::ValidationError::UnsupportedType {
+                ty: result_ty,
+                context: format!("{} instruction", opcode),
+            }
+            .into());
+        }
+
+        // i64 is supported but uses two-register pattern
+        if result_ty == I64 {
+            // For now, allow i64 overflow instructions
+            // Future phases may add more specific validation
+        }
+    }
+
     Ok(())
 }
 

@@ -54,6 +54,22 @@ cargo test --features=cranelift/filetests -- filetests::32bit
 cargo test --features=cranelift/filetests -- filetests::32bit::runtests
 ```
 
+## i64 Arithmetic Support
+
+i64 arithmetic is **not currently supported** on RISC-V32. While the validator allows i64 types for future GLSL fixed-point extensions, the actual code generation for i64 operations is not implemented.
+
+### Current Status
+
+- **Types**: i64 types are accepted by the validator (for future compatibility)
+- **Operations**: No i64 operations are implemented in the ISLE lowering rules
+- **Future**: i64 support may be added for Fixed32x32 format (32.32 fixed-point), but this is not currently implemented
+
+### Not Supported
+
+- **All i64 operations**: `iadd.i64`, `isub.i64`, `imul.i64`, `sdiv.i64`, `udiv.i64`, etc.
+- **Overflow Detection**: `uadd_overflow`, `sadd_overflow`, `usub_overflow`, `ssub_overflow`, `umul_overflow`, `smul_overflow`
+- **Carry Operations**: `iadd_cout`, `iadd_cin`, `isub_cout`, `isub_cin`, `iadd_carry`, `sadd_overflow_cin`, `uadd_overflow_cin`
+
 ## Test Selection Criteria
 
 When copying tests from the main test suite, the following criteria were used:

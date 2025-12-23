@@ -1,0 +1,10 @@
+test run
+target riscv32
+
+; Test that large immediates work (may use multiple instructions)
+function %test_large_imm(i32) -> i32 {
+block0(v0: i32):
+    v1 = iadd_imm v0, 0x7FFFFFFF
+    return v1
+}
+; run: %test_large_imm(1) == 0x80000000

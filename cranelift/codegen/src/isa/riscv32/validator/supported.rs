@@ -133,6 +133,16 @@ fn opcode_base_extensions(opcode: Opcode) -> Option<Vec<RiscvExtension>> {
         // Address generation - base extensions checked in instruction validation
         Opcode::IaddImm => Some(vec![]),
 
+        // Immediate arithmetic
+        Opcode::IaddImm => Some(vec![]),
+        Opcode::ImulImm => Some(vec![RiscvExtension::M]),
+
+        // Immediate bitwise - base ISA
+        Opcode::BandImm | Opcode::BorImm | Opcode::BxorImm => Some(vec![]),
+
+        // Immediate shifts - base ISA
+        Opcode::IshlImm | Opcode::UshrImm | Opcode::SshrImm => Some(vec![]),
+
         // Base instructions - no extensions required
         Opcode::Iadd
         | Opcode::Isub
