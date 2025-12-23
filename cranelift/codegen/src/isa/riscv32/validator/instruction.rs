@@ -3,6 +3,7 @@ use super::supported;
 use crate::CodegenResult;
 use crate::ir::{DataFlowGraph, Function, Inst, Opcode, types::*};
 use alloc::format;
+use alloc::string::ToString;
 use alloc::vec::Vec;
 
 /// Validate all instructions in a function
@@ -74,6 +75,11 @@ pub fn validate_instruction(
         Opcode::Iadd => validate_iadd(func, inst, &func.dfg)?,
         Opcode::Sdiv => validate_sdiv(func, inst, &func.dfg)?,
         Opcode::Fadd => validate_fadd(func, inst, &func.dfg)?,
+        Opcode::Udiv => validate_udiv(func, inst, &func.dfg)?,
+        Opcode::Urem => validate_urem(func, inst, &func.dfg)?,
+        Opcode::Srem => validate_srem(func, inst, &func.dfg)?,
+        Opcode::Bswap => validate_bswap(func, inst, &func.dfg)?,
+        Opcode::Bitrev => validate_bitrev(func, inst, &func.dfg)?,
 
         // ... other opcodes
         _ => {
@@ -102,6 +108,83 @@ fn validate_sdiv(_func: &Function, _inst: Inst, _data: &DataFlowGraph) -> Codege
 }
 
 fn validate_fadd(_func: &Function, _inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
+    Ok(())
+}
+
+fn validate_udiv(func: &Function, inst: Inst, data: &DataFlowGraph) -> CodegenResult<()> {
+    validate_div_rem_instruction(func, inst, data, Opcode::Udiv)
+}
+
+fn validate_urem(func: &Function, inst: Inst, data: &DataFlowGraph) -> CodegenResult<()> {
+    validate_div_rem_instruction(func, inst, data, Opcode::Urem)
+}
+
+fn validate_srem(func: &Function, inst: Inst, data: &DataFlowGraph) -> CodegenResult<()> {
+    validate_div_rem_instruction(func, inst, data, Opcode::Srem)
+}
+
+fn validate_div_rem_instruction(
+    func: &Function,
+    inst: Inst,
+    _data: &DataFlowGraph,
+    opcode: Opcode,
+) -> CodegenResult<()> {
+    // Get the type of the first argument (all args should have the same type)
+    if let Some(&arg) = func.dfg.inst_args(inst).first() {
+        let arg_ty = func.dfg.value_type(arg);
+
+        // i64 division/remainder is not yet implemented on riscv32
+        if arg_ty == I64 {
+            return Err(ValidationError::UnsupportedCombination {
+                inst,
+                opcode,
+                types: vec![arg_ty],
+                reason: format!("i64 {} is not yet implemented on riscv32", opcode),
+            }
+            .into());
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_bswap(func: &Function, inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
+    // Get the type of the first argument
+    if let Some(&arg) = func.dfg.inst_args(inst).first() {
+        let arg_ty = func.dfg.value_type(arg);
+
+        // i64 bswap is not supported on riscv32
+        if arg_ty == I64 {
+            return Err(ValidationError::UnsupportedCombination {
+                inst,
+                opcode: Opcode::Bswap,
+                types: vec![arg_ty],
+                reason: "i64 bswap is not supported on riscv32".to_string(),
+            }
+            .into());
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_bitrev(func: &Function, inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
+    // Get the type of the first argument
+    if let Some(&arg) = func.dfg.inst_args(inst).first() {
+        let arg_ty = func.dfg.value_type(arg);
+
+        // i64 bitrev is not supported on riscv32
+        if arg_ty == I64 {
+            return Err(ValidationError::UnsupportedCombination {
+                inst,
+                opcode: Opcode::Bitrev,
+                types: vec![arg_ty],
+                reason: "i64 bitrev is not supported on riscv32".to_string(),
+            }
+            .into());
+        }
+    }
+
     Ok(())
 }
 

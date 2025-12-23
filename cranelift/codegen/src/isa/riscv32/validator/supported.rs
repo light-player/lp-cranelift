@@ -130,10 +130,7 @@ fn opcode_base_extensions(opcode: Opcode) -> Option<Vec<RiscvExtension>> {
             Some(vec![RiscvExtension::Zbb])
         }
 
-        // Address generation - base extensions checked in instruction validation
-        Opcode::IaddImm => Some(vec![]),
-
-        // Immediate arithmetic
+        // Address generation and immediate arithmetic - base extensions
         Opcode::IaddImm => Some(vec![]),
         Opcode::ImulImm => Some(vec![RiscvExtension::M]),
 
@@ -147,6 +144,7 @@ fn opcode_base_extensions(opcode: Opcode) -> Option<Vec<RiscvExtension>> {
         Opcode::Iadd
         | Opcode::Isub
         | Opcode::Iabs
+        | Opcode::Ireduce
         | Opcode::Band
         | Opcode::Bor
         | Opcode::Bxor
@@ -168,6 +166,25 @@ fn opcode_base_extensions(opcode: Opcode) -> Option<Vec<RiscvExtension>> {
         | Opcode::F64const
         | Opcode::Icmp
         | Opcode::Nop => Some(vec![]),
+
+        // Overflow detection - same extensions as base operations
+        Opcode::UaddOverflow | Opcode::SaddOverflow => Some(vec![]),
+        Opcode::UsubOverflow | Opcode::SsubOverflow => Some(vec![]),
+        Opcode::UmulOverflow | Opcode::SmulOverflow => Some(vec![RiscvExtension::M]),
+
+        // Multiplication high part
+        Opcode::Umulhi | Opcode::Smulhi => Some(vec![RiscvExtension::M]),
+
+        // Overflow trap
+        Opcode::UaddOverflowTrap => Some(vec![]),
+
+        // Overflow with carry in - not yet implemented
+        // Opcode::UaddOverflowCin | Opcode::SaddOverflowCin => Some(vec![]),
+
+        // Unary/binary instructions
+        Opcode::Ineg => Some(vec![]),
+        Opcode::Bitrev | Opcode::Bswap => Some(vec![]), // Base ISA
+        Opcode::Smin | Opcode::Smax | Opcode::Umin | Opcode::Umax => Some(vec![]),
 
         // Check extension requirements map for less common opcodes
         _ => extension_requirements()
@@ -270,7 +287,7 @@ pub fn is_type_supported(ty: Type) -> bool {
 // Example:
 // m.insert(Opcode::SomeRareOpcode, vec![RiscvExtension::Zbb]);
 fn extension_requirements() -> HashMap<Opcode, Vec<RiscvExtension>> {
-    let mut m = HashMap::new();
+    let m = HashMap::new();
 
     m
 }

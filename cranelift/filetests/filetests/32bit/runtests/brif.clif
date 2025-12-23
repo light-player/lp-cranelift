@@ -1,15 +1,7 @@
 test interpret
 test run
-target aarch64
-target s390x
-target x86_64
-target riscv64
-target riscv64 has_c has_zcb
-target riscv32
-target pulley32
-target pulley32be
-target pulley64
-target pulley64be
+target riscv32 has_m
+
 
 ; NOT SUPPORTED: uextend.i64 is not supported on riscv32
 ; function %brif_value(i8) -> i64 {

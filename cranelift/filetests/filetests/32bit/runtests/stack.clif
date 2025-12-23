@@ -2,16 +2,7 @@ test interpret
 test run
 ; Disable stack probes since these tests don't require them
 set enable_probestack=false
-target x86_64
-target s390x
-target aarch64
-target riscv64
-target riscv64 has_c has_zcb
-target riscv32
-target pulley32
-target pulley32be
-target pulley64
-target pulley64be
+target riscv32 has_m
 
 function %stack_simple(i64) -> i64 {
     ss0 = explicit_slot 8

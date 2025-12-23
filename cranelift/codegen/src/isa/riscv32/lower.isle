@@ -377,9 +377,19 @@
 
 ;; For i64 on RV32, we need to handle the high and low parts separately (2-register pattern)
 (rule 1 (lower (has_type $I64 (uadd_overflow x y)))
-  (let ((sum_lo XReg (rv_add (value_regs_get x 0) (value_regs_get y 0)))
-        (sum_hi XReg (rv_add (value_regs_get x 1) (value_regs_get y 1))))
-    (output_pair (value_regs sum_lo sum_hi) (imm $I8 0))))
+  (let ((x_regs ValueRegs x)
+        (y_regs ValueRegs y)
+        (x_lo XReg (value_regs_get x_regs 0))
+        (x_hi XReg (value_regs_get x_regs 1))
+        (y_lo XReg (value_regs_get y_regs 0))
+        (y_hi XReg (value_regs_get y_regs 1))
+        (sum_lo XReg (rv_add x_lo y_lo))
+        (carry XReg (rv_sltu sum_lo x_lo))
+        (sum_hi XReg (rv_add x_hi y_hi))
+        (sum_hi_with_carry XReg (rv_add sum_hi carry))
+        (overflow XReg (rv_or (rv_sltu sum_hi_with_carry x_hi)
+                              (rv_and carry (rv_seqz (rv_xor sum_hi_with_carry x_hi))))))
+    (output_pair (value_regs sum_lo sum_hi_with_carry) overflow)))
 
 ;; For i128, we need to handle the high and low parts separately
 (rule 2 (lower (has_type $I128 (uadd_overflow x y)))
@@ -567,8 +577,8 @@
         (dst_hi2 XReg (madd x_lo y_hi dst_hi1))
         (dst_hi XReg (madd x_hi y_lo dst_hi2))
         (dst_lo XReg (madd x_lo y_lo (zero_reg)))
-        ;; TODO: Implement proper overflow detection
-        (overflow XReg (imm $I8 0)))
+        ;; Overflow if high 32 bits are non-zero
+        (overflow XReg (rv_snez dst_hi)))
     (output_pair (value_regs dst_lo dst_hi) overflow)))
 
 ;; i8 case: zero-extend to i32, multiply, check if result fits in i8
@@ -600,7 +610,7 @@
         (overflow XReg (rv_xor high_bits expected_high)))
     (output_pair result overflow)))
 
-;; i64 case: complex, for now just do the multiply and assume no overflow
+;; i64 case: complex, implement proper overflow detection
 (rule 1 (lower (has_type $I64 (smul_overflow x y)))
   (let
     ((x_regs ValueRegs x)
@@ -612,14 +622,15 @@
       (y_hi XReg (value_regs_get y_regs 1))
 
       ;; Do the 64-bit multiplication (same as imul)
-      (dst_hi1 XReg (rv_mulhu x_lo y_lo))
+      (dst_hi1 XReg (rv_mulh x_lo y_lo))
       (dst_hi2 XReg (madd x_lo y_hi dst_hi1))
       (dst_hi XReg (madd x_hi y_lo dst_hi2))
       (dst_lo XReg (madd x_lo y_lo (zero_reg)))
 
-      ;; TODO: Implement proper overflow detection
-      (overflow XReg (imm $I8 0)))
-    (output_pair (value_regs dst_lo dst_hi) overflow)))
+      ;; Signed overflow: high bits should be sign extension of low bits
+      (expected_high XReg (rv_srai dst_lo (imm12_const 31)))
+      (overflow XReg (rv_xor dst_hi expected_high)))
+    (output_pair (value_regs dst_lo dst_hi) (rv_snez overflow))))
 
 ;; i8 case: sign-extend to i32, multiply, check if result fits in i8
 (rule 2 (lower (has_type $I8 (smul_overflow a b)))
@@ -904,13 +915,31 @@
 (rule 0 (lower (has_type (fits_in_32 (ty_int ty)) (smulhi x y)))
   (lower_smlhi ty (sext x) (sext y)))
 
-;; (rule 1 (lower (has_type (ty_supported_vec ty) (smulhi x y)))
+;; i64 case: implement 64-bit signed multiplication high part
+(rule 1 (lower (has_type $I64 (smulhi x y)))
+  (let
+    ((x_regs ValueRegs x)
+      (x_lo XReg (value_regs_get x_regs 0))
+      (x_hi XReg (value_regs_get x_regs 1))
+
+      (y_regs ValueRegs y)
+      (y_lo XReg (value_regs_get y_regs 0))
+      (y_hi XReg (value_regs_get y_regs 1))
+
+      ;; 64-bit signed multiplication high part algorithm
+      ;; This follows the same pattern as unsigned multiplication
+      (dst_hi1 XReg (rv_mulh x_lo y_lo))
+      (dst_hi2 XReg (madd x_lo y_hi dst_hi1))
+      (dst_hi XReg (madd x_hi y_lo dst_hi2)))
+    dst_hi))
+
+;; (rule 2 (lower (has_type (ty_supported_vec ty) (smulhi x y)))
 ;;   (rv_vmulh_vv x y (unmasked) ty))
 
-;; (rule 2 (lower (has_type (ty_supported_vec ty) (smulhi (splat x) y)))
+;; (rule 3 (lower (has_type (ty_supported_vec ty) (smulhi (splat x) y)))
 ;;   (rv_vmulh_vx y x (unmasked) ty))
 
-;; (rule 3 (lower (has_type (ty_supported_vec ty) (smulhi x (splat y))))
+;; (rule 4 (lower (has_type (ty_supported_vec ty) (smulhi x (splat y))))
 ;;   (rv_vmulh_vx x y (unmasked) ty))
 
 ;;;; Rules for `umulhi` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2251,6 +2280,8 @@
     (writable_reg_to_reg dst)))
 
 ;;;;;  Rules for `ireduce`;;;;;;;;;;;;;;;;;
+;; For i64 sources, take the low register (already handles i64→i32)
+;; For smaller targets, we may need masking, but RISC-V handles this via types
 (rule
   (lower (has_type ty (ireduce x)))
   (value_regs_get x 0))

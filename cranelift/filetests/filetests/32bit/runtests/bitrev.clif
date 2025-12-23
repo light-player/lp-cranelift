@@ -1,0 +1,31 @@
+test interpret
+test run
+target riscv32 has_m
+
+function %bitrev_i8(i8) -> i8 {
+block0(v0: i8):
+    v1 = bitrev v0
+    return v1
+}
+; run: %bitrev_i8(1) == -128
+; run: %bitrev_i8(64) == 2
+; run: %bitrev_i8(-1) == -1
+
+function %bitrev_i16(i16) -> i16 {
+block0(v0: i16):
+    v1 = bitrev v0
+    return v1
+}
+; run: %bitrev_i16(1) == -32768
+; run: %bitrev_i16(16384) == 2
+; run: %bitrev_i16(-1) == -1
+
+function %bitrev_i32(i32) -> i32 {
+block0(v0: i32):
+    v1 = bitrev v0
+    return v1
+}
+; run: %bitrev_i32(1) == -2147483648
+; run: %bitrev_i32(1073741824) == 2
+; run: %bitrev_i32(-1) == -1
+

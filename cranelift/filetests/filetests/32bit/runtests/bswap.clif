@@ -1,0 +1,25 @@
+test interpret
+test run
+set enable_multi_ret_implicit_sret
+target riscv32 has_m
+
+function %bswap_i16(i16) -> i16 {
+block0(v0: i16):
+    v1 = bswap v0
+    return v1
+}
+; run: %bswap_i16(0) == 0
+; run: %bswap_i16(1) == 0x0100
+; run: %bswap_i16(0x1234) == 0x3412
+; run: %bswap_i16(-2) == 0xFEFF
+
+function %bswap_i32(i32) -> i32 {
+block0(v0: i32):
+    v1 = bswap v0
+    return v1
+}
+; run: %bswap_i32(0) == 0
+; run: %bswap_i32(1) == 0x01000000
+; run: %bswap_i32(0x12345678) == 0x78563412
+; run: %bswap_i32(-2) == 0xFEFFFFFF
+
