@@ -145,6 +145,8 @@ fn opcode_base_extensions(opcode: Opcode) -> Option<Vec<RiscvExtension>> {
         | Opcode::Isub
         | Opcode::Iabs
         | Opcode::Ireduce
+        | Opcode::Sextend
+        | Opcode::Uextend
         | Opcode::Band
         | Opcode::Bor
         | Opcode::Bxor

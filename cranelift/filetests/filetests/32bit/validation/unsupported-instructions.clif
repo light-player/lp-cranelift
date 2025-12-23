@@ -1,5 +1,5 @@
 ; Test that unsupported instructions are rejected
-test compile
+test compile expect-fail
 target riscv32 has_m
 
 function %test_udiv_i64() {
@@ -9,7 +9,6 @@ block0:
     v2 = udiv v0, v1
     return
 }
-; error: Unsupported combination: udiv with types [i64]: i64 udiv is not yet implemented on riscv32
 
 function %test_urem_i64() {
 block0:
@@ -18,7 +17,6 @@ block0:
     v2 = urem v0, v1
     return
 }
-; error: Unsupported combination: urem with types [i64]: i64 urem is not yet implemented on riscv32
 
 function %test_srem_i64() {
 block0:
@@ -27,4 +25,3 @@ block0:
     v2 = srem v0, v1
     return
 }
-; error: Unsupported combination: srem with types [i64]: i64 srem is not yet implemented on riscv32

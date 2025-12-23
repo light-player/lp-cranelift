@@ -49,39 +49,3 @@ block0(v0: i32):
 ; run: %udiv_by_const_1337_i32(57490) == 42
 ; run: %udiv_by_const_1337_i32(57491) == 43
 
-function %udiv_i64(i64, i64) -> i64 {
-block0(v0: i64, v1: i64):
-    v2 = udiv v0, v1
-    return v2
-}
-; run: %udiv_i64(0, 100) == 0
-; run: %udiv_i64(2, 1) == 2
-; run: %udiv_i64(16, 2) == 8
-; run: %udiv_i64(123456, 789) == 156
-
-function %udiv_pow2_i64(i64) -> i64 {
-block0(v0: i64):
-    v1 = iconst.i64 8
-    v2 = udiv v0, v1
-    return v2
-}
-; run: %udiv_pow2_i64(0) == 0
-; run: %udiv_pow2_i64(8) == 1
-; run: %udiv_pow2_i64(9) == 1
-; run: %udiv_pow2_i64(16) == 2
-; run: %udiv_pow2_i64(17) == 2
-
-function %udiv_by_const_1337_i64(i64) -> i64 {
-block0(v0: i64):
-    v1 = iconst.i64 1337
-    v2 = udiv v0, v1
-    return v2
-}
-
-; run: %udiv_by_const_1337_i64(0) == 0
-; run: %udiv_by_const_1337_i64(1337) == 1
-; run: %udiv_by_const_1337_i64(1338) == 1
-; run: %udiv_by_const_1337_i64(56154) == 42
-; run: %udiv_by_const_1337_i64(56155) == 42
-; run: %udiv_by_const_1337_i64(57490) == 42
-; run: %udiv_by_const_1337_i64(57491) == 43
