@@ -313,6 +313,13 @@ impl EmulatorExecutor {
     /// Generate formatted emulator state for debugging
     fn format_emulator_state(&self) -> Option<String> {
         use lp_riscv_tools::Gpr;
+        use std::collections::HashSet;
+
+        // Don't show emulator state if no instructions were executed
+        let instruction_count = self.emulator.get_instruction_count();
+        if instruction_count == 0 {
+            return None;
+        }
 
         let mut output = String::new();
 
@@ -320,39 +327,102 @@ impl EmulatorExecutor {
         output.push_str("\n=== EMULATOR STATE ===\n");
         output.push_str(&format!("PC: 0x{:08x}\n", self.emulator.get_pc()));
 
+        // Collect registers that were written to during execution
+        let mut written_registers = HashSet::new();
+        for log in self.emulator.get_logs() {
+            use lp_riscv_tools::InstLog::*;
+            match log {
+                Arithmetic { rd, .. } => {
+                    written_registers.insert(*rd);
+                }
+                Load { rd, .. } => {
+                    written_registers.insert(*rd);
+                }
+                Store { .. } => {} // Store doesn't modify registers
+                Branch { .. } => {} // Branch doesn't modify registers
+                Jump { instruction, rd_new, .. } => {
+                    // Jump instructions can write to rd (like jal)
+                    if rd_new.is_some() {
+                        // Extract rd register from the instruction word
+                        let rd_num = ((instruction >> 7) & 0x1F) as u8;
+                        written_registers.insert(Gpr::new(rd_num));
+                    }
+                }
+                Immediate { rd, .. } => {
+                    written_registers.insert(*rd);
+                }
+                System { .. } => {} // System doesn't modify registers
+            }
+        }
+
         output.push_str("Registers:\n");
-        for i in 0..32 {
-            let reg_name = match i {
-                0 => "zero",
-                1 => "ra",
-                2 => "sp",
-                3 => "gp",
-                4 => "tp",
-                5..=7 => &format!("t{}", i - 5),
-                8..=9 => &format!("s{}", i - 8),
-                10..=17 => &format!("a{}", i - 10),
-                18..=27 => &format!("s{}", i - 16),
-                28..=31 => &format!("t{}", i - 25),
-                _ => unreachable!(),
-            };
-            let value = self.emulator.get_register(Gpr::new(i as u8));
+
+        // Show registers in a compact format: only non-zero registers and registers written during execution
+        let mut shown_registers = Vec::new();
+
+        // Always show x0 (zero) first
+        shown_registers.push((Gpr::Zero, "zero".to_string()));
+
+        // Show named registers that are non-zero or were written to during execution
+        let named_regs = [
+            (Gpr::Ra, "ra"),
+            (Gpr::Sp, "sp"),
+            (Gpr::Gp, "gp"),
+            (Gpr::Tp, "tp"),
+            (Gpr::T0, "t0"),
+            (Gpr::T1, "t1"),
+            (Gpr::T2, "t2"),
+            (Gpr::S0, "s0"),
+            (Gpr::S1, "s1"),
+            (Gpr::A0, "a0"),
+            (Gpr::A1, "a1"),
+            (Gpr::A2, "a2"),
+            (Gpr::A3, "a3"),
+            (Gpr::A4, "a4"),
+            (Gpr::A5, "a5"),
+            (Gpr::A6, "a6"),
+            (Gpr::A7, "a7"),
+        ];
+
+        for (reg, name) in &named_regs {
+            let value = self.emulator.get_register(*reg);
+            if value != 0 || written_registers.contains(reg) {
+                shown_registers.push((*reg, name.to_string()));
+            }
+        }
+
+        // Show other registers (s2-s11, t3-t6) that are non-zero or were written to
+        for i in 18..32 {
+            let reg = Gpr::new(i);
+            let value = self.emulator.get_register(reg);
+            if value != 0 || written_registers.contains(&reg) {
+                let name = if i >= 18 && i <= 27 {
+                    format!("s{}", i - 16)
+                } else {
+                    format!("t{}", i - 25)
+                };
+                shown_registers.push((reg, name));
+            }
+        }
+
+        // Format the registers
+        for (reg, name) in shown_registers {
+            let value = self.emulator.get_register(reg);
             output.push_str(&format!(
-                "  {:>3} ({:>4}): 0x{:08x} ({})\n",
-                format!("x{}", i),
-                reg_name,
-                value,
+                "  {} (x{}) = 0x{:08x} ({})\n",
+                name,
+                reg.num(),
+                value as u32,
                 value
             ));
         }
 
         // Add instruction count
-        output.push_str(&format!(
-            "\nInstructions executed: {}\n",
-            self.emulator.get_instruction_count()
-        ));
+        output.push_str(&format!("\nInstructions executed: {}\n", instruction_count));
 
-        // Use the built-in debug info formatter
-        let debug_info = self.emulator.format_debug_info(None, 20);
+        // Limit log entries to the number of instructions actually executed
+        let log_count = instruction_count.min(50) as usize; // Cap at 50 for readability
+        let debug_info = self.emulator.format_debug_info(None, log_count);
         if !debug_info.is_empty() {
             output.push_str(&format!("\n=== EXECUTION LOG ===\n{}", debug_info));
         }
@@ -410,6 +480,7 @@ fn generate_debug_info(
     testfile: &CompiledObjectTestFile,
     func: &ir::Function,
     _error_msg: &str,
+    executor: Option<&EmulatorExecutor>,
 ) -> String {
     let mut debug_output = String::new();
 
@@ -440,11 +511,17 @@ fn generate_debug_info(
         debug_output.push_str(&format!("  {}\n", symbol_name));
     }
 
-    // Try to create emulator and get state (this will have the failed execution state)
-    if let Ok(executor) = EmulatorExecutor::new(testfile) {
-        if let Some(emulator_state) = executor.format_emulator_state() {
-            debug_output.push_str(&emulator_state);
-        }
+    // Try to get emulator state from the provided executor, or create a new one
+    let emulator_state = if let Some(executor) = executor {
+        executor.format_emulator_state()
+    } else if let Ok(new_executor) = EmulatorExecutor::new(testfile) {
+        new_executor.format_emulator_state()
+    } else {
+        None
+    };
+
+    if let Some(state) = emulator_state {
+        debug_output.push_str(&state);
     }
 
     debug_output
@@ -459,22 +536,26 @@ fn run_emulator_test(
         if let Some(command) = parse_run_command(comment.text, &func.signature)? {
             trace!("Parsed run command: {command}");
 
-            let result = command.run(|_, run_args| {
-                let mut args = Vec::with_capacity(run_args.len());
-                args.extend_from_slice(run_args);
+            // Create emulator executor outside the closure so we can use it for error reporting
+            let mut executor = EmulatorExecutor::new(testfile)
+                .map_err(|e| anyhow::anyhow!("Emulator setup failed: {}", e))?;
 
-                // Create emulator executor and call the function
-                let mut executor = EmulatorExecutor::new(testfile)
-                    .map_err(|e| format!("Emulator setup failed: {}", e))?;
-                let result = executor
-                    .call_function(&func.name, &args)
-                    .map_err(|e| format!("Emulator execution failed: {}", e))?;
-                Ok(result)
-            });
+            let result = {
+                let executor_ref = &mut executor;
+                command.run(|_, run_args| {
+                    let mut args = Vec::with_capacity(run_args.len());
+                    args.extend_from_slice(run_args);
+
+                    // Call the function using the executor
+                    executor_ref
+                        .call_function(&func.name, &args)
+                        .map_err(|e| format!("Emulator execution failed: {}", e))
+                })
+            };
 
             if let Err(err_msg) = result {
-                // Generate debugging information
-                let debug_info = generate_debug_info(testfile, func, &err_msg);
+                // Generate debugging information using the executor that ran the code
+                let debug_info = generate_debug_info(testfile, func, &err_msg, Some(&executor));
                 return Err(anyhow::anyhow!("{}\n\n{}", err_msg, debug_info));
             }
         }

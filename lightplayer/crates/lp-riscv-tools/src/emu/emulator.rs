@@ -3,12 +3,13 @@
 extern crate alloc;
 
 use alloc::{format, string::String, vec::Vec};
+use core::fmt::Write;
 
 use super::{
     decoder::decode_instruction,
     error::EmulatorError,
     executor::execute_instruction,
-    logging::{InstLog, LogLevel},
+    logging::{InstLog, LogLevel, SystemKind},
     memory::Memory,
 };
 use crate::Gpr;
@@ -677,22 +678,23 @@ impl Riscv32Emulator {
         let mut result = String::new();
         let code = self.memory.code();
 
-        // Disassemble all instructions
-        let mut instructions = Vec::new();
-        for i in (0..code.len()).step_by(4) {
-            if i + 4 <= code.len() {
-                let inst_word =
-                    u32::from_le_bytes([code[i], code[i + 1], code[i + 2], code[i + 3]]);
-                let pc = i as u32;
-                // Use proper disassembly formatting
-                let disasm = crate::inst::format_instruction(inst_word);
-                instructions.push((pc, inst_word, disasm));
-            }
-        }
-
-        // Show disassembly
-        result.push_str("Disassembly:\n");
+        // Show disassembly only when there's an error PC to highlight
         if let Some(error_pc) = highlight_pc {
+            // Disassemble all instructions
+            let mut instructions = Vec::new();
+            for i in (0..code.len()).step_by(4) {
+                if i + 4 <= code.len() {
+                    let inst_word =
+                        u32::from_le_bytes([code[i], code[i + 1], code[i + 2], code[i + 3]]);
+                    let pc = i as u32;
+                    // Use proper disassembly formatting
+                    let disasm = crate::inst::format_instruction(inst_word);
+                    instructions.push((pc, inst_word, disasm));
+                }
+            }
+
+            // Show disassembly
+            result.push_str("Disassembly:\n");
             if instructions.len() > 50 {
                 // Find the index of the highlighted instruction
                 let fail_idx = instructions
@@ -725,29 +727,84 @@ impl Riscv32Emulator {
                     if *pc == error_pc { ">>> " } else { "    " }
                 });
             }
-        } else {
-            // No highlight - show recent instructions or all if small
-            if instructions.len() > 50 {
-                let start = instructions.len().saturating_sub(20);
-                if start > 0 {
-                    result.push_str("  ...\n");
-                }
-                for (idx, (pc, _inst_word, disasm)) in instructions[start..].iter().enumerate() {
-                    let actual_idx = start + idx;
-                    result.push_str(&format!("   {:3}: 0x{:08x}: {}\n", actual_idx, pc, disasm));
-                }
-            } else {
-                // Show all instructions, skipping long zero runs
-                Self::format_instructions_with_zero_skip(&mut result, &instructions, |_| "   ");
-            }
         }
+        // Skip disassembly when there's no error PC - execution logs are more useful
 
-        // Show logs
+        // Show logs in chronological order (oldest first, matching execution order)
         if !self.log_buffer.is_empty() {
-            result.push_str("\nLast execution logs:\n");
+            result.push_str("\nExecution logs:\n");
+            // Show the last log_count entries in chronological order (oldest first)
             let start = self.log_buffer.len().saturating_sub(log_count);
-            for log in &self.log_buffer[start..] {
-                result.push_str(&format!("{}\n", log));
+            let logs_to_show = &self.log_buffer[start..];
+            
+            // Calculate maximum instruction width for proper column alignment
+            let max_inst_width = logs_to_show
+                .iter()
+                .map(|log| {
+                    let disassembly = crate::inst::format_instruction(log.instruction());
+                    disassembly.len()
+                })
+                .max()
+                .unwrap_or(0);
+            
+            // Format each log with proper column alignment
+            for log in logs_to_show {
+                let cycle = log.cycle();
+                let pc = log.pc();
+                let instruction = log.instruction();
+                let disassembly = crate::inst::format_instruction(instruction);
+                
+                // Format: [cycle] 0xPC: instruction (padded) ; comment
+                // Writing to String never fails, so unwrap is safe
+                write!(result, "[{:4}] 0x{:08x}: {:width$}", cycle, pc, disassembly, width = max_inst_width).unwrap();
+                
+                // Format comment
+                match log {
+                    InstLog::Arithmetic { rd, rs1_val, rs2_val, rd_old, rd_new, .. } => {
+                        write!(result, " ; {}: {} -> {}", rd, rd_old, rd_new).unwrap();
+                        if let Some(rs2_val) = rs2_val {
+                            write!(result, " (rs1={}, rs2={})", rs1_val, rs2_val).unwrap();
+                        } else {
+                            write!(result, " (rs1={})", rs1_val).unwrap();
+                        }
+                    }
+                    InstLog::Load { rd, rs1_val, addr, mem_val, rd_old, rd_new, .. } => {
+                        write!(result, " ; {}: {} -> {} (mem[0x{:08x}] = {}) (rs1={})", 
+                            rd, rd_old, rd_new, addr, mem_val, rs1_val).unwrap();
+                    }
+                    InstLog::Store { rs1_val, rs2_val, addr, mem_old, mem_new, .. } => {
+                        write!(result, " ; mem[0x{:08x}]: {} -> {} (rs1={}, rs2={})", 
+                            addr, mem_old, mem_new, rs1_val, rs2_val).unwrap();
+                    }
+                    InstLog::Branch { rs1_val, rs2_val, taken, target_pc, .. } => {
+                        if *taken {
+                            if let Some(target) = target_pc {
+                                write!(result, " ; branch taken: 0x{:08x} -> 0x{:08x} (rs1={}, rs2={})", 
+                                    pc, target, rs1_val, rs2_val).unwrap();
+                            } else {
+                                write!(result, " ; branch taken (rs1={}, rs2={})", rs1_val, rs2_val).unwrap();
+                            }
+                        } else {
+                            write!(result, " ; branch not taken (rs1={}, rs2={})", rs1_val, rs2_val).unwrap();
+                        }
+                    }
+                    InstLog::Jump { rd_old, rd_new, target_pc, .. } => {
+                        if let Some(rd_new) = rd_new {
+                            write!(result, " ; rd: {} -> {} jump: 0x{:08x} -> 0x{:08x}", 
+                                rd_old, rd_new, pc, target_pc).unwrap();
+                        } else {
+                            write!(result, " ; jump: 0x{:08x} -> 0x{:08x}", pc, target_pc).unwrap();
+                        }
+                    }
+                    InstLog::Immediate { rd, rd_old, rd_new, .. } => {
+                        write!(result, " ; {}: {} -> {}", rd, rd_old, rd_new).unwrap();
+                    }
+                    InstLog::System { kind, .. } => match kind {
+                        SystemKind::Ecall => write!(result, " ; syscall").unwrap(),
+                        SystemKind::Ebreak => write!(result, " ; breakpoint").unwrap(),
+                    },
+                }
+                result.push('\n');
             }
         }
 

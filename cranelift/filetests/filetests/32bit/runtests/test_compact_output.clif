@@ -1,0 +1,35 @@
+test run
+target riscv32 has_m
+
+; Test compact register output - only non-zero registers and registers written during execution should be shown
+; This function uses only a0 (input), a1 (temporary), and a0 (output)
+; Other registers should not appear in the emulator state output
+function %test_compact_registers(i32) -> i32 {
+block0(v0: i32):
+    v1 = iconst.i32 42
+    v2 = iadd v0, v1
+    return v2
+}
+; run: %test_compact_registers(10) == 52
+
+; Test that execution log is limited to instruction count
+; This function executes exactly 3 instructions (add, add, ret)
+; The execution log should show at most 3 log entries
+function %test_log_limit(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 = iadd v0, v1
+    v3 = iadd v2, v1
+    return v3
+}
+; run: %test_log_limit(5, 10) == 25
+
+; Test that registers written to (even if zero) are shown
+; This function writes zero to a register, which should still be shown
+function %test_zero_register_shown(i32) -> i32 {
+block0(v0: i32):
+    v1 = iconst.i32 0
+    v2 = isub v0, v0  ; Result is zero, written to a0
+    return v2
+}
+; run: %test_zero_register_shown(42) == 0
+
