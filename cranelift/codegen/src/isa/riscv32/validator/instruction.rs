@@ -110,8 +110,8 @@ fn validate_iadd(_func: &Function, _inst: Inst, _data: &DataFlowGraph) -> Codege
     Ok(())
 }
 
-fn validate_sdiv(_func: &Function, _inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
-    Ok(())
+fn validate_sdiv(func: &Function, inst: Inst, data: &DataFlowGraph) -> CodegenResult<()> {
+    validate_div_rem_instruction(func, inst, data, Opcode::Sdiv)
 }
 
 fn validate_fadd(_func: &Function, _inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
@@ -140,18 +140,35 @@ fn validate_div_rem_instruction(
     if let Some(&arg) = func.dfg.inst_args(inst).first() {
         let arg_ty = func.dfg.value_type(arg);
 
-        // i64 division/remainder is not yet implemented on riscv32
+        // For i64 types, only sdiv is supported (for fixed32 use case)
         if arg_ty == I64 {
-            return Err(ValidationError::UnsupportedCombination {
-                inst,
-                opcode,
-                types: vec![arg_ty],
-                reason: format!("i64 {} is not yet implemented on riscv32", opcode),
+            match opcode {
+                Opcode::Sdiv => {
+                    // sdiv.i64 is supported for fixed32 arithmetic
+                    return Ok(());
+                }
+                Opcode::Udiv | Opcode::Urem | Opcode::Srem => {
+                    // Other i64 division/remainder operations are not implemented
+                    return Err(ValidationError::UnsupportedCombination {
+                        inst,
+                        opcode,
+                        types: vec![arg_ty],
+                        reason: format!("i64 {} is not yet implemented on riscv32", opcode),
+                    }
+                    .into());
+                }
+                _ => {
+                    // Should not happen for division/remainder opcodes
+                    unreachable!(
+                        "Unexpected opcode in validate_div_rem_instruction: {:?}",
+                        opcode
+                    );
+                }
             }
-            .into());
         }
     }
 
+    // For non-i64 types, all operations are allowed (existing behavior)
     Ok(())
 }
 
