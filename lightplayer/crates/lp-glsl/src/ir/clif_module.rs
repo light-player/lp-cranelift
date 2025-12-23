@@ -150,6 +150,8 @@ impl ClifModule {
             // If user_named_funcs is empty, we'll match by signature
             // Collect all FuncRefs and their IDs first to avoid borrow conflicts
             let user_named_funcs = func.params.user_named_funcs();
+            // Collect ExternalName conversions upfront to avoid borrow conflicts
+            let mut ext_name_conversions: Vec<(FuncRef, String)> = Vec::new();
             let mut old_func_ref_to_old_func_id: Vec<(FuncRef, u32)> = Vec::new();
             let mut func_ids_to_add: Vec<u32> = Vec::new();
             for (old_func_ref, old_ext_func) in func.dfg.ext_funcs.iter() {
@@ -157,6 +159,10 @@ impl ClifModule {
                     // Try to look up the UserExternalName from user_named_funcs first
                     if let Some(user_name) = user_named_funcs.get(user_name_ref) {
                         old_func_ref_to_old_func_id.push((old_func_ref, user_name.index));
+                        // Also collect for ExternalName conversion
+                        if let Some(func_name) = func_id_to_name.get(&user_name.index) {
+                            ext_name_conversions.push((old_func_ref, func_name.clone()));
+                        }
                     } else {
                         // user_named_funcs is empty - match by signature
                         let old_sig = &func.dfg.signatures[old_ext_func.signature];
@@ -266,6 +272,7 @@ impl ClifModule {
 
             // Build mapping from old FuncRef to new FuncRef
             let mut func_ref_map: HashMap<FuncRef, FuncRef> = HashMap::new();
+            let mut new_func_refs_to_convert: Vec<(FuncRef, String)> = Vec::new();
             for (old_func_ref, old_func_id) in &old_func_ref_to_old_func_id {
                 let callee_name = func_id_to_name.get(old_func_id).ok_or_else(|| {
                     GlslError::new(
@@ -284,6 +291,8 @@ impl ClifModule {
                 })?;
                 let new_func_ref = module.declare_func_in_func(*new_callee_func_id, func);
                 func_ref_map.insert(*old_func_ref, new_func_ref);
+                // Track new FuncRefs for ExternalName conversion
+                new_func_refs_to_convert.push((new_func_ref, callee_name.clone()));
             }
 
             // Now replace FuncRefs in all call instructions
@@ -312,6 +321,9 @@ impl ClifModule {
                     };
                 }
             }
+
+            // Note: ObjectModule doesn't support ExternalName::TestCase, so we keep ExternalName::User
+            // The symbol resolution works via user_named_funcs entries which are already set up correctly
 
             Ok(())
         }

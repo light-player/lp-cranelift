@@ -25,3 +25,11 @@ block0:
     v2 = srem v0, v1
     return
 }
+
+function %test_sdiv_i64() {
+block0:
+    v0 = iconst.i64 10
+    v1 = iconst.i64 2
+    v2 = sdiv v0, v1
+    return
+}

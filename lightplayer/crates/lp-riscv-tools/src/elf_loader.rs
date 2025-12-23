@@ -77,11 +77,41 @@ fn apply_single_relocation(
     };
 
     let target_addr = target_addr.ok_or_else(|| {
+        let symbol_name = match reloc.target() {
+            RelocationTarget::Symbol(sym_idx) => {
+                if let Ok(sym) = obj.symbol_by_index(sym_idx) {
+                    sym.name().unwrap_or("<unnamed>").to_string()
+                } else {
+                    format!("symbol_index_{}", sym_idx.0)
+                }
+            }
+            _ => "<unknown>".to_string(),
+        };
         format!(
-            "Could not resolve relocation target at offset {}",
-            reloc_offset
+            "Could not resolve relocation target '{}' at offset 0x{:x}. Symbol not found in symbol map.",
+            symbol_name, reloc_offset
         )
     })?;
+
+    // Validate target address for function call relocations
+    if matches!(reloc.flags(), RelocationFlags::Elf { r_type } if r_type == object::elf::R_RISCV_CALL_PLT) {
+        if target_addr == 0 {
+            let symbol_name = match reloc.target() {
+                RelocationTarget::Symbol(sym_idx) => {
+                    if let Ok(sym) = obj.symbol_by_index(sym_idx) {
+                        sym.name().unwrap_or("<unnamed>").to_string()
+                    } else {
+                        format!("symbol_index_{}", sym_idx.0)
+                    }
+                }
+                _ => "<unknown>".to_string(),
+            };
+            return Err(format!(
+                "Relocation target resolves to address 0 at offset 0x{:x} (symbol: '{}'). Symbol may not be found in symbol map.",
+                reloc_offset, symbol_name
+            ));
+        }
+    }
 
     // Calculate PC-relative offset
     // reloc_offset is relative to section start, so PC = section_load_addr + reloc_offset
@@ -197,32 +227,18 @@ fn apply_single_relocation(
                     reloc_bytes.copy_from_slice(&absolute_addr.to_le_bytes());
                 }
                 _ => {
-                    // For other relocation types, try simple PC-relative patching
-                    if reloc_offset + 4 <= code_bytes.len() {
-                        let pcrel_i32 = pcrel as i32;
-                        let reloc_bytes = &mut code_bytes[reloc_offset..reloc_offset + 4];
-                        reloc_bytes.copy_from_slice(&pcrel_i32.to_le_bytes());
-                    } else {
-                        return Err(format!(
-                            "Unsupported relocation type {} at offset {}",
-                            r_type, reloc_offset
-                        ));
-                    }
+                    return Err(format!(
+                        "Unsupported relocation type {} at offset 0x{:x}. Supported types: R_RISCV_CALL_PLT, R_RISCV_PCREL_HI20, R_RISCV_PCREL_LO12_I, R_RISCV_32",
+                        r_type, reloc_offset
+                    ));
                 }
             }
         }
         _ => {
-            // For non-ELF formats, try generic PC-relative patching
-            if reloc_offset + 4 <= code_bytes.len() {
-                let pcrel_i32 = pcrel as i32;
-                let reloc_bytes = &mut code_bytes[reloc_offset..reloc_offset + 4];
-                reloc_bytes.copy_from_slice(&pcrel_i32.to_le_bytes());
-            } else {
-                return Err(format!(
-                    "Unsupported relocation format at offset {}",
-                    reloc_offset
-                ));
-            }
+            return Err(format!(
+                "Unsupported relocation format at offset 0x{:x}",
+                reloc_offset
+            ));
         }
     }
 
@@ -247,7 +263,7 @@ fn apply_relocations(
             }
 
             let addr = symbol.address();
-            let symbol_kind = symbol.kind();
+            let _symbol_kind = symbol.kind();
 
             // For symbols in text section, use relative offset
             if addr >= text_section_base {

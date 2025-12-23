@@ -140,30 +140,20 @@ fn validate_div_rem_instruction(
     if let Some(&arg) = func.dfg.inst_args(inst).first() {
         let arg_ty = func.dfg.value_type(arg);
 
-        // For i64 types, only sdiv is supported (for fixed32 use case)
+        // For i64 types, reject all division/remainder operations
         if arg_ty == I64 {
             match opcode {
-                Opcode::Sdiv => {
-                    // sdiv.i64 is supported for fixed32 arithmetic
-                    return Ok(());
-                }
-                Opcode::Udiv | Opcode::Urem | Opcode::Srem => {
-                    // Other i64 division/remainder operations are not implemented
+                Opcode::Sdiv | Opcode::Udiv | Opcode::Srem | Opcode::Urem => {
                     return Err(ValidationError::UnsupportedCombination {
                         inst,
                         opcode,
                         types: vec![arg_ty],
-                        reason: format!("i64 {} is not yet implemented on riscv32", opcode),
+                        reason: format!("i64 {} is not supported on riscv32", opcode),
                     }
                     .into());
                 }
-                _ => {
-                    // Should not happen for division/remainder opcodes
-                    unreachable!(
-                        "Unexpected opcode in validate_div_rem_instruction: {:?}",
-                        opcode
-                    );
-                }
+                // Allow other i64 operations
+                _ => {}
             }
         }
     }

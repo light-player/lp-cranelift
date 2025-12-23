@@ -1030,27 +1030,6 @@
   (if (safe_divisor_from_imm64 $I32 imm))
   (rv_div x y))
 
-;; Partial i64 signed division: only handle fixed32 case where divisor fits in 32 bits
-;; This is sufficient for fixed32 (16.16) math operations
-;; For fixed32: (sextend(a) << 16) / sextend(b) where a,b are i32
-;; After left shift by 16, the dividend may be in low or high 32 bits depending on value
-;; We assume the result fits in 32 bits (reasonable for fixed32 range)
-;; Strategy: For fixed32, the shifted value typically fits in the low 32 bits
-;; Use dividend_low when high is zero (positive) or when high is all ones (negative but value in low part)
-;; For the fixed32 case, we can use dividend_low directly since the shift amount (16) keeps most values in low 32 bits
-(rule 4 (lower (has_type $I64 (sdiv x y)))
-  (if-let true (has_m))
-  ;; Simplified fixed32 division: use dividend_low directly
-  ;; For fixed32 values shifted by 16, the result typically fits in low 32 bits
-  ;; Both positive and negative values after shift are in the low part for typical fixed32 ranges
-  (let ((x_regs ValueRegs x)
-        (y_regs ValueRegs y)
-        (dividend_low XReg (value_regs_get x_regs 0))
-        (divisor_low XReg (value_regs_get y_regs 0))
-        (quotient_lo XReg (rv_div dividend_low divisor_low))
-        (quotient_hi XReg (rv_srai quotient_lo (imm12_const 31))))
-    (value_regs quotient_lo quotient_hi)))
-
 ;; Check for two trapping conditions:
 ;;
 ;; * the divisor is 0, or...
@@ -1069,6 +1048,15 @@
                       no_int_overflow (zero_reg)
                       (TrapCode.INTEGER_OVERFLOW))))
       y))
+
+;; Partial i64 signed division: only handle fixed32 case where divisor fits in 32 bits
+;; This is sufficient for fixed32 (16.16) math operations
+;; For fixed32: (sextend(a) << 16) / sextend(b) where a,b are i32
+;; After left shift by 16, the dividend may be in low or high 32 bits depending on value
+;; We assume the result fits in 32 bits (reasonable for fixed32 range)
+;; Strategy: For fixed32, the shifted value typically fits in the low 32 bits
+;; Use dividend_low when high is zero (positive) or when high is all ones (negative but value in low part)
+;; For the fixed32 case, we can use dividend_low directly since the shift amount (16) keeps most values in low 32 bits
 
 ;;;; Rules for `urem` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

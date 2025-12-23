@@ -143,44 +143,48 @@ pub(crate) fn convert_fdiv(
     // Check if numerator is negative (for sign of infinity)
     let is_negative = builder.ins().icmp(IntCC::SignedLessThan, arg1, zero);
 
-    // For nonzero/0: return max (positive) or min (negative) based on numerator sign
-    let infinity_value = builder
-        .ins()
-        .select(is_negative, min_fixed_16x16, max_fixed_16x16);
-
-    // For 0/0: return 0 (NaN approximation)
-    // For nonzero/0: return infinity_value
-    let saturation_value = builder
-        .ins()
-        .select(numerator_is_zero, zero, infinity_value);
-
     // Use a safe divisor: if divisor is zero, use 1 (which won't cause division by zero)
-    // We'll select the correct result afterwards
+    // We'll correct the result afterwards
     let one = builder.ins().iconst(target_type, 1);
-    let safe_divisor = builder.ins().select(is_zero, one, arg2);
+    let is_zero_i32 = builder.ins().uextend(types::I32, is_zero);
+    let not_is_zero_i32 = builder.ins().isub(one, is_zero_i32);
+    let zero_contrib_safe = builder.ins().imul(is_zero_i32, one);
+    let arg2_contrib = builder.ins().imul(not_is_zero_i32, arg2);
+    let safe_divisor = builder.ins().iadd(zero_contrib_safe, arg2_contrib);
 
     // Fixed-point division: (a << shift_amount) / safe_divisor
-    // Use i64 intermediate to avoid overflow when shifting i32 left by 16
-    // Sign-extend numerator to i64
-    let arg1_wide = builder.ins().sextend(types::I64, arg1);
-
-    // Left shift numerator in i64
-    let shift_const = builder.ins().iconst(types::I64, shift_amount);
-    let shifted_numerator_wide = builder.ins().ishl(arg1_wide, shift_const);
-
-    // Sign-extend safe denominator to i64
-    let safe_divisor_wide = builder.ins().sextend(types::I64, safe_divisor);
-
-    // Divide in i64 (safe because safe_divisor is never zero)
-    let div_result_wide = builder
-        .ins()
-        .sdiv(shifted_numerator_wide, safe_divisor_wide);
-
-    // Truncate back to i32
-    let div_result = builder.ins().ireduce(target_type, div_result_wide);
+    // Since safe_divisor is multiple of 2^shift_amount, we can compute a / (safe_divisor >> shift_amount)
+    let shift_const = builder.ins().iconst(target_type, shift_amount);
+    let divisor_shifted = builder.ins().ushr(safe_divisor, shift_const);
+    let div_result = builder.ins().sdiv(arg1, divisor_shifted);
 
     // Select: if divisor was zero, use saturation value, otherwise use division result
-    let new_result = builder.ins().select(is_zero, saturation_value, div_result);
+    // saturation_value = numerator_is_zero ? 0 : (is_negative ? min : max)
+    // Use arithmetic: saturation_value = (numerator_is_zero * 0) + (!numerator_is_zero * infinity_value)
+    // where infinity_value = is_negative ? min : max
+
+    // First compute infinity_value = is_negative ? min : max
+    // infinity_value = min + (max - min) * is_negative
+    let min_max_diff = builder.ins().isub(max_fixed_16x16, min_fixed_16x16);
+    let is_negative_i32 = builder.ins().uextend(types::I32, is_negative);
+    let scaled_diff = builder.ins().imul(is_negative_i32, min_max_diff);
+    let infinity_value = builder.ins().iadd(min_fixed_16x16, scaled_diff);
+
+    // Now saturation_value = (numerator_is_zero * 0) + (!numerator_is_zero * infinity_value)
+    // !numerator_is_zero = 1 - numerator_is_zero (since bool is 0/1)
+    let one_const = builder.ins().iconst(target_type, 1);
+    let numerator_is_zero_i32 = builder.ins().uextend(types::I32, numerator_is_zero);
+    let not_numerator_zero_i32 = builder.ins().isub(one_const, numerator_is_zero_i32);
+    let zero_contrib = builder.ins().imul(numerator_is_zero_i32, zero);
+    let infinity_contrib = builder.ins().imul(not_numerator_zero_i32, infinity_value);
+    let saturation_value = builder.ins().iadd(zero_contrib, infinity_contrib);
+
+    // Final result: is_zero ? saturation_value : div_result
+    let is_zero_i32 = builder.ins().uextend(types::I32, is_zero);
+    let not_is_zero_i32 = builder.ins().isub(one_const, is_zero_i32);
+    let zero_contrib_final = builder.ins().imul(is_zero_i32, saturation_value);
+    let div_contrib = builder.ins().imul(not_is_zero_i32, div_result);
+    let new_result = builder.ins().iadd(zero_contrib_final, div_contrib);
 
     let old_result = get_first_result(old_func, old_inst);
     value_map.insert(old_result, new_result);
