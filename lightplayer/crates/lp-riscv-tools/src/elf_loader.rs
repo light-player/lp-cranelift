@@ -93,30 +93,20 @@ fn apply_single_relocation(
         )
     })?;
 
-    // Validate target address for function call relocations
-    if matches!(reloc.flags(), RelocationFlags::Elf { r_type } if r_type == object::elf::R_RISCV_CALL_PLT) {
-        if target_addr == 0 {
-            let symbol_name = match reloc.target() {
-                RelocationTarget::Symbol(sym_idx) => {
-                    if let Ok(sym) = obj.symbol_by_index(sym_idx) {
-                        sym.name().unwrap_or("<unnamed>").to_string()
-                    } else {
-                        format!("symbol_index_{}", sym_idx.0)
-                    }
-                }
-                _ => "<unknown>".to_string(),
-            };
-            return Err(format!(
-                "Relocation target resolves to address 0 at offset 0x{:x} (symbol: '{}'). Symbol may not be found in symbol map.",
-                reloc_offset, symbol_name
-            ));
-        }
-    }
+    // Note: Address 0 is valid if the text section starts at 0 and the function is at offset 0
+    // The validation that rejected address 0 was too strict - we only need to check that
+    // the symbol was found in the map, which we already did above
 
     // Calculate PC-relative offset
     // reloc_offset is relative to section start, so PC = section_load_addr + reloc_offset
+    // target_addr from symbol_map is an offset relative to text_section_base
+    // We need to get the text_section_base to convert target_addr to absolute address
+    // But wait - section_load_addr IS the text section base! So:
     let pc = (section_load_addr + reloc_offset) as u32;
-    let pcrel = target_addr
+    // target_addr is relative to text_section_base (which equals section_load_addr for text section)
+    // So absolute target = section_load_addr + target_addr
+    let target_absolute = (section_load_addr + target_addr as u64) as u32;
+    let pcrel = target_absolute
         .wrapping_sub(pc)
         .wrapping_add(reloc.addend() as u32);
 
@@ -158,6 +148,8 @@ fn apply_single_relocation(
 
                     // Apply RISC-V CALL_PLT patching (see cranelift/jit/src/compiled_blob.rs)
                     // Split pcrel into hi20 and lo12
+                    // pcrel is a signed value stored as u32 (two's complement)
+                    // The formula rounds to nearest 4KB boundary for hi20
                     let hi20 = pcrel.wrapping_add(0x800) & 0xFFFFF000;
                     let lo12 = pcrel.wrapping_sub(hi20) & 0xFFF;
 
@@ -263,11 +255,14 @@ fn apply_relocations(
             }
 
             let addr = symbol.address();
-            let _symbol_kind = symbol.kind();
+            let symbol_section = symbol.section();
 
-            // For symbols in text section, use relative offset
-            if addr >= text_section_base {
-                let offset = (addr - text_section_base) as u32;
+            // Address 0 is valid if the text section starts at 0 and this is the first function
+            // So we use the address as-is
+            let final_addr = addr;
+
+            if final_addr >= text_section_base {
+                let offset = (final_addr - text_section_base) as u32;
                 symbol_map.insert(name.to_string(), offset);
             } else {
                 // For symbols in other sections, store absolute address
@@ -298,7 +293,7 @@ fn apply_relocations(
                 )
                 .map_err(|e| {
                     // Add context about which symbol failed
-                    use object::{RelocationFlags, RelocationTarget};
+                    use object::RelocationTarget;
                     match reloc.target() {
                         RelocationTarget::Symbol(sym_idx) => {
                             if let Ok(sym) = obj.symbol_by_index(sym_idx) {
