@@ -61,11 +61,32 @@
         (high XReg (rv_add high_tmp carry)))
     (value_regs low high)))
 
+;; i64 immediate addition - must return 2 registers (higher priority than general rules)
+(rule -1 (lower (has_type $I64 (iadd x (imm12_from_value y))))
+  (let ((x_regs ValueRegs x)
+        (x_lo XReg (value_regs_get x_regs 0))
+        (x_hi XReg (value_regs_get x_regs 1))
+        (sum_lo XReg (rv_addi x_lo y))
+        (carry XReg (rv_sltu sum_lo x_lo))
+        (sum_hi XReg (rv_add x_hi (zero_reg)))
+        (sum_hi_with_carry XReg (rv_add sum_hi carry)))
+    (value_regs sum_lo sum_hi_with_carry)))
+
+(rule -2 (lower (has_type $I64 (iadd (imm12_from_value x) y)))
+  (let ((y_regs ValueRegs y)
+        (y_lo XReg (value_regs_get y_regs 0))
+        (y_hi XReg (value_regs_get y_regs 1))
+        (sum_lo XReg (rv_addi y_lo x))
+        (carry XReg (rv_sltu sum_lo y_lo))
+        (sum_hi XReg (rv_add y_hi (zero_reg)))
+        (sum_hi_with_carry XReg (rv_add sum_hi carry)))
+    (value_regs sum_lo sum_hi_with_carry)))
+
 ;; Special cases for when one operand is an immediate that fits in 12 bits.
-(rule 1 (lower (has_type (ty_int_ref_scalar_64 ty) (iadd x (imm12_from_value y))))
+(rule 1 (lower (has_type (fits_in_32 (ty_int ty)) (iadd x (imm12_from_value y))))
   (alu_rr_imm12 (select_addi ty) x y))
 
-(rule 2 (lower (has_type (ty_int_ref_scalar_64 ty) (iadd (imm12_from_value x) y)))
+(rule 2 (lower (has_type (fits_in_32 (ty_int ty)) (iadd (imm12_from_value x) y)))
   (alu_rr_imm12 (select_addi ty) y x))
 
 ;; Special case when one of the operands is uextended
@@ -628,15 +649,37 @@
 (rule 0 (lower (has_type (fits_in_32 (ty_int ty)) (isub x y)))
   (rv_sub x y))
 
-;; I64 case - use 2-register pattern with borrow propagation
-(rule 1 (lower (has_type $I64 (isub x y)))
-  (sub_i64 x y))
+;; I64 case - use 2-register pattern with borrow propagation (similar to RV64 I128)
+(rule -2 (lower (has_type $I64 (isub x y)))
+  (let ((x_regs ValueRegs x)
+        (y_regs ValueRegs y)
+        (x_lo XReg (value_regs_get x_regs 0))
+        (x_hi XReg (value_regs_get x_regs 1))
+        (y_lo XReg (value_regs_get y_regs 0))
+        (y_hi XReg (value_regs_get y_regs 1))
+        (diff_lo XReg (rv_sub x_lo y_lo))
+        (borrow XReg (rv_sltu x_lo diff_lo))
+        (diff_hi_tmp XReg (rv_sub x_hi y_hi))
+        (diff_hi XReg (rv_sub diff_hi_tmp borrow)))
+    (value_regs diff_lo diff_hi)))
 
 (rule 2 (lower (has_type $I128 (isub x y)))
   (sub_i128 x y))
 
+;; i64 immediate subtraction - must return 2 registers
+(rule -1 (lower (has_type $I64 (isub x y)))
+  (if-let imm12_neg (imm12_from_negated_value y))
+  (let ((x_regs ValueRegs x)
+        (x_lo XReg (value_regs_get x_regs 0))
+        (x_hi XReg (value_regs_get x_regs 1))
+        (diff_lo XReg (rv_addi x_lo imm12_neg))
+        (borrow XReg (rv_sltu diff_lo x_lo))
+        (diff_hi XReg (rv_sub x_hi (zero_reg)))
+        (diff_hi_with_borrow XReg (rv_sub diff_hi borrow)))
+    (value_regs diff_lo diff_hi_with_borrow)))
+
 ;; Switch to an `addi` by a negative if we can fit the value in an `imm12`.
-(rule 3 (lower (has_type (ty_int_ref_scalar_64 ty) (isub x y)))
+(rule 3 (lower (has_type (fits_in_32 (ty_int ty)) (isub x y)))
   (if-let imm12_neg (imm12_from_negated_value y))
   (alu_rr_imm12 (select_addi ty) x imm12_neg))
 
@@ -858,7 +901,7 @@
 ;;   (rv_vmul_vx x y (unmasked) ty))
 
 ;;;; Rules for `smulhi` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(rule 0 (lower (has_type (ty_int_ref_scalar_64 ty) (smulhi x y)))
+(rule 0 (lower (has_type (fits_in_32 (ty_int ty)) (smulhi x y)))
   (lower_smlhi ty (sext x) (sext y)))
 
 ;; (rule 1 (lower (has_type (ty_supported_vec ty) (smulhi x y)))
@@ -1341,7 +1384,14 @@
 
 ;;;; Rules for `bnot` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(rule 0 (lower (has_type (ty_int_ref_scalar_64 _) (bnot x)))
+;; i64 bitwise not - must return 2 registers
+(rule 0 (lower (has_type $I64 (bnot x)))
+  (let ((x_regs ValueRegs x)
+        (x_lo XReg (value_regs_get x_regs 0))
+        (x_hi XReg (value_regs_get x_regs 1)))
+    (value_regs (rv_not x_lo) (rv_not x_hi))))
+
+(rule -1 (lower (has_type (fits_in_32 (ty_int ty)) (bnot x)))
   (rv_not x))
 
 (rule 1 (lower (has_type (ty_supported_float_size ty) (bnot x)))
@@ -1355,13 +1405,21 @@
 ;; (rule 3 (lower (has_type (ty_supported_vec ty) (bnot x)))
 ;;   (rv_vnot_v x (unmasked) ty))
 
-(rule 4 (lower (has_type (ty_int_ref_scalar_64 _) (bnot (bxor x y))))
+(rule 4 (lower (has_type (fits_in_32 (ty_int ty)) (bnot (bxor x y))))
   (if-let true (has_zbb))
   (rv_xnor x y))
 
 ;;;; Rules for `bit_reverse` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(rule 0 (lower (has_type (ty_int_ref_scalar_64 ty) (bitrev x)))
+;; i64 bit reverse - must return 2 registers
+;; TODO: This may not be semantically correct across register boundaries
+(rule 0 (lower (has_type $I64 (bitrev x)))
+  (let ((x_regs ValueRegs x)
+        (x_lo XReg (value_regs_get x_regs 0))
+        (x_hi XReg (value_regs_get x_regs 1)))
+    (value_regs (gen_bitrev $I32 x_lo) (gen_bitrev $I32 x_hi))))
+
+(rule -1 (lower (has_type (fits_in_32 (ty_int ty)) (bitrev x)))
   (gen_bitrev ty x))
 
 (rule 1 (lower (has_type $I128 (bitrev x)))
@@ -2361,16 +2419,44 @@
 ;; of the iconst rule because that runs into regalloc issues. gen_select_xreg
 ;; has some optimizations based on the use of the zero register so we have to
 ;; manually match it here.
-(rule 5 (lower (has_type (ty_int_ref_scalar_64 _) (select c (i64_from_iconst 0) y)))
+;; i64 select operations - must return 2 registers
+;; Most specific: select between zero and i64
+(rule 2 (lower (has_type $I64 (select c (i64_from_iconst 0) y)))
+  (let ((y_regs ValueRegs y)
+        (y_lo XReg (value_regs_get y_regs 0))
+        (y_hi XReg (value_regs_get y_regs 1)))
+    (value_regs (gen_select_xreg (is_nonzero_cmp c) (zero_reg) y_lo)
+                (gen_select_xreg (is_nonzero_cmp c) (zero_reg) y_hi))))
+
+;; Specific: select between i64 and zero
+(rule 1 (lower (has_type $I64 (select c x (i64_from_iconst 0))))
+  (let ((x_regs ValueRegs x)
+        (x_lo XReg (value_regs_get x_regs 0))
+        (x_hi XReg (value_regs_get x_regs 1)))
+    (value_regs (gen_select_xreg (is_nonzero_cmp c) x_lo (zero_reg))
+                (gen_select_xreg (is_nonzero_cmp c) x_hi (zero_reg)))))
+
+;; General: select between two i64 values
+(rule -1 (lower (has_type $I64 (select c x y)))
+  (let ((x_regs ValueRegs x)
+        (y_regs ValueRegs y)
+        (x_lo XReg (value_regs_get x_regs 0))
+        (x_hi XReg (value_regs_get x_regs 1))
+        (y_lo XReg (value_regs_get y_regs 0))
+        (y_hi XReg (value_regs_get y_regs 1)))
+    (value_regs (gen_select_xreg (is_nonzero_cmp c) x_lo y_lo)
+                (gen_select_xreg (is_nonzero_cmp c) x_hi y_hi))))
+
+(rule 6 (lower (has_type (fits_in_32 (ty_int ty)) (select c (i64_from_iconst 0) y)))
   (gen_select_xreg (is_nonzero_cmp c) (zero_reg) y))
 
-(rule 4 (lower (has_type (ty_int_ref_scalar_64 _) (select c x (i64_from_iconst 0))))
+(rule 5 (lower (has_type (fits_in_32 (ty_int ty)) (select c x (i64_from_iconst 0))))
   (gen_select_xreg (is_nonzero_cmp c) x (zero_reg)))
 
-(rule 3 (lower (has_type (ty_int_ref_scalar_64 _) (select c x y)))
+(rule 4 (lower (has_type (fits_in_32 (ty_int ty)) (select c x y)))
   (gen_select_xreg (is_nonzero_cmp c) x y))
 
-(rule 2 (lower (has_type (ty_reg_pair _) (select c x y)))
+(rule 3 (lower (has_type (ty_reg_pair _) (select c x y)))
   (gen_select_regs (is_nonzero_cmp c) x y))
 
 ;; (rule 1 (lower (has_type (ty_supported_vec _) (select c x y)))
@@ -3189,7 +3275,22 @@
 ;;   sext.{b,h,w} a0, a0
 ;;   neg a1, a0
 ;;   max a0, a0, a1
-(rule 0 (lower (has_type (ty_int_ref_scalar_64 ty) (iabs x)))
+;; i64 absolute value - must return 2 registers
+;; Algorithm: check sign bit (high part's MSB), if negative negate, else return as-is
+;; Uses arithmetic shift right by 31 to create sign mask (all 1s if negative, 0 if positive)
+(rule 0 (lower (has_type $I64 (iabs x)))
+  (let ((x_regs ValueRegs x)
+        (x_lo XReg (value_regs_get x_regs 0))
+        (x_hi XReg (value_regs_get x_regs 1))
+        (sign_mask XReg (rv_srai x_hi (imm12_const 31)))
+        (negated ValueRegs (neg $I64 x_regs))
+        (neg_lo XReg (value_regs_get negated 0))
+        (neg_hi XReg (value_regs_get negated 1))
+        (abs_lo XReg (gen_select_xreg (cmp_eq sign_mask (zero_reg)) x_lo neg_lo))
+        (abs_hi XReg (gen_select_xreg (cmp_eq sign_mask (zero_reg)) x_hi neg_hi)))
+    (value_regs abs_lo abs_hi)))
+
+(rule 1 (lower (has_type (fits_in_32 (ty_int ty)) (iabs x)))
   (let ((extended XReg (sext x))
         (negated XReg (rv_neg extended)))
     (gen_select_xreg (cmp_gt extended negated) extended negated)))

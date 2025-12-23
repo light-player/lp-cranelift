@@ -146,6 +146,7 @@ fn opcode_base_extensions(opcode: Opcode) -> Option<Vec<RiscvExtension>> {
         // Base instructions - no extensions required
         Opcode::Iadd
         | Opcode::Isub
+        | Opcode::Iabs
         | Opcode::Band
         | Opcode::Bor
         | Opcode::Bxor
