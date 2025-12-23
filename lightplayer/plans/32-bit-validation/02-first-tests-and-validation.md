@@ -497,3 +497,6 @@ After Phase 02 is complete:
 - Phase 04: Add bitwise instruction validation
 - Phase 05: Add more control flow (br_table, call, etc.)
 - Phase 06: Add floating point validation (requires F/D extensions)
+
+
+

@@ -1,7 +1,7 @@
 use crate::ir::{Opcode, Type, types::*};
-use hashbrown::HashMap;
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
+use hashbrown::HashMap;
 
 /// RISC-V extension enum for validation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -101,33 +101,75 @@ impl RiscvExtension {
     }
 }
 
+/// Get the base extensions required for an opcode (excluding type-dependent extensions)
+/// Returns Some(vec) if supported (vec may be empty for base ISA), None if unsupported
+fn opcode_base_extensions(opcode: Opcode) -> Option<Vec<RiscvExtension>> {
+    match opcode {
+        // Arithmetic requiring M extension
+        Opcode::Imul | Opcode::Sdiv | Opcode::Udiv | Opcode::Srem | Opcode::Urem => {
+            Some(vec![RiscvExtension::M])
+        }
+
+        // Atomic operations requiring A extension
+        Opcode::AtomicRmw | Opcode::AtomicCas => Some(vec![RiscvExtension::A]),
+
+        // Floating point requiring F extension (base requirement; D added based on types)
+        Opcode::Fadd
+        | Opcode::Fsub
+        | Opcode::Fmul
+        | Opcode::Fdiv
+        | Opcode::Fmin
+        | Opcode::Fmax
+        | Opcode::Fabs
+        | Opcode::Fneg
+        | Opcode::Sqrt
+        | Opcode::Fma => Some(vec![RiscvExtension::F]),
+
+        // Bit manipulation requiring Zbb extension
+        Opcode::Rotl | Opcode::Rotr | Opcode::Clz | Opcode::Ctz | Opcode::Popcnt => {
+            Some(vec![RiscvExtension::Zbb])
+        }
+
+        // Address generation - base extensions checked in instruction validation
+        Opcode::IaddImm => Some(vec![]),
+
+        // Base instructions - no extensions required
+        Opcode::Iadd
+        | Opcode::Isub
+        | Opcode::Band
+        | Opcode::Bor
+        | Opcode::Bxor
+        | Opcode::Bnot
+        | Opcode::Ishl
+        | Opcode::Ushr
+        | Opcode::Sshr
+        | Opcode::Jump
+        | Opcode::Brif
+        | Opcode::Return
+        | Opcode::Call
+        | Opcode::Load
+        | Opcode::Store
+        | Opcode::StackLoad
+        | Opcode::StackStore
+        | Opcode::StackAddr
+        | Opcode::Iconst
+        | Opcode::F32const
+        | Opcode::F64const
+        | Opcode::Icmp
+        | Opcode::Nop => Some(vec![]),
+
+        // Check extension requirements map for less common opcodes
+        _ => extension_requirements()
+            .get(&opcode)
+            .cloned()
+            .map(Some)
+            .unwrap_or(None),
+    }
+}
+
 /// Check if an opcode is supported on riscv32
 pub fn is_opcode_supported(opcode: Opcode) -> bool {
-    match opcode {
-        // Arithmetic (base ISA)
-        Opcode::Iadd | Opcode::Isub => true,
-
-        // Arithmetic (requires M extension)
-        Opcode::Imul | Opcode::Sdiv | Opcode::Udiv | Opcode::Srem | Opcode::Urem => true,
-
-        // Control flow
-        Opcode::Jump | Opcode::Brif | Opcode::Return | Opcode::Call => true,
-
-        // Memory
-        Opcode::Load | Opcode::Store => true,
-
-        // Constants
-        Opcode::Iconst | Opcode::F32const | Opcode::F64const => true,
-
-        // Comparisons (for control flow)
-        Opcode::Icmp => true,
-
-        // Floating point (requires F extension, but allow for now to see if validation works)
-        Opcode::Fadd | Opcode::Fsub | Opcode::Fmul | Opcode::Fdiv => true,
-
-        // Not supported
-        _ => false,
-    }
+    opcode_base_extensions(opcode).is_some()
 }
 
 /// Get the required extensions for a CLIF opcode and its types
@@ -137,75 +179,43 @@ pub fn is_opcode_supported(opcode: Opcode) -> bool {
 /// Note: Types are passed separately because some opcodes require different
 /// extensions based on their operand types (e.g., f32 requires F, f64 requires D).
 pub fn required_extensions(opcode: Opcode, types: &[Type]) -> Vec<RiscvExtension> {
-    // Use a match statement for all CLIF opcodes
-    // This is extensible - add new opcodes and their requirements here
-    let mut exts = match opcode {
-        // Arithmetic requiring M extension
-        Opcode::Imul | Opcode::Sdiv | Opcode::Udiv | Opcode::Srem | Opcode::Urem => {
-            vec![RiscvExtension::M]
-        },
-
-        // Atomic operations requiring A extension
-        Opcode::AtomicRmw | Opcode::AtomicCas => vec![RiscvExtension::A],
-
-        // Floating point requiring F/D extensions (type-dependent)
-        Opcode::Fadd | Opcode::Fsub | Opcode::Fmul | Opcode::Fdiv
-        | Opcode::Fmin | Opcode::Fmax | Opcode::Fabs | Opcode::Fneg
-        | Opcode::Sqrt | Opcode::Fma => {
-            // Check types to determine if F or D is needed
-            let mut required = Vec::new();
-            for ty in types {
-                match *ty {
-                    F32 => {
-                        if !required.contains(&RiscvExtension::F) {
-                            required.push(RiscvExtension::F);
-                        }
-                    }
-                    F64 => {
-                        if !required.contains(&RiscvExtension::D) {
-                            required.push(RiscvExtension::D);
-                        }
-                        if !required.contains(&RiscvExtension::F) {
-                            required.push(RiscvExtension::F); // D requires F
-                        }
-                    }
-                    F16 => {
-                        // F16 requires Zfh or Zfhmin (check in type validation)
-                        // For now, we'll validate this separately
-                    }
-                    _ => {}
-                }
-            }
-            // Default to F if no floating point types found (shouldn't happen, but be safe)
-            if required.is_empty() {
-                vec![RiscvExtension::F]
-            } else {
-                required
-            }
-        },
-
-        // Bit manipulation requiring Zbb extension
-        Opcode::Rotl | Opcode::Rotr | Opcode::Clz | Opcode::Ctz | Opcode::Popcnt => {
-            vec![RiscvExtension::Zbb]
-        },
-
-        // Address generation requiring Zba extension
-        // Note: IaddImm may use Zba patterns, but this requires instruction analysis
-        // For now, we'll validate this in instruction-specific validation
-        Opcode::IaddImm => vec![], // Will be checked in validate_iadd_imm
-
-        // Base instructions - no extensions required
-        Opcode::Iadd | Opcode::Isub | Opcode::Band | Opcode::Bor | Opcode::Bxor
-        | Opcode::Bnot | Opcode::Ishl | Opcode::Ushr | Opcode::Sshr
-        | Opcode::Jump | Opcode::Brif | Opcode::Return | Opcode::Call
-        | Opcode::Load | Opcode::Store | Opcode::Iconst | Opcode::Icmp
-        | Opcode::Nop => vec![],
-
-        // Default: check if in extension requirements map (for less common opcodes)
-        _ => extension_requirements().get(&opcode)
-            .cloned()
-            .unwrap_or_default(),
+    // Get base extensions for this opcode
+    let mut exts = match opcode_base_extensions(opcode) {
+        Some(base_exts) => base_exts,
+        None => return vec![], // Unsupported opcode, return empty (shouldn't happen in practice)
     };
+
+    // Special handling for floating point opcodes that need type-dependent extensions
+    if matches!(
+        opcode,
+        Opcode::Fadd
+            | Opcode::Fsub
+            | Opcode::Fmul
+            | Opcode::Fdiv
+            | Opcode::Fmin
+            | Opcode::Fmax
+            | Opcode::Fabs
+            | Opcode::Fneg
+            | Opcode::Sqrt
+            | Opcode::Fma
+    ) {
+        // Check types to determine if D extension is needed for f64 operations
+        for ty in types {
+            match *ty {
+                F64 => {
+                    if !exts.contains(&RiscvExtension::D) {
+                        exts.push(RiscvExtension::D);
+                    }
+                    // F is already included from base extensions
+                }
+                F16 => {
+                    // F16 requires Zfh or Zfhmin (check in type validation)
+                    // For now, we'll validate this separately
+                }
+                _ => {}
+            }
+        }
+    }
 
     // Also check type-level extension requirements
     for ty in types {
@@ -242,35 +252,6 @@ pub fn is_type_supported(ty: Type) -> bool {
         _ => false,
     }
 }
-
-const SUPPORTED_OPCODES: &[Opcode] = &[
-    // Arithmetic (base ISA)
-    Opcode::Iadd,
-    Opcode::Isub,
-
-    // Arithmetic (requires M extension)
-    Opcode::Imul,
-    Opcode::Sdiv,
-    Opcode::Udiv,
-    Opcode::Srem,
-    Opcode::Urem,
-
-    // Control flow
-    Opcode::Jump,
-    Opcode::Brif,
-    Opcode::Return,
-    Opcode::Call,
-
-    // Memory
-    Opcode::Load,
-    Opcode::Store,
-
-    // Constants
-    Opcode::Iconst,
-
-    // Comparisons (for control flow)
-    Opcode::Icmp,
-];
 
 // Fallback map for opcodes not covered in the match statement above
 // This is for less common opcodes or ones that need special handling

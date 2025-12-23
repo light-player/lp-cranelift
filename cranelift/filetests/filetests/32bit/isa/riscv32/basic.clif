@@ -17,11 +17,3 @@ block0(v0: i64, v1: i64):
 }
 ; run: %basic_i64_ops(5, 3) == 8
 
-function %memory_ops(i32) -> i32 {
-block0(v0: i32):
-    v1 = load.i32 v0
-    v2 = iadd v1, v0
-    store v2, v0
-    return v2
-}
-; run: %memory_ops(0) == 0

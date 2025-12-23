@@ -1,4 +1,4 @@
-// Test that unsupported instructions are rejected
+; Test that unsupported instructions are rejected
 test compile
 target riscv32
 
@@ -11,5 +11,5 @@ block0:
     return
 }
 
-// This should eventually contain tests for instructions not supported on riscv32
-// Currently, most basic instructions are supported, so this is a placeholder
+; This should eventually contain tests for instructions not supported on riscv32
+; Currently, most basic instructions are supported, so this is a placeholder
