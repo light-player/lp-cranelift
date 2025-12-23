@@ -342,7 +342,15 @@
 ;;   (rv_vnmsac_vx z y x (unmasked) ty))
 
 ;;; Rules for `uadd_overflow_trap` ;;;;;;;;;;;;;
-(rule 0 (lower (has_type (fits_in_32 ty) (uadd_overflow_trap x y tc)))
+;; For i32, we can't shift by 32 bits, so use unsigned comparison instead
+(rule 0 (lower (has_type $I32 (uadd_overflow_trap x y tc)))
+  (let ((sum XReg (rv_add x y))
+        (test XReg (rv_sltu sum x))  ;; Overflow if sum < x (unsigned)
+        (_ InstOutput (gen_trapnz test tc)))
+    sum))
+
+;; For i8 and i16, we can use the shift method
+(rule 1 (lower (has_type (fits_in_16 ty) (uadd_overflow_trap x y tc)))
   (let ((tmp_x XReg (zext x))
         (tmp_y XReg (zext y))
         (sum XReg (rv_add tmp_x tmp_y))
@@ -351,7 +359,7 @@
     sum))
 
 ;; For i64 on RV32, we need 2-register pattern
-(rule 1 (lower (has_type $I64 (uadd_overflow_trap x y tc)))
+(rule 2 (lower (has_type $I64 (uadd_overflow_trap x y tc)))
   (let ((x_regs ValueRegs x)
         (y_regs ValueRegs y)
         (x_lo XReg (value_regs_get x_regs 0))
@@ -412,7 +420,8 @@
   (let ((a_ext XReg (zext a))
         (b_ext XReg (zext b))
         (sum XReg (rv_add a_ext b_ext))
-        (overflow XReg (rv_sltiu sum (imm12_const 0x100))))
+        ;; Invert the logic: overflow occurs when sum >= 0x100
+        (overflow XReg (rv_xori (rv_sltiu sum (imm12_const 0x100)) (imm12_const 1))))
     (output_pair sum overflow)))
 
 ;; For i16: zero-extend to i32, add, check if result fits in i16 (sum >= 0x10000)
@@ -467,12 +476,15 @@
     (output_pair sum overflow)))
 
 ;; For i16: sign-extend to i32, add, check signed overflow
-;; TODO: Implement proper i16 overflow detection (constants too large for imm12)
+;; Check if result fits in i16 by verifying sign extension matches
 (rule 3 (lower (has_type $I16 (sadd_overflow a b)))
   (let ((a_ext XReg (sext a))
         (b_ext XReg (sext b))
         (sum XReg (rv_add a_ext b_ext))
-        (overflow XReg (imm $I8 0)))  ;; Placeholder: assume no overflow
+        ;; Sign-extend low 16 bits: shift left 16, then arithmetic right 16
+        (sign_extended XReg (rv_srai (rv_slli sum (imm12_const 16)) (imm12_const 16)))
+        ;; Overflow if sign-extended value doesn't match original
+        (overflow XReg (rv_snez (rv_xor sum sign_extended))))
     (output_pair sum overflow)))
 
 ;;;; Rules for usub_overflow ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -521,10 +533,10 @@
 (rule 0 (lower (has_type $I32 (ssub_overflow x y)))
   (let ((diff XReg (rv_sub x y))
         ;; Signed overflow: (x and y have different signs) and (result has different sign from x)
-        (overflow XReg (rv_and (rv_xor (rv_srai x (imm12_const 31))
-                                       (rv_srai y (imm12_const 31)))
-                               (rv_xor (rv_srai x (imm12_const 31))
-                                       (rv_srai diff (imm12_const 31))))))
+        (overflow XReg (rv_snez (rv_and (rv_xor (rv_srai x (imm12_const 31))
+                                                  (rv_srai y (imm12_const 31)))
+                                         (rv_xor (rv_srai x (imm12_const 31))
+                                                 (rv_srai diff (imm12_const 31)))))))
     (output_pair diff overflow)))
 
 ;; For i64 on RV32, complex signed subtraction overflow detection
@@ -547,12 +559,15 @@
     (output_pair diff overflow)))
 
 ;; For i16: sign-extend to i32, subtract, check signed overflow
-;; TODO: Implement proper i16 overflow detection (constants too large for imm12)
+;; Check if result fits in i16 by verifying sign extension matches
 (rule 3 (lower (has_type $I16 (ssub_overflow a b)))
   (let ((a_ext XReg (sext a))
         (b_ext XReg (sext b))
         (diff XReg (rv_sub a_ext b_ext))
-        (overflow XReg (imm $I8 0)))  ;; Placeholder: assume no overflow
+        ;; Sign-extend low 16 bits: shift left 16, then arithmetic right 16
+        (sign_extended XReg (rv_srai (rv_slli diff (imm12_const 16)) (imm12_const 16)))
+        ;; Overflow if sign-extended value doesn't match original
+        (overflow XReg (rv_snez (rv_xor diff sign_extended))))
     (output_pair diff overflow)))
 
 ;;;; Rules for umul_overflow ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -586,7 +601,7 @@
   (let ((a_ext XReg (zext a))
         (b_ext XReg (zext b))
         (result XReg (rv_mul a_ext b_ext))
-        (overflow XReg (rv_sltiu result (imm12_const 0x100))))
+        (overflow XReg (rv_xori (rv_sltiu result (imm12_const 0x100)) (imm12_const 1))))
     (output_pair result overflow)))
 
 ;; i16 case: zero-extend to i32, multiply, check if result fits in i16
@@ -607,7 +622,7 @@
         (high_bits XReg (rv_mulh a b))
         ;; Signed overflow: high bits should be sign extension of low bits
         (expected_high XReg (rv_srai result (imm12_const 31)))
-        (overflow XReg (rv_xor high_bits expected_high)))
+        (overflow XReg (rv_snez (rv_xor high_bits expected_high))))
     (output_pair result overflow)))
 
 ;; i64 case: complex, implement proper overflow detection
@@ -647,11 +662,10 @@
   (let ((a_ext XReg (sext a))
         (b_ext XReg (sext b))
         (result XReg (rv_mul a_ext b_ext))
-        ;; Check signed overflow: result should be sign-extended from i16
-        (expected_sign XReg (rv_srai result (imm12_const 15)))
-        (high_bits XReg (rv_srli result (imm12_const 16)))
-        (high_sign_ext XReg (rv_srai (rv_slli high_bits (imm12_const 16)) (imm12_const 16)))
-        (overflow XReg (rv_xor expected_sign high_sign_ext)))
+        ;; Sign-extend low 16 bits: shift left 16, then arithmetic right 16
+        (sign_extended XReg (rv_srai (rv_slli result (imm12_const 16)) (imm12_const 16)))
+        ;; Overflow if sign-extended value doesn't match original
+        (overflow XReg (rv_snez (rv_xor result sign_extended))))
     (output_pair result overflow)))
 
 ;;;; Rules for `isub` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1026,11 +1040,13 @@
   (if-let true (has_m))
   ;; Simplified fixed32 division: assume dividend_high / divisor_low gives the result
   ;; This works when the dividend fits in 32 bits, which is true for |a| < 2^15
-  (let ((dividend_high XReg (value_regs_get x 1))
-        (divisor_low XReg (value_regs_get y 0))
-        (quotient XReg (rv_div dividend_high divisor_low))
-        (quotient_sign_extended XReg (rv_srai quotient (imm12_const 31))))
-    (value_regs quotient quotient_sign_extended)))
+  (let ((x_regs ValueRegs x)
+        (y_regs ValueRegs y)
+        (dividend_high XReg (value_regs_get x_regs 1))
+        (divisor_low XReg (value_regs_get y_regs 0))
+        (quotient_lo XReg (rv_div dividend_high divisor_low))
+        (quotient_hi XReg (rv_srai quotient_lo (imm12_const 31))))
+    (value_regs quotient_lo quotient_hi)))
 
 ;; Check for two trapping conditions:
 ;;

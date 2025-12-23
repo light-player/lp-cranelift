@@ -4,42 +4,6 @@ set enable_llvm_abi_extensions=true
 set enable_multi_ret_implicit_sret
 target riscv32 has_m
 
-function %ssubof_i128(i128, i128) -> i128, i8 {
-block0(v0: i128,v1: i128):
-    v2, v3 = ssub_overflow v0, v1
-    return v2, v3
-}
-; run: %ssubof_i128(0, 0) == [0, 0]
-; run: %ssubof_i128(0, 1) == [-1, 0]
-; run: %ssubof_i128(-1, 0) == [-1, 0]
-; run: %ssubof_i128(-1, 1) == [-2, 0]
-; run: %ssubof_i128(-1, -2) == [1, 0]
-; run: %ssubof_i128(0x00000000_00000001_00000000_00000000, 1) == [0xFFFFFFFF_FFFFFFFF, 0]
-; run: %ssubof_i128(0x7FFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF, 0x7FFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF) == [0, 0]
-; run: %ssubof_i128(0x7FFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF, 0x80000000_00000000_00000000_00000000) == [-1, 1]
-; run: %ssubof_i128(0x7FFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF, 0x80000000_00000000_00000000_00000001) == [-2, 1]
-; run: %ssubof_i128(0, 0x80000000_00000000_00000000_00000000) == [0x80000000_00000000_00000000_00000000, 1]
-; run: %ssubof_i128(0x80000000_00000000_00000000_00000000, 1) == [0x7FFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF, 1]
-; run: %ssubof_i128(0x80000000_00000000_00000000_00000001, 1) == [0x80000000_00000000_00000000_00000000, 0]
-
-function %ssubof_i64(i64, i64) -> i64, i8 {
-block0(v0: i64,v1: i64):
-    v2, v3 = ssub_overflow v0, v1
-    return v2, v3
-}
-; run: %ssubof_i64(0, 0) == [0, 0]
-; run: %ssubof_i64(0, 1) == [-1, 0]
-; run: %ssubof_i64(-1, 0) == [-1, 0]
-; run: %ssubof_i64(-1, 1) == [-2, 0]
-; run: %ssubof_i64(-1, -2) == [1, 0]
-; run: %ssubof_i64(0x7FFFFFFF_FFFFFFFF, 0x7FFFFFFF_FFFFFFFF) == [0, 0]
-; run: %ssubof_i64(0x7FFFFFFF_FFFFFFFF, 0x80000000_00000000) == [-1, 1]
-; run: %ssubof_i64(0x7FFFFFFF_FFFFFFFF, 0x80000000_00000001) == [-2, 1]
-; run: %ssubof_i64(0, 0x80000000_00000000) == [0x80000000_00000000, 1]
-; run: %ssubof_i64(0x80000000_00000000, 1) == [0x7FFFFFFF_FFFFFFFF, 1]
-; run: %ssubof_i64(0x80000000_00000001, 1) == [0x80000000_00000000, 0]
-; run: %ssubof_i64(0x01234567_89ABCDEF, 0xFEDCBA98_76543210) == [0x0246_8ACF_1357_9BDF, 0]
-; run: %ssubof_i64(0xFEDCBA98_76543220, 0x01234567_89ABCDEF) == [0xFDB9_7530_ECA8_6431, 0]
 
 function %ssubof_i8(i8, i8) -> i8, i8 {
 block0(v0: i8, v1: i8):

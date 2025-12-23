@@ -2131,8 +2131,12 @@
   (let ((shift Imm12 (imm_from_bits (u64_wrapping_sub 64 (ty_bits ty)))))
     (rv_srli (rv_slli val shift) shift)))
 
+;; For I32 on RV32, zero extension is a no-op since 32 bits is the native register width.
+(rule 1 (zext val @ (value_type $I32))
+  val)
+
 ;; If we are zero extending a U8 we can use a `andi` instruction.
-(rule 1 (zext val @ (value_type $I8))
+(rule 2 (zext val @ (value_type $I8))
   (rv_andi val (imm12_const 0xff)))
 
 ;; No point in trying to use `packh` here to zero extend 8 bit values
@@ -2156,17 +2160,22 @@
 (decl sext (Value) XReg)
 
 ;; Same base case as `zext`, shift left-then-right.
+;; On RV32, use 32-bit shifts instead of 64-bit shifts.
 (rule 0 (sext val @ (value_type (fits_in_32 ty)))
-  (let ((shift Imm12 (imm_from_bits (u64_wrapping_sub 64 (ty_bits ty)))))
+  (let ((shift Imm12 (imm_from_bits (u64_wrapping_sub 32 (ty_bits ty)))))
     (rv_srai (rv_slli val shift) shift)))
 
+;; For I32 on RV32, sign extension is a no-op since 32 bits is the native register width.
+(rule 2 (sext val @ (value_type $I32))
+  val)
+
 ;; If we have the `zbb` extension we can use the dedicated `sext.b` instruction.
-(rule 2 (sext val @ (value_type $I8))
+(rule 3 (sext val @ (value_type $I8))
   (if-let true (has_zbb))
   (rv_sextb val))
 
 ;; If we have the `zbb` extension we can use the dedicated `sext.h` instruction.
-(rule 2 (sext val @ (value_type $I16))
+(rule 3 (sext val @ (value_type $I16))
   (if-let true (has_zbb))
   (rv_sexth val))
 
@@ -2210,6 +2219,17 @@
 (rule 1 (val_already_extended (ExtendOp.Signed) (has_type $I32 (sshr _ _))) true)
 (rule 1 (val_already_extended (ExtendOp.Signed) (has_type $I32 (iadd _ _))) true)
 (rule 1 (val_already_extended (ExtendOp.Signed) (has_type $I32 (isub _ _))) true)
+
+;; Select results for narrow types (i8, i16) are already sign-extended to i32
+;; by gen_select_xreg, so they don't need to be extended again.
+(rule 1 (val_already_extended (ExtendOp.Signed) (has_type (fits_in_32 ty) (select _ _ _))) true)
+
+;; smin/smax results for narrow types are also already sign-extended to i32
+;; since they use gen_select_xreg internally.
+(rule 1 (val_already_extended (ExtendOp.Signed) (has_type (fits_in_32 ty) (smin _ _))) true)
+(rule 1 (val_already_extended (ExtendOp.Signed) (has_type (fits_in_32 ty) (smax _ _))) true)
+(rule 1 (val_already_extended (ExtendOp.Signed) (has_type (fits_in_32 ty) (umin _ _))) true)
+(rule 1 (val_already_extended (ExtendOp.Signed) (has_type (fits_in_32 ty) (umax _ _))) true)
 
 (type ExtendOp
   (enum

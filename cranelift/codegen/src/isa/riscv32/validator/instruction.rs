@@ -4,7 +4,7 @@ use crate::CodegenResult;
 use crate::ir::{DataFlowGraph, Function, Inst, Opcode, types::*};
 use alloc::format;
 use alloc::string::ToString;
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 
 /// Validate all instructions in a function
 pub fn validate_instructions(
@@ -80,6 +80,13 @@ pub fn validate_instruction(
         Opcode::Srem => validate_srem(func, inst, &func.dfg)?,
         Opcode::Bswap => validate_bswap(func, inst, &func.dfg)?,
         Opcode::Bitrev => validate_bitrev(func, inst, &func.dfg)?,
+        Opcode::UaddOverflow => validate_overflow_instruction(func, inst, opcode, &func.dfg)?,
+        Opcode::SaddOverflow => validate_overflow_instruction(func, inst, opcode, &func.dfg)?,
+        Opcode::UsubOverflow => validate_overflow_instruction(func, inst, opcode, &func.dfg)?,
+        Opcode::SsubOverflow => validate_overflow_instruction(func, inst, opcode, &func.dfg)?,
+        Opcode::UmulOverflow => validate_overflow_instruction(func, inst, opcode, &func.dfg)?,
+        Opcode::SmulOverflow => validate_overflow_instruction(func, inst, opcode, &func.dfg)?,
+        Opcode::Bmask => validate_bmask(func, inst, &func.dfg)?,
 
         // ... other opcodes
         _ => {
@@ -188,6 +195,16 @@ fn validate_bitrev(func: &Function, inst: Inst, _data: &DataFlowGraph) -> Codege
     Ok(())
 }
 
+fn validate_bmask(func: &Function, inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
+    // bmask instruction is not supported on riscv32 (not needed for GLSL)
+    return Err(ValidationError::UnsupportedInstruction {
+        inst,
+        opcode: Opcode::Bmask,
+        reason: "bmask is not supported on riscv32 (not needed for GLSL)".to_string(),
+    }
+    .into());
+}
+
 fn validate_overflow_instruction(
     func: &Function,
     inst: Inst,
@@ -207,10 +224,18 @@ fn validate_overflow_instruction(
             .into());
         }
 
-        // i64 is supported but uses two-register pattern
+        // i64 overflow instructions are not supported on riscv32 (not needed for GLSL)
         if result_ty == I64 {
-            // For now, allow i64 overflow instructions
-            // Future phases may add more specific validation
+            return Err(ValidationError::UnsupportedCombination {
+                inst,
+                opcode,
+                types: vec![result_ty],
+                reason: format!(
+                    "i64 {} is not supported on riscv32 (not needed for GLSL)",
+                    opcode
+                ),
+            }
+            .into());
         }
     }
 

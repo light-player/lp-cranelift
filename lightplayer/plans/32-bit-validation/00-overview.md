@@ -35,6 +35,113 @@ We need to:
 - Create a clean 32-bit test suite
 - Prevent accidental use of unsupported features
 
+## i64 Instruction Requirements for GLSL Compiler
+
+### Key Findings
+
+Based on analysis of the GLSL compiler codebase and GLSL specification:
+
+- **GLSL only supports 32-bit integers**: The GLSL spec defines only `int` (32-bit signed) and `uint` (32-bit unsigned). There are no 64-bit integer types in GLSL.
+
+- **i64 is only used as an intermediate type**: The GLSL compiler uses i64 exclusively as an intermediate type for fixed-point arithmetic operations (16.16 format) to avoid overflow. All i64 values are computed and then truncated back to i32.
+
+- **No i64 values are stored**: i64 is never used for function parameters, return values, or stored in memory. It's purely an intermediate computation type.
+
+### Required i64 CLIF Instructions
+
+The following i64 instructions are **actually needed** by the GLSL compiler:
+
+#### Type Conversion (Base ISA)
+
+- `sextend` (i32 → i64): Sign-extend i32 to i64
+  - Used in: `convert_fmul`, `convert_fdiv`, `convert_fsqrt`
+- `ireduce` (i64 → i32): Truncate i64 back to i32
+  - Used in: All fixed-point operations to get final i32 result
+
+#### Arithmetic Operations Requiring M Extension
+
+- `imul` (i64 × i64 → i64): Multiplication
+  - Used in: `convert_fmul` - multiplying two i32 fixed-point values
+- `sdiv` (i64 ÷ i64 → i64): Signed division
+  - Used in: `convert_fdiv` and `convert_fsqrt` (Newton-Raphson iterations)
+
+#### Arithmetic Operations (Base ISA)
+
+- `iadd` (i64 + i64 → i64): Addition
+  - Used in: Newton-Raphson sqrt iterations
+- `smax` (i64, i64 → i64): Maximum of two i64 values
+  - Used in: `convert_fsqrt` (ensuring guess ≥ 1)
+
+#### Shift Operations (Base ISA)
+
+- `ishl` (i64 << imm → i64): Left shift
+  - Used in: `convert_fdiv` (shifting numerator left by 16), `convert_fsqrt`
+- `sshr` (i64 >> imm → i64): Arithmetic right shift
+  - Used in: `convert_fmul` (scaling back), `convert_fsqrt` (Newton-Raphson iterations)
+
+### NOT Needed (Can Defer or Skip)
+
+The following i64 operations are **not used** by the GLSL compiler and can be deferred or skipped:
+
+- ❌ i64 load/store operations (values are computed, never stored)
+- ❌ i64 comparisons (only used internally, not exposed)
+- ❌ i64 bitwise operations (`band`, `bor`, `bxor`, `bnot`)
+- ❌ i64 overflow detection (`uadd_overflow`, `sadd_overflow`, etc.)
+- ❌ i64 carry operations (`iadd_cout`, `iadd_cin`, `isub_cout`, etc.)
+- ❌ i64 immediate arithmetic (`iadd_imm`, `imul_imm` with i64)
+
+### Specific Use Cases
+
+#### 1. Fixed-Point Multiplication (`convert_fmul`)
+
+```
+i32 → sextend → i64
+i32 → sextend → i64
+i64 × i64 → imul → i64
+i64 >> 16 → sshr → i64
+i64 → ireduce → i32
+```
+
+#### 2. Fixed-Point Division (`convert_fdiv`)
+
+```
+i32 → sextend → i64
+i64 << 16 → ishl → i64
+i32 → sextend → i64
+i64 ÷ i64 → sdiv → i64
+i64 → ireduce → i32
+```
+
+#### 3. Fixed-Point Square Root (`convert_fsqrt`)
+
+```
+i32 → sextend → i64
+i64 << 16 → ishl → i64
+[Newton-Raphson iterations using i64 iadd, sdiv, sshr, smax]
+i64 → ireduce → i32
+```
+
+### Impact on Validation Priorities
+
+For **Phase 03: Arithmetic Instructions**, this analysis shows we should prioritize:
+
+1. ✅ **High Priority**: i64 `imul` and `sdiv` (with M extension validation)
+2. ✅ **High Priority**: i64 `sextend` and `ireduce` (type conversions)
+3. ✅ **Medium Priority**: i64 `ishl`, `sshr`, `iadd` (arithmetic/shifts)
+4. ✅ **Medium Priority**: i64 `smax` (for sqrt)
+
+**Can Defer**:
+
+- i64 load/store validation
+- i64 comparison validation
+- i64 overflow/carry operation validation
+- i64 bitwise operation validation
+
+### Extension Requirements
+
+- **M extension**: Required for i64 `imul` and `sdiv` operations
+- **Base ISA (RV32I)**: All other i64 operations (sextend, ishl, sshr, iadd, ireduce, smax)
+
 ## Phases
 
 ### Phase 01: Infrastructure Setup
