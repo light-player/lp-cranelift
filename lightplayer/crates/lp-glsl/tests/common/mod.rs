@@ -1,6 +1,7 @@
 use lp_glsl::{DecimalFormat, GlslOptions, RunMode, glsl_jit};
 
 /// Compile and execute GLSL that returns i32 using JIT
+#[allow(dead_code)] // Used by assert_int_result! macro
 pub fn run_int_test(source: &str) -> i32 {
     let options = GlslOptions {
         run_mode: RunMode::HostJit,
@@ -11,6 +12,7 @@ pub fn run_int_test(source: &str) -> i32 {
 }
 
 /// Compile and execute GLSL that returns bool using JIT
+#[allow(dead_code)] // Used by assert_bool_result! macro
 pub fn run_bool_test(source: &str) -> bool {
     let options = GlslOptions {
         run_mode: RunMode::HostJit,

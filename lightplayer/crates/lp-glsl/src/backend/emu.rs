@@ -48,6 +48,7 @@ pub struct GlslEmulatorModule {
     // Source location manager for mapping SourceLoc to GLSL source positions
     pub(crate) source_loc_manager: crate::codegen::sourceloc::SourceLocManager,
     // Track next buffer allocation address (allocated from start of RAM, growing upward)
+    #[allow(dead_code)] // Reserved for future use when manual buffer allocation is needed
     pub(crate) next_buffer_addr: u32,
 }
 
@@ -82,6 +83,7 @@ impl GlslEmulatorModule {
     /// Allocate a buffer in the emulator's RAM and return its address.
     /// Buffers are allocated from the start of RAM (growing upward), leaving space
     /// for the stack at the end (growing downward).
+    #[allow(dead_code)] // Reserved for future use when manual buffer allocation is needed
     fn allocate_buffer_in_ram(&mut self, size: usize) -> Result<u32, GlslError> {
         // DEFAULT_RAM_START is 0x80000000 (from lp-riscv-tools/src/emu/memory.rs)
         const DEFAULT_RAM_START: u32 = 0x80000000;

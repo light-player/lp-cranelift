@@ -106,7 +106,6 @@ fn test_float_multiplication_fixed32() {
         }
     "#;
     let result = run_fixed32_test(shader);
-    let expected = float_to_fixed32(7.0);
 
     // Allow some tolerance for fixed-point multiplication
     let result_float = fixed32_to_float(result);
