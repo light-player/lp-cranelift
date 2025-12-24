@@ -140,16 +140,6 @@ fn test_riscv32_binemit() {
         "rori a1,a0,5",
         0x60555593,
     ));
-    insns.push(TestUnit::new(
-        Inst::AluRRImm12 {
-            alu_op: AluOPRRI::Roriw,
-            rd: writable_a1(),
-            rs: a0(),
-            imm12: Imm12::from_i16(5),
-        },
-        "roriw a1,a0,5",
-        0x6055559b,
-    ));
 
     insns.push(TestUnit::new(
         Inst::AluRRImm12 {
@@ -173,16 +163,6 @@ fn test_riscv32_binemit() {
         0x60051593,
     ));
 
-    insns.push(TestUnit::new(
-        Inst::AluRRImm12 {
-            alu_op: AluOPRRI::Clzw,
-            rd: writable_a1(),
-            rs: a0(),
-            imm12: Imm12::ZERO,
-        },
-        "clzw a1,a0",
-        0x6005159b,
-    ));
 
     insns.push(TestUnit::new(
         Inst::AluRRImm12 {
@@ -195,16 +175,6 @@ fn test_riscv32_binemit() {
         0x60251593,
     ));
 
-    insns.push(TestUnit::new(
-        Inst::AluRRImm12 {
-            alu_op: AluOPRRI::Cpopw,
-            rd: writable_a1(),
-            rs: a0(),
-            imm12: Imm12::ZERO,
-        },
-        "cpopw a1,a0",
-        0x6025159b,
-    ));
 
     insns.push(TestUnit::new(
         Inst::AluRRImm12 {
@@ -217,16 +187,6 @@ fn test_riscv32_binemit() {
         0x60151593,
     ));
 
-    insns.push(TestUnit::new(
-        Inst::AluRRImm12 {
-            alu_op: AluOPRRI::Ctzw,
-            rd: writable_a1(),
-            rs: a0(),
-            imm12: Imm12::ZERO,
-        },
-        "ctzw a1,a0",
-        0x6015159b,
-    ));
 
     insns.push(TestUnit::new(
         Inst::AluRRImm12 {
@@ -445,16 +405,6 @@ fn test_riscv32_binemit() {
 
     insns.push(TestUnit::new(
         Inst::AluRRR {
-            alu_op: AluOPRRR::Rolw,
-            rd: writable_a1(),
-            rs1: a0(),
-            rs2: zero_reg(),
-        },
-        "rolw a1,a0,zero",
-        0x600515bb,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRR {
             alu_op: AluOPRRR::Ror,
             rd: writable_a1(),
             rs1: a0(),
@@ -462,16 +412,6 @@ fn test_riscv32_binemit() {
         },
         "ror a1,a0,zero",
         0x600555b3,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRR {
-            alu_op: AluOPRRR::Rorw,
-            rd: writable_a1(),
-            rs1: a0(),
-            rs2: zero_reg(),
-        },
-        "rorw a1,a0,zero",
-        0x600555bb,
     ));
     insns.push(TestUnit::new(
         Inst::AluRRR {
@@ -555,16 +495,6 @@ fn test_riscv32_binemit() {
         },
         "pack a1,a0,zero",
         0x080545b3,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRR {
-            alu_op: AluOPRRR::Packw,
-            rd: writable_a1(),
-            rs1: a0(),
-            rs2: zero_reg(),
-        },
-        "packw a1,a0,zero",
-        0x080545bb,
     ));
     insns.push(TestUnit::new(
         Inst::AluRRR {
@@ -828,57 +758,7 @@ fn test_riscv32_binemit() {
         "srai a0,a0,5",
         0x40555513,
     ));
-    insns.push(TestUnit::new(
-        Inst::AluRRImm12 {
-            alu_op: AluOPRRI::Addiw,
-            rd: writable_a0(),
-            rs: a0(),
-            imm12: Imm12::from_i16(120),
-        },
-        "addiw a0,a0,120",
-        0x785051b,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRImm12 {
-            alu_op: AluOPRRI::Slliw,
-            rd: writable_a0(),
-            rs: a0(),
-            imm12: Imm12::from_i16(5),
-        },
-        "slliw a0,a0,5",
-        0x55151b,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRImm12 {
-            alu_op: AluOPRRI::SrliW,
-            rd: writable_a0(),
-            rs: a0(),
-            imm12: Imm12::from_i16(5),
-        },
-        "srliw a0,a0,5",
-        0x55551b,
-    ));
-    insns.push(TestUnit::new(
-        Inst::AluRRImm12 {
-            alu_op: AluOPRRI::Sraiw,
-            rd: writable_a0(),
-            rs: a0(),
-            imm12: Imm12::from_i16(5),
-        },
-        "sraiw a0,a0,5",
-        0x4055551b,
-    ));
 
-    insns.push(TestUnit::new(
-        Inst::AluRRImm12 {
-            alu_op: AluOPRRI::Sraiw,
-            rd: writable_a0(),
-            rs: a0(),
-            imm12: Imm12::from_i16(5),
-        },
-        "sraiw a0,a0,5",
-        0x4055551b,
-    ));
     insns.push(TestUnit::new(
         Inst::AluRRR {
             alu_op: AluOPRRR::Add,

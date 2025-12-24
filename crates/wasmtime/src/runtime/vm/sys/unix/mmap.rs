@@ -161,7 +161,8 @@ impl Mmap {
         // about doing this with read only memory.
         #[cfg(feature = "std")]
         unsafe {
-            wasmtime_jit_icache_coherence::clear_cache(base, len).context("failed cache clear")?;
+            wasmtime_jit_icache_coherence::clear_cache(base, len)
+                .map_err(|_| anyhow!("failed cache clear"))?;
         }
 
         let flags = MprotectFlags::READ | MprotectFlags::EXEC;
@@ -185,7 +186,8 @@ impl Mmap {
 
         // Flush any in-flight instructions from the pipeline
         #[cfg(feature = "std")]
-        wasmtime_jit_icache_coherence::pipeline_flush_mt().context("Failed pipeline flush")?;
+        wasmtime_jit_icache_coherence::pipeline_flush_mt()
+            .map_err(|_| anyhow!("Failed pipeline flush"))?;
 
         Ok(())
     }

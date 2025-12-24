@@ -32,7 +32,6 @@ defmt = "1.0.1"
 embassy-executor = { version = "0.7.0", features = ["defmt", "task-arena-size-20480"] }
 embassy-time = { version = "0.4.0", features = ["defmt"] }
 esp-bootloader-esp-idf = { version = "0.2.0", features = ["esp32c6"] }
-critical-section = "1.2.0"
 
 # Disable unsafe-assume-single-core feature for portable-atomic
 # ESP32-C6 supports atomic CAS, so this feature is incompatible

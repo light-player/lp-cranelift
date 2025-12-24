@@ -61,6 +61,8 @@ hashbrown = { version = "0.15", default-features = false, features = ["alloc", "
 anyhow = { version = "1.0.100", default-features = false }
 regex = "1.9.1"
 object = { version = "0.37.3", default-features = false, features = ['read_core', 'elf'] }
+critical-section = { version = "1.2.0", default-features = false, features = ["restore-state-u32"] }
+
 
 
 
