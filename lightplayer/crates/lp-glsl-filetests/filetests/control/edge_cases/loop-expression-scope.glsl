@@ -13,7 +13,6 @@ int test_for_loop_expression_preserved() {
         // Loop body
     }
     return i;
-    // Should be 3 (value after loop, preserved)
 }
 
 // run: test_for_loop_expression_preserved() == 3
@@ -24,7 +23,6 @@ int test_for_loop_expression_modified_in_body() {
         i = i + 1; // Modify loop variable in body
     }
     return i;
-    // Should be value after loop exits
 }
 
 // run: test_for_loop_expression_modified_in_body() == 5
@@ -37,7 +35,6 @@ int test_for_loop_expression_break() {
         }
     }
     return i;
-    // Should be 5 (value when break occurred)
 }
 
 // run: test_for_loop_expression_break() == 5
@@ -48,7 +45,6 @@ int test_while_loop_variable_preserved() {
         i = i + 1;
     }
     return i;
-    // Should be 3 (value after loop)
 }
 
 // run: test_while_loop_variable_preserved() == 3
@@ -59,7 +55,6 @@ int test_do_while_loop_variable_preserved() {
         i = i + 1;
     } while (i < 3);
     return i;
-    // Should be 3 (value after loop)
 }
 
 // run: test_do_while_loop_variable_preserved() == 3
@@ -72,7 +67,6 @@ int test_for_loop_expression_continue() {
         }
     }
     return i;
-    // Should be 5 (loop-expression still executed on continue)
 }
 
 // run: test_for_loop_expression_continue() == 5

@@ -11,7 +11,6 @@ int test_if_compound_single_statement() {
         x = 10;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_if_compound_single_statement() == 10
@@ -24,7 +23,6 @@ int test_if_compound_multiple_statements() {
         y = 10;
     }
     return x + y;
-    // Should be 15
 }
 
 // run: test_if_compound_multiple_statements() == 15
@@ -39,7 +37,6 @@ int test_if_compound_nested_blocks() {
         }
     }
     return x;
-    // Should be 15
 }
 
 // run: test_if_compound_nested_blocks() == 15
@@ -52,7 +49,6 @@ int test_if_compound_false() {
         y = 10;
     }
     return x + y;
-    // Should be 0 (not modified)
 }
 
 // run: test_if_compound_false() == 0

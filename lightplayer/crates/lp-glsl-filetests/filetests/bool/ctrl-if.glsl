@@ -12,7 +12,6 @@ int test_if_bool_true() {
         x = 10;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_if_bool_true() == 10
@@ -24,7 +23,6 @@ int test_if_bool_false() {
         x = 10;
     }
     return x;
-    // Should be 0
 }
 
 // run: test_if_bool_false() == 0
@@ -35,7 +33,6 @@ int test_if_bool_literal_true() {
         x = 5;
     }
     return x;
-    // Should be 5
 }
 
 // run: test_if_bool_literal_true() == 5
@@ -46,7 +43,6 @@ int test_if_bool_literal_false() {
         x = 5;
     }
     return x;
-    // Should be 0
 }
 
 // run: test_if_bool_literal_false() == 0
@@ -59,7 +55,6 @@ int test_if_bool_expression() {
         x = 10;
     }
     return x;
-    // Should be 0 (true && false = false)
 }
 
 // run: test_if_bool_expression() == 0
@@ -72,7 +67,6 @@ int test_if_bool_expression_true() {
         x = 10;
     }
     return x;
-    // Should be 10 (true && true = true)
 }
 
 // run: test_if_bool_expression_true() == 10
@@ -84,7 +78,6 @@ int test_if_bool_not() {
         x = 7;
     }
     return x;
-    // Should be 7 (!false = true)
 }
 
 // run: test_if_bool_not() == 7
@@ -97,7 +90,6 @@ int test_if_bool_comparison() {
         x = 20;
     }
     return x;
-    // Should be 20 (5 > 3 = true)
 }
 
 // run: test_if_bool_comparison() == 20

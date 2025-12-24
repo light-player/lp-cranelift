@@ -10,7 +10,6 @@ bvec2 test_bvec2_assign_element_x() {
     bvec2 a = bvec2(false, false);
     a.x = true;
     return a;
-    // Should be bvec2(true, false)
 }
 
 // run: test_bvec2_assign_element_x() == bvec2(true, false)
@@ -19,7 +18,6 @@ bvec2 test_bvec2_assign_element_y() {
     bvec2 a = bvec2(false, false);
     a.y = true;
     return a;
-    // Should be bvec2(false, true)
 }
 
 // run: test_bvec2_assign_element_y() == bvec2(false, true)
@@ -29,7 +27,6 @@ bvec2 test_bvec2_assign_element_index_0() {
     bvec2 a = bvec2(false, false);
     a[0] = true;
     return a;
-    // Should be bvec2(true, false)
 }
 
 // run: test_bvec2_assign_element_index_0() == bvec2(true, false)
@@ -38,7 +35,6 @@ bvec2 test_bvec2_assign_element_index_1() {
     bvec2 a = bvec2(false, false);
     a[1] = true;
     return a;
-    // Should be bvec2(false, true)
 }
 
 // run: test_bvec2_assign_element_index_1() == bvec2(false, true)
@@ -48,7 +44,6 @@ bvec2 test_bvec2_assign_element_overwrite() {
     bvec2 a = bvec2(true, true);
     a.x = false;
     return a;
-    // Should be bvec2(false, true)
 }
 
 // run: test_bvec2_assign_element_overwrite() == bvec2(false, true)
@@ -57,7 +52,6 @@ bvec2 test_bvec2_assign_element_from_expression() {
     bvec2 a = bvec2(false, false);
     a.y = any(bvec2(true, false));
     return a;
-    // Should be bvec2(false, true)
 }
 
 // run: test_bvec2_assign_element_from_expression() == bvec2(false, true)
@@ -68,7 +62,6 @@ bvec2 test_bvec2_assign_element_both() {
     a.x = true;
     a.y = false;
     return a;
-    // Should be bvec2(true, false)
 }
 
 // run: test_bvec2_assign_element_both() == bvec2(true, false)

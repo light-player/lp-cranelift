@@ -13,7 +13,6 @@ int test_for_bool_condition() {
         x = x + 1;
     }
     return x;
-    // Should be 5 (loop runs 5 times)
 }
 
 // run: test_for_bool_condition() == 5
@@ -25,7 +24,6 @@ int test_for_bool_false() {
         x = x + 1;
     }
     return x;
-    // Should be 0 (loop never runs)
 }
 
 // run: test_for_bool_false() == 0
@@ -40,7 +38,6 @@ int test_for_bool_change_condition() {
         }
     }
     return x;
-    // Should be 4 (loop runs 4 times: i=0,1,2,3, then b becomes false)
 }
 
 // run: test_for_bool_change_condition() == 4
@@ -51,7 +48,6 @@ int test_for_bool_comparison() {
         x = x + 1;
     }
     return x;
-    // Should be 4 (loop runs 4 times)
 }
 
 // run: test_for_bool_comparison() == 4
@@ -64,7 +60,6 @@ int test_for_bool_expression() {
         x = x + 1;
     }
     return x;
-    // Should be 3 (loop runs 3 times)
 }
 
 // run: test_for_bool_expression() == 3
@@ -76,7 +71,6 @@ int test_for_bool_not() {
         x = x + 1;
     }
     return x;
-    // Should be 5 (!false = true, loop runs 5 times)
 }
 
 // run: test_for_bool_not() == 5
@@ -91,7 +85,6 @@ int test_for_bool_early_exit() {
         }
     }
     return x;
-    // Should be 6 (loop runs 6 times then exits)
 }
 
 // run: test_for_bool_early_exit() == 6

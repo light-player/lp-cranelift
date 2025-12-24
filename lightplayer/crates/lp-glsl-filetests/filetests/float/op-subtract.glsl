@@ -8,28 +8,24 @@
 float test_float_subtract_positive_positive() {
     // Subtraction with positive numbers
     return 5.5 - 2.5;
-    // Should be 3.0
 }
 
 // run: test_float_subtract_positive_positive() ~= 3.0
 
 float test_float_subtract_positive_negative() {
     return 5.0 - (-3.0);
-    // Should be 8.0
 }
 
 // run: test_float_subtract_positive_negative() ~= 8.0
 
 float test_float_subtract_negative_negative() {
     return (-2.5) - (-1.5);
-    // Should be -1.0
 }
 
 // run: test_float_subtract_negative_negative() ~= -1.0
 
 float test_float_subtract_zero() {
     return 3.14 - 0.0;
-    // Should be 3.14
 }
 
 // run: test_float_subtract_zero() ~= 3.14
@@ -38,14 +34,12 @@ float test_float_subtract_variables() {
     float a = 20.5;
     float b = 10.3;
     return a - b;
-    // Should be 10.2
 }
 
 // run: test_float_subtract_variables() ~= 10.2
 
 float test_float_subtract_expressions() {
     return (10.0 - 3.0) - (4.0 - 2.0);
-    // Should be 5.0
 }
 
 // run: test_float_subtract_expressions() ~= 5.0
@@ -54,21 +48,18 @@ float test_float_subtract_in_assignment() {
     float result = 5.0;
     result = result - 2.5;
     return result;
-    // Should be 2.5
 }
 
 // run: test_float_subtract_in_assignment() ~= 2.5
 
 float test_float_subtract_small_numbers() {
     return 0.3 - 0.1;
-    // Should be 0.2
 }
 
 // run: test_float_subtract_small_numbers() ~= 0.2
 
 float test_float_subtract_large_numbers() {
     return 3000000.0 - 1000000.0;
-    // Should be 2000000.0
 }
 
 // run: test_float_subtract_large_numbers() ~= 2000000.0

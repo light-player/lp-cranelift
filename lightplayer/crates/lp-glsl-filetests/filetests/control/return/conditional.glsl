@@ -10,7 +10,6 @@ int test_return_in_if() {
         return 10;
     }
     return 20;
-    // Should be 10
 }
 
 // run: test_return_in_if() == 10
@@ -21,7 +20,6 @@ int test_return_in_if_else() {
     } else {
         return 20;
     }
-    // Should be 20
 }
 
 // run: test_return_in_if_else() == 20
@@ -34,7 +32,6 @@ int test_return_in_if_else_if() {
     } else {
         return 30;
     }
-    // Should be 20
 }
 
 // run: test_return_in_if_else_if() == 20
@@ -47,7 +44,6 @@ int test_return_in_nested_if() {
         return 200;
     }
     return 300;
-    // Should be 100
 }
 
 // run: test_return_in_nested_if() == 100
@@ -59,7 +55,6 @@ int test_return_in_loop_if() {
         }
     }
     return 0;
-    // Should be 3
 }
 
 // run: test_return_in_loop_if() == 3

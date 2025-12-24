@@ -17,7 +17,6 @@ int test_if_else_nested_both_if() {
         x = 30;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_if_else_nested_both_if() == 10
@@ -34,7 +33,6 @@ int test_if_else_nested_inner_else() {
         x = 30;
     }
     return x;
-    // Should be 20
 }
 
 // run: test_if_else_nested_inner_else() == 20
@@ -51,7 +49,6 @@ int test_if_else_nested_outer_else() {
         x = 30;
     }
     return x;
-    // Should be 30
 }
 
 // run: test_if_else_nested_outer_else() == 30
@@ -72,7 +69,6 @@ int test_if_else_triple_nested() {
         x = 400;
     }
     return x;
-    // Should be 100
 }
 
 // run: test_if_else_triple_nested() == 100

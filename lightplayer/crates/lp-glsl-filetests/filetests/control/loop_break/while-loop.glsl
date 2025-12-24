@@ -16,7 +16,6 @@ int test_break_while_loop_early() {
         i = i + 1;
     }
     return sum;
-    // Should be 0 + 1 + 2 + 3 + 4 = 10
 }
 
 // run: test_break_while_loop_early() == 10
@@ -32,7 +31,6 @@ int test_break_while_loop_condition() {
         i = i + 1;
     }
     return sum;
-    // Should be 0 + 1 + 2 + 3 + 4 = 10
 }
 
 // run: test_break_while_loop_condition() == 10
@@ -46,7 +44,6 @@ int test_break_while_loop_immediate() {
         i = i + 1;
     }
     return sum;
-    // Should be 0 (breaks immediately)
 }
 
 // run: test_break_while_loop_immediate() == 0
@@ -66,7 +63,6 @@ int test_break_while_loop_nested_break() {
         i = i + 1;
     }
     return sum;
-    // Should be 5 * 2 = 10 (breaks inner loop only)
 }
 
 // run: test_break_while_loop_nested_break() == 10

@@ -10,7 +10,6 @@ bool test_uvec3_equal_operator_true() {
     uvec3 b = uvec3(5u, 3u, 2u);
     // Operator == returns bool (aggregate comparison - all components must match)
     return a == b;
-    // Should be true
 }
 
 // run: test_uvec3_equal_operator_true() == true
@@ -19,7 +18,6 @@ bool test_uvec3_equal_operator_false() {
     uvec3 a = uvec3(5u, 3u, 2u);
     uvec3 b = uvec3(2u, 4u, 1u);
     return a == b;
-    // Should be false
 }
 
 // run: test_uvec3_equal_operator_false() == false
@@ -28,7 +26,6 @@ bool test_uvec3_equal_operator_partial_match() {
     uvec3 a = uvec3(5u, 3u, 2u);
     uvec3 b = uvec3(5u, 3u, 4u);
     return a == b;
-    // Should be false (third component differs)
 }
 
 // run: test_uvec3_equal_operator_partial_match() == false
@@ -37,7 +34,6 @@ bool test_uvec3_equal_operator_all_zero() {
     uvec3 a = uvec3(0u, 0u, 0u);
     uvec3 b = uvec3(0u, 0u, 0u);
     return a == b;
-    // Should be true
 }
 
 // run: test_uvec3_equal_operator_all_zero() == true
@@ -46,7 +42,6 @@ bool test_uvec3_equal_operator_max_values() {
     uvec3 a = uvec3(4294967295u, 4294967295u, 4294967295u);
     uvec3 b = uvec3(4294967295u, 4294967295u, 4294967295u);
     return a == b;
-    // Should be true
 }
 
 // run: test_uvec3_equal_operator_max_values() == true
@@ -56,7 +51,6 @@ bvec3 test_uvec3_equal_function() {
     uvec3 b = uvec3(5u, 4u, 2u);
     // Function equal() returns bvec3 (component-wise comparison)
     return equal(a, b);
-    // Should be bvec3(true, false, true)
 }
 
 // run: test_uvec3_equal_function() == bvec3(true, false, true)
@@ -65,7 +59,6 @@ bvec3 test_uvec3_equal_function_all_true() {
     uvec3 a = uvec3(10u, 20u, 30u);
     uvec3 b = uvec3(10u, 20u, 30u);
     return equal(a, b);
-    // Should be bvec3(true, true, true)
 }
 
 // run: test_uvec3_equal_function_all_true() == bvec3(true, true, true)
@@ -74,7 +67,6 @@ bvec3 test_uvec3_equal_function_all_false() {
     uvec3 a = uvec3(5u, 3u, 2u);
     uvec3 b = uvec3(2u, 4u, 1u);
     return equal(a, b);
-    // Should be bvec3(false, false, false)
 }
 
 // run: test_uvec3_equal_function_all_false() == bvec3(false, false, false)
@@ -83,7 +75,6 @@ bvec3 test_uvec3_equal_function_mixed() {
     uvec3 a = uvec3(5u, 3u, 2u);
     uvec3 b = uvec3(2u, 3u, 4u);
     return equal(a, b);
-    // Should be bvec3(false, true, false)
 }
 
 // run: test_uvec3_equal_function_mixed() == bvec3(false, true, false)
@@ -93,7 +84,6 @@ bool test_uvec3_equal_operator_after_assignment() {
     uvec3 b = uvec3(2u, 4u, 1u);
     b = a;
     return a == b;
-    // Should be true
 }
 
 // run: test_uvec3_equal_operator_after_assignment() == true

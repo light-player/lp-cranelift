@@ -14,7 +14,6 @@ int test_while_bool_true() {
         count = count + 1;
     }
     return x;
-    // Should be 3 (loop runs 3 times)
 }
 
 // run: test_while_bool_true() == 3
@@ -26,7 +25,6 @@ int test_while_bool_false() {
         x = x + 1;
     }
     return x;
-    // Should be 0 (loop never runs)
 }
 
 // run: test_while_bool_false() == 0
@@ -43,7 +41,6 @@ int test_while_bool_condition_change() {
         }
     }
     return x;
-    // Should be 5 (loop runs 5 times then exits)
 }
 
 // run: test_while_bool_condition_change() == 5
@@ -56,7 +53,6 @@ int test_while_bool_expression() {
         i = i + 1;
     }
     return x;
-    // Should be 4 (loop runs 4 times)
 }
 
 // run: test_while_bool_expression() == 4
@@ -70,7 +66,6 @@ int test_while_bool_not() {
         c = c + 1;
     }
     return y;
-    // Should be 3 (!false = true, loop runs 3 times)
 }
 
 // run: test_while_bool_not() == 3
@@ -90,7 +85,6 @@ int test_while_bool_nested() {
         outer_count = outer_count + 1;
     }
     return x;
-    // Should be 2 (outer runs 2 times, inner runs 2 times on first iteration only, then inner=false prevents inner loop on second iteration)
 }
 
 // run: test_while_bool_nested() == 2

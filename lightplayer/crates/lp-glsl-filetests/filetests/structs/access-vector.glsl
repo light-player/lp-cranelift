@@ -13,7 +13,6 @@ struct Transform {
 vec3 test_access_vector_transform_position() {
     Transform t = Transform(vec3(1.0, 2.0, 3.0), vec3(4.0, 5.0, 6.0));
     return t.position; // Access position member
-    // Should be vec3(1.0, 2.0, 3.0)
 }
 
 // run: test_access_vector_transform_position() ~= vec3(1.0, 2.0, 3.0)
@@ -21,7 +20,6 @@ vec3 test_access_vector_transform_position() {
 vec3 test_access_vector_transform_rotation() {
     Transform t = Transform(vec3(10.0, 20.0, 30.0), vec3(0.1, 0.2, 0.3));
     return t.rotation; // Access rotation member
-    // Should be vec3(0.1, 0.2, 0.3)
 }
 
 // run: test_access_vector_transform_rotation() ~= vec3(0.1, 0.2, 0.3)
@@ -29,7 +27,6 @@ vec3 test_access_vector_transform_rotation() {
 float test_access_vector_transform_position_x() {
     Transform t = Transform(vec3(5.0, 6.0, 7.0), vec3(0.0, 0.0, 0.0));
     return t.position.x; // Access vector component
-    // Should be 5.0
 }
 
 // run: test_access_vector_transform_position_x() ~= 5.0
@@ -41,7 +38,6 @@ struct ColorRGBA {
 vec4 test_access_vector_color_rgba() {
     ColorRGBA c = ColorRGBA(vec4(0.1, 0.2, 0.3, 0.4));
     return c.rgba; // Access rgba member
-    // Should be vec4(0.1, 0.2, 0.3, 0.4)
 }
 
 // run: test_access_vector_color_rgba() ~= vec4(0.1, 0.2, 0.3, 0.4)
@@ -49,7 +45,6 @@ vec4 test_access_vector_color_rgba() {
 float test_access_vector_color_rgba_alpha() {
     ColorRGBA c = ColorRGBA(vec4(1.0, 0.5, 0.0, 0.8));
     return c.rgba.w; // Access vector component (alpha)
-    // Should be 0.8
 }
 
 // run: test_access_vector_color_rgba_alpha() ~= 0.8
@@ -62,7 +57,6 @@ struct LineSegment {
 vec2 test_access_vector_line_segment_start() {
     LineSegment l = LineSegment(vec2(0.0, 0.0), vec2(10.0, 10.0));
     return l.start; // Access start member
-    // Should be vec2(0.0, 0.0)
 }
 
 // run: test_access_vector_line_segment_start() ~= vec2(0.0, 0.0)
@@ -70,7 +64,6 @@ vec2 test_access_vector_line_segment_start() {
 vec2 test_access_vector_line_segment_end() {
     LineSegment l = LineSegment(vec2(5.0, 5.0), vec2(15.0, 15.0));
     return l.end; // Access end member
-    // Should be vec2(15.0, 15.0)
 }
 
 // run: test_access_vector_line_segment_end() ~= vec2(15.0, 15.0)
@@ -78,7 +71,6 @@ vec2 test_access_vector_line_segment_end() {
 float test_access_vector_line_segment_start_y() {
     LineSegment l = LineSegment(vec2(1.0, 2.0), vec2(3.0, 4.0));
     return l.start.y; // Access vector component
-    // Should be 2.0
 }
 
 // run: test_access_vector_line_segment_start_y() ~= 2.0
@@ -92,7 +84,6 @@ struct Triangle3D {
 vec3 test_access_vector_triangle3d_v2() {
     Triangle3D t = Triangle3D(vec3(0.0, 0.0, 0.0), vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
     return t.v2; // Access v2 member
-    // Should be vec3(1.0, 0.0, 0.0)
 }
 
 // run: test_access_vector_triangle3d_v2() ~= vec3(1.0, 0.0, 0.0)
@@ -100,7 +91,6 @@ vec3 test_access_vector_triangle3d_v2() {
 float test_access_vector_triangle3d_v3_z() {
     Triangle3D t = Triangle3D(vec3(1.0, 1.0, 1.0), vec3(2.0, 2.0, 2.0), vec3(3.0, 3.0, 3.0));
     return t.v3.z; // Access vector component
-    // Should be 3.0
 }
 
 // run: test_access_vector_triangle3d_v3_z() ~= 3.0
@@ -115,7 +105,6 @@ struct Particle {
 vec3 test_access_vector_particle_velocity() {
     Particle p = Particle(vec3(1.0, 2.0, 3.0), vec3(0.1, 0.2, 0.3), vec4(1.0, 1.0, 1.0, 1.0), 5.0);
     return p.velocity; // Access velocity member
-    // Should be vec3(0.1, 0.2, 0.3)
 }
 
 // run: test_access_vector_particle_velocity() ~= vec3(0.1, 0.2, 0.3)
@@ -123,7 +112,6 @@ vec3 test_access_vector_particle_velocity() {
 vec4 test_access_vector_particle_color() {
     Particle p = Particle(vec3(0.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), vec4(0.5, 0.5, 0.5, 0.8), 2.0);
     return p.color; // Access color member
-    // Should be vec4(0.5, 0.5, 0.5, 0.8)
 }
 
 // run: test_access_vector_particle_color() ~= vec4(0.5, 0.5, 0.5, 0.8)

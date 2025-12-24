@@ -13,7 +13,6 @@ int test_for_loop_nested() {
         }
     }
     return sum;
-    // Should be 3 * 2 = 6
 }
 
 // run: test_for_loop_nested() == 6
@@ -43,7 +42,6 @@ int test_for_loop_nested_triple() {
         }
     }
     return count;
-    // Should be 2 * 2 * 2 = 8
 }
 
 // run: test_for_loop_nested_triple() == 8
@@ -56,7 +54,6 @@ int test_for_loop_nested_different_ranges() {
         }
     }
     return sum;
-    // Should be 2 * 4 = 8
 }
 
 // run: test_for_loop_nested_different_ranges() == 8

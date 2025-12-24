@@ -10,7 +10,6 @@ vec3 test_mat3_multiply_vec3_identity() {
     mat3 m = mat3(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
     vec3 v = vec3(3.0, 4.0, 5.0);
     return m * v;
-    // Should be vec3(3.0, 4.0, 5.0) (unchanged)
 }
 
 // run: test_mat3_multiply_vec3_identity() ~= vec3(3.0, 4.0, 5.0)
@@ -20,7 +19,6 @@ vec3 test_mat3_multiply_vec3_scale() {
     mat3 m = mat3(2.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 4.0); // scale by (2, 3, 4)
     vec3 v = vec3(1.0, 1.0, 1.0);
     return m * v;
-    // Should be vec3(2.0, 3.0, 4.0)
 }
 
 // run: test_mat3_multiply_vec3_scale() ~= vec3(2.0, 3.0, 4.0)
@@ -30,7 +28,6 @@ vec3 test_mat3_multiply_vec3_simple() {
     vec3 v = vec3(1.0, 2.0, 3.0);
     // Result: [1*1+2*2+3*3, 4*1+5*2+6*3, 7*1+8*2+9*3] = [14, 32, 50]
     return m * v;
-    // Should be vec3(14.0, 32.0, 50.0)
 }
 
 // run: test_mat3_multiply_vec3_simple() ~= vec3(14.0, 32.0, 50.0)
@@ -40,7 +37,6 @@ vec3 test_mat3_multiply_vec3_rotation_x() {
     mat3 m = mat3(1.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 1.0, 0.0);
     vec3 v = vec3(0.0, 1.0, 0.0); // unit vector along Y
     return m * v;
-    // Should be vec3(0.0, 0.0, 1.0) (Y becomes Z)
 }
 
 // run: test_mat3_multiply_vec3_rotation_x() ~= vec3(0.0, 0.0, 1.0)
@@ -49,14 +45,12 @@ vec3 test_mat3_multiply_vec3_variables() {
     mat3 m = mat3(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
     vec3 v = vec3(2.5, 3.7, 1.2);
     return m * v;
-    // Should be vec3(2.5, 3.7, 1.2) (identity transformation)
 }
 
 // run: test_mat3_multiply_vec3_variables() ~= vec3(2.5, 3.7, 1.2)
 
 vec3 test_mat3_multiply_vec3_expressions() {
     return mat3(1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0) * vec3(2.0, 3.0, 4.0);
-    // Should be vec3(5.0, 7.0, 4.0)
 }
 
 // run: test_mat3_multiply_vec3_expressions() ~= vec3(5.0, 7.0, 4.0)
@@ -66,7 +60,6 @@ vec3 test_mat3_multiply_vec3_in_assignment() {
     mat3 m = mat3(2.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 2.0); // uniform scale by 2
     result = m * vec3(1.0, 1.0, 1.0);
     return result;
-    // Should be vec3(2.0, 2.0, 2.0)
 }
 
 // run: test_mat3_multiply_vec3_in_assignment() ~= vec3(2.0, 2.0, 2.0)
@@ -75,7 +68,6 @@ vec3 test_mat3_multiply_vec3_zero_matrix() {
     mat3 m = mat3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     vec3 v = vec3(1.0, 2.0, 3.0);
     return m * v;
-    // Should be vec3(0.0, 0.0, 0.0)
 }
 
 // run: test_mat3_multiply_vec3_zero_matrix() ~= vec3(0.0, 0.0, 0.0)
@@ -85,7 +77,6 @@ vec3 test_mat3_multiply_vec3_translation_like() {
     mat3 m = mat3(1.0, 0.0, 1.0, 0.0, 1.0, 2.0, 0.0, 0.0, 1.0); // adds (1,2,0) to XY
     vec3 v = vec3(3.0, 4.0, 1.0);
     return m * v;
-    // Should be vec3(4.0, 6.0, 1.0) (X+1, Y+2, Z unchanged)
 }
 
 // run: test_mat3_multiply_vec3_translation_like() ~= vec3(4.0, 6.0, 1.0)

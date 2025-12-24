@@ -12,7 +12,6 @@ int test_while_loop_empty_body() {
         // Body has increment, but testing loop structure
     }
     return i;
-    // Should be 5
 }
 
 // run: test_while_loop_empty_body() == 5
@@ -23,7 +22,6 @@ int test_while_loop_condition_only() {
         i = i + 1;
     }
     return i;
-    // Should be 3
 }
 
 // run: test_while_loop_condition_only() == 3

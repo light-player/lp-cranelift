@@ -7,28 +7,24 @@
 
 bool test_bool_or_true_true() {
     return true || true;
-    // Should be true
 }
 
 // run: test_bool_or_true_true() == true
 
 bool test_bool_or_true_false() {
     return true || false;
-    // Should be true
 }
 
 // run: test_bool_or_true_false() == true
 
 bool test_bool_or_false_true() {
     return false || true;
-    // Should be true
 }
 
 // run: test_bool_or_false_true() == true
 
 bool test_bool_or_false_false() {
     return false || false;
-    // Should be false
 }
 
 // run: test_bool_or_false_false() == false
@@ -37,7 +33,6 @@ bool test_bool_or_variables() {
     bool a = true;
     bool b = false;
     return a || b;
-    // Should be true
 }
 
 // run: test_bool_or_variables() == true
@@ -47,7 +42,6 @@ bool test_bool_or_complex() {
     bool b = false;
     bool c = true;
     return (a || b) || c;
-    // Should be true
 }
 
 // run: test_bool_or_complex() == true
@@ -57,7 +51,6 @@ bool test_bool_or_nested() {
     bool b = true;
     bool c = false;
     return a || (b || c);
-    // Should be true
 }
 
 // run: test_bool_or_nested() == true
@@ -67,7 +60,6 @@ bool test_bool_or_all_false() {
     bool b = false;
     bool c = false;
     return a || b || c;
-    // Should be false
 }
 
 // run: test_bool_or_all_false() == false

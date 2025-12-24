@@ -13,7 +13,6 @@ int test_for_loop_in_if() {
         }
     }
     return sum;
-    // Should be 0 + 1 + 2 = 3
 }
 
 // run: test_for_loop_in_if() == 3
@@ -30,7 +29,6 @@ int test_for_loop_in_if_else() {
         }
     }
     return sum;
-    // Should be 0 + 1 + 2 = 3 (else branch)
 }
 
 // run: test_for_loop_in_if_else() == 3
@@ -45,7 +43,6 @@ int test_while_loop_in_if() {
         }
     }
     return sum;
-    // Should be 0 + 1 + 2 = 3
 }
 
 // run: test_while_loop_in_if() == 3
@@ -60,7 +57,6 @@ int test_nested_loop_in_if() {
         }
     }
     return sum;
-    // Should be 2 * 2 = 4
 }
 
 // run: test_nested_loop_in_if() == 4

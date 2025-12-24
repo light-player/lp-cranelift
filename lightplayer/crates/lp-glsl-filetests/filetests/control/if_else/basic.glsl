@@ -13,7 +13,6 @@ int test_if_else_true() {
         x = 20;
     }
     return x;
-    // Should be 10 (if branch taken)
 }
 
 // run: test_if_else_true() == 10
@@ -26,7 +25,6 @@ int test_if_else_false() {
         x = 20;
     }
     return x;
-    // Should be 20 (else branch taken)
 }
 
 // run: test_if_else_false() == 20
@@ -39,7 +37,6 @@ int test_if_else_condition_true() {
         x = 200;
     }
     return x;
-    // Should be 100
 }
 
 // run: test_if_else_condition_true() == 100
@@ -52,7 +49,6 @@ int test_if_else_condition_false() {
         x = 200;
     }
     return x;
-    // Should be 200
 }
 
 // run: test_if_else_condition_false() == 200
@@ -65,7 +61,6 @@ int test_if_else_equality() {
         x = 100;
     }
     return x;
-    // Should be 50
 }
 
 // run: test_if_else_equality() == 50

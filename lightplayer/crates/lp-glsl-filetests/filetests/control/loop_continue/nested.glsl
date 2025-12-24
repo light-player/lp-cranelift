@@ -16,7 +16,6 @@ int test_continue_nested_for_inner() {
         }
     }
     return sum;
-    // Should be 3 * 4 = 12 (skips j=2 in inner loop)
 }
 
 // run: test_continue_nested_for_inner() == 12
@@ -37,7 +36,6 @@ int test_continue_nested_while_inner() {
         i = i + 1;
     }
     return sum;
-    // Should be 3 * 4 = 12 (skips j=2 in inner loop)
 }
 
 // run: test_continue_nested_while_inner() == 12
@@ -56,7 +54,6 @@ int test_continue_nested_mixed() {
         }
     }
     return sum;
-    // Should be 2 * 3 = 6 (skips j=1 in inner loop)
 }
 
 // run: test_continue_nested_mixed() == 6
@@ -74,7 +71,6 @@ int test_continue_nested_triple() {
         }
     }
     return count;
-    // Should be 2 * 3 * 3 = 18 (skips k=2 in innermost loop)
 }
 
 // run: test_continue_nested_triple() == 18

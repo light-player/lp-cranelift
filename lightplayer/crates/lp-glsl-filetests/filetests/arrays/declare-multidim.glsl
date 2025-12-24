@@ -8,7 +8,6 @@
 float test_declare_2d_float_array() {
     float arr[3][2]; // 3x2 array of floats
     return 1.0; // Declaration test - no runtime behavior
-    // Should be 1.0 (test passes if no compilation error)
 }
 
 // run: test_declare_2d_float_array() == 1.0
@@ -16,7 +15,6 @@ float test_declare_2d_float_array() {
 int test_declare_2d_int_array() {
     int arr[2][3]; // 2x3 array of ints
     return 1; // Declaration test
-    // Should be 1
 }
 
 // run: test_declare_2d_int_array() == 1
@@ -24,7 +22,6 @@ int test_declare_2d_int_array() {
 vec3 test_declare_2d_vec3_array() {
     vec3 arr[2][2]; // 2x2 array of vec3s
     return vec3(1.0, 1.0, 1.0); // Declaration test
-    // Should be vec3(1.0, 1.0, 1.0)
 }
 
 // run: test_declare_2d_vec3_array() ~= vec3(1.0, 1.0, 1.0)
@@ -32,7 +29,6 @@ vec3 test_declare_2d_vec3_array() {
 float test_declare_3d_float_array() {
     float arr[2][3][4]; // 2x3x4 array of floats
     return 1.0; // Declaration test
-    // Should be 1.0
 }
 
 // run: test_declare_3d_float_array() == 1.0
@@ -40,7 +36,6 @@ float test_declare_3d_float_array() {
 vec4 test_declare_3d_vec4_array() {
     vec4 arr[2][2][2]; // 2x2x2 array of vec4s
     return vec4(1.0, 1.0, 1.0, 1.0); // Declaration test
-    // Should be vec4(1.0, 1.0, 1.0, 1.0)
 }
 
 // run: test_declare_3d_vec4_array() ~= vec4(1.0, 1.0, 1.0, 1.0)
@@ -48,7 +43,6 @@ vec4 test_declare_3d_vec4_array() {
 int test_declare_large_2d_array() {
     int arr[10][5]; // 10x5 array of ints
     return 1; // Declaration test
-    // Should be 1
 }
 
 // run: test_declare_large_2d_array() == 1
@@ -56,7 +50,6 @@ int test_declare_large_2d_array() {
 float test_declare_uneven_dimensions() {
     float arr[4][6]; // 4x6 array (different dimension sizes)
     return 1.0; // Declaration test
-    // Should be 1.0
 }
 
 // run: test_declare_uneven_dimensions() == 1.0

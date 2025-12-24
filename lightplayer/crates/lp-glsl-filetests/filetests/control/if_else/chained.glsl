@@ -15,7 +15,6 @@ int test_if_else_if_first() {
         x = 30;
     }
     return x;
-    // Should be 10 (first condition true)
 }
 
 // run: test_if_else_if_first() == 10
@@ -30,7 +29,6 @@ int test_if_else_if_second() {
         x = 30;
     }
     return x;
-    // Should be 20 (second condition true)
 }
 
 // run: test_if_else_if_second() == 20
@@ -45,7 +43,6 @@ int test_if_else_if_else() {
         x = 30;
     }
     return x;
-    // Should be 30 (else branch)
 }
 
 // run: test_if_else_if_else() == 30
@@ -62,7 +59,6 @@ int test_if_else_if_chain_three() {
         x = 40;
     }
     return x;
-    // Should be 30 (third condition true)
 }
 
 // run: test_if_else_if_chain_three() == 30
@@ -77,7 +73,6 @@ int test_if_else_if_conditional() {
         x = 30;
     }
     return x;
-    // Should be 20 (second condition true)
 }
 
 // run: test_if_else_if_conditional() == 20

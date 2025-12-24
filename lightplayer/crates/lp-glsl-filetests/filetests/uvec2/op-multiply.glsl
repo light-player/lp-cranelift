@@ -10,7 +10,6 @@ uvec2 test_uvec2_multiply_positive_positive() {
     uvec2 a = uvec2(6u, 7u);
     uvec2 b = uvec2(2u, 3u);
     return a * b;
-    // Should be uvec2(12u, 21u)
 }
 
 // run: test_uvec2_multiply_positive_positive() == uvec2(12u, 21u)
@@ -19,7 +18,6 @@ uvec2 test_uvec2_multiply_by_zero() {
     uvec2 a = uvec2(123u, 456u);
     uvec2 b = uvec2(0u, 0u);
     return a * b;
-    // Should be uvec2(0u, 0u)
 }
 
 // run: test_uvec2_multiply_by_zero() == uvec2(0u, 0u)
@@ -28,7 +26,6 @@ uvec2 test_uvec2_multiply_by_one() {
     uvec2 a = uvec2(42u, 17u);
     uvec2 b = uvec2(1u, 1u);
     return a * b;
-    // Should be uvec2(42u, 17u)
 }
 
 // run: test_uvec2_multiply_by_one() == uvec2(42u, 17u)
@@ -37,14 +34,12 @@ uvec2 test_uvec2_multiply_variables() {
     uvec2 a = uvec2(8u, 9u);
     uvec2 b = uvec2(7u, 6u);
     return a * b;
-    // Should be uvec2(56u, 54u)
 }
 
 // run: test_uvec2_multiply_variables() == uvec2(56u, 54u)
 
 uvec2 test_uvec2_multiply_expressions() {
     return uvec2(3u, 4u) * uvec2(5u, 2u);
-    // Should be uvec2(15u, 8u)
 }
 
 // run: test_uvec2_multiply_expressions() == uvec2(15u, 8u)
@@ -53,7 +48,6 @@ uvec2 test_uvec2_multiply_in_assignment() {
     uvec2 result = uvec2(6u, 7u);
     result = result * uvec2(2u, 3u);
     return result;
-    // Should be uvec2(12u, 21u)
 }
 
 // run: test_uvec2_multiply_in_assignment() == uvec2(12u, 21u)
@@ -62,7 +56,6 @@ uvec2 test_uvec2_multiply_large_numbers() {
     uvec2 a = uvec2(1000u, 2000u);
     uvec2 b = uvec2(3000u, 1000u);
     return a * b;
-    // Should be uvec2(3000000u, 2000000u)
 }
 
 // run: test_uvec2_multiply_large_numbers() == uvec2(3000000u, 2000000u)
@@ -71,7 +64,6 @@ uvec2 test_uvec2_multiply_overflow() {
     uvec2 a = uvec2(4294967295u, 4294967295u); // max uint
     uvec2 b = uvec2(2u, 2u);
     return a * b;
-    // Should be uvec2(4294967294u, 4294967294u) (overflow wrap around)
 }
 
 // run: test_uvec2_multiply_overflow() == uvec2(4294967294u, 4294967294u)
@@ -80,7 +72,6 @@ uvec2 test_uvec2_multiply_mixed_components() {
     uvec2 a = uvec2(10u, 15u);
     uvec2 b = uvec2(3u, 2u);
     return a * b;
-    // Should be uvec2(30u, 30u)
 }
 
 // run: test_uvec2_multiply_mixed_components() == uvec2(30u, 30u)

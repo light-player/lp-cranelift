@@ -16,7 +16,6 @@ int test_break_in_if_in_loop() {
         sum = sum + i;
     }
     return sum;
-    // Should be 0 + 1 + 2 + 3 + 4 = 10
 }
 
 // run: test_break_in_if_in_loop() == 10
@@ -30,7 +29,6 @@ int test_continue_in_if_in_loop() {
         sum = sum + i;
     }
     return sum;
-    // Should be 0 + 1 + 3 + 4 = 8
 }
 
 // run: test_continue_in_if_in_loop() == 8
@@ -46,7 +44,6 @@ int test_break_nested_breaks_inner() {
         }
     }
     return sum;
-    // Should be 3 * 2 = 6
 }
 
 // run: test_break_nested_breaks_inner() == 6
@@ -62,7 +59,6 @@ int test_continue_nested_continues_inner() {
         }
     }
     return sum;
-    // Should be 3 * 4 = 12
 }
 
 // run: test_continue_nested_continues_inner() == 12
@@ -79,7 +75,6 @@ int test_break_after_continue() {
         sum = sum + i;
     }
     return sum;
-    // Should be 1 + 3 + 5 = 9
 }
 
 // run: test_break_after_continue() == 9
@@ -95,7 +90,6 @@ int test_continue_after_break_impossible() {
         sum = sum + i;
     }
     return sum;
-    // Should be 0 (continue prevents sum update)
 }
 
 // run: test_continue_after_break_impossible() == 0
@@ -115,7 +109,6 @@ int test_break_in_while_with_continue() {
         i = i + 1;
     }
     return sum;
-    // Should be 1 + 3 + 5 = 9
 }
 
 // run: test_break_in_while_with_continue() == 9
@@ -132,7 +125,6 @@ int test_continue_in_do_while() {
         i = i + 1;
     } while (i < 4);
     return sum;
-    // Should be 0 + 2 + 3 = 5
 }
 
 // run: test_continue_in_do_while() == 5
@@ -148,7 +140,6 @@ int test_break_in_do_while() {
         i = i + 1;
     } while (i < 10);
     return sum;
-    // Should be 0 + 1 + 2 = 3
 }
 
 // run: test_break_in_do_while() == 3
@@ -165,7 +156,6 @@ int test_multiple_continues() {
         sum = sum + i;
     }
     return sum;
-    // Should be 1 + 5 + 7 = 13 (skips multiples of 2 and 3)
 }
 
 // run: test_multiple_continues() == 13

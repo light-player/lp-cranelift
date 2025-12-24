@@ -10,7 +10,6 @@ int test_if_single_statement() {
     if (true)
         x = 10;
     return x;
-    // Should be 10
 }
 
 // run: test_if_single_statement() == 10
@@ -22,7 +21,6 @@ int test_if_else_single_statement() {
     else
         x = 20;
     return x;
-    // Should be 20
 }
 
 // run: test_if_else_single_statement() == 20
@@ -32,7 +30,6 @@ int test_for_loop_single_statement() {
     for (int i = 0; i < 3; i++)
         sum = sum + i;
     return sum;
-    // Should be 0 + 1 + 2 = 3
 }
 
 // run: test_for_loop_single_statement() == 3
@@ -43,7 +40,6 @@ int test_while_loop_single_statement() {
     while (i < 3)
         sum = sum + (i = i + 1);
     return sum;
-    // Should be 1 + 2 + 3 = 6
 }
 
 // run: test_while_loop_single_statement() == 6
@@ -56,7 +52,6 @@ int test_nested_single_statements() {
         else
             sum = sum + 20;
     return sum;
-    // Should be 10 + 20 = 30
 }
 
 // run: test_nested_single_statements() == 30

@@ -17,7 +17,6 @@ int test_short_circuit_or_true_left() {
         x = 15;  // If short-circuit works correctly, result should be true
     }
     return x;
-    // Should be 15 (true || false = true, short-circuit means b not evaluated)
 }
 
 // run: test_short_circuit_or_true_left() == 15
@@ -32,7 +31,6 @@ int test_short_circuit_or_false_left() {
         x = 25;
     }
     return x;
-    // Should be 25 (false || true = true, both evaluated)
 }
 
 // run: test_short_circuit_or_false_left() == 25
@@ -42,7 +40,6 @@ bool test_short_circuit_or_true_prevents_evaluation() {
     bool b = false;
     // true || anything should be true without evaluating right side
     return a || b;
-    // Should be true
 }
 
 // run: test_short_circuit_or_true_prevents_evaluation() == true
@@ -52,7 +49,6 @@ bool test_short_circuit_or_false_evaluates_both() {
     bool b = true;
     // false || true should evaluate both and return true
     return a || b;
-    // Should be true
 }
 
 // run: test_short_circuit_or_false_evaluates_both() == true
@@ -65,7 +61,6 @@ bool test_short_circuit_or_nested() {
     // But actually, we evaluate (a || b) first, which short-circuits
     // Then we have true || c, which also short-circuits
     return (a || b) || c;
-    // Should be true
 }
 
 // run: test_short_circuit_or_nested() == true
@@ -77,7 +72,6 @@ bool test_short_circuit_or_chain() {
     // a || b evaluates to false, then false || c evaluates to true
     // c must be evaluated because left side was false
     return a || b || c;
-    // Should be true
 }
 
 // run: test_short_circuit_or_chain() == true
@@ -89,7 +83,6 @@ bool test_short_circuit_or_early_true() {
     bool d = false;
     // a is true, so short-circuit: b, c, d should not be evaluated
     return a || b || c || d;
-    // Should be true
 }
 
 // run: test_short_circuit_or_early_true() == true
@@ -100,7 +93,6 @@ bool test_short_circuit_or_all_false() {
     bool c = false;
     // All must be evaluated since all are false
     return a || b || c;
-    // Should be false
 }
 
 // run: test_short_circuit_or_all_false() == false

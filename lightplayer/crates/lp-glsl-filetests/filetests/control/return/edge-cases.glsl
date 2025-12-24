@@ -15,7 +15,6 @@ int test_return_in_nested_if() {
         return 200;
     }
     return 300;
-    // Should be 100 (innermost return)
 }
 
 // run: test_return_in_nested_if() == 100
@@ -27,7 +26,6 @@ int test_return_in_loop() {
         }
     }
     return 0;
-    // Should be 5
 }
 
 // run: test_return_in_loop() == 5
@@ -41,7 +39,6 @@ int test_return_in_nested_loops() {
         }
     }
     return 0;
-    // Should be 22 (i=2, j=2)
 }
 
 // run: test_return_in_nested_loops() == 22
@@ -53,7 +50,6 @@ int test_return_after_break() {
         }
     }
     return 100;
-    // Should be 100 (return after break)
 }
 
 // run: test_return_after_break() == 100
@@ -65,7 +61,6 @@ int test_return_after_continue() {
         }
     }
     return 200;
-    // Should be 200 (return after continue)
 }
 
 // run: test_return_after_continue() == 200
@@ -78,7 +73,6 @@ int test_return_multiple_paths() {
         return 20;
     }
     return 30;
-    // Should be 10 (first return)
 }
 
 // run: test_return_multiple_paths() == 10
@@ -89,7 +83,6 @@ int test_return_in_if_else_both() {
     } else {
         return 60;
     }
-    // Should be 50
 }
 
 // run: test_return_in_if_else_both() == 50
@@ -100,7 +93,6 @@ int test_return_in_if_else_false() {
     } else {
         return 60;
     }
-    // Should be 60
 }
 
 // run: test_return_in_if_else_false() == 60

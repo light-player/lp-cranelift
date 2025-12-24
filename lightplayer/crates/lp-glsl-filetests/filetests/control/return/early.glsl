@@ -10,7 +10,6 @@ int test_early_return_condition_true() {
         return 10;
     }
     return 20;
-    // Should be 10 (early return)
 }
 
 // run: test_early_return_condition_true() == 10
@@ -20,7 +19,6 @@ int test_early_return_condition_false() {
         return 10;
     }
     return 20;
-    // Should be 20 (continues after if)
 }
 
 // run: test_early_return_condition_false() == 20
@@ -32,7 +30,6 @@ int test_early_return_in_loop() {
         }
     }
     return 100;
-    // Should be 5 (early return from loop)
 }
 
 // run: test_early_return_in_loop() == 5
@@ -45,7 +42,6 @@ int test_early_return_nested() {
         return 40;
     }
     return 30;
-    // Should be 50 (early return from nested if)
 }
 
 // run: test_early_return_nested() == 50
@@ -58,7 +54,6 @@ int test_early_return_multiple() {
         return 20;
     }
     return 30;
-    // Should be 20 (second if returns early)
 }
 
 // run: test_early_return_multiple() == 20

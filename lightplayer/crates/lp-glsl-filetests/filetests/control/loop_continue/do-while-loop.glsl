@@ -17,7 +17,6 @@ int test_continue_do_while_loop_skip() {
         i = i + 1;
     } while (i < 5);
     return sum;
-    // Should be 0 + 1 + 3 + 4 = 8 (skips i=2)
 }
 
 // run: test_continue_do_while_loop_skip() == 8
@@ -34,7 +33,6 @@ int test_continue_do_while_loop_multiple() {
         i = i + 1;
     } while (i < 10);
     return sum;
-    // Should be 1 + 3 + 5 + 7 + 9 = 25 (skips even numbers)
 }
 
 // run: test_continue_do_while_loop_multiple() == 25
@@ -50,7 +48,6 @@ int test_continue_do_while_loop_after_first() {
         }
     } while (i < 5);
     return sum;
-    // Should be 0 + 1 = 1 (continues after i=1)
 }
 
 // run: test_continue_do_while_loop_after_first() == 1

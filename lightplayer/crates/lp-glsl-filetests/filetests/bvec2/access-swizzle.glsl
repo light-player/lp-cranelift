@@ -9,7 +9,6 @@ bvec2 test_bvec2_access_swizzle_xy() {
     // Identity swizzle
     bvec2 a = bvec2(true, false);
     return a.xy;
-    // Should be bvec2(true, false)
 }
 
 // run: test_bvec2_access_swizzle_xy() == bvec2(true, false)
@@ -18,7 +17,6 @@ bvec2 test_bvec2_access_swizzle_yx() {
     // Reverse swizzle
     bvec2 a = bvec2(true, false);
     return a.yx;
-    // Should be bvec2(false, true)
 }
 
 // run: test_bvec2_access_swizzle_yx() == bvec2(false, true)
@@ -27,7 +25,6 @@ bvec2 test_bvec2_access_swizzle_xx() {
     // Duplicate swizzle
     bvec2 a = bvec2(true, false);
     return a.xx;
-    // Should be bvec2(true, true)
 }
 
 // run: test_bvec2_access_swizzle_xx() == bvec2(true, true)
@@ -35,14 +32,12 @@ bvec2 test_bvec2_access_swizzle_xx() {
 bvec2 test_bvec2_access_swizzle_yy() {
     bvec2 a = bvec2(true, false);
     return a.yy;
-    // Should be bvec2(false, false)
 }
 
 // run: test_bvec2_access_swizzle_yy() == bvec2(false, false)
 
 bvec2 test_bvec2_access_swizzle_from_expression() {
     return not(bvec2(false, true)).xy;
-    // Should be bvec2(true, false)
 }
 
 // run: test_bvec2_access_swizzle_from_expression() == bvec2(true, false)
@@ -51,7 +46,6 @@ bvec2 test_bvec2_access_swizzle_mixed_names() {
     // Test different name sets (xy, rg, st)
     bvec2 a = bvec2(true, false);
     return a.rg; // Same as xy
-    // Should be bvec2(true, false)
 }
 
 // run: test_bvec2_access_swizzle_mixed_names() == bvec2(true, false)
@@ -59,7 +53,6 @@ bvec2 test_bvec2_access_swizzle_mixed_names() {
 bvec2 test_bvec2_access_swizzle_st() {
     bvec2 a = bvec2(true, false);
     return a.st; // Same as xy
-    // Should be bvec2(true, false)
 }
 
 // run: test_bvec2_access_swizzle_st() == bvec2(true, false)
@@ -68,7 +61,6 @@ bvec2 test_bvec2_access_swizzle_in_assignment() {
     bvec2 a = bvec2(true, false);
     bvec2 result = a.yx;
     return result;
-    // Should be bvec2(false, true)
 }
 
 // run: test_bvec2_access_swizzle_in_assignment() == bvec2(false, true)

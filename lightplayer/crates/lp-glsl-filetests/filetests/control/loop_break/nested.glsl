@@ -16,7 +16,6 @@ int test_break_nested_for_inner() {
         }
     }
     return sum;
-    // Should be 3 * 2 = 6 (breaks inner loop only)
 }
 
 // run: test_break_nested_for_inner() == 6
@@ -36,7 +35,6 @@ int test_break_nested_while_inner() {
         i = i + 1;
     }
     return sum;
-    // Should be 3 * 2 = 6 (breaks inner loop only)
 }
 
 // run: test_break_nested_while_inner() == 6
@@ -54,7 +52,6 @@ int test_break_nested_mixed() {
         }
     }
     return sum;
-    // Should be 2 * 2 = 4 (breaks inner loop only)
 }
 
 // run: test_break_nested_mixed() == 4
@@ -72,7 +69,6 @@ int test_break_nested_triple() {
         }
     }
     return count;
-    // Should be 2 * 3 * 2 = 12 (breaks innermost loop only)
 }
 
 // run: test_break_nested_triple() == 12

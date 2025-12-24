@@ -9,7 +9,6 @@ ivec2 test_bvec2_to_ivec2_mixed() {
     // Conversion ivec2(bvec2) component-wise conversion
     bvec2 source = bvec2(true, false);
     return ivec2(source);
-    // Should be ivec2(1, 0)
 }
 
 // run: test_bvec2_to_ivec2_mixed() == ivec2(1, 0)
@@ -17,7 +16,6 @@ ivec2 test_bvec2_to_ivec2_mixed() {
 ivec2 test_bvec2_to_ivec2_all_true() {
     bvec2 source = bvec2(true, true);
     return ivec2(source);
-    // Should be ivec2(1, 1)
 }
 
 // run: test_bvec2_to_ivec2_all_true() == ivec2(1, 1)
@@ -25,7 +23,6 @@ ivec2 test_bvec2_to_ivec2_all_true() {
 ivec2 test_bvec2_to_ivec2_all_false() {
     bvec2 source = bvec2(false, false);
     return ivec2(source);
-    // Should be ivec2(0, 0)
 }
 
 // run: test_bvec2_to_ivec2_all_false() == ivec2(0, 0)
@@ -33,7 +30,6 @@ ivec2 test_bvec2_to_ivec2_all_false() {
 ivec2 test_bvec2_to_ivec2_other_mixed() {
     bvec2 source = bvec2(false, true);
     return ivec2(source);
-    // Should be ivec2(0, 1)
 }
 
 // run: test_bvec2_to_ivec2_other_mixed() == ivec2(0, 1)
@@ -41,14 +37,12 @@ ivec2 test_bvec2_to_ivec2_other_mixed() {
 ivec2 test_bvec2_to_ivec2_variable() {
     bvec2 x = bvec2(true, false);
     return ivec2(x);
-    // Should be ivec2(1, 0)
 }
 
 // run: test_bvec2_to_ivec2_variable() == ivec2(1, 0)
 
 ivec2 test_bvec2_to_ivec2_expression() {
     return ivec2(not(bvec2(false, true)));
-    // Should be ivec2(1, 0) (not(bvec2(false, true)) = bvec2(true, false) -> ivec2(1, 0))
 }
 
 // run: test_bvec2_to_ivec2_expression() == ivec2(1, 0)
@@ -56,7 +50,6 @@ ivec2 test_bvec2_to_ivec2_expression() {
 ivec2 test_bvec2_to_ivec2_in_arithmetic() {
     bvec2 x = bvec2(true, false);
     return ivec2(x) + ivec2(10, 20);
-    // Should be ivec2(11, 20) (ivec2(1, 0) + ivec2(10, 20))
 }
 
 // run: test_bvec2_to_ivec2_in_arithmetic() == ivec2(11, 20)

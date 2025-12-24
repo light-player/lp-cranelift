@@ -8,7 +8,6 @@
 bool test_bool_from_bool_true() {
     bool b = true;
     return bool(b);
-    // Should be true (identity)
 }
 
 // run: test_bool_from_bool_true() == true
@@ -16,21 +15,18 @@ bool test_bool_from_bool_true() {
 bool test_bool_from_bool_false() {
     bool b = false;
     return bool(b);
-    // Should be false (identity)
 }
 
 // run: test_bool_from_bool_false() == false
 
 bool test_bool_from_bool_literal_true() {
     return bool(true);
-    // Should be true
 }
 
 // run: test_bool_from_bool_literal_true() == true
 
 bool test_bool_from_bool_literal_false() {
     return bool(false);
-    // Should be false
 }
 
 // run: test_bool_from_bool_literal_false() == false
@@ -39,7 +35,6 @@ bool test_bool_from_bool_expression() {
     bool a = true;
     bool b = false;
     return bool(a && b);
-    // Should be false (true && false = false)
 }
 
 // run: test_bool_from_bool_expression() == false
@@ -47,7 +42,6 @@ bool test_bool_from_bool_expression() {
 bool test_bool_from_bool_nested() {
     bool a = true;
     return bool(bool(a));
-    // Should be true (double identity)
 }
 
 // run: test_bool_from_bool_nested() == true
@@ -55,7 +49,6 @@ bool test_bool_from_bool_nested() {
 bool test_bool_from_bool_after_not() {
     bool a = true;
     return bool(!a);
-    // Should be false (!true = false)
 }
 
 // run: test_bool_from_bool_after_not() == false
@@ -64,7 +57,6 @@ bool test_bool_from_bool_self() {
     bool a = false;
     bool b = bool(a);
     return b == a;
-    // Should be true (identity preserves value)
 }
 
 // run: test_bool_from_bool_self() == true

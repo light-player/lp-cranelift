@@ -17,7 +17,6 @@ int test_while_loop_nested() {
         i = i + 1;
     }
     return sum;
-    // Should be 3 * 2 = 6
 }
 
 // run: test_while_loop_nested() == 6
@@ -57,7 +56,6 @@ int test_while_loop_nested_triple() {
         i = i + 1;
     }
     return count;
-    // Should be 2 * 2 * 2 = 8
 }
 
 // run: test_while_loop_nested_triple() == 8

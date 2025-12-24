@@ -16,7 +16,6 @@ int test_do_while_loop_variable_scope() {
         i = i + 1;
     } while (i < 3);
     return sum;
-    // Should be 0 + 2 + 4 = 6
 }
 
 // run: test_do_while_loop_variable_scope() == 6
@@ -31,7 +30,6 @@ int test_do_while_loop_body_scope() {
     } while (i < 2);
     // j is out of scope here
     return sum;
-    // Should be 10 + 10 = 20
 }
 
 // run: test_do_while_loop_body_scope() == 20
@@ -47,7 +45,6 @@ int test_do_while_loop_shadowing() {
     } while (j < 3);
     // Outer i should be unchanged
     return i;
-    // Should be 100 (outer i)
 }
 
 // run: test_do_while_loop_shadowing() == 100
@@ -61,7 +58,6 @@ int test_do_while_loop_condition_no_declaration() {
     } while (i < 3);
     // Condition uses existing variable, no declaration
     return sum;
-    // Should be 0 + 1 + 2 = 3
 }
 
 // run: test_do_while_loop_condition_no_declaration() == 3

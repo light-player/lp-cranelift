@@ -14,7 +14,6 @@ int test_if_boolean_true() {
         x = 10;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_if_boolean_true() == 10
@@ -26,7 +25,6 @@ int test_if_boolean_false() {
         x = 10;
     }
     return x;
-    // Should be 0
 }
 
 // run: test_if_boolean_false() == 0
@@ -37,7 +35,6 @@ int test_if_comparison_gt() {
         x = 10;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_if_comparison_gt() == 10
@@ -48,7 +45,6 @@ int test_if_comparison_lt() {
         x = 10;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_if_comparison_lt() == 10
@@ -59,7 +55,6 @@ int test_if_comparison_eq() {
         x = 10;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_if_comparison_eq() == 10
@@ -70,7 +65,6 @@ int test_if_comparison_ne() {
         x = 10;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_if_comparison_ne() == 10
@@ -81,7 +75,6 @@ int test_if_logical_and() {
         x = 10;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_if_logical_and() == 10
@@ -92,7 +85,6 @@ int test_if_logical_or() {
         x = 10;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_if_logical_or() == 10
@@ -103,7 +95,6 @@ int test_if_logical_not() {
         x = 10;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_if_logical_not() == 10
@@ -120,7 +111,6 @@ int test_loop_condition_boolean() {
         }
     }
     return sum;
-    // Should be 0 + 1 + 2 = 3
 }
 
 // run: test_loop_condition_boolean() == 3
@@ -133,7 +123,6 @@ int test_loop_condition_complex() {
         i = i + 1;
     }
     return sum;
-    // Should be 0 + 1 + 2 + 3 + 4 = 10
 }
 
 // run: test_loop_condition_complex() == 10

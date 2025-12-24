@@ -14,7 +14,6 @@ int test_bvec2_ctrl_while_any() {
         condition = bvec2(false, false); // Exit condition
     }
     return counter;
-    // Should be 1
 }
 
 // run: test_bvec2_ctrl_while_any() == 1
@@ -27,7 +26,6 @@ int test_bvec2_ctrl_while_all() {
         condition = bvec2(true, false); // Exit condition
     }
     return counter;
-    // Should be 1
 }
 
 // run: test_bvec2_ctrl_while_all() == 1
@@ -39,7 +37,6 @@ int test_bvec2_ctrl_while_false() {
         counter = counter + 1;
     }
     return counter;
-    // Should be 0
 }
 
 // run: test_bvec2_ctrl_while_false() == 0
@@ -53,7 +50,6 @@ int test_bvec2_ctrl_while_dynamic_condition() {
         if (counter > 5) break; // Prevent infinite loop in test
     }
     return counter;
-    // Should be 2 (true,true -> false,false -> stop)
 }
 
 // run: test_bvec2_ctrl_while_dynamic_condition() == 2
@@ -67,7 +63,6 @@ int test_bvec2_ctrl_while_with_operations() {
         a = b; // Make them equal to exit
     }
     return counter;
-    // Should be 0 (they're not initially equal)
 }
 
 // run: test_bvec2_ctrl_while_with_operations() == 0
@@ -81,7 +76,6 @@ int test_bvec2_ctrl_while_complex_condition() {
         a.x = false; // Will make any(a) false
     }
     return counter;
-    // Should be 1
 }
 
 // run: test_bvec2_ctrl_while_complex_condition() == 1

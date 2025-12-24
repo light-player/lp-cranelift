@@ -11,7 +11,6 @@ int test_if_true() {
         x = 10;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_if_true() == 10
@@ -22,7 +21,6 @@ int test_if_false() {
         x = 10;
     }
     return x;
-    // Should be 5 (not modified)
 }
 
 // run: test_if_false() == 5
@@ -33,7 +31,6 @@ int test_if_condition_true() {
         x = 20;
     }
     return x;
-    // Should be 20
 }
 
 // run: test_if_condition_true() == 20
@@ -44,7 +41,6 @@ int test_if_condition_false() {
         x = 20;
     }
     return x;
-    // Should be 0 (not modified)
 }
 
 // run: test_if_condition_false() == 0
@@ -55,7 +51,6 @@ int test_if_equality() {
         x = 100;
     }
     return x;
-    // Should be 100
 }
 
 // run: test_if_equality() == 100
@@ -66,7 +61,6 @@ int test_if_inequality() {
         x = 50;
     }
     return x;
-    // Should be 50
 }
 
 // run: test_if_inequality() == 50

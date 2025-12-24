@@ -11,7 +11,6 @@ int test_do_while_runs_at_least_once() {
         x = 10;
     } while (false);
     return x;
-    // Should be 10 (executes once even though condition is false)
 }
 
 // run: test_do_while_runs_at_least_once() == 10
@@ -22,7 +21,6 @@ int test_do_while_false_condition() {
         count = count + 1;
     } while (count < 0);
     return count;
-    // Should be 1 (executes once before checking condition)
 }
 
 // run: test_do_while_false_condition() == 1
@@ -35,7 +33,6 @@ int test_do_while_zero_iterations_impossible() {
         i = i + 1;
     } while (i < 0);
     return sum;
-    // Should be 1 (always executes at least once)
 }
 
 // run: test_do_while_zero_iterations_impossible() == 1

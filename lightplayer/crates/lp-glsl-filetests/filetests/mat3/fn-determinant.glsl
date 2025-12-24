@@ -9,7 +9,6 @@ float test_mat3_determinant_identity() {
     // Determinant of identity matrix
     mat3 m = mat3(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
     return determinant(m);
-    // Should be 1.0
 }
 
 // run: test_mat3_determinant_identity() ~= 1.0
@@ -23,7 +22,6 @@ float test_mat3_determinant_simple() {
     //     = -3 + 12 - 9 = 0
     mat3 m = mat3(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
     return determinant(m);
-    // Should be 0.0
 }
 
 // run: test_mat3_determinant_simple() ~= 0.0
@@ -32,7 +30,6 @@ float test_mat3_determinant_upper_triangular() {
     // Upper triangular matrix - determinant is product of diagonal
     mat3 m = mat3(2.0, 3.0, 4.0, 0.0, 5.0, 6.0, 0.0, 0.0, 7.0);
     return determinant(m);
-    // Should be 2.0 * 5.0 * 7.0 = 70.0
 }
 
 // run: test_mat3_determinant_upper_triangular() ~= 70.0
@@ -41,7 +38,6 @@ float test_mat3_determinant_scale() {
     // Scale matrix - determinant should be product of scale factors
     mat3 m = mat3(2.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 4.0);
     return determinant(m);
-    // Should be 2.0 * 3.0 * 4.0 = 24.0
 }
 
 // run: test_mat3_determinant_scale() ~= 24.0
@@ -56,7 +52,6 @@ float test_mat3_determinant_variables() {
 
 float test_mat3_determinant_expressions() {
     return determinant(mat3(1.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 3.0));
-    // Should be 1.0 * 2.0 * 3.0 = 6.0
 }
 
 // run: test_mat3_determinant_expressions() ~= 6.0
@@ -73,7 +68,6 @@ float test_mat3_determinant_in_assignment() {
 float test_mat3_determinant_zero() {
     mat3 m = mat3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     return determinant(m);
-    // Should be 0.0
 }
 
 // run: test_mat3_determinant_zero() ~= 0.0
@@ -90,7 +84,6 @@ float test_mat3_determinant_properties() {
     // Test that det(transpose(m)) == det(m)
     mat3 m = mat3(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
     return determinant(transpose(m)) - determinant(m);
-    // Should be 0.0 (they should be equal)
 }
 
 // run: test_mat3_determinant_properties() ~= 0.0

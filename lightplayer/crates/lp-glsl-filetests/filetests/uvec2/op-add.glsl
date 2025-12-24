@@ -10,7 +10,6 @@ uvec2 test_uvec2_add_positive_positive() {
     uvec2 a = uvec2(5u, 3u);
     uvec2 b = uvec2(2u, 4u);
     return a + b;
-    // Should be uvec2(7u, 7u)
 }
 
 // run: test_uvec2_add_positive_positive() == uvec2(7u, 7u)
@@ -19,7 +18,6 @@ uvec2 test_uvec2_add_positive_zero() {
     uvec2 a = uvec2(10u, 8u);
     uvec2 b = uvec2(0u, 0u);
     return a + b;
-    // Should be uvec2(10u, 8u)
 }
 
 // run: test_uvec2_add_positive_zero() == uvec2(10u, 8u)
@@ -28,14 +26,12 @@ uvec2 test_uvec2_add_variables() {
     uvec2 a = uvec2(15u, 10u);
     uvec2 b = uvec2(27u, 5u);
     return a + b;
-    // Should be uvec2(42u, 15u)
 }
 
 // run: test_uvec2_add_variables() == uvec2(42u, 15u)
 
 uvec2 test_uvec2_add_expressions() {
     return uvec2(8u, 4u) + uvec2(6u, 2u);
-    // Should be uvec2(14u, 6u)
 }
 
 // run: test_uvec2_add_expressions() == uvec2(14u, 6u)
@@ -44,7 +40,6 @@ uvec2 test_uvec2_add_in_assignment() {
     uvec2 result = uvec2(5u, 3u);
     result = result + uvec2(10u, 7u);
     return result;
-    // Should be uvec2(15u, 10u)
 }
 
 // run: test_uvec2_add_in_assignment() == uvec2(15u, 10u)
@@ -53,7 +48,6 @@ uvec2 test_uvec2_add_large_numbers() {
     uvec2 a = uvec2(100000u, 50000u);
     uvec2 b = uvec2(200000u, 30000u);
     return a + b;
-    // Should be uvec2(300000u, 80000u)
 }
 
 // run: test_uvec2_add_large_numbers() == uvec2(300000u, 80000u)
@@ -62,7 +56,6 @@ uvec2 test_uvec2_add_max_values() {
     uvec2 a = uvec2(4294967295u, 4294967294u); // max uint and max-1
     uvec2 b = uvec2(1u, 1u);
     return a + b;
-    // Should be uvec2(0u, 4294967295u) (wrap around)
 }
 
 // run: test_uvec2_add_max_values() == uvec2(0u, 4294967295u)
@@ -71,7 +64,6 @@ uvec2 test_uvec2_add_mixed_components() {
     uvec2 a = uvec2(100u, 50u);
     uvec2 b = uvec2(200u, 75u);
     return a + b;
-    // Should be uvec2(300u, 125u)
 }
 
 // run: test_uvec2_add_mixed_components() == uvec2(300u, 125u)

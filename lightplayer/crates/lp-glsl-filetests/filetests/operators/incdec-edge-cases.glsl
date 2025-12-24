@@ -13,7 +13,6 @@ int test_incdec_edge_cases() {
 
     // Return computed result: result1 + old_v components + v components
     return result1 + old_v.x + old_v.y + v.x + v.y;
-    // Should be 11 + 1 + 2 + 2 + 3 = 19
 }
 
 // run: test_incdec_edge_cases() == 19

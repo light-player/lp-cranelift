@@ -13,7 +13,6 @@ int test_while_loop_complex_condition_and() {
         i = i + 1;
     }
     return sum;
-    // Should be 0 + 1 + 2 = 3 (stops when i >= 3)
 }
 
 // run: test_while_loop_complex_condition_and() == 3
@@ -27,7 +26,6 @@ int test_while_loop_complex_condition_or() {
         if (i >= 4) break; // Prevent infinite loop
     }
     return sum;
-    // Should be 0 + 1 + 2 + 3 = 6
 }
 
 // run: test_while_loop_complex_condition_or() == 6
@@ -40,7 +38,6 @@ int test_while_loop_complex_condition_equality() {
         i = i + 1;
     }
     return sum;
-    // Should be 0 + 1 + 2 + 3 + 4 = 10
 }
 
 // run: test_while_loop_complex_condition_equality() == 10
@@ -53,7 +50,6 @@ int test_while_loop_complex_condition_compound() {
         i = i + 1;
     }
     return sum;
-    // Should be 1 + 2 + 3 = 6
 }
 
 // run: test_while_loop_complex_condition_compound() == 6

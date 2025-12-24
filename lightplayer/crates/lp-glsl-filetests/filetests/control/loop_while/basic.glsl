@@ -13,7 +13,6 @@ int test_while_loop_basic() {
         i = i + 1;
     }
     return sum;
-    // Should be 0 + 1 + 2 + 3 + 4 = 10
 }
 
 // run: test_while_loop_basic() == 10
@@ -26,7 +25,6 @@ int test_while_loop_count() {
         i = i + 1;
     }
     return count;
-    // Should be 10
 }
 
 // run: test_while_loop_count() == 10
@@ -39,7 +37,6 @@ int test_while_loop_zero_iterations() {
         i = i + 1;
     }
     return sum;
-    // Should be 0 (loop doesn't execute)
 }
 
 // run: test_while_loop_zero_iterations() == 0
@@ -52,7 +49,6 @@ int test_while_loop_single_iteration() {
         i = i + 1;
     }
     return sum;
-    // Should be 1
 }
 
 // run: test_while_loop_single_iteration() == 1
@@ -65,7 +61,6 @@ int test_while_loop_decrement() {
         i = i - 1;
     }
     return sum;
-    // Should be 5 + 4 + 3 + 2 + 1 = 15
 }
 
 // run: test_while_loop_decrement() == 15

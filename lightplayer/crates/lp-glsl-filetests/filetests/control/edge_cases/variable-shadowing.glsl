@@ -13,7 +13,6 @@ int test_variable_shadowing_if() {
         // Inner x shadows outer x
     }
     return x;
-    // Should be 10 (outer x unchanged)
 }
 
 // run: test_variable_shadowing_if() == 10
@@ -25,7 +24,6 @@ int test_variable_shadowing_for() {
         sum = sum + i;
     }
     return i;
-    // Should be 100 (outer i unchanged)
 }
 
 // run: test_variable_shadowing_for() == 100
@@ -41,7 +39,6 @@ int test_variable_shadowing_nested() {
         // Middle x
     }
     return x;
-    // Should be 5 (outermost x)
 }
 
 // run: test_variable_shadowing_nested() == 5
@@ -54,7 +51,6 @@ int test_variable_shadowing_loop() {
         sum = sum + i;
     }
     return i;
-    // Should be 50 (outer i unchanged)
 }
 
 // run: test_variable_shadowing_loop() == 50
@@ -66,7 +62,6 @@ int test_variable_shadowing_loop_body() {
         // Inner x shadows outer x in loop body
     }
     return x;
-    // Should be 100 (outer x unchanged)
 }
 
 // run: test_variable_shadowing_loop_body() == 100
@@ -80,7 +75,6 @@ int test_variable_shadowing_nested_loops() {
         }
     }
     return i;
-    // Should be 200 (outermost i unchanged)
 }
 
 // run: test_variable_shadowing_nested_loops() == 200
@@ -94,7 +88,6 @@ int test_variable_shadowing_if_in_loop() {
         }
     }
     return x;
-    // Should be 500 (outer x unchanged)
 }
 
 // run: test_variable_shadowing_if_in_loop() == 500
@@ -107,7 +100,6 @@ int test_variable_shadowing_loop_in_if() {
         }
     }
     return i;
-    // Should be 1000 (outer i unchanged)
 }
 
 // run: test_variable_shadowing_loop_in_if() == 1000
@@ -127,7 +119,6 @@ int test_variable_shadowing_triple_nested() {
         // Second level x
     }
     return x;
-    // Should be 1 (outermost x)
 }
 
 // run: test_variable_shadowing_triple_nested() == 1
@@ -140,7 +131,6 @@ int test_variable_shadowing_while_loop() {
         j = j + 1;
     }
     return i;
-    // Should be 500 (outer i unchanged)
 }
 
 // run: test_variable_shadowing_while_loop() == 500

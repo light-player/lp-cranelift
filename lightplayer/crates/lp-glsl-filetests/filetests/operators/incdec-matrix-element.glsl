@@ -9,7 +9,6 @@ float test_preinc_mat2_element_00() {
     mat2 m = mat2(1.0, 2.0, 3.0, 4.0);
     float result = ++m[0][0];  // m[0][0] becomes 2.0, result is 2.0
     return result + m[0][0] + m[0][1] + m[1][0] + m[1][1];
-    // Should be 2.0 + 2.0 + 3.0 + 2.0 + 4.0 = 13.0
 }
 
 // run: test_preinc_mat2_element_00() ~= 13.0
@@ -18,7 +17,6 @@ float test_preinc_mat2_element_01() {
     mat2 m = mat2(1.0, 2.0, 3.0, 4.0);
     float result = ++m[0][1];  // m[0][1] becomes 3.0, result is 3.0
     return result + m[0][0] + m[0][1] + m[1][0] + m[1][1];
-    // Should be 3.0 + 1.0 + 3.0 + 3.0 + 4.0 = 14.0
 }
 
 // run: test_preinc_mat2_element_01() ~= 14.0
@@ -27,7 +25,6 @@ float test_preinc_mat2_element_10() {
     mat2 m = mat2(1.0, 2.0, 3.0, 4.0);
     float result = ++m[1][0];  // m[1][0] becomes 4.0, result is 4.0
     return result + m[0][0] + m[0][1] + m[1][0] + m[1][1];
-    // Should be 4.0 + 1.0 + 2.0 + 4.0 + 4.0 = 15.0
 }
 
 // run: test_preinc_mat2_element_10() ~= 15.0
@@ -36,7 +33,6 @@ float test_preinc_mat2_element_11() {
     mat2 m = mat2(1.0, 2.0, 3.0, 4.0);
     float result = ++m[1][1];  // m[1][1] becomes 5.0, result is 5.0
     return result + m[0][0] + m[0][1] + m[1][0] + m[1][1];
-    // Should be 5.0 + 1.0 + 3.0 + 2.0 + 5.0 = 16.0
 }
 
 // run: test_preinc_mat2_element_11() ~= 16.0
@@ -85,7 +81,6 @@ float test_predec_mat2_element_00() {
     mat2 m = mat2(3.0, 4.0, 5.0, 6.0);
     float result = --m[0][0];  // m[0][0] becomes 2.0, result is 2.0
     return result + m[0][0] + m[0][1] + m[1][0] + m[1][1];
-    // Should be 2.0 + 2.0 + 5.0 + 4.0 + 6.0 = 19.0
 }
 
 // run: test_predec_mat2_element_00() ~= 19.0
@@ -94,7 +89,6 @@ float test_predec_mat2_element_01() {
     mat2 m = mat2(3.0, 4.0, 5.0, 6.0);
     float result = --m[0][1];  // m[0][1] becomes 3.0, result is 3.0
     return result + m[0][0] + m[0][1] + m[1][0] + m[1][1];
-    // Should be 3.0 + 3.0 + 3.0 + 5.0 + 6.0 = 20.0
 }
 
 // run: test_predec_mat2_element_01() ~= 20.0
@@ -103,7 +97,6 @@ float test_predec_mat2_element_10() {
     mat2 m = mat2(3.0, 4.0, 5.0, 6.0);
     float result = --m[1][0];  // m[1][0] becomes 4.0, result is 4.0
     return result + m[0][0] + m[0][1] + m[1][0] + m[1][1];
-    // Should be 4.0 + 3.0 + 4.0 + 4.0 + 6.0 = 21.0
 }
 
 // run: test_predec_mat2_element_10() ~= 21.0
@@ -112,7 +105,6 @@ float test_predec_mat2_element_11() {
     mat2 m = mat2(3.0, 4.0, 5.0, 6.0);
     float result = --m[1][1];  // m[1][1] becomes 5.0, result is 5.0
     return result + m[0][0] + m[0][1] + m[1][0] + m[1][1];
-    // Should be 5.0 + 3.0 + 5.0 + 4.0 + 5.0 = 22.0
 }
 
 // run: test_predec_mat2_element_11() ~= 22.0

@@ -18,7 +18,6 @@ int test_infinite_loop_with_break() {
         }
     }
     return sum;
-    // Should be 0 + 1 + 2 + 3 + 4 = 10
 }
 
 // run: test_infinite_loop_with_break() == 10
@@ -32,7 +31,6 @@ int test_infinite_for_loop_with_break() {
         }
     }
     return sum;
-    // Should be 0 + 1 + 2 + 3 + 4 = 10
 }
 
 // run: test_infinite_for_loop_with_break() == 10
@@ -48,7 +46,6 @@ int test_infinite_do_while_with_break() {
         }
     } while (true);
     return sum;
-    // Should be 0 + 1 + 2 + 3 + 4 = 10
 }
 
 // run: test_infinite_do_while_with_break() == 10
@@ -64,7 +61,6 @@ int test_loop_with_always_true_condition() {
         }
     }
     return sum;
-    // Should be 0 + 1 + 2 + 3 = 6
 }
 
 // run: test_loop_with_always_true_condition() == 6

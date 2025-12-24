@@ -9,7 +9,6 @@ float test_preinc_mat2() {
     mat2 m = mat2(1.0, 2.0, 3.0, 4.0);
     mat2 result = ++m;  // m becomes incremented, result is the new value
     return result[0][0] + result[0][1] + result[1][0] + result[1][1];
-    // Should be 2.0 + 4.0 + 3.0 + 5.0 = 14.0
 }
 
 // run: test_preinc_mat2() ~= 14.0
@@ -22,7 +21,6 @@ float test_postinc_mat2() {
     mat2 m = mat2(1.0, 2.0, 3.0, 4.0);
     mat2 old_m = m++;  // m becomes mat2(2.0, 3.0, 4.0, 5.0), old_m is original
     return old_m[0][0] + old_m[0][1] + old_m[1][0] + old_m[1][1];
-    // Should be 1.0 + 3.0 + 2.0 + 4.0 = 10.0
 }
 
 // run: test_postinc_mat2() ~= 10.0
@@ -35,7 +33,6 @@ float test_predec_mat2() {
     mat2 m = mat2(3.0, 4.0, 5.0, 6.0);
     mat2 result = --m;  // m becomes decremented, result is the new value
     return result[0][0] + result[0][1] + result[1][0] + result[1][1];
-    // Should be 2.0 + 4.0 + 3.0 + 5.0 = 14.0
 }
 
 // run: test_predec_mat2() ~= 14.0
@@ -48,7 +45,6 @@ float test_postdec_mat2() {
     mat2 m = mat2(3.0, 4.0, 5.0, 6.0);
     mat2 old_m = m--;  // m becomes decremented, old_m is original
     return old_m[0][0] + old_m[0][1] + old_m[1][0] + old_m[1][1];
-    // Should be 3.0 + 5.0 + 4.0 + 6.0 = 18.0
 }
 
 // run: test_postdec_mat2() ~= 18.0
@@ -63,7 +59,6 @@ float test_preinc_mat3() {
     return result[0][0] + result[0][1] + result[0][2] +
            result[1][0] + result[1][1] + result[1][2] +
            result[2][0] + result[2][1] + result[2][2];
-    // Should be 2.0 + 4.0 + 5.0 + 3.0 + 6.0 + 7.0 + 4.0 + 9.0 + 10.0 = 54.0
 }
 
 // run: test_preinc_mat3() ~= 54.0
@@ -78,7 +73,6 @@ float test_postinc_mat3() {
     return old_m[0][0] + old_m[0][1] + old_m[0][2] +
            old_m[1][0] + old_m[1][1] + old_m[1][2] +
            old_m[2][0] + old_m[2][1] + old_m[2][2];
-    // Should be 1.0 + 3.0 + 4.0 + 2.0 + 5.0 + 6.0 + 3.0 + 8.0 + 9.0 = 45.0
 }
 
 // run: test_postinc_mat3() ~= 45.0
@@ -93,7 +87,6 @@ float test_predec_mat3() {
     return result[0][0] + result[0][1] + result[0][2] +
            result[1][0] + result[1][1] + result[1][2] +
            result[2][0] + result[2][1] + result[2][2];
-    // Should be 2.0 + 4.0 + 5.0 + 3.0 + 6.0 + 7.0 + 4.0 + 9.0 + 10.0 = 54.0
 }
 
 // run: test_predec_mat3() ~= 54.0
@@ -108,7 +101,6 @@ float test_postdec_mat3() {
     return old_m[0][0] + old_m[0][1] + old_m[0][2] +
            old_m[1][0] + old_m[1][1] + old_m[1][2] +
            old_m[2][0] + old_m[2][1] + old_m[2][2];
-    // Should be 3.0 + 5.0 + 6.0 + 4.0 + 7.0 + 8.0 + 5.0 + 10.0 + 11.0 = 63.0
 }
 
 // run: test_postdec_mat3() ~= 63.0
@@ -129,7 +121,6 @@ float test_preinc_mat4() {
            result[1][0] + result[1][1] + result[1][2] + result[1][3] +
            result[2][0] + result[2][1] + result[2][2] + result[2][3] +
            result[3][0] + result[3][1] + result[3][2] + result[3][3];
-    // Should be sum of 2.0 through 17.0 = 152.0
 }
 
 // run: test_preinc_mat4() ~= 152.0
@@ -150,7 +141,6 @@ float test_postinc_mat4() {
            old_m[1][0] + old_m[1][1] + old_m[1][2] + old_m[1][3] +
            old_m[2][0] + old_m[2][1] + old_m[2][2] + old_m[2][3] +
            old_m[3][0] + old_m[3][1] + old_m[3][2] + old_m[3][3];
-    // Should be sum of 1.0 through 16.0 = 136.0
 }
 
 // run: test_postinc_mat4() ~= 136.0
@@ -171,7 +161,6 @@ float test_predec_mat4() {
            result[1][0] + result[1][1] + result[1][2] + result[1][3] +
            result[2][0] + result[2][1] + result[2][2] + result[2][3] +
            result[3][0] + result[3][1] + result[3][2] + result[3][3];
-    // Should be sum of 2.0 through 17.0 = 152.0
 }
 
 // run: test_predec_mat4() ~= 152.0
@@ -192,7 +181,6 @@ float test_postdec_mat4() {
            old_m[1][0] + old_m[1][1] + old_m[1][2] + old_m[1][3] +
            old_m[2][0] + old_m[2][1] + old_m[2][2] + old_m[2][3] +
            old_m[3][0] + old_m[3][1] + old_m[3][2] + old_m[3][3];
-    // Should be sum of 3.0 through 18.0 = 168.0
 }
 
 // run: test_postdec_mat4() ~= 168.0

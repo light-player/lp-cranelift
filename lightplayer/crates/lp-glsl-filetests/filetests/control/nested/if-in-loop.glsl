@@ -13,7 +13,6 @@ int test_if_in_for_loop() {
         }
     }
     return sum;
-    // Should be 0 + 2 + 4 = 6
 }
 
 // run: test_if_in_for_loop() == 6
@@ -28,7 +27,6 @@ int test_if_in_while_loop() {
         i = i + 1;
     }
     return sum;
-    // Should be 0 + 2 + 4 = 6
 }
 
 // run: test_if_in_while_loop() == 6
@@ -43,7 +41,6 @@ int test_if_else_in_for_loop() {
         }
     }
     return sum;
-    // Should be 0 + 2 + 4 + 6 + 8 = 20
 }
 
 // run: test_if_else_in_for_loop() == 14
@@ -58,7 +55,6 @@ int test_nested_if_in_loop() {
         }
     }
     return sum;
-    // Should be 2 + 3 = 5
 }
 
 // run: test_nested_if_in_loop() == 5

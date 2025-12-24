@@ -16,7 +16,6 @@ int test_if_else_compound_if() {
         y = 30;
     }
     return x + y;
-    // Should be 15 (if branch)
 }
 
 // run: test_if_else_compound_if() == 15
@@ -32,7 +31,6 @@ int test_if_else_compound_else() {
         y = 30;
     }
     return x + y;
-    // Should be 50 (else branch)
 }
 
 // run: test_if_else_compound_else() == 50
@@ -51,7 +49,6 @@ int test_if_else_nested_blocks() {
         }
     }
     return x;
-    // Should be 5
 }
 
 // run: test_if_else_nested_blocks() == 5

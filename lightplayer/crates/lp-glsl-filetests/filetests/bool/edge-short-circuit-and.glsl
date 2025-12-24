@@ -18,7 +18,6 @@ int test_short_circuit_and_false_left() {
         x = 10;  // If short-circuit works correctly, result should be false
     }
     return x;
-    // Should be 10 (false && true = false, short-circuit means b not evaluated)
 }
 
 // run: test_short_circuit_and_false_left() == 10
@@ -33,7 +32,6 @@ int test_short_circuit_and_true_left() {
         x = 20;
     }
     return x;
-    // Should be 20 (true && true = true, both evaluated)
 }
 
 // run: test_short_circuit_and_true_left() == 20
@@ -43,7 +41,6 @@ bool test_short_circuit_and_false_prevents_evaluation() {
     bool b = true;
     // false && anything should be false without evaluating right side
     return a && b;
-    // Should be false
 }
 
 // run: test_short_circuit_and_false_prevents_evaluation() == false
@@ -53,7 +50,6 @@ bool test_short_circuit_and_true_evaluates_both() {
     bool b = false;
     // true && false should evaluate both and return false
     return a && b;
-    // Should be false
 }
 
 // run: test_short_circuit_and_true_evaluates_both() == false
@@ -66,7 +62,6 @@ bool test_short_circuit_and_nested() {
     // But actually, we evaluate (a && b) first, which short-circuits
     // Then we have false && c, which also short-circuits
     return (a && b) && c;
-    // Should be false
 }
 
 // run: test_short_circuit_and_nested() == false
@@ -78,7 +73,6 @@ bool test_short_circuit_and_chain() {
     // a && b evaluates to true, then true && c evaluates to false
     // c must be evaluated because left side was true
     return a && b && c;
-    // Should be false
 }
 
 // run: test_short_circuit_and_chain() == false
@@ -90,7 +84,6 @@ bool test_short_circuit_and_early_false() {
     bool d = true;
     // a is false, so short-circuit: b, c, d should not be evaluated
     return a && b && c && d;
-    // Should be false
 }
 
 // run: test_short_circuit_and_early_false() == false
@@ -101,7 +94,6 @@ bool test_short_circuit_and_all_true() {
     bool c = true;
     // All must be evaluated since all are true
     return a && b && c;
-    // Should be true
 }
 
 // run: test_short_circuit_and_all_true() == true

@@ -10,7 +10,6 @@ bvec3 test_bvec3_from_bvec2_bool() {
     bvec2 source = bvec2(true, false);
     bool third = true;
     return bvec3(source, third);
-    // Should be bvec3(true, false, true)
 }
 
 // run: test_bvec3_from_bvec2_bool() == bvec3(true, false, true)
@@ -20,7 +19,6 @@ bvec3 test_bvec3_from_bool_bvec2() {
     bool first = false;
     bvec2 source = bvec2(true, true);
     return bvec3(first, source);
-    // Should be bvec3(false, true, true)
 }
 
 // run: test_bvec3_from_bool_bvec2() == bvec3(false, true, true)
@@ -29,7 +27,6 @@ bvec3 test_bvec3_from_bvec2_bool_false() {
     bvec2 source = bvec2(false, true);
     bool third = false;
     return bvec3(source, third);
-    // Should be bvec3(false, true, false)
 }
 
 // run: test_bvec3_from_bvec2_bool_false() == bvec3(false, true, false)
@@ -38,21 +35,18 @@ bvec3 test_bvec3_from_bool_bvec2_false() {
     bool first = true;
     bvec2 source = bvec2(false, false);
     return bvec3(first, source);
-    // Should be bvec3(true, false, false)
 }
 
 // run: test_bvec3_from_bool_bvec2_false() == bvec3(true, false, false)
 
 bvec3 test_bvec3_from_vectors_expressions() {
     return bvec3(not(bvec2(false, true)), true);
-    // Should be bvec3(true, false, true) (not(bvec2(false, true)) = bvec2(true, false))
 }
 
 // run: test_bvec3_from_vectors_expressions() == bvec3(true, false, true)
 
 bvec3 test_bvec3_from_vectors_other_combination() {
     return bvec3(false, not(bvec2(true, false)));
-    // Should be bvec3(false, false, true) (not(bvec2(true, false)) = bvec2(false, true))
 }
 
 // run: test_bvec3_from_vectors_other_combination() == bvec3(false, false, true)
@@ -62,7 +56,6 @@ bvec3 test_bvec3_from_vectors_in_assignment() {
     bvec2 source = bvec2(true, true);
     result = bvec3(source, false);
     return result;
-    // Should be bvec3(true, true, false)
 }
 
 // run: test_bvec3_from_vectors_in_assignment() == bvec3(true, true, false)

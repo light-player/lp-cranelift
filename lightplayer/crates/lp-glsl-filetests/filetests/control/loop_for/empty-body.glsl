@@ -11,7 +11,6 @@ int test_for_loop_empty_body() {
         // Empty body
     }
     return i;
-    // Should be 5 (loop variable after loop)
 }
 
 // run: test_for_loop_empty_body() == 5
@@ -24,7 +23,6 @@ int test_for_loop_empty_body_count() {
         // Body has one statement, but testing loop still works
     }
     return count;
-    // Should be 10
 }
 
 // run: test_for_loop_empty_body_count() == 10
@@ -35,7 +33,6 @@ int test_for_loop_empty_condition() {
         // Empty body - loop still increments
     }
     return i;
-    // Should be 3
 }
 
 // run: test_for_loop_empty_condition() == 3

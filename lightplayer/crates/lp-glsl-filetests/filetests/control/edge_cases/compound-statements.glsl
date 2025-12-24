@@ -13,7 +13,6 @@ int test_compound_statement_single() {
         x = 10;
     }
     return x;
-    // Should be 10
 }
 
 // run: test_compound_statement_single() == 10
@@ -28,7 +27,6 @@ int test_compound_statement_nested() {
         }
     }
     return x;
-    // Should be 15
 }
 
 // run: test_compound_statement_nested() == 15
@@ -39,7 +37,6 @@ int test_compound_statement_empty() {
         // Empty compound statement
     }
     return x;
-    // Should be 5
 }
 
 // run: test_compound_statement_empty() == 5
@@ -52,7 +49,6 @@ int test_compound_statement_variable_scope() {
     }
     // y is out of scope here
     return x;
-    // Should be 10
 }
 
 // run: test_compound_statement_variable_scope() == 10
@@ -64,7 +60,6 @@ int test_compound_statement_in_if() {
         x = y;
     }
     return x;
-    // Should be 20
 }
 
 // run: test_compound_statement_in_if() == 20
@@ -78,7 +73,6 @@ int test_compound_statement_in_loop() {
         }
     }
     return sum;
-    // Should be 0 + 2 + 4 = 6
 }
 
 // run: test_compound_statement_in_loop() == 6
@@ -95,7 +89,6 @@ int test_compound_statement_multiple() {
         x = x + 15;
     }
     return x;
-    // Should be 30
 }
 
 // run: test_compound_statement_multiple() == 30

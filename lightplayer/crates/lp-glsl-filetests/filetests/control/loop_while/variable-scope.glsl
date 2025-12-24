@@ -16,7 +16,6 @@ int test_while_loop_variable_scope() {
         i = i + 1;
     }
     return sum;
-    // Should be 0 + 2 + 4 = 6
 }
 
 // run: test_while_loop_variable_scope() == 6
@@ -32,7 +31,6 @@ int test_while_loop_shadowing() {
     }
     // Outer i should be unchanged
     return i;
-    // Should be 100 (outer i)
 }
 
 // run: test_while_loop_shadowing() == 20
@@ -50,7 +48,6 @@ int test_while_loop_multiple_loops() {
         i = i + 1;
     }
     return sum;
-    // Should be (0 + 1) + (0 + 1 + 2) = 4
 }
 
 // run: test_while_loop_multiple_loops() == 4
@@ -64,7 +61,6 @@ int test_while_loop_condition_declaration() {
     }
     // j is out of scope here
     return sum;
-    // Should be 0 + 1 + 2 = 3
 }
 
 // run: test_while_loop_condition_declaration() == 3
@@ -78,7 +74,6 @@ int test_while_loop_condition_scope() {
     }
     // j should be out of scope
     return sum;
-    // Should be 0 + 1 + 2 = 3
 }
 
 // run: test_while_loop_condition_scope() == 3

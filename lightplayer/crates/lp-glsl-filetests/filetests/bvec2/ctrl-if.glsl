@@ -13,7 +13,6 @@ bool test_bvec2_ctrl_if_any_true() {
         result = true;
     }
     return result;
-    // Should be true
 }
 
 // run: test_bvec2_ctrl_if_any_true() == true
@@ -25,7 +24,6 @@ bool test_bvec2_ctrl_if_any_false() {
         result = true;
     }
     return result;
-    // Should be false
 }
 
 // run: test_bvec2_ctrl_if_any_false() == false
@@ -37,7 +35,6 @@ bool test_bvec2_ctrl_if_all_true() {
         result = true;
     }
     return result;
-    // Should be true
 }
 
 // run: test_bvec2_ctrl_if_all_true() == true
@@ -49,7 +46,6 @@ bool test_bvec2_ctrl_if_all_false() {
         result = true;
     }
     return result;
-    // Should be false
 }
 
 // run: test_bvec2_ctrl_if_all_false() == false
@@ -63,7 +59,6 @@ bool test_bvec2_ctrl_if_else_any() {
         result = false;
     }
     return result;
-    // Should be true
 }
 
 // run: test_bvec2_ctrl_if_else_any() == true
@@ -77,7 +72,6 @@ bool test_bvec2_ctrl_if_else_all() {
         result = false;
     }
     return result;
-    // Should be false
 }
 
 // run: test_bvec2_ctrl_if_else_all() == false
@@ -92,7 +86,6 @@ bool test_bvec2_ctrl_if_nested() {
         }
     }
     return result;
-    // Should be true
 }
 
 // run: test_bvec2_ctrl_if_nested() == true
