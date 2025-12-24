@@ -957,11 +957,15 @@
 ;;   (rv_vmulh_vx x y (unmasked) ty))
 
 ;;;; Rules for `umulhi` ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(rule 0 (lower (has_type (fits_in_32 ty) (umulhi x y)))
-  (let ((tmp XReg (rv_mul (zext x) (zext y))))
-    (rv_srli tmp (imm12_const (ty_bits ty)))))
+;; For i32: use mulhu directly
+(rule 0 (lower (has_type $I32 (umulhi x y)))
+  (rv_mulhu x y))
 
-(rule 1 (lower (has_type $I64 (umulhi x y)))
+;; For smaller unsigned types (i8, i16): operands need zero-extension, use mulhu
+(rule 1 (lower (has_type (fits_in_16 ty) (umulhi x y)))
+  (rv_mulhu (zext x) (zext y)))
+
+(rule 2 (lower (has_type $I64 (umulhi x y)))
   (rv_mulhu x y))
 
 ;; (rule 2 (lower (has_type (ty_supported_vec ty) (umulhi x y)))

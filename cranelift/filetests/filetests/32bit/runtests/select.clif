@@ -1,0 +1,49 @@
+test interpret
+test run
+target riscv32 has_m
+
+; Basic i32 select (used in GLSL: convert_fabs, convert_fmax, convert_fmin, convert_sqrt)
+function %select_i32(i32, i32, i32) -> i32 {
+block0(v0: i32, v1: i32, v2: i32):
+    v3 = icmp_imm eq v0, 0
+    v4 = select.i32 v3, v1, v2
+    return v4
+}
+; run: %select_i32(0, 10, 20) == 10
+; run: %select_i32(1, 10, 20) == 20
+
+; Basic i16 select (for completeness)
+function %select_i16(i32, i16, i16) -> i16 {
+block0(v0: i32, v1: i16, v2: i16):
+    v3 = icmp_imm eq v0, 0
+    v4 = select.i16 v3, v1, v2
+    return v4
+}
+; run: %select_i16(0, 100, 200) == 100
+
+; Basic i8 select (for completeness)
+function %select_i8(i32, i8, i8) -> i8 {
+block0(v0: i32, v1: i8, v2: i8):
+    v3 = icmp_imm eq v0, 0
+    v4 = select.i8 v3, v1, v2
+    return v4
+}
+; run: %select_i8(0, 10, 20) == 10
+
+; select_spectre_guard (if used in GLSL)
+function %select_spectre_guard_i32(i32, i32, i32) -> i32 {
+block0(v0: i32, v1: i32, v2: i32):
+    v3 = icmp_imm eq v0, 0
+    v4 = select_spectre_guard.i32 v3, v1, v2
+    return v4
+}
+; run: %select_spectre_guard_i32(0, 10, 20) == 10
+
+; Basic bitselect (if used in GLSL)
+function %bitselect_i32(i32, i32, i32) -> i32 {
+block0(v0: i32, v1: i32, v2: i32):
+    v3 = bitselect.i32 v0, v1, v2
+    return v3
+}
+; run: %bitselect_i32(0, 10, 20) == 20
+; run: %bitselect_i32(-1, 10, 20) == 10

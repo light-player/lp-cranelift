@@ -1146,7 +1146,7 @@ impl Inst {
                 to_bits: _to_bits,
             } => {
                 let mut insts = SmallInstVec::new();
-                let shift_bits = (64 - from_bits) as i16;
+                let shift_bits = (32 - from_bits) as i16;
                 let is_u8 = || from_bits == 8 && signed == false;
                 if is_u8() {
                     // special for u8.

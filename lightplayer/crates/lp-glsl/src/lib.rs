@@ -26,6 +26,8 @@ mod backend;
 mod compiler;
 mod ir;
 mod ir_utils;
+#[cfg(feature = "std")]
+mod test_utils;
 
 // Re-exports
 #[cfg(feature = "emulator")]
@@ -47,3 +49,6 @@ pub use compiler::glsl_jit;
 
 #[cfg(feature = "emulator")]
 pub use compiler::{glsl_emu_riscv32, glsl_emu_riscv32_with_metadata};
+
+#[cfg(feature = "std")]
+pub use test_utils::execute_main;

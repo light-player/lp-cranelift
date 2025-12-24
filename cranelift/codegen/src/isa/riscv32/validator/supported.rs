@@ -167,7 +167,10 @@ fn opcode_base_extensions(opcode: Opcode) -> Option<Vec<RiscvExtension>> {
         | Opcode::F32const
         | Opcode::F64const
         | Opcode::Icmp
-        | Opcode::Nop => Some(vec![]),
+        | Opcode::Nop
+        | Opcode::Select
+        | Opcode::SelectSpectreGuard
+        | Opcode::Bitselect => Some(vec![]),
 
         // Overflow detection - same extensions as base operations
         Opcode::UaddOverflow | Opcode::SaddOverflow => Some(vec![]),

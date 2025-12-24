@@ -1,15 +1,24 @@
 mod common;
 
-use lp_glsl::{DecimalFormat, GlslOptions, RunMode, glsl_jit};
+#[cfg(feature = "emulator")]
+use lp_glsl::{GlslValue, execute_main, glsl_emu_riscv32_with_metadata};
 
 /// Compile and execute GLSL with fixed-point transformation that returns i32
+#[cfg(feature = "emulator")]
 fn run_fixed32_test(source: &str) -> i32 {
-    let options = GlslOptions {
-        run_mode: RunMode::HostJit,
-        decimal_format: DecimalFormat::Fixed32,
+    let options = lp_glsl::GlslOptions::emu_riscv32_imac();
+    let mut executable =
+        glsl_emu_riscv32_with_metadata(source, options, None).expect("Compilation failed");
+
+    // Use shared execute_main which provides debug output on errors
+    let result_value = execute_main(&mut *executable).expect("Execution failed");
+
+    // Extract f32 from GlslValue
+    let result_f32 = match result_value {
+        GlslValue::F32(f) => f,
+        _ => panic!("Expected f32 return type"),
     };
-    let mut executable = glsl_jit(source, options).expect("Compilation failed");
-    let result_f32 = executable.call_f32("main", &[]).expect("Execution failed");
+
     float_to_fixed32(result_f32)
 }
 
@@ -29,6 +38,8 @@ fn fixed32_to_float(fixed: i32) -> f32 {
     fixed as f32 / 65536.0
 }
 
+#[cfg(feature = "emulator")]
+#[cfg(feature = "emulator")]
 #[test]
 fn test_float_constant_fixed32() {
     let shader = r#"
@@ -46,6 +57,7 @@ fn test_float_constant_fixed32() {
     assert!((result_float - 3.14159).abs() < 0.0001);
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_float_addition_fixed32() {
     let shader = r#"
@@ -64,6 +76,7 @@ fn test_float_addition_fixed32() {
     assert!((result_float - 3.75).abs() < 0.0001);
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_float_subtraction_fixed32() {
     let shader = r#"
@@ -82,6 +95,7 @@ fn test_float_subtraction_fixed32() {
     assert!((result_float - 3.25).abs() < 0.0001);
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_float_multiplication_fixed32() {
     let shader = r#"
@@ -103,6 +117,7 @@ fn test_float_multiplication_fixed32() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_float_division_fixed32() {
     let shader = r#"
@@ -123,6 +138,7 @@ fn test_float_division_fixed32() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_float_complex_expr_fixed32() {
     let shader = r#"
@@ -144,6 +160,7 @@ fn test_float_complex_expr_fixed32() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_negative_numbers_fixed32() {
     let shader = r#"
@@ -164,6 +181,7 @@ fn test_negative_numbers_fixed32() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_fractional_precision_fixed32() {
     let shader = r#"
@@ -184,6 +202,7 @@ fn test_fractional_precision_fixed32() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_division_by_zero_positive() {
     let shader = r#"
@@ -205,6 +224,7 @@ fn test_division_by_zero_positive() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_division_by_zero_negative() {
     let shader = r#"
@@ -226,6 +246,7 @@ fn test_division_by_zero_negative() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_division_by_zero_zero() {
     let shader = r#"
@@ -247,6 +268,7 @@ fn test_division_by_zero_zero() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_overflow_near_max() {
     let shader = r#"
@@ -270,6 +292,7 @@ fn test_overflow_near_max() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_underflow_near_min() {
     let shader = r#"
@@ -293,6 +316,7 @@ fn test_underflow_near_min() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_precision_limits_very_small() {
     let shader = r#"
@@ -314,6 +338,7 @@ fn test_precision_limits_very_small() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_precision_limits_very_large() {
     let shader = r#"
@@ -333,6 +358,7 @@ fn test_precision_limits_very_large() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_negative_precision() {
     let shader = r#"
@@ -353,6 +379,7 @@ fn test_negative_precision() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_multiplication_precision() {
     let shader = r#"
@@ -373,6 +400,7 @@ fn test_multiplication_precision() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_division_precision() {
     let shader = r#"
@@ -393,6 +421,7 @@ fn test_division_precision() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_complex_expression_with_overflow() {
     let shader = r#"
@@ -415,6 +444,7 @@ fn test_complex_expression_with_overflow() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_abs_operation() {
     let shader = r#"
@@ -434,6 +464,7 @@ fn test_abs_operation() {
     );
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 fn test_neg_operation() {
     let shader = r#"
@@ -458,13 +489,11 @@ fn test_neg_operation() {
 // The issue appears to be in codegen/ABI handling, not buffer alignment. Filetests work correctly
 // on riscv32 emulator. These will be re-enabled once the native JIT path is fixed.
 
+#[cfg(feature = "emulator")]
 #[test]
 #[ignore]
 fn test_vec2_fixed32() {
-    let options = GlslOptions {
-        run_mode: RunMode::HostJit,
-        decimal_format: DecimalFormat::Fixed32,
-    };
+    let options = lp_glsl::GlslOptions::emu_riscv32_imac();
     let shader = r#"
         vec2 main() {
             vec2 a = vec2(2.5, 3.5);
@@ -472,10 +501,13 @@ fn test_vec2_fixed32() {
             return a + b;
         }
     "#;
-    let mut executable = glsl_jit(shader, options).expect("Compilation failed");
-    let result = executable
-        .call_vec("main", &[], 2)
-        .expect("Execution failed");
+    let mut executable =
+        glsl_emu_riscv32_with_metadata(shader, options, None).expect("Compilation failed");
+    let result_value = execute_main(&mut *executable).expect("Execution failed");
+    let result = match result_value {
+        GlslValue::Vec2(v) => v,
+        _ => panic!("Expected Vec2 return type"),
+    };
     let x = result[0];
     let y = result[1];
 
@@ -484,13 +516,11 @@ fn test_vec2_fixed32() {
     assert!((y - 5.0).abs() < 0.001, "Expected y ~5.0, got {}", y);
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 #[ignore]
 fn test_vec3_fixed32() {
-    let options = GlslOptions {
-        run_mode: RunMode::HostJit,
-        decimal_format: DecimalFormat::Fixed32,
-    };
+    let options = lp_glsl::GlslOptions::emu_riscv32_imac();
     let shader = r#"
         vec3 main() {
             vec3 a = vec3(1.0, 2.0, 3.0);
@@ -498,10 +528,13 @@ fn test_vec3_fixed32() {
             return a + b;
         }
     "#;
-    let mut executable = glsl_jit(shader, options).expect("Compilation failed");
-    let result = executable
-        .call_vec("main", &[], 3)
-        .expect("Execution failed");
+    let mut executable =
+        glsl_emu_riscv32_with_metadata(shader, options, None).expect("Compilation failed");
+    let result_value = execute_main(&mut *executable).expect("Execution failed");
+    let result = match result_value {
+        GlslValue::Vec3(v) => v,
+        _ => panic!("Expected Vec3 return type"),
+    };
     let x = result[0];
     let y = result[1];
     let z = result[2];
@@ -512,13 +545,11 @@ fn test_vec3_fixed32() {
     assert!((z - 5.5).abs() < 0.001, "Expected z ~5.5, got {}", z);
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 #[ignore]
 fn test_vec4_fixed32() {
-    let options = GlslOptions {
-        run_mode: RunMode::HostJit,
-        decimal_format: DecimalFormat::Fixed32,
-    };
+    let options = lp_glsl::GlslOptions::emu_riscv32_imac();
     let shader = r#"
         vec4 main() {
             vec4 a = vec4(1.0, 2.0, 3.0, 4.0);
@@ -526,10 +557,13 @@ fn test_vec4_fixed32() {
             return a + b;
         }
     "#;
-    let mut executable = glsl_jit(shader, options).expect("Compilation failed");
-    let result = executable
-        .call_vec("main", &[], 4)
-        .expect("Execution failed");
+    let mut executable =
+        glsl_emu_riscv32_with_metadata(shader, options, None).expect("Compilation failed");
+    let result_value = execute_main(&mut *executable).expect("Execution failed");
+    let result = match result_value {
+        GlslValue::Vec4(v) => v,
+        _ => panic!("Expected Vec4 return type"),
+    };
     let x = result[0];
     let y = result[1];
     let z = result[2];
@@ -542,13 +576,11 @@ fn test_vec4_fixed32() {
     assert!((w - 7.5).abs() < 0.001, "Expected w ~7.5, got {}", w);
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 #[ignore]
 fn test_vec2_multiplication_fixed32() {
-    let options = GlslOptions {
-        run_mode: RunMode::HostJit,
-        decimal_format: DecimalFormat::Fixed32,
-    };
+    let options = lp_glsl::GlslOptions::emu_riscv32_imac();
     let shader = r#"
         vec2 main() {
             vec2 a = vec2(2.0, 3.0);
@@ -556,10 +588,13 @@ fn test_vec2_multiplication_fixed32() {
             return a * b;
         }
     "#;
-    let mut executable = glsl_jit(shader, options).expect("Compilation failed");
-    let result = executable
-        .call_vec("main", &[], 2)
-        .expect("Execution failed");
+    let mut executable =
+        glsl_emu_riscv32_with_metadata(shader, options, None).expect("Compilation failed");
+    let result_value = execute_main(&mut *executable).expect("Execution failed");
+    let result = match result_value {
+        GlslValue::Vec2(v) => v,
+        _ => panic!("Expected Vec2 return type"),
+    };
     let x = result[0];
     let y = result[1];
 
@@ -568,13 +603,11 @@ fn test_vec2_multiplication_fixed32() {
     assert!((y - 7.5).abs() < 0.01, "Expected y ~7.5, got {}", y);
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 #[ignore]
 fn test_vec3_division_fixed32() {
-    let options = GlslOptions {
-        run_mode: RunMode::HostJit,
-        decimal_format: DecimalFormat::Fixed32,
-    };
+    let options = lp_glsl::GlslOptions::emu_riscv32_imac();
     let shader = r#"
         vec3 main() {
             vec3 a = vec3(10.0, 20.0, 30.0);
@@ -582,10 +615,13 @@ fn test_vec3_division_fixed32() {
             return a / b;
         }
     "#;
-    let mut executable = glsl_jit(shader, options).expect("Compilation failed");
-    let result = executable
-        .call_vec("main", &[], 3)
-        .expect("Execution failed");
+    let mut executable =
+        glsl_emu_riscv32_with_metadata(shader, options, None).expect("Compilation failed");
+    let result_value = execute_main(&mut *executable).expect("Execution failed");
+    let result = match result_value {
+        GlslValue::Vec3(v) => v,
+        _ => panic!("Expected Vec3 return type"),
+    };
     let x = result[0];
     let y = result[1];
     let z = result[2];
@@ -596,13 +632,11 @@ fn test_vec3_division_fixed32() {
     assert!((z - 6.0).abs() < 0.01, "Expected z ~6.0, got {}", z);
 }
 
+#[cfg(feature = "emulator")]
 #[test]
 #[ignore]
 fn test_vec4_complex_expression_fixed32() {
-    let options = GlslOptions {
-        run_mode: RunMode::HostJit,
-        decimal_format: DecimalFormat::Fixed32,
-    };
+    let options = lp_glsl::GlslOptions::emu_riscv32_imac();
     let shader = r#"
         vec4 main() {
             vec4 a = vec4(1.0, 2.0, 3.0, 4.0);
@@ -610,10 +644,13 @@ fn test_vec4_complex_expression_fixed32() {
             return (a + b) * 2.0;
         }
     "#;
-    let mut executable = glsl_jit(shader, options).expect("Compilation failed");
-    let result = executable
-        .call_vec("main", &[], 4)
-        .expect("Execution failed");
+    let mut executable =
+        glsl_emu_riscv32_with_metadata(shader, options, None).expect("Compilation failed");
+    let result_value = execute_main(&mut *executable).expect("Execution failed");
+    let result = match result_value {
+        GlslValue::Vec4(v) => v,
+        _ => panic!("Expected Vec4 return type"),
+    };
     let x = result[0];
     let y = result[1];
     let z = result[2];

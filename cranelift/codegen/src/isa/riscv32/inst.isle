@@ -2251,11 +2251,20 @@
   (lower_smlhi $I64 rs1 rs2)
   (rv_mulh rs1 rs2))
 
-(rule
-  (lower_smlhi ty rs1 rs2)
-  (let
-    ((tmp XReg (rv_mul rs1 rs2)))
-    (rv_srli tmp (imm12_const (ty_bits ty)))))
+;; For i32: use mulh directly
+(rule 2
+  (lower_smlhi $I32 rs1 rs2)
+  (rv_mulh rs1 rs2))
+
+;; For i16: operands are already sign-extended, use mulh
+(rule 3
+  (lower_smlhi $I16 rs1 rs2)
+  (rv_mulh rs1 rs2))
+
+;; For i8: operands are already sign-extended, use mulh
+(rule 4
+  (lower_smlhi $I8 rs1 rs2)
+  (rv_mulh rs1 rs2))
 
 ;;;; construct shift amount.rotl on i128 will use shift to implement. So can call this function.
 ;;;; this will return shift amount and (ty_bits - "shift amount")

@@ -87,6 +87,9 @@ pub fn validate_instruction(
         Opcode::UmulOverflow => validate_overflow_instruction(func, inst, opcode, &func.dfg)?,
         Opcode::SmulOverflow => validate_overflow_instruction(func, inst, opcode, &func.dfg)?,
         Opcode::Bmask => validate_bmask(func, inst, &func.dfg)?,
+        Opcode::Select => validate_select(func, inst, &func.dfg)?,
+        Opcode::SelectSpectreGuard => validate_select_spectre_guard(func, inst, &func.dfg)?,
+        Opcode::Bitselect => validate_bitselect(func, inst, &func.dfg)?,
 
         // ... other opcodes
         _ => {
@@ -241,6 +244,42 @@ fn validate_overflow_instruction(
                     "i64 {} is not supported on riscv32 (not needed for GLSL)",
                     opcode
                 ),
+            }
+            .into());
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_select(func: &Function, inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
+    validate_select_instruction(func, inst, Opcode::Select)
+}
+
+fn validate_select_spectre_guard(func: &Function, inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
+    validate_select_instruction(func, inst, Opcode::SelectSpectreGuard)
+}
+
+fn validate_bitselect(func: &Function, inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
+    validate_select_instruction(func, inst, Opcode::Bitselect)
+}
+
+fn validate_select_instruction(
+    func: &Function,
+    inst: Inst,
+    opcode: Opcode,
+) -> CodegenResult<()> {
+    // Get result type for select instructions
+    if let Some(result) = func.dfg.inst_results(inst).first() {
+        let result_ty = func.dfg.value_type(*result);
+
+        // Select instructions do not support i64 or i128 on riscv32
+        // i64 select triggers backend register allocation bugs
+        // GLSL only needs i32 select operations
+        if result_ty == I64 || result_ty == I128 {
+            return Err(super::error::ValidationError::UnsupportedType {
+                ty: result_ty,
+                context: format!("{} instruction", opcode),
             }
             .into());
         }

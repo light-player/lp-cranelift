@@ -202,30 +202,32 @@ pub fn decode_instruction(inst: u32) -> Result<Inst, alloc::string::String> {
                         Ok(Inst::Srli {
                             rd,
                             rs1,
-                            imm: imm_i,
+                            imm: imm_i & 0x1f,  // Extract only bits [4:0]
                         })
                     } else if funct7 == 0x20 {
                         // SRAI with funct7 encoding (standard)
                         Ok(Inst::Srai {
                             rd,
                             rs1,
-                            imm: imm_i,
+                            imm: imm_i & 0x1f,  // Extract only bits [4:0]
                         })
                     } else if funct6 == 0x10 {
                         // SRAI with funct6 encoding (Cranelift style)
                         // funct6=0x10 (0b010000), imm[5:0] contains shift amount
+                        // Mask to 5 bits to match RISC-V spec (shift amounts are 5 bits)
                         Ok(Inst::Srai {
                             rd,
                             rs1,
-                            imm: imm_5_0 as i32,
+                            imm: (imm_5_0 & 0x1f) as i32,
                         })
                     } else if funct6 == 0x0 {
                         // SRLI with funct6 encoding (Cranelift style)
                         // funct6=0x0 (0b000000), imm[5:0] contains shift amount
+                        // Mask to 5 bits to match RISC-V spec (shift amounts are 5 bits)
                         Ok(Inst::Srli {
                             rd,
                             rs1,
-                            imm: imm_5_0 as i32,
+                            imm: (imm_5_0 & 0x1f) as i32,
                         })
                     } else {
                         // Check for other funct6 encoded instructions
@@ -713,6 +715,227 @@ mod tests {
         match decoded {
             Inst::FenceI => {}
             _ => panic!("Expected FenceI, got {:?}", decoded),
+        }
+    }
+
+    /// Test SRLI decoding with standard funct7 encoding
+    #[test]
+    fn test_srli_decode_standard() {
+        use crate::encode::srli;
+        use crate::regs::Gpr;
+
+        // Test all shift amounts 0-31
+        for shamt in 0..32 {
+            let encoded = srli(Gpr::A0, Gpr::A1, shamt);
+            let decoded = decode_instruction(encoded).expect("Failed to decode");
+            
+            match decoded {
+                Inst::Srli { rd, rs1, imm } => {
+                    assert_eq!(rd, Gpr::A0, "rd mismatch for shamt={}", shamt);
+                    assert_eq!(rs1, Gpr::A1, "rs1 mismatch for shamt={}", shamt);
+                    assert_eq!(imm, shamt, "shift amount mismatch: expected {}, got {}", shamt, imm);
+                }
+                _ => panic!("Expected SRLI, got {:?} for shamt={}", decoded, shamt),
+            }
+        }
+    }
+
+    /// Test SRAI decoding with standard funct7 encoding
+    #[test]
+    fn test_srai_decode_standard() {
+        use crate::encode::srai;
+        use crate::regs::Gpr;
+
+        // Test all shift amounts 0-31
+        for shamt in 0..32 {
+            let encoded = srai(Gpr::A0, Gpr::A1, shamt);
+            let decoded = decode_instruction(encoded).expect("Failed to decode");
+            
+            match decoded {
+                Inst::Srai { rd, rs1, imm } => {
+                    assert_eq!(rd, Gpr::A0, "rd mismatch for shamt={}", shamt);
+                    assert_eq!(rs1, Gpr::A1, "rs1 mismatch for shamt={}", shamt);
+                    assert_eq!(imm, shamt, "shift amount mismatch: expected {}, got {}", shamt, imm);
+                }
+                _ => panic!("Expected SRAI, got {:?} for shamt={}", decoded, shamt),
+            }
+        }
+    }
+
+    /// Test SRLI/SRAI with specific instruction encodings to verify bit extraction
+    #[test]
+    fn test_srli_srai_bit_extraction() {
+        use crate::regs::Gpr;
+
+        // SRLI a0, a1, 0
+        // opcode=0x13, rd=10 (a0), funct3=0x5, rs1=11 (a1), imm[4:0]=0, imm[11:5]=0x00
+        // Instruction: 0x00555513
+        let inst = decode_instruction(0x00555513).expect("Failed to decode");
+        match inst {
+            Inst::Srli { rd, rs1, imm } => {
+                assert_eq!(rd, Gpr::A0);
+                assert_eq!(rs1, Gpr::A1);
+                assert_eq!(imm, 0, "Expected shift amount 0, got {}", imm);
+            }
+            _ => panic!("Expected SRLI, got {:?}", inst),
+        }
+
+        // SRLI a0, a1, 24
+        // opcode=0x13, rd=10 (a0), funct3=0x5, rs1=11 (a1), imm[4:0]=24, imm[11:5]=0x00
+        // Instruction: 0x01855513
+        let inst = decode_instruction(0x01855513).expect("Failed to decode");
+        match inst {
+            Inst::Srli { rd, rs1, imm } => {
+                assert_eq!(rd, Gpr::A0);
+                assert_eq!(rs1, Gpr::A1);
+                assert_eq!(imm, 24, "Expected shift amount 24, got {}", imm);
+            }
+            _ => panic!("Expected SRLI, got {:?}", inst),
+        }
+
+        // SRAI a0, a1, 0
+        // opcode=0x13, rd=10 (a0), funct3=0x5, rs1=11 (a1), imm[4:0]=0, imm[11:5]=0x20
+        // Instruction: 0x40055513
+        let inst = decode_instruction(0x40055513).expect("Failed to decode");
+        match inst {
+            Inst::Srai { rd, rs1, imm } => {
+                assert_eq!(rd, Gpr::A0);
+                assert_eq!(rs1, Gpr::A1);
+                assert_eq!(imm, 0, "Expected shift amount 0, got {}", imm);
+            }
+            _ => panic!("Expected SRAI, got {:?}", inst),
+        }
+
+        // SRAI a0, a1, 24
+        // opcode=0x13, rd=10 (a0), funct3=0x5, rs1=11 (a1), imm[4:0]=24, imm[11:5]=0x20
+        // Instruction: 0x41855513
+        let inst = decode_instruction(0x41855513).expect("Failed to decode");
+        match inst {
+            Inst::Srai { rd, rs1, imm } => {
+                assert_eq!(rd, Gpr::A0);
+                assert_eq!(rs1, Gpr::A1);
+                assert_eq!(imm, 24, "Expected shift amount 24, got {}", imm);
+            }
+            _ => panic!("Expected SRAI, got {:?}", inst),
+        }
+
+        // SRAI a0, a1, 31
+        // opcode=0x13, rd=10 (a0), funct3=0x5, rs1=11 (a1), imm[4:0]=31, imm[11:5]=0x20
+        // Instruction: 0x41f55513
+        let inst = decode_instruction(0x41f55513).expect("Failed to decode");
+        match inst {
+            Inst::Srai { rd, rs1, imm } => {
+                assert_eq!(rd, Gpr::A0);
+                assert_eq!(rs1, Gpr::A1);
+                assert_eq!(imm, 31, "Expected shift amount 31, got {}", imm);
+            }
+            _ => panic!("Expected SRAI, got {:?}", inst),
+        }
+    }
+
+    /// Test that negative imm_i values (from SRAI) are handled correctly
+    #[test]
+    fn test_srai_negative_imm_handling() {
+        use crate::regs::Gpr;
+
+        // For SRAI, imm_i will be negative because bits [31:25] = 0x20
+        // This sets bit 11 of the immediate, making it negative when sign-extended
+        // But imm_i & 0x1f should still correctly extract bits [4:0]
+
+        // SRAI with shamt=0: imm_i should be 0xfffffe00 (negative), but imm_i & 0x1f = 0
+        let inst = decode_instruction(0x40055513).expect("Failed to decode");
+        match inst {
+            Inst::Srai { imm, .. } => {
+                assert_eq!(imm, 0, "Expected shift amount 0, got {}", imm);
+            }
+            _ => panic!("Expected SRAI"),
+        }
+
+        // SRAI with shamt=24: imm_i should be 0xfffffe18 (negative), but imm_i & 0x1f = 24
+        let inst = decode_instruction(0x41855513).expect("Failed to decode");
+        match inst {
+            Inst::Srai { imm, .. } => {
+                assert_eq!(imm, 24, "Expected shift amount 24, got {}", imm);
+            }
+            _ => panic!("Expected SRAI"),
+        }
+    }
+
+    /// Test round-trip encoding/decoding for SRLI
+    #[test]
+    fn test_srli_round_trip() {
+        use crate::encode::srli;
+        use crate::regs::Gpr;
+
+        // Test various shift amounts
+        let shift_amounts = [0, 1, 5, 16, 24, 31];
+        
+        for &shamt in &shift_amounts {
+            let encoded = srli(Gpr::A0, Gpr::A1, shamt);
+            let decoded = decode_instruction(encoded).expect("Failed to decode");
+            
+            match decoded {
+                Inst::Srli { rd, rs1, imm } => {
+                    assert_eq!(rd, Gpr::A0, "rd mismatch for shamt={}", shamt);
+                    assert_eq!(rs1, Gpr::A1, "rs1 mismatch for shamt={}", shamt);
+                    assert_eq!(imm, shamt, "shift amount mismatch: expected {}, got {}", shamt, imm);
+                }
+                _ => panic!("Expected SRLI, got {:?} for shamt={}", decoded, shamt),
+            }
+        }
+    }
+
+    /// Test round-trip encoding/decoding for SRAI
+    #[test]
+    fn test_srai_round_trip() {
+        use crate::encode::srai;
+        use crate::regs::Gpr;
+
+        // Test various shift amounts
+        let shift_amounts = [0, 1, 5, 16, 24, 31];
+        
+        for &shamt in &shift_amounts {
+            let encoded = srai(Gpr::A0, Gpr::A1, shamt);
+            let decoded = decode_instruction(encoded).expect("Failed to decode");
+            
+            match decoded {
+                Inst::Srai { rd, rs1, imm } => {
+                    assert_eq!(rd, Gpr::A0, "rd mismatch for shamt={}", shamt);
+                    assert_eq!(rs1, Gpr::A1, "rs1 mismatch for shamt={}", shamt);
+                    assert_eq!(imm, shamt, "shift amount mismatch: expected {}, got {}", shamt, imm);
+                }
+                _ => panic!("Expected SRAI, got {:?} for shamt={}", decoded, shamt),
+            }
+        }
+    }
+
+    /// Test that shift amounts > 31 are masked correctly
+    #[test]
+    fn test_srli_srai_shift_mask() {
+        use crate::encode::{srli, srai};
+        use crate::regs::Gpr;
+
+        // Test that shift amounts > 31 are masked to 5 bits
+        // Note: The encoder should mask these, but let's verify the decoder handles them correctly
+        
+        // SRLI with shamt=32 (should be masked to 0)
+        let encoded = srli(Gpr::A0, Gpr::A1, 32);
+        let decoded = decode_instruction(encoded).expect("Failed to decode");
+        match decoded {
+            Inst::Srli { imm, .. } => {
+                assert_eq!(imm, 0, "Shift amount 32 should be masked to 0");
+            }
+            _ => panic!("Expected SRLI"),
+        }
+
+        // SRAI with shamt=63 (should be masked to 31)
+        let encoded = srai(Gpr::A0, Gpr::A1, 63);
+        let decoded = decode_instruction(encoded).expect("Failed to decode");
+        match decoded {
+            Inst::Srai { imm, .. } => {
+                assert_eq!(imm, 31, "Shift amount 63 should be masked to 31");
+            }
+            _ => panic!("Expected SRAI"),
         }
     }
 }
