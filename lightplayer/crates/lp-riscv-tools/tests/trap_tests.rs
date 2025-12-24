@@ -127,9 +127,8 @@ fn test_trap_sorting() {
 
 #[test]
 fn test_trap_at_absolute_address() {
-    // This test demonstrates the bug: traps registered as absolute addresses
-    // should be detected when PC matches that absolute address
-    // Currently fails because code compares offsets instead of absolute addresses
+    // Test that traps registered as absolute addresses are correctly detected
+    // when PC matches that absolute address (not offset relative to code_start)
     let code = vec![
         0x13, 0x00, 0x00, 0x00, // nop at 0x0
         0x13, 0x00, 0x00, 0x00, // nop at 0x4

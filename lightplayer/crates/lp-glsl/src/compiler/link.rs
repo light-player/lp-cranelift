@@ -718,7 +718,7 @@ fn format_clif_from_module(module: &ClifModule) -> Result<String, crate::error::
     }
 
     let mut buf = String::new();
-    write_function(&mut buf, &main_func_clone).map_err(|e| {
+    write_function(&mut buf, &main_func_clone).map_err(|_e| {
         GlslError::new(
             crate::error::ErrorCode::E0400,
             format!("failed to write main function: {}", "main"),
@@ -821,10 +821,6 @@ pub fn link_glsl_for_jit(
 fn generate_vcode_and_disassembly(
     module: &ClifModule,
 ) -> Result<(Option<String>, Option<String>), crate::error::GlslError> {
-    use crate::error::GlslError;
-    use cranelift_codegen::Context;
-    use cranelift_control::ControlPlane;
-
     let isa = module.isa();
     let mut vcode_output = String::new();
     let mut disassembly_output = String::new();
@@ -936,6 +932,8 @@ pub fn link_glsl_for_emulator(
     original_module: ClifModule,
     transformed_module: ClifModule,
     emulator_options: &EmulatorOptions,
+    source_text: Option<String>,
+    source_file_path: Option<String>,
 ) -> Result<crate::backend::emu::GlslEmulatorModule, crate::error::GlslError> {
     use crate::backend::emu::GlslEmulatorModule;
     use crate::error::GlslError;
@@ -1002,7 +1000,7 @@ pub fn link_glsl_for_emulator(
 
         for trap in func_traps {
             // Calculate absolute offset: function_address + relative_trap_offset
-            let absolute_offset = func_address as u32 + trap.offset;
+            let absolute_offset = u32::from(func_address) + trap.offset;
             traps.push((absolute_offset, trap.code));
 
             // Store source location information for error reporting
@@ -1056,6 +1054,9 @@ pub fn link_glsl_for_emulator(
     // Generate VCode and disassembly for debugging
     let (vcode, disassembly) = generate_vcode_and_disassembly(&transformed_module)?;
 
+    // Extract source location manager from transformed module
+    let source_loc_manager = transformed_module.source_loc_manager().clone();
+
     // DEFAULT_RAM_START is 0x80000000 (from lp-riscv-tools/src/emu/memory.rs)
     const DEFAULT_RAM_START: u32 = 0x80000000;
 
@@ -1070,6 +1071,9 @@ pub fn link_glsl_for_emulator(
         vcode,
         disassembly,
         trap_source_info,
+        source_text,
+        source_file_path,
+        source_loc_manager,
         next_buffer_addr: DEFAULT_RAM_START,
     })
 }

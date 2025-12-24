@@ -8,6 +8,7 @@ use crate::backend::glsl_value::GlslValue;
 use crate::error::GlslError;
 use crate::semantic::functions::FunctionSignature;
 use hashbrown::HashMap;
+use lp_riscv_tools::emu::error::EmulatorError;
 
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String, vec::Vec};
@@ -34,7 +35,18 @@ pub struct GlslEmulatorModule {
     // Store disassembly for all functions (used in error diagnostics)
     pub(crate) disassembly: Option<String>,
     // Store trap source information for error reporting: (absolute_offset, trap_code, srcloc, func_name)
-    pub(crate) trap_source_info: Vec<(u32, cranelift_codegen::ir::TrapCode, cranelift_codegen::ir::SourceLoc, String)>,
+    pub(crate) trap_source_info: Vec<(
+        u32,
+        cranelift_codegen::ir::TrapCode,
+        cranelift_codegen::ir::SourceLoc,
+        String,
+    )>,
+    // Store original GLSL source text for error reporting
+    pub(crate) source_text: Option<String>,
+    // Store source file path for error reporting
+    pub(crate) source_file_path: Option<String>,
+    // Source location manager for mapping SourceLoc to GLSL source positions
+    pub(crate) source_loc_manager: crate::codegen::sourceloc::SourceLocManager,
     // Track next buffer allocation address (allocated from start of RAM, growing upward)
     pub(crate) next_buffer_addr: u32,
 }
@@ -127,11 +139,6 @@ impl GlslEmulatorModule {
         #[cfg(feature = "std")]
         use std::string::ToString;
 
-        // Check if this is a trap error and format it specially
-        if let Some(trap_error) = self.try_format_trap_error(base_message, function_name) {
-            return trap_error;
-        }
-
         let mut error = GlslError::new(code, base_message.to_string());
 
         // Add CLIF IR if available (both before and after transformation)
@@ -168,36 +175,45 @@ impl GlslEmulatorModule {
         error
     }
 
-    /// Try to format a trap error in Rust style with source location information
-    fn try_format_trap_error(&self, base_message: &str, function_name: &str) -> Option<GlslError> {
+    /// Format a trap error in Rust style with source location information
+    /// Takes trap code, PC, and regs directly from EmulatorError::Trap variant
+    fn format_trap_error_from_emulator_error(
+        &self,
+        code: cranelift_codegen::ir::TrapCode,
+        pc: u32,
+        _regs: &[i32; 32],
+        function_name: &str,
+    ) -> GlslError {
         use crate::error::ErrorCode;
 
-        // Check if this looks like a trap error
-        if !base_message.contains("Trap:") {
-            return None;
-        }
-
-        // Extract trap code and PC from the message
-        // The message format should be something like: "Trap: integer division by zero at PC 0x00001234"
-        let pc_start = base_message.find("at PC 0x")?;
-        let pc_str = &base_message[pc_start + 7..]; // Skip "at PC 0x"
-        let pc_end = pc_str.find(char::is_whitespace).unwrap_or(pc_str.len());
-        let pc_str = &pc_str[..pc_end];
-        let pc = u32::from_str_radix(pc_str, 16).ok()?;
-
         // Find the trap source information for this PC
-        let trap_info = self.trap_source_info.iter().find(|(trap_pc, _, _, _)| *trap_pc == pc)?;
+        let trap_info = self
+            .trap_source_info
+            .iter()
+            .find(|(trap_pc, _, _, _)| *trap_pc == pc);
 
-        let (trap_pc, trap_code, srcloc, func_name) = trap_info;
+        let (func_name, trap_code, srcloc) =
+            if let Some((_trap_pc, stored_code, stored_srcloc, stored_func_name)) = trap_info {
+                (stored_func_name.as_str(), *stored_code, *stored_srcloc)
+            } else {
+                // Fallback if trap info not found - use the code from the error
+                // This means the PC doesn't match any trap_info entry, which shouldn't happen
+                // but can occur if there's a mismatch between trap addresses
+                (
+                    function_name,
+                    code,
+                    cranelift_codegen::ir::SourceLoc::default(),
+                )
+            };
 
-        // For now, create a basic trap error message
-        // TODO: Map SourceLoc to actual GLSL source file and line number
-        let trap_name = match *trap_code {
+        let trap_name = match trap_code {
             cranelift_codegen::ir::TrapCode::INTEGER_DIVISION_BY_ZERO => "integer division by zero",
             cranelift_codegen::ir::TrapCode::INTEGER_OVERFLOW => "integer overflow",
             cranelift_codegen::ir::TrapCode::HEAP_OUT_OF_BOUNDS => "heap out of bounds",
             cranelift_codegen::ir::TrapCode::STACK_OVERFLOW => "stack overflow",
-            cranelift_codegen::ir::TrapCode::BAD_CONVERSION_TO_INTEGER => "bad conversion to integer",
+            cranelift_codegen::ir::TrapCode::BAD_CONVERSION_TO_INTEGER => {
+                "bad conversion to integer"
+            }
             _ => "unknown trap",
         };
 
@@ -206,17 +222,119 @@ impl GlslEmulatorModule {
             format!("execution trapped: {}", trap_name),
         );
 
-        // TODO: Map SourceLoc to actual GLSL source file and line number for better error messages
-        // For now, show trap details
-        error = error.with_note(format!("Trap occurred at PC 0x{:08x}", pc));
-        error = error.with_note(format!("Trap code: {:?}", trap_code));
+        // Try to find source location from SourceLoc
+        // First, try the exact srcloc from trap_info
+        let mut found_location = None;
+        let mut found_span_text = None;
 
+        if let Some((trap_line, trap_column)) = self.source_loc_manager.lookup_srcloc(srcloc) {
+            // Found exact match
+            let filename = self.source_file_path.as_ref().cloned();
+            let trap_location = if let Some(ref file_path) = filename {
+                crate::error::SourceLocation::with_file(trap_line, trap_column, file_path.clone())
+            } else {
+                crate::error::SourceLocation::new(trap_line, trap_column)
+            };
+            found_location = Some(trap_location);
+
+            // Extract source lines
+            if let Some(source_text) = self.source_text.as_ref() {
+                let lines: Vec<&str> = source_text.lines().collect();
+                if trap_line > 0 && trap_line <= lines.len() {
+                    let start_line = trap_line.saturating_sub(3).max(1);
+                    let end_line = (trap_line + 3).min(lines.len());
+                    let source_lines: Vec<&str> =
+                        lines[start_line.saturating_sub(1)..end_line].to_vec();
+
+                    let mut source_display = String::new();
+                    for (idx, line) in source_lines.iter().enumerate() {
+                        let line_num = start_line + idx;
+                        if line_num == trap_line {
+                            source_display.push_str(&format!("{:>3} | {}\n", line_num, line));
+                            let col_pos = trap_column.saturating_sub(1).min(line.len());
+                            source_display.push_str(&format!(
+                                "    | {}^ trap occurred here\n",
+                                " ".repeat(col_pos)
+                            ));
+                        } else {
+                            source_display.push_str(&format!("{:>3} | {}\n", line_num, line));
+                        }
+                    }
+                    found_span_text = Some(String::from(source_display.trim_end()));
+                }
+            }
+        }
+
+        // Fallback: if location lookup failed, try closest trap_info entry
+        if found_location.is_none() {
+            // Try to find closest trap_info entry (either because srcloc is default or lookup failed)
+            if let Some((_closest_pc, _, closest_srcloc, _)) = self
+                .trap_source_info
+                .iter()
+                .min_by_key(|(trap_pc, _, _, _)| (*trap_pc as i64 - pc as i64).abs())
+            {
+                if !closest_srcloc.is_default() {
+                    if let Some((trap_line, trap_column)) =
+                        self.source_loc_manager.lookup_srcloc(*closest_srcloc)
+                    {
+                        let filename = self.source_file_path.as_ref().cloned();
+                        let trap_location = if let Some(ref file_path) = filename {
+                            crate::error::SourceLocation::with_file(
+                                trap_line,
+                                trap_column,
+                                file_path.clone(),
+                            )
+                        } else {
+                            crate::error::SourceLocation::new(trap_line, trap_column)
+                        };
+                        found_location = Some(trap_location);
+
+                        // Extract source lines
+                        if let Some(source_text) = self.source_text.as_ref() {
+                            let lines: Vec<&str> = source_text.lines().collect();
+                            if trap_line > 0 && trap_line <= lines.len() {
+                                let start_line = trap_line.saturating_sub(3).max(1);
+                                let end_line = (trap_line + 3).min(lines.len());
+                                let source_lines: Vec<&str> =
+                                    lines[start_line.saturating_sub(1)..end_line].to_vec();
+
+                                let mut source_display = String::new();
+                                for (idx, line) in source_lines.iter().enumerate() {
+                                    let line_num = start_line + idx;
+                                    if line_num == trap_line {
+                                        source_display
+                                            .push_str(&format!("{:>3} | {}\n", line_num, line));
+                                        let col_pos = trap_column.saturating_sub(1).min(line.len());
+                                        source_display.push_str(&format!(
+                                            "    | {}^ trap occurred here\n",
+                                            " ".repeat(col_pos)
+                                        ));
+                                    } else {
+                                        source_display
+                                            .push_str(&format!("{:>3} | {}\n", line_num, line));
+                                    }
+                                }
+                                found_span_text = Some(String::from(source_display.trim_end()));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Apply found location and span_text to error
+        if let Some(location) = found_location {
+            error = error.with_location(location);
+        }
+        if let Some(span_text) = found_span_text {
+            error = error.with_span_text(span_text);
+        }
+
+        // Add trap details as notes
+        error = error.with_note(format!("Trap occurred at PC 0x{:08x}", pc));
         if !func_name.is_empty() {
             error = error.with_note(format!("Function: {}", func_name));
         }
-
-        // Add a note about source location mapping being a future enhancement
-        error = error.with_note("Source location mapping to GLSL code is not yet implemented");
 
         // Add CLIF IR for context
         if let Some(ref transformed_clif) = self.transformed_clif {
@@ -226,7 +344,7 @@ impl GlslEmulatorModule {
             ));
         }
 
-        Some(error)
+        error
     }
 
     /// Safely format a function, avoiding panics from Display
@@ -413,6 +531,63 @@ impl GlslEmulatorModule {
 
         Ok(disasm)
     }
+
+    /// Find the source location (line number) of a function definition in the GLSL source
+    fn find_function_source_location(
+        &self,
+        func_name: &str,
+    ) -> Option<crate::error::SourceLocation> {
+        let source_text = self.source_text.as_ref()?;
+
+        // Search for function definition: "type func_name(" or "func_name("
+        // This is a simple heuristic - we look for the function name followed by (
+        let pattern = if func_name == "main" {
+            format!("{}()", func_name)
+        } else {
+            format!("{}(", func_name)
+        };
+
+        // Find the first occurrence of the pattern
+        for (line_idx, line) in source_text.lines().enumerate() {
+            if line.contains(&pattern) {
+                // Found the function - return 1-indexed line number
+                return Some(crate::error::SourceLocation::with_file(
+                    line_idx + 1,
+                    1,
+                    self.source_file_path.as_ref()?.clone(),
+                ));
+            }
+        }
+
+        None
+    }
+
+    /// Extract source lines around a given line number for display
+    fn extract_source_lines(
+        &self,
+        line_num: usize,
+        context_lines: usize,
+    ) -> Option<(Vec<String>, usize)> {
+        let source_text = self.source_text.as_ref()?;
+        let lines: Vec<&str> = source_text.lines().collect();
+
+        if line_num == 0 || line_num > lines.len() {
+            return None;
+        }
+
+        // Calculate start and end lines (1-indexed)
+        let start_line = line_num.saturating_sub(context_lines).max(1);
+        let end_line = (line_num + context_lines).min(lines.len());
+
+        // Extract the relevant lines
+        let extracted_lines: Vec<String> = lines[(start_line - 1)..end_line]
+            .iter()
+            .map(|s| String::from(*s))
+            .collect();
+
+        // Return lines and the relative line number (1-indexed within the extracted range)
+        Some((extracted_lines, line_num - start_line + 1))
+    }
 }
 
 #[cfg(feature = "emulator")]
@@ -435,12 +610,15 @@ impl GlslExecutable for GlslEmulatorModule {
         let _results = self
             .emulator
             .call_function(MAIN_ENTRY, &[], sig)
-            .map_err(|e| {
-                self.build_enhanced_error(
+            .map_err(|e| match e {
+                EmulatorError::Trap { code, pc, regs } => {
+                    self.format_trap_error_from_emulator_error(code, pc, &regs, name)
+                }
+                other => self.build_enhanced_error(
                     ErrorCode::E0400,
-                    &format!("Emulator execution failed: {}", e),
+                    &format!("Emulator execution failed: {}", other),
                     name,
-                )
+                ),
             })?;
 
         Ok(())
@@ -461,12 +639,15 @@ impl GlslExecutable for GlslEmulatorModule {
         let results = self
             .emulator
             .call_function(self.main_address, &[], sig)
-            .map_err(|e| {
-                self.build_enhanced_error(
+            .map_err(|e| match e {
+                EmulatorError::Trap { code, pc, regs } => {
+                    self.format_trap_error_from_emulator_error(code, pc, &regs, name)
+                }
+                other => self.build_enhanced_error(
                     ErrorCode::E0400,
-                    &format!("Emulator execution failed: {}", e),
+                    &format!("Emulator execution failed: {}", other),
                     name,
-                )
+                ),
             })?;
 
         // Extract i32 return value
@@ -494,12 +675,15 @@ impl GlslExecutable for GlslEmulatorModule {
         let results = self
             .emulator
             .call_function(self.main_address, &[], sig)
-            .map_err(|e| {
-                self.build_enhanced_error(
+            .map_err(|e| match e {
+                EmulatorError::Trap { code, pc, regs } => {
+                    self.format_trap_error_from_emulator_error(code, pc, &regs, name)
+                }
+                other => self.build_enhanced_error(
                     ErrorCode::E0400,
-                    &format!("Emulator execution failed: {}", e),
+                    &format!("Emulator execution failed: {}", other),
                     name,
-                )
+                ),
             })?;
 
         // Extract i32 return value and convert from fixed-point
@@ -586,12 +770,15 @@ impl GlslExecutable for GlslEmulatorModule {
             // Call main via emulator with struct return buffer pointer
             self.emulator
                 .call_function(self.main_address, &call_args, &sig)
-                .map_err(|e| {
-                    self.build_enhanced_error(
+                .map_err(|e| match e {
+                    EmulatorError::Trap { code, pc, regs } => {
+                        self.format_trap_error_from_emulator_error(code, pc, &regs, name)
+                    }
+                    other => self.build_enhanced_error(
                         ErrorCode::E0400,
-                        &format!("Emulator execution failed: {}", e),
+                        &format!("Emulator execution failed: {}", other),
                         name,
-                    )
+                    ),
                 })?;
 
             // Read results from buffer (fixed-point i32 values)
@@ -681,12 +868,15 @@ impl GlslExecutable for GlslEmulatorModule {
             // Call main via emulator with struct return buffer pointer
             self.emulator
                 .call_function(self.main_address, &call_args, &sig)
-                .map_err(|e| {
-                    self.build_enhanced_error(
+                .map_err(|e| match e {
+                    EmulatorError::Trap { code, pc, regs } => {
+                        self.format_trap_error_from_emulator_error(code, pc, &regs, name)
+                    }
+                    other => self.build_enhanced_error(
                         ErrorCode::E0400,
-                        &format!("Emulator execution failed: {}", e),
+                        &format!("Emulator execution failed: {}", other),
                         name,
-                    )
+                    ),
                 })?;
 
             // Read results from buffer (fixed-point i32 values)

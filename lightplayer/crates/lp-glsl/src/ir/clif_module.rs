@@ -1,5 +1,6 @@
 //! Immutable CLIF module representation holding all functions before linking/compilation.
 
+use crate::codegen::sourceloc::SourceLocManager;
 use crate::error::{ErrorCode, GlslError};
 use crate::semantic::functions::FunctionRegistry;
 use cranelift_codegen::CodegenError;
@@ -52,6 +53,8 @@ pub struct ClifModule {
     // Map from old FuncId (from compilation) to function name
     // This is needed when linking to remap FuncRefs to new module's FuncIds
     func_id_to_name: HashMap<u32, String>,
+    // Source location manager for mapping SourceLoc to GLSL source positions
+    source_loc_manager: SourceLocManager,
 }
 
 impl ClifModule {
@@ -111,6 +114,11 @@ impl ClifModule {
     /// Get the entire func_id_to_name mapping (for preserving during transformations)
     pub fn func_id_to_name_map(&self) -> &HashMap<u32, String> {
         &self.func_id_to_name
+    }
+
+    /// Get the source location manager
+    pub fn source_loc_manager(&self) -> &SourceLocManager {
+        &self.source_loc_manager
     }
 
     /// Link all functions from this module into a Cranelift Module (JITModule, ObjectModule, etc.)
@@ -340,6 +348,57 @@ impl ClifModule {
             Ok(())
         }
 
+        /// Find the source location for a trap at the given offset.
+        ///
+        /// Uses an improved lookup algorithm that:
+        /// 1. First tries to find a source location range containing the trap offset
+        /// 2. If not found, searches backwards to find the nearest source location before the trap
+        /// 3. If still not found, searches forwards to find the nearest source location after the trap
+        /// 4. Only falls back to entry block if no source locations exist in the function
+        fn find_trap_source_location(
+            trap_offset: u32,
+            srclocs: &[cranelift_codegen::MachSrcLoc<cranelift_codegen::Final>],
+            func: &Function,
+        ) -> SourceLoc {
+            // First, try to find a source location range containing the trap offset
+            if let Some(loc) = srclocs
+                .iter()
+                .find(|loc| loc.start <= trap_offset && trap_offset < loc.end)
+            {
+                return loc.loc;
+            }
+
+            // If no exact match, search backwards to find the nearest source location before the trap
+            if let Some(loc) = srclocs
+                .iter()
+                .rev()
+                .find(|loc| loc.end <= trap_offset)
+            {
+                return loc.loc;
+            }
+
+            // If still not found, search forwards to find the nearest source location after the trap
+            if let Some(loc) = srclocs
+                .iter()
+                .find(|loc| loc.start > trap_offset)
+            {
+                return loc.loc;
+            }
+
+            // Only fall back to entry block if no source locations exist in the function
+            // This is better than the previous approach which always fell back to entry block
+            if srclocs.is_empty() {
+                if let Some(entry_block) = func.layout.entry_block() {
+                    if let Some(first_inst) = func.layout.block_insts(entry_block).next() {
+                        return func.srcloc(first_inst);
+                    }
+                }
+            }
+
+            // Last resort: default source location
+            SourceLoc::default()
+        }
+
         // Define all user functions, remapping FuncRefs
         for (name, old_func) in &self.user_functions {
             let new_func_id = name_to_id[name];
@@ -357,7 +416,6 @@ impl ClifModule {
             // If the original function had 0 stack slots but instructions reference stack slots,
             // this means the stack slots weren't persisted when the function was stored.
             // We need to recreate them by finding the maximum slot ID referenced and creating slots up to that ID.
-            use cranelift_codegen::ir::InstructionData;
             let blocks: Vec<_> = func_clone.layout.blocks().collect();
             let mut max_slot_id = 0u32;
 
@@ -405,21 +463,8 @@ impl ClifModule {
                 let srclocs = buffer.get_srclocs_sorted();
 
                 for trap in buffer.traps() {
-                    // Find the source location for this trap offset
-                    let srcloc = srclocs
-                        .iter()
-                        .find(|loc| loc.start <= trap.offset && trap.offset < loc.end)
-                        .map(|loc| loc.loc)
-                        .unwrap_or_else(|| {
-                        // Get source location from the first instruction in the entry block
-                        let entry_block = ctx.func.layout.entry_block().unwrap();
-                        if let Some(first_inst) = ctx.func.layout.block_insts(entry_block).next() {
-                            ctx.func.srcloc(first_inst)
-                        } else {
-                            // No instructions in the block, use default source location
-                            cranelift_codegen::ir::SourceLoc::default()
-                        }
-                    });
+                    // Find the source location for this trap offset using improved lookup
+                    let srcloc = find_trap_source_location(trap.offset, srclocs, &ctx.func);
 
                     func_traps.push(TrapInfo {
                         offset: trap.offset,
@@ -458,7 +503,6 @@ impl ClifModule {
         // If the original function had 0 stack slots but instructions reference stack slots,
         // this means the stack slots weren't persisted when the function was stored.
         // We need to recreate them by finding the maximum slot ID referenced and creating slots up to that ID.
-        use cranelift_codegen::ir::InstructionData;
         let blocks: Vec<_> = main_func_clone.layout.blocks().collect();
         let mut max_slot_id = 0u32;
 
@@ -506,21 +550,8 @@ impl ClifModule {
             let srclocs = buffer.get_srclocs_sorted();
 
             for trap in buffer.traps() {
-                // Find the source location for this trap offset
-                let srcloc = srclocs
-                    .iter()
-                    .find(|loc| loc.start <= trap.offset && trap.offset < loc.end)
-                    .map(|loc| loc.loc)
-                    .unwrap_or_else(|| {
-                        // Get source location from the first instruction in the entry block
-                        let entry_block = ctx.func.layout.entry_block().unwrap();
-                        if let Some(first_inst) = ctx.func.layout.block_insts(entry_block).next() {
-                            ctx.func.srcloc(first_inst)
-                        } else {
-                            // No instructions in the block, use default source location
-                            cranelift_codegen::ir::SourceLoc::default()
-                        }
-                    });
+                // Find the source location for this trap offset using improved lookup
+                let srcloc = find_trap_source_location(trap.offset, srclocs, &ctx.func);
 
                 main_traps.push(TrapInfo {
                     offset: trap.offset,
@@ -554,7 +585,9 @@ impl ClifModule {
 
     /// Build an ObjectModule from this CLIF module and extract both ELF bytes and CLIF IR
     /// Returns (ELF bytes, formatted CLIF IR string, trap information)
+    #[cfg(feature = "emulator")]
     pub fn build_object_module(&self) -> Result<(Vec<u8>, String, Vec<(String, Vec<TrapInfo>)>), GlslError> {
+        extern crate cranelift_object;
         use cranelift_module::Linkage;
         use cranelift_object::{ObjectBuilder, ObjectModule};
 
@@ -642,6 +675,7 @@ pub struct ClifModuleBuilder {
     isa: Option<OwnedTargetIsa>,
     glsl_signatures: HashMap<String, crate::semantic::functions::FunctionSignature>,
     func_id_to_name: HashMap<u32, String>,
+    source_loc_manager: Option<SourceLocManager>,
 }
 
 impl ClifModuleBuilder {
@@ -654,7 +688,14 @@ impl ClifModuleBuilder {
             isa: None,
             glsl_signatures: HashMap::new(),
             func_id_to_name: HashMap::new(),
+            source_loc_manager: None,
         }
+    }
+
+    /// Set the source location manager
+    pub fn set_source_loc_manager(mut self, manager: SourceLocManager) -> Self {
+        self.source_loc_manager = Some(manager);
+        self
     }
 
     /// Add a GLSL signature for a function
@@ -752,6 +793,7 @@ impl ClifModuleBuilder {
             isa,
             glsl_signatures: self.glsl_signatures,
             func_id_to_name: self.func_id_to_name,
+            source_loc_manager: self.source_loc_manager.unwrap_or_else(SourceLocManager::new),
         })
     }
 }

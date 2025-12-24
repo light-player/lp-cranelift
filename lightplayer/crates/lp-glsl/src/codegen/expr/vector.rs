@@ -86,6 +86,9 @@ pub fn translate_vector_binary(
 
     let mut result_vals = Vec::new();
 
+    // Use provided span or create a default one if not available
+    let span = span.unwrap_or_else(|| glsl::syntax::SourceSpan::unknown());
+
     match mode {
         VectorOpMode::ComponentWise => {
             // vec3(a,b,c) + vec3(d,e,f) = vec3(a+d, b+e, c+f)
@@ -93,7 +96,7 @@ pub fn translate_vector_binary(
                 let lhs_comp = lhs_vals[i];
                 let rhs_comp = rhs_vals[i];
                 let result_comp = binary::translate_scalar_binary_op_internal(
-                    ctx, op, lhs_comp, rhs_comp, &base_ty,
+                    ctx, op, lhs_comp, rhs_comp, &base_ty, span.clone(),
                 )?;
                 result_vals.push(result_comp);
             }
@@ -105,7 +108,7 @@ pub fn translate_vector_binary(
             let scalar = coercion::coerce_to_type(ctx, scalar, rhs_ty, &base_ty)?;
             for &comp in &lhs_vals {
                 let result_comp =
-                    binary::translate_scalar_binary_op_internal(ctx, op, comp, scalar, &base_ty)?;
+                    binary::translate_scalar_binary_op_internal(ctx, op, comp, scalar, &base_ty, span.clone())?;
                 result_vals.push(result_comp);
             }
         }
@@ -116,7 +119,7 @@ pub fn translate_vector_binary(
             let scalar = coercion::coerce_to_type(ctx, scalar, lhs_ty, &base_ty)?;
             for &comp in &rhs_vals {
                 let result_comp =
-                    binary::translate_scalar_binary_op_internal(ctx, op, scalar, comp, &base_ty)?;
+                    binary::translate_scalar_binary_op_internal(ctx, op, scalar, comp, &base_ty, span.clone())?;
                 result_vals.push(result_comp);
             }
         }

@@ -46,4 +46,4 @@ pub use transform::fixed32::transform_module;
 pub use compiler::glsl_jit;
 
 #[cfg(feature = "emulator")]
-pub use compiler::glsl_emu_riscv32;
+pub use compiler::{glsl_emu_riscv32, glsl_emu_riscv32_with_metadata};

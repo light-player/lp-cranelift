@@ -284,23 +284,14 @@ impl fmt::Display for GlslError {
 
         // Add source line if available
         if let Some(ref text) = self.span_text {
-            writeln!(f, "\n  |")?;
-            if let Some(ref loc) = self.location {
-                if !loc.is_unknown() {
-                    writeln!(f, "{:>3} | {}", loc.line, text)?;
-                    // Add caret indicator
-                    if loc.column > 0 {
-                        write!(f, "  | ")?;
-                        for _ in 1..loc.column {
-                            write!(f, " ")?;
-                        }
-                        writeln!(f, "^^^ {}", self.code.description())?;
-                    }
-                }
-            } else {
-                writeln!(f, "  | {}", text)?;
+            // span_text already contains formatted lines with line numbers and carets
+            // so we just display it as-is
+            writeln!(f, "\n{}", text)?;
+        } else if let Some(ref loc) = self.location {
+            // If we have location but no span_text, show just the location
+            if !loc.is_unknown() {
+                writeln!(f, "\n --> {}", loc)?;
             }
-            write!(f, "  |")?;
         }
 
         // Add notes

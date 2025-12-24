@@ -6,7 +6,7 @@
 
 use crate::error::{ErrorCode, GlslError};
 use crate::ir_utils::value_map::map_value;
-use cranelift_codegen::ir::{Function, Inst, InstructionData, Opcode, StackSlot, Value, types};
+use cranelift_codegen::ir::{Function, Inst, InstructionData, StackSlot, Value, types};
 use cranelift_frontend::FunctionBuilder;
 
 #[cfg(not(feature = "std"))]

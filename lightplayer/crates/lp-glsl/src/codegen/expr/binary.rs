@@ -93,7 +93,7 @@ fn translate_scalar_binary(
     };
 
     // Generate operation
-    let result_val = translate_scalar_binary_op(ctx, op, lhs_val, rhs_val, &operand_ty)?;
+    let result_val = translate_scalar_binary_op(ctx, op, lhs_val, rhs_val, &operand_ty, span)?;
     Ok((vec![result_val], result_ty))
 }
 
@@ -104,8 +104,9 @@ pub fn translate_scalar_binary_op_internal(
     lhs: Value,
     rhs: Value,
     operand_ty: &GlslType,
+    span: glsl::syntax::SourceSpan,
 ) -> Result<Value, GlslError> {
-    translate_scalar_binary_op(ctx, op, lhs, rhs, operand_ty)
+    translate_scalar_binary_op(ctx, op, lhs, rhs, operand_ty, span)
 }
 
 fn translate_scalar_binary_op(
@@ -114,6 +115,7 @@ fn translate_scalar_binary_op(
     lhs: Value,
     rhs: Value,
     operand_ty: &GlslType,
+    span: glsl::syntax::SourceSpan,
 ) -> Result<Value, GlslError> {
     use glsl::syntax::BinaryOp::*;
 
@@ -149,26 +151,36 @@ fn translate_scalar_binary_op(
                 ));
             }
         },
-        Div => match operand_ty {
-            GlslType::Int => ctx.builder.ins().sdiv(lhs, rhs),
-            GlslType::Float => ctx.builder.ins().fdiv(lhs, rhs),
-            _ => {
-                return Err(GlslError::new(
-                    ErrorCode::E0400,
-                    format!("div not supported for {:?}", operand_ty),
-                ));
+        Div => {
+            // Set source location for trap-able division operations
+            let srcloc = ctx.source_loc_manager().create_srcloc(&span);
+            ctx.builder.set_srcloc(srcloc);
+            match operand_ty {
+                GlslType::Int => ctx.builder.ins().sdiv(lhs, rhs),
+                GlslType::Float => ctx.builder.ins().fdiv(lhs, rhs),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("div not supported for {:?}", operand_ty),
+                    ));
+                }
             }
         },
-        Mod => match operand_ty {
-            GlslType::Int => ctx.builder.ins().srem(lhs, rhs),
-            _ => {
-                return Err(GlslError::new(
-                    ErrorCode::E0400,
-                    format!(
-                        "modulo not supported for {:?} (only integer types)",
-                        operand_ty
-                    ),
-                ));
+        Mod => {
+            // Set source location for trap-able modulo operations
+            let srcloc = ctx.source_loc_manager().create_srcloc(&span);
+            ctx.builder.set_srcloc(srcloc);
+            match operand_ty {
+                GlslType::Int => ctx.builder.ins().srem(lhs, rhs),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!(
+                            "modulo not supported for {:?} (only integer types)",
+                            operand_ty
+                        ),
+                    ));
+                }
             }
         },
 

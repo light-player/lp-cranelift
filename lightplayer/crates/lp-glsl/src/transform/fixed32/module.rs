@@ -101,6 +101,8 @@ pub fn transform_module(
             FunctionRegistry::new()
         })
         .set_source_text(String::from(module.source_text()))
+        // Preserve source location manager - this is critical for trap source location mapping
+        .set_source_loc_manager(module.source_loc_manager().clone())
         // Recreate ISA from TargetIsa reference
         .set_isa({
             use cranelift_codegen::isa;

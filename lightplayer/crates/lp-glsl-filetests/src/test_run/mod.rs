@@ -9,7 +9,7 @@ use crate::file_update::FileUpdate;
 use crate::filetest::TestFile;
 use anyhow::{Context, Result};
 use lp_glsl::GlslOptions;
-use lp_glsl::glsl_emu_riscv32;
+use lp_glsl::glsl_emu_riscv32_with_metadata;
 use std::env;
 use std::path::Path;
 
@@ -75,7 +75,7 @@ pub fn run_test_file_with_line_filter(
         // Compile and execute
         // Note: bootstrap_result.source now contains ONLY the function being tested + main()
         let mut executable =
-            glsl_emu_riscv32(&bootstrap_result.source, options.clone()).map_err(|e| {
+            glsl_emu_riscv32_with_metadata(&bootstrap_result.source, options.clone(), Some(relative_path.clone())).map_err(|e| {
                 format_compilation_error(
                     &e,
                     &bootstrap_result,
@@ -112,37 +112,46 @@ pub fn run_test_file_with_line_filter(
                 relative_path, directive.line_number
             );
             
+            // Format bootstrap code for display (like compile errors do)
+            let bootstrap_code_display = format_code_block(&bootstrap_result.source);
+            
             if is_trap {
-                // Format trap error with clear message
+                // Format trap error with clear message and bootstrap code context
                 let trap_msg = if let Some(state) = emulator_state {
                     format!(
-                        "run test failed at line {}: execution trapped{}\n\
+                        "run test failed at line {}: execution trapped\n\
                          \n\
                          The test expected a value but execution trapped instead.\n\
                          This indicates the code under test encountered an error condition\n\
                          (e.g., division by zero, overflow, etc.).\n\
+                         \n\
+                         Generated test code:\n\
+                         {}\n\
+                         \n\
+                         Error details:\n\
+                         {}{}{}\n\
+                         \n\
+                         To rerun just this test:\n\
+                         {}",
+                        directive.line_number, bootstrap_code_display, error_str, clif_ir_section, state, rerun_cmd
+                    )
+                } else {
+                    format!(
+                        "run test failed at line {}: execution trapped\n\
+                         \n\
+                         The test expected a value but execution trapped instead.\n\
+                         This indicates the code under test encountered an error condition\n\
+                         (e.g., division by zero, overflow, etc.).\n\
+                         \n\
+                         Generated test code:\n\
+                         {}\n\
                          \n\
                          Error details:\n\
                          {}{}\n\
                          \n\
                          To rerun just this test:\n\
                          {}",
-                        directive.line_number, clif_ir_section, error_str, state, rerun_cmd
-                    )
-                } else {
-                    format!(
-                        "run test failed at line {}: execution trapped{}\n\
-                         \n\
-                         The test expected a value but execution trapped instead.\n\
-                         This indicates the code under test encountered an error condition\n\
-                         (e.g., division by zero, overflow, etc.).\n\
-                         \n\
-                         Error details:\n\
-                         {}\n\
-                         \n\
-                         To rerun just this test:\n\
-                         {}",
-                        directive.line_number, clif_ir_section, error_str, rerun_cmd
+                        directive.line_number, bootstrap_code_display, error_str, clif_ir_section, rerun_cmd
                     )
                 };
                 anyhow::anyhow!("{}", trap_msg)

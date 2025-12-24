@@ -3,6 +3,7 @@ use cranelift_frontend::{FunctionBuilder, Variable};
 use cranelift_module::{FuncId, Module};
 use hashbrown::HashMap;
 
+use crate::codegen::sourceloc::SourceLocManager;
 use crate::semantic::functions::FunctionRegistry;
 use crate::semantic::types::Type as GlslType;
 use crate::semantic::types::Type;
@@ -46,6 +47,9 @@ pub struct CodegenContext<'a> {
     // Intrinsic function cache (for math function implementations)
     #[cfg(feature = "intrinsic-math")]
     pub intrinsic_cache: Option<crate::intrinsics::loader::IntrinsicCache>,
+
+    // Source location manager for mapping SourceLoc to GLSL source positions
+    pub source_loc_manager: SourceLocManager,
 }
 
 pub struct LoopContext {
@@ -67,7 +71,13 @@ impl<'a> CodegenContext<'a> {
             entry_block: None,
             #[cfg(feature = "intrinsic-math")]
             intrinsic_cache: None,
+            source_loc_manager: SourceLocManager::new(),
         }
+    }
+
+    /// Get mutable reference to the source location manager.
+    pub fn source_loc_manager(&mut self) -> &mut SourceLocManager {
+        &mut self.source_loc_manager
     }
 
     pub fn set_entry_block(&mut self, entry_block: Block) {

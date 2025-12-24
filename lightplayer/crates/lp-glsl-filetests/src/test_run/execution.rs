@@ -16,7 +16,8 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
         e: lp_glsl::error::GlslError,
         executable: &dyn GlslExecutable,
     ) -> anyhow::Error {
-        let mut error_msg = format!("{}", e);
+        // Use {:#} format to preserve location and span_text formatting
+        let mut error_msg = format!("{:#}", e);
         // Include notes if present (these contain CLIF IR and other debug info)
         if !e.notes.is_empty() {
             error_msg.push_str("\n\n");

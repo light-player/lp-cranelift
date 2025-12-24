@@ -48,7 +48,11 @@ impl GlslCompiler {
         let semantic_result = CompilationPipeline::parse_and_analyze(source)?;
         let typed_ast = semantic_result.typed_ast;
 
-        // 2. Create a temporary minimal module for function declarations
+        // 2. Create a shared source location manager for all functions
+        use crate::codegen::sourceloc::SourceLocManager;
+        let mut source_loc_manager = SourceLocManager::new();
+
+        // 3. Create a temporary minimal module for function declarations
         //    This is needed to get FuncIds for cross-function calls
         let mut temp_module = create_minimal_module_for_declarations(isa.as_ref())?;
 
@@ -88,6 +92,7 @@ impl GlslCompiler {
                 &typed_ast.function_registry,
                 &mut temp_module,
                 isa.as_ref(),
+                &mut source_loc_manager,
             )?;
             user_functions.insert(user_func.name.clone(), func);
 
@@ -113,6 +118,7 @@ impl GlslCompiler {
             &mut temp_module,
             isa.as_ref(),
             semantic_result.source,
+            &mut source_loc_manager,
         )?;
 
         // Store main function's GLSL signature
@@ -138,6 +144,7 @@ impl GlslCompiler {
             .set_main_function(main_func)
             .add_glsl_signatures(glsl_signatures)
             .add_func_id_mappings(func_id_to_name)
+            .set_source_loc_manager(source_loc_manager)
             .build()?)
     }
 
@@ -149,6 +156,7 @@ impl GlslCompiler {
         func_registry: &crate::semantic::functions::FunctionRegistry,
         temp_module: &mut dyn Module,
         isa: &dyn cranelift_codegen::isa::TargetIsa,
+        source_loc_manager: &mut crate::codegen::sourceloc::SourceLocManager,
     ) -> Result<Function, GlslError> {
         use crate::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};
@@ -182,6 +190,8 @@ impl GlslCompiler {
         codegen_ctx.set_function_registry(func_registry);
         codegen_ctx.set_return_type(func.return_type.clone());
         codegen_ctx.set_entry_block(entry_block);
+        // Copy the shared SourceLocManager into the context
+        codegen_ctx.source_loc_manager = source_loc_manager.clone();
 
         // Declare parameters as variables in the function
         let block_params = codegen_ctx.builder.block_params(entry_block).to_vec();
@@ -283,6 +293,9 @@ impl GlslCompiler {
         // Finalize
         codegen_ctx.builder.finalize();
 
+        // Merge SourceLocManager back into shared one
+        source_loc_manager.merge_from(&codegen_ctx.source_loc_manager);
+
         // Verify function
         cranelift_codegen::verify_function(&ctx.func, isa).map_err(|e| {
             GlslError::new(
@@ -305,6 +318,7 @@ impl GlslCompiler {
         temp_module: &mut dyn Module,
         isa: &dyn cranelift_codegen::isa::TargetIsa,
         source_text: &str,
+        source_loc_manager: &mut crate::codegen::sourceloc::SourceLocManager,
     ) -> Result<Function, GlslError> {
         use crate::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};
@@ -335,6 +349,8 @@ impl GlslCompiler {
         codegen_ctx.set_source_text(source_text);
         codegen_ctx.set_return_type(main_func.return_type.clone());
         codegen_ctx.set_entry_block(entry_block);
+        // Replace the default SourceLocManager with the shared one
+        codegen_ctx.source_loc_manager = source_loc_manager.clone();
 
         // Translate main function body
         for stmt in &main_func.body {
@@ -346,6 +362,9 @@ impl GlslCompiler {
 
         // Finalize
         codegen_ctx.builder.finalize();
+
+        // Merge SourceLocManager back into shared one
+        source_loc_manager.merge_from(&codegen_ctx.source_loc_manager);
 
         // Verify function
         cranelift_codegen::verify_function(&ctx.func, isa).map_err(|e| {

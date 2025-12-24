@@ -42,8 +42,12 @@ use std::format as alloc_format;
 
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
 #[cfg(feature = "std")]
 use std::boxed::Box;
+#[cfg(feature = "std")]
+use std::string::String;
 
 /// Compile GLSL to CLIF module (internal, reusable)
 /// This is the core compilation step that can be reused for different backends
@@ -113,6 +117,17 @@ pub fn glsl_emu_riscv32(
     source: &str,
     options: GlslOptions,
 ) -> Result<Box<dyn GlslExecutable>, GlslError> {
+    glsl_emu_riscv32_with_metadata(source, options, None)
+}
+
+/// Requires `emulator` feature flag to be enabled
+/// Version that accepts source file path for better error messages
+#[cfg(feature = "emulator")]
+pub fn glsl_emu_riscv32_with_metadata(
+    source: &str,
+    options: GlslOptions,
+    source_file_path: Option<String>,
+) -> Result<Box<dyn GlslExecutable>, GlslError> {
     use crate::backend::executable::DecimalFormat;
     use link::EmulatorOptions;
 
@@ -161,8 +176,13 @@ pub fn glsl_emu_riscv32(
         }
     };
 
-    let emu_module =
-        link::link_glsl_for_emulator(original_module, transformed_module, &emulator_options)?;
+    let emu_module = link::link_glsl_for_emulator(
+        original_module,
+        transformed_module,
+        &emulator_options,
+        Some(String::from(source)),
+        source_file_path,
+    )?;
     Ok(Box::new(emu_module))
 }
 

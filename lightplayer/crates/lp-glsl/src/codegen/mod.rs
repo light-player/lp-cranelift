@@ -6,4 +6,5 @@ pub mod context;
 pub mod expr;
 pub mod helpers;
 pub mod signature;
+pub mod sourceloc;
 pub mod stmt;

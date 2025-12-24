@@ -163,7 +163,6 @@ fn test_riscv32_binemit() {
         0x60051593,
     ));
 
-
     insns.push(TestUnit::new(
         Inst::AluRRImm12 {
             alu_op: AluOPRRI::Cpop,
@@ -175,7 +174,6 @@ fn test_riscv32_binemit() {
         0x60251593,
     ));
 
-
     insns.push(TestUnit::new(
         Inst::AluRRImm12 {
             alu_op: AluOPRRI::Ctz,
@@ -186,7 +184,6 @@ fn test_riscv32_binemit() {
         "ctz a1,a0",
         0x60151593,
     ));
-
 
     insns.push(TestUnit::new(
         Inst::AluRRImm12 {

@@ -72,10 +72,13 @@ fn convert_instruction(
     // Don't switch blocks here - we're already on the correct block from convert_all_instructions
     // The new_block parameter is kept for API consistency but not used
 
-    // Copy source location (skip for now - RelSourceLoc conversion will be handled later)
-    // if let Some(srcloc) = old_func.srclocs.get(old_inst) {
-    //     builder.set_srcloc(*srcloc);
-    // }
+    // Copy source location from old instruction to new instructions
+    // This ensures source locations are preserved through the fixed32 transform
+    // Convert RelSourceLoc to absolute SourceLoc
+    let srcloc = old_func.srcloc(old_inst);
+    if !srcloc.is_default() {
+        builder.set_srcloc(srcloc);
+    }
 
     let opcode = old_func.dfg.insts[old_inst].opcode();
 
