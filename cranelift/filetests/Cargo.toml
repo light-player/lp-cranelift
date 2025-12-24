@@ -13,6 +13,10 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Enable disassembly support (forwards to cranelift-codegen/disas)
+disas = ["cranelift-codegen/disas"]
+
 [dependencies]
 cranelift-codegen = { workspace = true, features = ["disas", "timing", "unwind"] }
 cranelift-frontend = { workspace = true }

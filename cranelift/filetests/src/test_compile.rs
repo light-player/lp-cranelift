@@ -50,7 +50,6 @@ impl SubTest for TestCompile {
 
     fn run(&self, func: Cow<ir::Function>, context: &Context) -> Result<()> {
         let isa = context.isa.expect("compile needs an ISA");
-        let func_name = func.name.clone();
         let params = func.params.clone();
         let mut comp_ctx = cranelift_codegen::Context::for_function(func.into_owned());
 

@@ -46,6 +46,7 @@ impl<'a> Validator<'a> {
     }
 
     /// Check if a specific RISC-V extension is enabled
+    #[allow(dead_code)]
     fn check_extension(&self, ext: supported::RiscvExtension) -> bool {
         match ext {
             supported::RiscvExtension::I => true, // Always required

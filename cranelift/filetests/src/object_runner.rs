@@ -4,23 +4,18 @@
 //! that can be loaded and executed by the RISC-V emulator.
 
 use anyhow::{anyhow, Result};
-use core::mem;
-use cranelift::prelude::Imm64;
-use cranelift_codegen::cursor::{Cursor, FuncCursor};
-use cranelift_codegen::data_value::DataValue;
 use cranelift_codegen::ir::{
-    ExternalName, Function, InstBuilder, InstructionData, LibCall, Opcode, Signature,
+    ExternalName, Function, Signature,
     UserExternalName, UserFuncName,
 };
 use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_codegen::{CodegenError, Context, ir};
 use cranelift_control::ControlPlane;
-use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_module::{Linkage, Module, ModuleError};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use cranelift_reader::TestFile;
 use std::collections::hash_map::Entry;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use thiserror::Error;
 
 const TESTFILE_NAMESPACE: u32 = 0;
@@ -71,7 +66,7 @@ pub struct ObjectTestFileCompiler {
 impl ObjectTestFileCompiler {
     /// Build an [ObjectTestFileCompiler] from a [TargetIsa].
     pub fn new(isa: OwnedTargetIsa) -> Result<Self> {
-        let mut builder = ObjectBuilder::new(
+        let builder = ObjectBuilder::new(
             isa,
             "cranelift-filetests".as_bytes(),
             cranelift_module::default_libcall_names(),
@@ -236,10 +231,6 @@ impl ObjectTestFileCompiler {
         // Enable disassembly for debugging runtests
         self.ctx.set_disasm(true);
         
-        // Store function params and ISA for later use
-        let func_params = self.ctx.func.params.clone();
-        let isa = self.module.isa();
-        
         self.module.define_function_with_control_plane(
             func_id,
             &mut self.ctx,
@@ -251,22 +242,37 @@ impl ObjectTestFileCompiler {
         let (vcode, disassembly) = if let Some(compiled_code) = self.ctx.compiled_code() {
             // The vcode field contains disassembly when want_disasm is true
             // Capture it as disassembly
-            let mut disasm = compiled_code.vcode.as_ref().map(|s| s.clone());
+            let disasm = compiled_code.vcode.as_ref().map(|s| s.clone());
             
             // Try to generate disassembly using Capstone if vcode wasn't available
-            #[cfg(feature = "disas")]
-            {
-                if disasm.is_none() {
-                    if let Ok(cs) = isa.to_capstone() {
-                        if let Ok(disasm_str) = compiled_code.disassemble(
-                            Some(&func_params),
-                            &cs,
-                        ) {
-                            disasm = Some(disasm_str);
+            // Note: disas is a feature on cranelift-codegen dependency
+            let disasm = {
+                #[cfg(feature = "disas")]
+                {
+                    if let None = disasm {
+                        let isa = self.module.isa();
+                        let func_params = self.ctx.func.params.clone();
+                        if let Ok(cs) = isa.to_capstone() {
+                            if let Ok(disasm_str) = compiled_code.disassemble(
+                                Some(&func_params),
+                                &cs,
+                            ) {
+                                Some(disasm_str)
+                            } else {
+                                disasm
+                            }
+                        } else {
+                            disasm
                         }
+                    } else {
+                        disasm
                     }
                 }
-            }
+                #[cfg(not(feature = "disas"))]
+                {
+                    disasm
+                }
+            };
             
             // For V-Code, we'd need to format the VCode struct before emission
             // For now, we'll use the disassembly as V-Code placeholder
@@ -294,7 +300,7 @@ impl ObjectTestFileCompiler {
     }
 
     /// Finalize this ObjectTestFileCompiler and return the compiled ELF.
-    pub fn compile(mut self) -> Result<CompiledObjectTestFile, CompilationError> {
+    pub fn compile(self) -> Result<CompiledObjectTestFile, CompilationError> {
         let product = self.module.finish();
         let elf_bytes = product.emit().map_err(|e| CompilationError::ObjectWriteError(e))?;
 
@@ -316,6 +322,7 @@ pub struct CompiledObjectTestFile {
 
 impl CompiledObjectTestFile {
     /// Get the function signature for a given function name
+    #[allow(dead_code)]
     pub fn get_signature(&self, func_name: &UserFuncName) -> Option<&Signature> {
         self.defined_functions.get(func_name).map(|df| &df.signature)
     }
