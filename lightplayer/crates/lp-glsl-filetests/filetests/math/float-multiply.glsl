@@ -51,13 +51,13 @@ vec2 mul_vec2_mat2(vec2 v, mat2 m) {
     return v * m;
 }
 
-// #run: mul_vec2_mat2(vec2(1.0, 2.0), mat2(vec2(3.0, 4.0), vec2(5.0, 6.0))) ~= vec2(4.0, 10.0)
+// #run: mul_vec2_mat2(vec2(1.0, 2.0), mat2(vec2(3.0, 4.0), vec2(5.0, 6.0))) ~= vec2(11.0, 17.0)
 
 vec2 mul_mat2_vec2(mat2 m, vec2 v) {
     return m * v;
 }
 
-// #run: mul_mat2_vec2(mat2(vec2(1.0, 2.0), vec2(3.0, 4.0)), vec2(5.0, 6.0)) ~= vec2(4.0, 10.0)
+// #run: mul_mat2_vec2(mat2(vec2(1.0, 2.0), vec2(3.0, 4.0)), vec2(5.0, 6.0)) ~= vec2(23.0, 34.0)
 
 mat3 mul_mat3(mat3 a, mat3 b) {
     return a * b;
