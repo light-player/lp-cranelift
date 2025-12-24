@@ -41,7 +41,7 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// Outer product: vec1 × vec2 → matrix
-    /// For vec3 × vec3, returns mat3 where result[i][j] = vec1[i] * vec2[j]
+    /// For vec3 × vec3, returns mat3 where result[col][row] = vec1[col] * vec2[row]
     pub fn builtin_outerProduct(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
@@ -75,12 +75,13 @@ impl<'a> CodegenContext<'a> {
             }
         };
 
-        // Compute outer product: result[i][j] = vec1[i] * vec2[j]
+        // Compute outer product: result[col][row] = vec1[col] * vec2[row]
         // Result matrix is stored column-major
         let mut result_vals = Vec::new();
-        for j in 0..vec2_size {
-            for i in 0..vec1_size {
-                let product = self.builder.ins().fmul(vec1_vals[i], vec2_vals[j]);
+        for col in 0..vec1_size {  // Columns come from vec1
+            for row in 0..vec2_size {  // Rows come from vec2
+                // result[col][row] = c[col] * r[row]
+                let product = self.builder.ins().fmul(vec1_vals[col], vec2_vals[row]);
                 result_vals.push(product);
             }
         }
