@@ -155,6 +155,7 @@ impl<'a> CodegenContext<'a> {
             crate::codegen::lvalue::LValue::MatrixColumn { result_ty, .. } => {
                 result_ty.component_count().unwrap()
             }
+            crate::codegen::lvalue::LValue::VectorElement { .. } => 1,
         };
 
         if expected_count != rhs_vals.len() {

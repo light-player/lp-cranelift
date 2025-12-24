@@ -50,6 +50,12 @@ pub enum LValue {
         col: usize,
         result_ty: GlslType,
     },
+    /// Vector element: `v[0]` (single scalar)
+    VectorElement {
+        base_vars: Vec<Variable>,
+        base_ty: GlslType,
+        index: usize, // Component index (0=x, 1=y, 2=z, 3=w)
+    },
 }
 
 impl LValue {
@@ -63,6 +69,10 @@ impl LValue {
                 GlslType::Float
             }
             LValue::MatrixColumn { result_ty, .. } => result_ty.clone(),
+            LValue::VectorElement { .. } => {
+                // Vector element is always float scalar
+                GlslType::Float
+            }
         }
     }
 }
@@ -111,7 +121,7 @@ pub fn resolve_lvalue(
                 LValue::Variable { ty, .. } => ty.clone(),
                 LValue::Component { result_ty, .. } => result_ty.clone(),
                 LValue::MatrixColumn { result_ty, .. } => result_ty.clone(),
-                LValue::MatrixElement { .. } => {
+                LValue::MatrixElement { .. } | LValue::VectorElement { .. } => {
                     // Can't access components of a scalar
                     let span = extract_span_from_expr(base_expr);
                     return Err(GlslError::new(
@@ -153,7 +163,7 @@ pub fn resolve_lvalue(
                 LValue::Variable { vars, .. } => vars,
                 LValue::Component { base_vars, .. } => base_vars,
                 LValue::MatrixColumn { base_vars, .. } => base_vars,
-                LValue::MatrixElement { .. } => unreachable!(), // Already handled above
+                LValue::MatrixElement { .. } | LValue::VectorElement { .. } => unreachable!(), // Already handled above
             };
             
             Ok(LValue::Component {
@@ -174,6 +184,7 @@ pub fn resolve_lvalue(
                 LValue::Component { base_vars, base_ty, .. } => (base_vars, base_ty),
                 LValue::MatrixColumn { base_vars, base_ty, .. } => (base_vars, base_ty),
                 LValue::MatrixElement { base_vars, base_ty, .. } => (base_vars, base_ty),
+                LValue::VectorElement { base_vars, base_ty, .. } => (base_vars, base_ty),
             };
             
             use glsl::syntax::ArraySpecifierDimension;
@@ -243,7 +254,7 @@ pub fn resolve_lvalue(
                 } else if current_ty.is_vector() {
                     // Vector indexing: vec[index] returns scalar component
                     let component_count = current_ty.component_count().unwrap();
-                    
+
                     if index >= component_count {
                         return Err(GlslError::new(
                             ErrorCode::E0400,
@@ -255,19 +266,18 @@ pub fn resolve_lvalue(
                         )
                         .with_location(source_span_to_location(span)));
                     }
-                    
+
                     // If we already have a column, this is a matrix element access
                     if col.is_some() {
                         row = Some(index);
                         current_ty = current_ty.vector_base_type().unwrap();
                     } else {
-                        // This is vector component access - not supported as LValue yet
-                        // (vectors are typically accessed via .x, .y, etc.)
-                        return Err(GlslError::new(
-                            ErrorCode::E0400,
-                            "vector indexing not supported as LValue (use component access like .x)",
-                        )
-                        .with_location(source_span_to_location(span)));
+                        // This is vector element access: v[0] -> scalar
+                        return Ok(LValue::VectorElement {
+                            base_vars: current_vars,
+                            base_ty: base_ty.clone(),
+                            index,
+                        });
                     }
                 } else {
                     return Err(GlslError::new(
@@ -358,6 +368,11 @@ pub fn read_lvalue(
             let vals = ctx.load_matrix_column(base_vars, *col, rows);
             Ok((vals, result_ty.clone()))
         }
+
+        LValue::VectorElement { base_vars, index, .. } => {
+            let val = ctx.builder.use_var(base_vars[*index]);
+            Ok((vec![val], GlslType::Float))
+        }
     }
 }
 
@@ -432,6 +447,17 @@ pub fn write_lvalue(
             for (row_idx, &val) in values.iter().enumerate() {
                 ctx.store_matrix_element(base_vars, *col, row_idx, rows, val);
             }
+            Ok(())
+        }
+
+        LValue::VectorElement { base_vars, index, .. } => {
+            if values.len() != 1 {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!("vector element requires 1 value, got {}", values.len()),
+                ));
+            }
+            ctx.builder.def_var(base_vars[*index], values[0]);
             Ok(())
         }
     }
