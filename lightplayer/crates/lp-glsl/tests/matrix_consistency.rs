@@ -22,9 +22,10 @@ mat2 main() {
     match result {
         GlslValue::Mat2x2(m) => {
             // Column 0: [1.0, 2.0], Column 1: [3.0, 4.0]
+            // m[col][row] format
             assert_eq!(m[0][0], 1.0); // col0_row0
-            assert_eq!(m[1][0], 2.0); // col0_row1
-            assert_eq!(m[0][1], 3.0); // col1_row0
+            assert_eq!(m[0][1], 2.0); // col0_row1
+            assert_eq!(m[1][0], 3.0); // col1_row0
             assert_eq!(m[1][1], 4.0); // col1_row1
         }
         _ => panic!("Expected Mat2x2"),
@@ -54,9 +55,10 @@ mat2 main() {
     match result {
         GlslValue::Mat2x2(m) => {
             // Expected: Column 0: [23.0, 34.0], Column 1: [31.0, 46.0]
+            // m[col][row] format
             assert_eq!(m[0][0], 23.0); // col0_row0
-            assert_eq!(m[1][0], 34.0); // col0_row1
-            assert_eq!(m[0][1], 31.0); // col1_row0
+            assert_eq!(m[0][1], 34.0); // col0_row1
+            assert_eq!(m[1][0], 31.0); // col1_row0
             assert_eq!(m[1][1], 46.0); // col1_row1
         }
         _ => panic!("Expected Mat2x2"),

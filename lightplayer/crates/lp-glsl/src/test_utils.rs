@@ -69,9 +69,11 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
             .map(|v| {
                 // Convert flat array from emulator (column-major storage) to Mat2x2
                 // Input: v = [col0_row0, col0_row1, col1_row0, col1_row1] = [v[0], v[1], v[2], v[3]]
-                // Output: m[row][col] format where m[0][0]=v[0], m[1][0]=v[1], m[0][1]=v[2], m[1][1]=v[3]
-                // This creates: [[v[0], v[2]], [v[1], v[3]]] = [[col0_row0, col1_row0], [col0_row1, col1_row1]]
-                GlslValue::Mat2x2([[v[0], v[2]], [v[1], v[3]]])
+                // Output: m[col][row] format (column-major)
+                // Column 0: [v[0], v[1]] = [col0_row0, col0_row1]
+                // Column 1: [v[2], v[3]] = [col1_row0, col1_row1]
+                // This creates: [[v[0], v[1]], [v[2], v[3]]] = [[col0_row0, col0_row1], [col1_row0, col1_row1]]
+                GlslValue::Mat2x2([[v[0], v[1]], [v[2], v[3]]])
             })
             .map_err(|e| format_error(e, executable)),
         Type::Mat3 => executable
@@ -79,9 +81,12 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
             .map(|v| {
                 // Convert flat array from emulator (column-major storage) to Mat3x3
                 // Input: v = [col0_row0, col0_row1, col0_row2, col1_row0, col1_row1, col1_row2, col2_row0, col2_row1, col2_row2]
-                // Output: m[row][col] format
-                // Pattern: m[row][col] = v[col * rows + row]
-                GlslValue::Mat3x3([[v[0], v[3], v[6]], [v[1], v[4], v[7]], [v[2], v[5], v[8]]])
+                // Output: m[col][row] format (column-major)
+                // Column 0: [v[0], v[1], v[2]] = [col0_row0, col0_row1, col0_row2]
+                // Column 1: [v[3], v[4], v[5]] = [col1_row0, col1_row1, col1_row2]
+                // Column 2: [v[6], v[7], v[8]] = [col2_row0, col2_row1, col2_row2]
+                // Pattern: m[col][row] = v[col * rows + row]
+                GlslValue::Mat3x3([[v[0], v[1], v[2]], [v[3], v[4], v[5]], [v[6], v[7], v[8]]])
             })
             .map_err(|e| format_error(e, executable)),
         Type::Mat4 => executable
@@ -89,13 +94,18 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
             .map(|v| {
                 // Convert flat array from emulator (column-major storage) to Mat4x4
                 // Input: v = 16 elements in column-major order
-                // Output: m[row][col] format
-                // Pattern: m[row][col] = v[col * rows + row]
+                // [col0_row0, col0_row1, col0_row2, col0_row3, col1_row0, col1_row1, col1_row2, col1_row3, ...]
+                // Output: m[col][row] format (column-major)
+                // Column 0: [v[0], v[1], v[2], v[3]]
+                // Column 1: [v[4], v[5], v[6], v[7]]
+                // Column 2: [v[8], v[9], v[10], v[11]]
+                // Column 3: [v[12], v[13], v[14], v[15]]
+                // Pattern: m[col][row] = v[col * rows + row]
                 GlslValue::Mat4x4([
-                    [v[0], v[4], v[8], v[12]],
-                    [v[1], v[5], v[9], v[13]],
-                    [v[2], v[6], v[10], v[14]],
-                    [v[3], v[7], v[11], v[15]],
+                    [v[0], v[1], v[2], v[3]],
+                    [v[4], v[5], v[6], v[7]],
+                    [v[8], v[9], v[10], v[11]],
+                    [v[12], v[13], v[14], v[15]],
                 ])
             })
             .map_err(|e| format_error(e, executable)),
