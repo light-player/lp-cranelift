@@ -166,6 +166,7 @@ use hashbrown::{HashMap, HashSet};
 use std::collections::{HashMap, HashSet};
 
 pub use crate::frontend::{FuncInstBuilder, FunctionBuilder, FunctionBuilderContext};
+pub use crate::ssa::SSABuilder;
 pub use crate::switch::Switch;
 pub use crate::variable::Variable;
 

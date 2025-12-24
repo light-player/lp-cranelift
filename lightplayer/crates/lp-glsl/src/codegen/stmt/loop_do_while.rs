@@ -22,22 +22,29 @@ pub fn emit_loop_do_while_stmt(
     // Branch directly to body (do-while always executes once)
     ctx.emit_branch(body_block)?;
 
-    // Body: switch to but don't seal yet - will receive back edge from condition block
+    // Body: switch to but don't seal yet - will receive back edge from cond_block
     ctx.switch_to_block(body_block);
     ctx.enter_scope(); // Enter scope for body variables
     ctx.emit_statement(body)?;
     ctx.exit_scope(); // Exit scope for body variables
     ctx.emit_branch(cond_block)?;
 
-    // Condition: switch to but don't seal yet - will receive back edge from body
+    // Condition: switch to but don't seal yet - will receive back edge from body_block
     ctx.switch_to_block(cond_block);
     let condition_value = ctx.translate_expr(condition)?;
+    // This brif creates the back edge to body_block
     ctx.emit_cond_branch(condition_value, body_block, exit_block)?;
-    // Now body_block is declared as successor - safe to seal both
 
-    // Seal blocks now that all predecessors are known
-    ctx.seal_block(body_block);
+    // Seal cond_block first - this sets up its block parameters for variables
+    // used from body_block. When cond_block is sealed, it will append arguments
+    // to body_block's jump instruction.
     ctx.seal_block(cond_block);
+    
+    // Seal body_block after cond_block is sealed and has appended arguments
+    // to body_block's jump. body_block can now be sealed because:
+    // - The back edge from cond_block has been declared (via emit_cond_branch above)
+    // - cond_block has been sealed and appended arguments to body_block's jump
+    ctx.seal_block(body_block);
 
     // Exit - seal immediately since all predecessors are known
     ctx.emit_block(exit_block);
