@@ -29,6 +29,17 @@ pub fn can_implicitly_convert(from: &Type, to: &Type) -> bool {
         return true;
     }
     
+    // Matrix conversions: same dimensions, exact type match
+    if from.is_matrix() && to.is_matrix() {
+        if let (Some((from_rows, from_cols)), Some((to_rows, to_cols))) = (
+            from.matrix_dims(),
+            to.matrix_dims(),
+        ) {
+            // Matrices can only be converted if dimensions match exactly
+            return from_rows == to_rows && from_cols == to_cols;
+        }
+    }
+    
     // Vector conversions: same size, compatible base types
     if let (Some(from_base), Some(to_base), Some(from_count), Some(to_count)) = (
         from.vector_base_type(),

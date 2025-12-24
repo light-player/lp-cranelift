@@ -1214,6 +1214,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
+
+[[package]]
 name = "glsl"
 version = "7.0.0"
 source = "git+https://github.com/Yona-Appletree/glsl-parser.git?branch=feature%2Fspans#1a499c8b7da54339af43cb4ca745963ac6c045da"
@@ -1444,6 +1450,7 @@ dependencies = [
  "cranelift-module",
  "cranelift-native",
  "cranelift-object",
+ "glob",
  "lp-glsl",
  "lp-jit-util",
  "lp-riscv-tools",

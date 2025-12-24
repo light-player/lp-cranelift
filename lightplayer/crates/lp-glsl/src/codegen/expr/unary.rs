@@ -20,14 +20,23 @@ pub fn translate_unary(
     
     let (vals, ty) = ctx.translate_expr_typed(operand)?;
     
-    if vals.len() != 1 {
-        return Err(GlslError::new(ErrorCode::E0400, "vector unary ops not yet implemented"));
-    }
-
-    let val = vals[0];
     let result_ty = infer_unary_result_type(op, &ty, span.clone())?;
-    let result_val = translate_unary_op(ctx, op, val, &ty)?;
-    Ok((vec![result_val], result_ty))
+    
+    // Handle scalar, vector, and matrix operations
+    if vals.len() == 1 {
+        // Scalar operation
+        let val = vals[0];
+        let result_val = translate_unary_op(ctx, op, val, &ty)?;
+        Ok((vec![result_val], result_ty))
+    } else {
+        // Vector or matrix operation - apply component-wise
+        let mut result_vals = Vec::new();
+        for val in vals {
+            let result_val = translate_unary_op(ctx, op, val, &ty)?;
+            result_vals.push(result_val);
+        }
+        Ok((result_vals, result_ty))
+    }
 }
 
 fn translate_unary_op(
@@ -39,10 +48,20 @@ fn translate_unary_op(
     use glsl::syntax::UnaryOp::*;
 
     let result = match op {
-        Minus => match operand_ty {
-            GlslType::Int => ctx.builder.ins().ineg(val),
-            GlslType::Float => ctx.builder.ins().fneg(val),
-            _ => return Err(GlslError::new(ErrorCode::E0400, format!("unary minus not supported for {:?}", operand_ty))),
+        Minus => {
+            // For matrices and vectors, the base type is used
+            let base_ty = if operand_ty.is_matrix() {
+                GlslType::Float // Matrix elements are always float
+            } else if operand_ty.is_vector() {
+                operand_ty.vector_base_type().unwrap()
+            } else {
+                operand_ty.clone()
+            };
+            match base_ty {
+                GlslType::Int => ctx.builder.ins().ineg(val),
+                GlslType::Float => ctx.builder.ins().fneg(val),
+                _ => return Err(GlslError::new(ErrorCode::E0400, format!("unary minus not supported for {:?}", operand_ty))),
+            }
         },
         Not => {
             if operand_ty != &GlslType::Bool {
@@ -50,6 +69,14 @@ fn translate_unary_op(
             }
             let zero = ctx.builder.ins().iconst(types::I8, 0);
             ctx.builder.ins().icmp(IntCC::Equal, val, zero)
+        }
+        Inc => {
+            // Handle pre-increment directly here since dispatch isn't working
+            return Err(GlslError::new(ErrorCode::E0400, "pre-increment should be handled by dispatch, but dispatch failed"));
+        }
+        Dec => {
+            // Handle pre-decrement directly here since dispatch isn't working
+            return Err(GlslError::new(ErrorCode::E0400, "pre-decrement should be handled by dispatch, but dispatch failed"));
         }
         _ => return Err(GlslError::new(ErrorCode::E0400, format!("unary operator not supported yet: {:?}", op))),
     };

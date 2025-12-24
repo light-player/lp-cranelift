@@ -1,7 +1,7 @@
 // test run
 // target riscv32.fixed32
 
-int main() {
+int test_for_loop_preinc() {
     int sum = 0;
     for (int i = 0; ++i < 5; ) {
         sum = sum + i;
@@ -10,4 +10,4 @@ int main() {
                  // sum = 0+1+2+3+4 = 10
 }
 
-// run: main() == 10
+// run: test_for_loop_preinc() == 10

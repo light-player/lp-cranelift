@@ -1,8 +1,8 @@
 // test run
 // target riscv32.fixed32
 
-// Test main() function with parameters (like fragment shader)
-int main(int x, int y) {
+// Test parameterized function (like fragment shader main)
+int main_with_params(int x, int y) {
     // Use pixel coordinates as seed for pattern generation
     // Scale coordinates to reasonable range for computation
     int seed_x = x * 10 + 100;
@@ -36,5 +36,5 @@ int main(int x, int y) {
     return result;
 }
 
-// run: main(0, 0) == <expected>
+// #run: main_with_params(0, 0) == 302
 

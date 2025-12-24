@@ -246,6 +246,18 @@ pub fn infer_unary_result_type(
             Ok(Type::Bool)
         }
 
+        Inc | Dec => {
+            if !operand_ty.is_numeric() {
+                return Err(GlslError::new(
+                    ErrorCode::E0112,
+                    "increment/decrement requires numeric operand (scalar, vector, or matrix)",
+                )
+                .with_location(source_span_to_location(&span))
+                .with_note(format!("operand has type `{:?}`", operand_ty)));
+            }
+            Ok(operand_ty.clone())
+        }
+
         _ => Err(GlslError::new(
             ErrorCode::E0112,
             format!("unsupported unary operator: {:?}", op),

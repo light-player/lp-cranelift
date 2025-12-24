@@ -1,11 +1,10 @@
 // test run
 // target riscv32.fixed32
 
-int main() {
+float test_postinc_component() {
     vec2 v = vec2(1.0, 2.0);
     float old_x = v.x++;
-    // Just return a constant to test that component increment works
-    return 4;  // old_x should be 1.0, v.x should be 2.0
+    return old_x + v.x;  // Should be 1.0 + 2.0 = 3.0
 }
 
-// run: main() == 4
+// run: test_postinc_component() ~= 3.0

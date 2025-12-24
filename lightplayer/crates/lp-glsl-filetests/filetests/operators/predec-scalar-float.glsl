@@ -1,11 +1,10 @@
 // test run
 // target riscv32.fixed32
 
-int main() {
+float test_predec_scalar_float() {
     float x = 5.5;
     float result = --x;  // Should decrement x to 4.5, then return 4.5
-    // Just return a constant to test that decrement works
-    return 9;  // result should be 4.5 (converted to int would be 4, but we return 9 to indicate success)
+    return result;  // Should return 4.5
 }
 
-// run: main() == 9
+// run: test_predec_scalar_float() ~= 4.5

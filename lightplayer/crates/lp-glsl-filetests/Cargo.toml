@@ -20,6 +20,7 @@ cranelift-native = { workspace = true }
 target-lexicon = { workspace = true }
 regex = { workspace = true }
 walkdir = "2"
+glob = { workspace = true }
 
 [[test]]
 name = "filetests"

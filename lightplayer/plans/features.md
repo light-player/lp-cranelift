@@ -324,15 +324,7 @@
 
 ## Test Coverage Gaps
 
-- ✅ Pre-decrement (`--i`) - tests created
-- ✅ Pre-increment/decrement on vectors (`++v`, `--v`) - tests created
-- ✅ Pre-increment/decrement on components (`++v.x`, `--v.y`) - tests created
-- ✅ Matrix increment/decrement - tests created (postinc-mat2.glsl, preinc-mat3.glsl)
-- ✅ For loops with pre-increment (`for(int i = 0; ++i < 10; )`) - test created
-- ✅ Edge cases - tests created:
-  - Multiple increments: `x++ + x++` (incdec-edge-cases.glsl)
-  - Nested expressions: `(x++)++` (incdec-nested.glsl - error test)
-  - Integer vectors: `ivec2 v; v++;` (incdec-edge-cases.glsl)
+- ✅ All increment/decrement test cases: Comprehensive test suite created covering scalars, vectors, matrices, components, for loops, and edge cases
 - Compound assignment operators
 - Bitwise operators
 - Logical OR and XOR

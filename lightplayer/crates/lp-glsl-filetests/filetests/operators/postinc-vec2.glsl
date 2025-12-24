@@ -1,10 +1,10 @@
 // test run
+// target riscv32.fixed32
 
-int main() {
+float test_postinc_vec2() {
     vec2 v = vec2(1.0, 2.0);
     vec2 old_v = v++;
-    // Just return a constant to test that increment works
-    return 3;  // old_v should be (1.0, 2.0), new v should be (2.0, 3.0)
+    return old_v.x + old_v.y;  // Should be 1.0 + 2.0 = 3.0
 }
 
-// run: main() == 3
+// run: test_postinc_vec2() ~= 3.0

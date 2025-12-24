@@ -1,0 +1,156 @@
+#!/bin/bash
+
+# Get the script's directory and workspace root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Try to find workspace root if script is run from elsewhere
+# Look for Cargo.toml or cranelift directory
+find_workspace_root() {
+    local dir="$1"
+    while [ "$dir" != "/" ]; do
+        if [ -f "$dir/Cargo.toml" ] && [ -d "$dir/cranelift" ]; then
+            echo "$dir"
+            return 0
+        fi
+        dir="$(dirname "$dir")"
+    done
+    return 1
+}
+
+# If workspace root detection from script location fails, try current directory
+if [ ! -f "$WORKSPACE_ROOT/Cargo.toml" ] || [ ! -d "$WORKSPACE_ROOT/cranelift" ]; then
+    WORKSPACE_ROOT="$(find_workspace_root "$(pwd)")" || {
+        echo "Error: Could not find workspace root. Please run from the workspace root directory." >&2
+        exit 1
+    }
+fi
+
+# Change to workspace root
+cd "$WORKSPACE_ROOT" || {
+    echo "Error: Failed to change to workspace root: $WORKSPACE_ROOT" >&2
+    exit 1
+}
+
+# Check if lightplayer directory exists
+if [ ! -d "$WORKSPACE_ROOT/lightplayer" ]; then
+    echo "Error: lightplayer directory not found at $WORKSPACE_ROOT/lightplayer" >&2
+    exit 1
+fi
+
+# Change to lightplayer directory
+cd "$WORKSPACE_ROOT/lightplayer" || {
+    echo "Error: Failed to change to lightplayer directory" >&2
+    exit 1
+}
+
+# Parse command line arguments
+SHOW_HELP=false
+SHOW_LIST=false
+TEST_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --help|-h)
+            SHOW_HELP=true
+            shift
+            ;;
+        --list|-l)
+            SHOW_LIST=true
+            shift
+            ;;
+        *)
+            TEST_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Show help if requested
+if [ "$SHOW_HELP" = true ]; then
+    cat << 'EOF'
+GLSL Filetests Runner
+
+Run GLSL filetests with flexible pattern matching support.
+
+USAGE:
+    glsl-filetests.sh [OPTIONS] [PATTERN]...
+
+OPTIONS:
+    -h, --help          Show this help message
+    -l, --list          List all available test files
+
+PATTERNS:
+    Patterns can be filenames, glob patterns, or directory paths.
+    Filenames are searched recursively across all subdirectories.
+
+EXAMPLES:
+    # Run all tests
+    glsl-filetests.sh
+
+    # Run specific test file (searched recursively)
+    glsl-filetests.sh postinc-scalar-int.glsl
+
+    # Run tests in a directory
+    glsl-filetests.sh math/
+
+    # Run tests matching glob patterns
+    glsl-filetests.sh "*add*" "operators/*"
+
+    # Run specific test case by line number
+    glsl-filetests.sh postinc-scalar-int.glsl:10
+
+    # Run tests in math directory with specific pattern
+    glsl-filetests.sh "math/float*"
+
+PATTERN SYNTAX:
+    *         Matches any sequence of characters
+    ?         Matches any single character
+    [abc]     Matches any character in the set
+    {a,b,c}   Matches any of the comma-separated patterns
+
+    Patterns without '/' are searched recursively.
+    Patterns with '/' are treated as directory paths.
+
+TEST CATEGORIES:
+    math/          - Arithmetic operations
+    operators/     - Increment/decrement operators
+    type_errors/   - Type checking and error handling
+
+EOF
+    exit 0
+fi
+
+# Show list of tests if requested
+if [ "$SHOW_LIST" = true ]; then
+    FILETESTS_DIR="$WORKSPACE_ROOT/lightplayer/crates/lp-glsl-filetests/filetests"
+
+    echo "Available GLSL test files:"
+    echo "=========================="
+
+    # Find all .glsl files and group by directory
+    find "$FILETESTS_DIR" -name "*.glsl" -type f | sort | while read -r file; do
+        # Get relative path from filetests directory
+        rel_path="${file#$FILETESTS_DIR/}"
+
+        # Extract directory and filename
+        dir=$(dirname "$rel_path")
+        filename=$(basename "$rel_path")
+
+        # Print with directory grouping
+        if [ "$dir" != "." ]; then
+            printf "  %-15s %s\n" "$dir/" "$filename"
+        else
+            printf "  %-15s %s\n" "" "$filename"
+        fi
+    done
+
+    echo ""
+    echo "Total: $(find "$FILETESTS_DIR" -name "*.glsl" -type f | wc -l | tr -d ' ') test files"
+    exit 0
+fi
+
+# Run the GLSL filetests using lp-test binary
+# Pass all remaining arguments directly to the test runner
+cargo run -p lp-test --bin lp-test -- test "${TEST_ARGS[@]}"
+

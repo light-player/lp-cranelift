@@ -184,7 +184,6 @@ impl GlslCompiler {
         })?;
 
         // Get the machine code bytes
-        let code_info = compiled_code.code_info();
         let mut code = Vec::new();
         code.extend_from_slice(compiled_code.buffer.data());
         Ok(code)

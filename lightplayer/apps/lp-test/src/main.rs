@@ -20,8 +20,7 @@ struct TestOptions {
     #[arg(short, long)]
     verbose: bool,
 
-    /// Specify input files or directories to test
-    #[arg(required = true)]
+    /// Specify input files or directories to test (default: all tests)
     files: Vec<String>,
 }
 
@@ -32,7 +31,13 @@ fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::Test(t) => {
-            lp_glsl_filetests::run(t.verbose, &t.files)?;
+            // If no files specified, run all tests using glob pattern
+            let files = if t.files.is_empty() {
+                vec!["**/*.glsl".to_string()]
+            } else {
+                t.files
+            };
+            lp_glsl_filetests::run(t.verbose, &files)?;
         }
     }
 

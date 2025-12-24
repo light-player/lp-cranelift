@@ -51,11 +51,12 @@ impl<'a> CodegenContext<'a> {
             }
             Expr::Unary(op, operand, span) => {
                 // Handle pre-increment/decrement specially
+                use glsl::syntax::UnaryOp::*;
                 match op {
-                    glsl::syntax::UnaryOp::Inc => {
+                    Inc => {
                         incdec::translate_preinc(self, operand, span.clone())
                     }
-                    glsl::syntax::UnaryOp::Dec => {
+                    Dec => {
                         incdec::translate_predec(self, operand, span.clone())
                     }
                     _ => unary::translate_unary(self, expr),
@@ -99,39 +100,37 @@ impl<'a> CodegenContext<'a> {
         op: &glsl::syntax::AssignmentOp,
         rhs: &Expr,
     ) -> Result<(Vec<Value>, GlslType), GlslError> {
+        use crate::codegen::lvalue::{resolve_lvalue, write_lvalue};
         use crate::error::extract_span_from_expr;
+        use crate::error::extract_span_from_identifier;
         use crate::semantic::type_check::check_assignment;
+        use component;
         
         // Only simple assignment (=) for now
         if !matches!(op, glsl::syntax::AssignmentOp::Equal) {
             return Err(GlslError::new(ErrorCode::E0400, "only simple assignment (=) supported"));
         }
 
-        // Check if lhs is component access
-        if let Expr::Dot(vec_expr, field, _span) = lhs {
-            return self.translate_component_assignment(vec_expr, field, rhs);
-        }
+        // Resolve LHS to an LValue
+        let lvalue = resolve_lvalue(self, lhs)?;
+        let lhs_ty = lvalue.ty();
 
-        // Get variable name from lhs
-        let var_name = match lhs {
-            Expr::Variable(ident, _span) => &ident.name,
-            _ => {
-                let span = extract_span_from_expr(lhs);
-                let error = GlslError::new(ErrorCode::E0115, "assignment lhs must be variable")
+        // Special handling for component assignment with swizzles (check for duplicates)
+        if let crate::codegen::lvalue::LValue::Component { indices, .. } = &lvalue {
+            // Check for duplicates (illegal in assignment LHS)
+            if component::has_duplicates(indices) {
+                // Try to extract span from the field identifier
+                if let Expr::Dot(_, field, _) = lhs {
+                    let span = extract_span_from_identifier(field);
+                    let error = GlslError::new(
+                        ErrorCode::E0113,
+                        format!("swizzle `{}` contains duplicate components (illegal in assignment)", field.name)
+                    )
                     .with_location(source_span_to_location(&span));
-                return Err(self.add_span_to_error(error, &span));
+                    return Err(self.add_span_to_error(error, &span));
+                }
             }
-        };
-
-        let vars = self
-            .lookup_variables(var_name)
-            .ok_or_else(|| GlslError::new(ErrorCode::E0400, format!("variable `{}` not found", var_name)))?
-            .to_vec(); // Clone to avoid borrow issues
-
-        let lhs_ty = self
-            .lookup_variable_type(var_name)
-            .ok_or_else(|| GlslError::new(ErrorCode::E0400, format!("variable type not found for `{}`", var_name)))?
-            .clone();
+        }
 
         // Translate RHS
         let (rhs_vals, rhs_ty) = self.translate_expr_typed(rhs)?;
@@ -149,113 +148,66 @@ impl<'a> CodegenContext<'a> {
         }
 
         // Check component counts match
-        if vars.len() != rhs_vals.len() {
+        let expected_count = match &lvalue {
+            crate::codegen::lvalue::LValue::Variable { vars, .. } => vars.len(),
+            crate::codegen::lvalue::LValue::Component { indices, .. } => indices.len(),
+            crate::codegen::lvalue::LValue::MatrixElement { .. } => 1,
+            crate::codegen::lvalue::LValue::MatrixColumn { result_ty, .. } => {
+                result_ty.component_count().unwrap()
+            }
+        };
+
+        if expected_count != rhs_vals.len() {
             return Err(GlslError::new(ErrorCode::E0400, format!(
                 "component count mismatch in assignment: {} vs {}",
-                vars.len(), rhs_vals.len()
-            )));
+                expected_count, rhs_vals.len()
+            ))
+            .with_location(source_span_to_location(&rhs_span)));
         }
 
         // Coerce and assign each component
         let rhs_base = if rhs_ty.is_vector() {
             rhs_ty.vector_base_type().unwrap()
+        } else if rhs_ty.is_matrix() {
+            GlslType::Float // Matrix elements are always float
         } else {
             rhs_ty.clone()
         };
         let lhs_base = if lhs_ty.is_vector() {
             lhs_ty.vector_base_type().unwrap()
+        } else if lhs_ty.is_matrix() {
+            GlslType::Float // Matrix elements are always float
         } else {
             lhs_ty.clone()
         };
 
         let mut coerced_vals = Vec::new();
-        for (var, val) in vars.iter().zip(&rhs_vals) {
+        for val in &rhs_vals {
             let coerced = coercion::coerce_to_type(self, *val, &rhs_base, &lhs_base)?;
-            self.builder.def_var(*var, coerced);
             coerced_vals.push(coerced);
         }
 
-        // Assignment expression has same type as LHS
-        Ok((coerced_vals, lhs_ty))
-    }
+        // Write coerced values to LValue
+        write_lvalue(self, &lvalue, &coerced_vals)?;
 
-    fn translate_component_assignment(
-        &mut self,
-        vec_expr: &Expr,
-        field: &glsl::syntax::Identifier,
-        rhs: &Expr,
-    ) -> Result<(Vec<Value>, GlslType), GlslError> {
-        use crate::error::extract_span_from_expr;
-        use crate::error::extract_span_from_identifier;
-        use crate::semantic::type_check::check_assignment;
-        
-        // Get variable name
-        let var_name = match vec_expr {
-            Expr::Variable(ident, _span) => &ident.name,
-            _ => return Err(GlslError::new(ErrorCode::E0400, "component assignment only supported on variables")),
+        // For component assignment, return all current values (read other components)
+        // For other assignments, return the assigned values
+        let result_vals = match &lvalue {
+            crate::codegen::lvalue::LValue::Component { base_vars, base_ty, .. } => {
+                // Component assignment returns the whole vector/matrix
+                let mut result_vals = Vec::new();
+                for &var in base_vars {
+                    result_vals.push(self.builder.use_var(var));
+                }
+                (result_vals, base_ty.clone())
+            }
+            _ => {
+                // Other assignments return the assigned values
+                (coerced_vals, lhs_ty)
+            }
         };
 
-        let vars = self.lookup_variables(var_name)
-            .ok_or_else(|| GlslError::new(ErrorCode::E0400, format!("variable `{}` not found", var_name)))?
-            .to_vec(); // Clone to avoid borrow issues
-        let vec_ty = self.lookup_variable_type(var_name)
-            .ok_or_else(|| GlslError::new(ErrorCode::E0400, format!("variable type not found for `{}`", var_name)))?
-            .clone();
-
-        if !vec_ty.is_vector() {
-            return Err(GlslError::new(ErrorCode::E0112, format!("component access on non-vector variable: {}", var_name)));
-        }
-
-        // Parse swizzle (supports multi-component assignment)
-        // Extract span from field identifier for error reporting
-        let field_span = extract_span_from_identifier(field);
-        let indices = component::parse_vector_swizzle(&field.name, &vec_ty, Some(field_span))?;
-        let base_ty = vec_ty.vector_base_type().unwrap();
-
-        // Check for duplicates (illegal in assignment LHS)
-        if component::has_duplicates(&indices) {
-            let span = extract_span_from_identifier(field);
-            let error = GlslError::new(ErrorCode::E0113, format!("swizzle `{}` contains duplicate components (illegal in assignment)", field.name))
-                .with_location(source_span_to_location(&span));
-            return Err(self.add_span_to_error(error, &span));
-        }
-
-        // Translate RHS
-        let rhs_span = extract_span_from_expr(rhs);
-        let (rhs_vals, rhs_ty) = self.translate_expr_typed(rhs)?;
-        
-        // Validate sizes match
-        if rhs_vals.len() != indices.len() {
-            let error = GlslError::new(ErrorCode::E0400, format!(
-                "swizzle assignment size mismatch: {} components on LHS, {} on RHS",
-                indices.len(), rhs_vals.len()
-            ))
-            .with_location(source_span_to_location(&rhs_span));
-            return Err(self.add_span_to_error(error, &rhs_span));
-        }
-
-        // Type check base types
-        let rhs_base = if rhs_ty.is_vector() {
-            rhs_ty.vector_base_type().unwrap()
-        } else {
-            rhs_ty.clone()
-        };
-        check_assignment(&base_ty, &rhs_base)?;
-
-        // Assign each component
-        for (i, &idx) in indices.iter().enumerate() {
-            let rhs_val = coercion::coerce_to_type(self, rhs_vals[i], &rhs_base, &base_ty)?;
-            self.builder.def_var(vars[idx], rhs_val);
-        }
-
-        // Return all current values (read other components)
-        let mut result_vals = Vec::new();
-        for &var in &vars {
-            result_vals.push(self.builder.use_var(var));
-        }
-
-        // Component assignment returns the whole vector
-        Ok((result_vals, vec_ty))
+        Ok(result_vals)
     }
 
     /// Coerce a value from one type to another (implements GLSL implicit conversions)

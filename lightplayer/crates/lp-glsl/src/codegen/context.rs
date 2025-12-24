@@ -162,21 +162,21 @@ impl<'a> CodegenContext<'a> {
         self.variables.get(name).map(|info| &info.glsl_type)
     }
 
-    /// Store a value to a matrix element at (row, col)
+    /// Store a value to a matrix element at m[col][row]
     ///
     /// Matrix is stored in column-major order per GLSL specification.
-    /// Element (row, col) is stored at index `col * rows + row` in the flat array.
+    /// Element m[col][row] is stored at index `col * rows + row` in the flat array.
     ///
     /// Example for mat2:
-    /// - Element (0, 0) → index 0 * 2 + 0 = 0
-    /// - Element (1, 0) → index 0 * 2 + 1 = 1 (column 0, row 1)
-    /// - Element (0, 1) → index 1 * 2 + 0 = 2 (column 1, row 0)
-    /// - Element (1, 1) → index 1 * 2 + 1 = 3
+    /// - Element m[0][0] → index 0 * 2 + 0 = 0
+    /// - Element m[0][1] → index 0 * 2 + 1 = 1 (column 0, row 1)
+    /// - Element m[1][0] → index 1 * 2 + 0 = 2 (column 1, row 0)
+    /// - Element m[1][1] → index 1 * 2 + 1 = 3
     pub fn store_matrix_element(
         &mut self,
         matrix_vars: &[Variable],
-        row: usize,
         col: usize,
+        row: usize,
         rows: usize,
         value: cranelift_codegen::ir::Value,
     ) {
@@ -184,12 +184,12 @@ impl<'a> CodegenContext<'a> {
         self.builder.def_var(matrix_vars[index], value);
     }
 
-    /// Load a matrix element at (row, col)
+    /// Load a matrix element at m[col][row]
     pub fn load_matrix_element(
         &mut self,
         matrix_vars: &[Variable],
-        row: usize,
         col: usize,
+        row: usize,
         rows: usize,
     ) -> cranelift_codegen::ir::Value {
         let index = col * rows + row;

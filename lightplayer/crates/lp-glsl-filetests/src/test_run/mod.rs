@@ -15,7 +15,7 @@ use std::path::Path;
 
 /// Run all tests in a test file.
 pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
-    run_test_file_with_line_filter(test_file, path, None)
+    run_test_file_with_line_filter(test_file, path, None, true)
 }
 
 /// Run all tests in a test file with optional line number filtering.
@@ -23,6 +23,7 @@ pub fn run_test_file_with_line_filter(
     test_file: &TestFile,
     path: &Path,
     line_filter: Option<usize>,
+    show_full_output: bool,
 ) -> Result<()> {
     if !test_file.is_test_run {
         // Not a test run file, skip
@@ -91,24 +92,33 @@ pub fn run_test_file_with_line_filter(
             let error_str = format!("{:#}", e);
             let is_trap = error_str.contains("Trap:") || error_str.contains("trap") || error_str.contains("execution trapped");
             
-            // Get emulator state if available
-            let emulator_state = executable.format_emulator_state();
+            // Get emulator state if available (only when showing full output)
+            let emulator_state = if show_full_output {
+                executable.format_emulator_state()
+            } else {
+                None
+            };
             
-            // Get CLIF IR (before and after transformation) if available
-            let (original_ir, transformed_ir) = executable.format_clif_ir();
-            let mut clif_ir_section = String::new();
-            if let Some(ref orig) = original_ir {
-                clif_ir_section.push_str("\n\n=== CLIF IR (BEFORE transformation) ===\n");
-                clif_ir_section.push_str(orig);
-            }
-            if let Some(ref trans) = transformed_ir {
-                clif_ir_section.push_str("\n\n=== CLIF IR (AFTER transformation) ===\n");
-                clif_ir_section.push_str(trans);
-            }
+            // Get CLIF IR (before and after transformation) if available (only when showing full output)
+            let clif_ir_section = if show_full_output {
+                let (original_ir, transformed_ir) = executable.format_clif_ir();
+                let mut section = String::new();
+                if let Some(ref orig) = original_ir {
+                    section.push_str("\n\n=== CLIF IR (BEFORE transformation) ===\n");
+                    section.push_str(orig);
+                }
+                if let Some(ref trans) = transformed_ir {
+                    section.push_str("\n\n=== CLIF IR (AFTER transformation) ===\n");
+                    section.push_str(trans);
+                }
+                section
+            } else {
+                String::new()
+            };
             
-            // Generate rerun command
+            // Generate rerun command using the script
             let rerun_cmd = format!(
-                "cargo run --bin lp-test -- test {}:{}",
+                "scripts/glsl-filetests.sh {}:{}",
                 relative_path, directive.line_number
             );
             
@@ -183,24 +193,33 @@ pub fn run_test_file_with_line_filter(
                         directive.comparison,
                     )?;
                 } else {
-                    // Get emulator state if available
-                    let emulator_state = executable.format_emulator_state();
+                    // Get emulator state if available (only when showing full output)
+                    let emulator_state = if show_full_output {
+                        executable.format_emulator_state()
+                    } else {
+                        None
+                    };
 
-                    // Get CLIF IR (before and after transformation) if available
-                    let (original_ir, transformed_ir) = executable.format_clif_ir();
-                    let mut clif_ir_section = String::new();
-                    if let Some(ref orig) = original_ir {
-                        clif_ir_section.push_str("\n\n=== CLIF IR (BEFORE transformation) ===\n");
-                        clif_ir_section.push_str(orig);
-                    }
-                    if let Some(ref trans) = transformed_ir {
-                        clif_ir_section.push_str("\n\n=== CLIF IR (AFTER transformation) ===\n");
-                        clif_ir_section.push_str(trans);
-                    }
+                    // Get CLIF IR (before and after transformation) if available (only when showing full output)
+                    let clif_ir_section = if show_full_output {
+                        let (original_ir, transformed_ir) = executable.format_clif_ir();
+                        let mut section = String::new();
+                        if let Some(ref orig) = original_ir {
+                            section.push_str("\n\n=== CLIF IR (BEFORE transformation) ===\n");
+                            section.push_str(orig);
+                        }
+                        if let Some(ref trans) = transformed_ir {
+                            section.push_str("\n\n=== CLIF IR (AFTER transformation) ===\n");
+                            section.push_str(trans);
+                        }
+                        section
+                    } else {
+                        String::new()
+                    };
 
-                    // Generate rerun command
+                    // Generate rerun command using the script
                     let rerun_cmd = format!(
-                        "cargo run --bin lp-test -- test {}:{}",
+                        "scripts/glsl-filetests.sh {}:{}",
                         relative_path, directive.line_number
                     );
 
@@ -255,9 +274,9 @@ fn format_compilation_error(
         String::new()
     };
 
-    // Generate rerun command
+    // Generate rerun command using the script
     let rerun_cmd = format!(
-        "cargo run --bin lp-test -- test {}:{}",
+        "scripts/glsl-filetests.sh {}:{}",
         relative_path, directive_line
     );
 
