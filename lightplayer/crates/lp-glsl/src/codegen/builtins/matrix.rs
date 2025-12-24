@@ -126,6 +126,25 @@ impl<'a> CodegenContext<'a> {
         Ok((result_vals, m_ty.clone()))
     }
 
+    /// Helper to compute 2x2 determinant from column-major values
+    /// Values should be 4 elements: [col0_row0, col0_row1, col1_row0, col1_row1]
+    fn compute_2x2_determinant(&mut self, vals: &[Value]) -> Value {
+        // Helper to get element at (row, col) from column-major storage
+        let get = |row: usize, col: usize| -> Value { vals[col * 2 + row] };
+
+        // det = a*d - b*c
+        // Matrix: [a b]  stored as [a, c, b, d] (col-major)
+        //         [c d]
+        let a = get(0, 0);
+        let b = get(0, 1);
+        let c = get(1, 0);
+        let d = get(1, 1);
+
+        let ad = self.builder.ins().fmul(a, d);
+        let bc = self.builder.ins().fmul(b, c);
+        self.builder.ins().fsub(ad, bc)
+    }
+
     /// Helper to compute 3x3 determinant from column-major values
     /// Values should be 9 elements: [col0_row0, col0_row1, col0_row2, col1_row0, ...]
     fn compute_3x3_determinant(&mut self, vals: &[Value]) -> Value {
@@ -233,8 +252,8 @@ impl<'a> CodegenContext<'a> {
                 self.builder.ins().fadd(term1_minus_term2, term3)
             }
             4 => {
-                // Cofactor expansion for 4x4 (using first row)
-                // det(M) = Σ(-1)^(1+j) * M[0][j] * det(M_minor_j)
+                // Cofactor expansion for 4x4 (using first row, 0-indexed)
+                // det(M) = Σ(-1)^(0+j) * M[0][j] * det(M_minor_j) = Σ(-1)^j * M[0][j] * det(M_minor_j)
                 // Where M_minor_j is the 3x3 matrix obtained by removing row 0 and column j
 
                 let zero = self.builder.ins().f32const(0.0);
@@ -245,7 +264,7 @@ impl<'a> CodegenContext<'a> {
                     // Get element M[0][j] from first row
                     let m_0j = get(0, j);
 
-                    // Compute sign: (-1)^(1+j) = 1 if j is even, -1 if j is odd
+                    // Compute sign: (-1)^j = 1 if j is even, -1 if j is odd
                     let sign = if j % 2 == 0 {
                         self.builder.ins().f32const(1.0)
                     } else {
@@ -359,18 +378,190 @@ impl<'a> CodegenContext<'a> {
                 Ok((result_vals, m_ty.clone()))
             }
             3 => {
-                // For 3x3, use adjugate/determinant method
-                // This is complex, so for now return error
-                return Err(GlslError::new(
-                    ErrorCode::E0400,
-                    "3x3 matrix inverse not yet implemented",
-                ));
+                // 3x3 inverse using adjugate method: M^(-1) = (1/det(M)) * adj(M)
+                // Where adj(M) is the transpose of the cofactor matrix
+
+                // Step 1: Compute determinant
+                let det = {
+                    let a = get(0, 0);
+                    let b = get(0, 1);
+                    let c = get(0, 2);
+                    let d = get(1, 0);
+                    let e = get(1, 1);
+                    let f = get(1, 2);
+                    let g = get(2, 0);
+                    let h = get(2, 1);
+                    let i = get(2, 2);
+
+                    let ei = self.builder.ins().fmul(e, i);
+                    let fh = self.builder.ins().fmul(f, h);
+                    let ei_minus_fh = self.builder.ins().fsub(ei, fh);
+                    let term1 = self.builder.ins().fmul(a, ei_minus_fh);
+
+                    let di = self.builder.ins().fmul(d, i);
+                    let fg = self.builder.ins().fmul(f, g);
+                    let di_minus_fg = self.builder.ins().fsub(di, fg);
+                    let term2 = self.builder.ins().fmul(b, di_minus_fg);
+
+                    let dh = self.builder.ins().fmul(d, h);
+                    let eg = self.builder.ins().fmul(e, g);
+                    let dh_minus_eg = self.builder.ins().fsub(dh, eg);
+                    let term3 = self.builder.ins().fmul(c, dh_minus_eg);
+
+                    let term1_minus_term2 = self.builder.ins().fsub(term1, term2);
+                    self.builder.ins().fadd(term1_minus_term2, term3)
+                };
+
+                // Step 2: Compute 1/det
+                let one = self.builder.ins().f32const(1.0);
+                let inv_det = self.builder.ins().fdiv(one, det);
+
+                // Step 3: Compute cofactor matrix
+                // Cofactor[i][j] = (-1)^(i+j) * det(minor_ij)
+                // Where minor_ij is the 2x2 matrix obtained by removing row i and column j
+                let mut cofactor_vals = Vec::new();
+
+                for i in 0..3 {
+                    for j in 0..3 {
+                        // Compute sign: (-1)^(i+j)
+                        let sign = if (i + j) % 2 == 0 {
+                            self.builder.ins().f32const(1.0)
+                        } else {
+                            self.builder.ins().f32const(-1.0)
+                        };
+
+                        // Extract 2x2 minor by removing row i and column j
+                        let mut minor_vals = Vec::new();
+                        for minor_col in 0..2 {
+                            // Map minor column index to original column index
+                            let orig_col = if minor_col < j { minor_col } else { minor_col + 1 };
+                            for minor_row in 0..2 {
+                                // Map minor row index to original row index
+                                let orig_row = if minor_row < i { minor_row } else { minor_row + 1 };
+                                minor_vals.push(get(orig_row, orig_col));
+                            }
+                        }
+
+                        // Compute determinant of minor
+                        let minor_det = self.compute_2x2_determinant(&minor_vals);
+
+                        // Cofactor = sign * det(minor)
+                        let cofactor = self.builder.ins().fmul(sign, minor_det);
+                        cofactor_vals.push(cofactor);
+                    }
+                }
+
+                // Step 4: Transpose cofactor matrix to get adjugate
+                // adj[i][j] = cofactor[j][i]
+                // Result stored column-major: result[col][row] = adj[row][col] = cofactor[col][row]
+                let mut result_vals = Vec::new();
+                for result_col in 0..3 {
+                    for result_row in 0..3 {
+                        // result[result_col][result_row] = adj[result_row][result_col] = cofactor[result_col][result_row]
+                        let cofactor_idx = result_col * 3 + result_row;
+                        let adjugate_val = cofactor_vals[cofactor_idx];
+
+                        // Step 5: Multiply by 1/det
+                        let inv_val = self.builder.ins().fmul(adjugate_val, inv_det);
+                        result_vals.push(inv_val);
+                    }
+                }
+
+                Ok((result_vals, m_ty.clone()))
             }
             4 => {
-                return Err(GlslError::new(
-                    ErrorCode::E0400,
-                    "4x4 matrix inverse not yet implemented",
-                ));
+                // 4x4 inverse using adjugate method: M^(-1) = (1/det(M)) * adj(M)
+                // Where adj(M) is the transpose of the cofactor matrix
+
+                // Step 1: Compute determinant
+                let det = {
+                    let zero = self.builder.ins().f32const(0.0);
+                    let mut det = zero;
+
+                    // Expand along first row (row 0)
+                    for j in 0..4 {
+                        let m_0j = get(0, j);
+
+                        let sign = if j % 2 == 0 {
+                            self.builder.ins().f32const(1.0)
+                        } else {
+                            self.builder.ins().f32const(-1.0)
+                        };
+
+                        // Extract 3x3 minor matrix by removing row 0 and column j
+                        let mut minor_vals = Vec::new();
+                        for minor_col in 0..3 {
+                            let orig_col = if minor_col < j { minor_col } else { minor_col + 1 };
+                            for minor_row in 0..3 {
+                                let orig_row = minor_row + 1; // Skip row 0
+                                minor_vals.push(get(orig_row, orig_col));
+                            }
+                        }
+
+                        let minor_det = self.compute_3x3_determinant(&minor_vals);
+                        let m_times_det = self.builder.ins().fmul(m_0j, minor_det);
+                        let cofactor = self.builder.ins().fmul(sign, m_times_det);
+                        det = self.builder.ins().fadd(det, cofactor);
+                    }
+                    det
+                };
+
+                // Step 2: Compute 1/det
+                let one = self.builder.ins().f32const(1.0);
+                let inv_det = self.builder.ins().fdiv(one, det);
+
+                // Step 3: Compute cofactor matrix
+                // Cofactor[i][j] = (-1)^(i+j) * det(minor_ij)
+                // Where minor_ij is the 3x3 matrix obtained by removing row i and column j
+                let mut cofactor_vals = Vec::new();
+
+                for i in 0..4 {
+                    for j in 0..4 {
+                        // Compute sign: (-1)^(i+j)
+                        let sign = if (i + j) % 2 == 0 {
+                            self.builder.ins().f32const(1.0)
+                        } else {
+                            self.builder.ins().f32const(-1.0)
+                        };
+
+                        // Extract 3x3 minor by removing row i and column j
+                        let mut minor_vals = Vec::new();
+                        for minor_col in 0..3 {
+                            // Map minor column index to original column index
+                            let orig_col = if minor_col < j { minor_col } else { minor_col + 1 };
+                            for minor_row in 0..3 {
+                                // Map minor row index to original row index
+                                let orig_row = if minor_row < i { minor_row } else { minor_row + 1 };
+                                minor_vals.push(get(orig_row, orig_col));
+                            }
+                        }
+
+                        // Compute determinant of minor
+                        let minor_det = self.compute_3x3_determinant(&minor_vals);
+
+                        // Cofactor = sign * det(minor)
+                        let cofactor = self.builder.ins().fmul(sign, minor_det);
+                        cofactor_vals.push(cofactor);
+                    }
+                }
+
+                // Step 4: Transpose cofactor matrix to get adjugate
+                // adj[i][j] = cofactor[j][i]
+                // Result stored column-major: result[col][row] = adj[row][col] = cofactor[col][row]
+                let mut result_vals = Vec::new();
+                for result_col in 0..4 {
+                    for result_row in 0..4 {
+                        // result[result_col][result_row] = adj[result_row][result_col] = cofactor[result_col][result_row]
+                        let cofactor_idx = result_col * 4 + result_row;
+                        let adjugate_val = cofactor_vals[cofactor_idx];
+
+                        // Step 5: Multiply by 1/det
+                        let inv_val = self.builder.ins().fmul(adjugate_val, inv_det);
+                        result_vals.push(inv_val);
+                    }
+                }
+
+                Ok((result_vals, m_ty.clone()))
             }
             _ => {
                 return Err(GlslError::new(

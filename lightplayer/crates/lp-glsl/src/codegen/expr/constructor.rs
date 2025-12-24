@@ -155,16 +155,35 @@ pub fn translate_matrix_constructor(
             }
         }
     }
-    // Case 4: Mixed scalars - column-major order
+    // Case 4: Mixed scalars and/or vectors - column-major order
     else {
-        for col in 0..cols {
-            for row in 0..rows {
-                let scalar_index = col * rows + row;
-                let scalar = arg_vals[scalar_index][0];
-                let scalar_ty = &arg_types[scalar_index];
-                let float_val = coercion::coerce_to_type(ctx, scalar, scalar_ty, &GlslType::Float)?;
+        let mut element_index = 0;
+        for (arg_val, arg_ty) in arg_vals.iter().zip(&arg_types) {
+            if arg_ty.is_vector() {
+                // Vector contributes all its elements as a column (or part of a column)
+                let vec_base = arg_ty.vector_base_type().unwrap();
+                for &val in arg_val {
+                    if element_index >= element_count {
+                        break;
+                    }
+                    let col = element_index / rows;
+                    let row = element_index % rows;
+                    let float_val = coercion::coerce_to_type(ctx, val, &vec_base, &GlslType::Float)?;
+                    let var_idx = col * rows + row;
+                    ctx.builder.def_var(matrix_vars[var_idx], float_val);
+                    element_index += 1;
+                }
+            } else if arg_ty.is_scalar() {
+                // Scalar contributes one element
+                if element_index >= element_count {
+                    break;
+                }
+                let col = element_index / rows;
+                let row = element_index % rows;
+                let float_val = coercion::coerce_to_type(ctx, arg_val[0], arg_ty, &GlslType::Float)?;
                 let var_idx = col * rows + row;
                 ctx.builder.def_var(matrix_vars[var_idx], float_val);
+                element_index += 1;
             }
         }
     }

@@ -89,6 +89,12 @@ struct FileSpec {
     line_number: Option<usize>,
 }
 
+/// Represents a failed test for summary reporting.
+struct FailedTest {
+    path: PathBuf,
+    line_number: Option<usize>,
+}
+
 
 /// Check if a string contains glob pattern characters
 fn contains_glob_pattern(s: &str) -> bool {
@@ -242,6 +248,7 @@ pub fn run(verbose: bool, files: &[String]) -> anyhow::Result<()> {
 
     let mut passed = 0;
     let mut failed = 0;
+    let mut failed_tests = Vec::new();
 
     println!("Running {} test file(s)...\n", test_specs.len());
 
@@ -270,11 +277,44 @@ pub fn run(verbose: bool, files: &[String]) -> anyhow::Result<()> {
                     println!("  Error details: {:#}", e);
                 }
                 failed += 1;
+                failed_tests.push(FailedTest {
+                    path: spec.path.clone(),
+                    line_number: spec.line_number,
+                });
             }
         }
     }
 
     println!("\nResults: {} passed, {} failed", passed, failed);
+
+    // Print summary of failed tests when running multiple tests
+    if !show_full_output && failed > 0 {
+        println!("\nFailed tests:");
+        for failed_test in &failed_tests {
+            // Compute relative path from filetests_dir
+            let relative_path = failed_test
+                .path
+                .strip_prefix(&filetests_dir)
+                .unwrap_or(&failed_test.path)
+                .to_string_lossy()
+                .to_string();
+
+            let display_path = if let Some(line) = failed_test.line_number {
+                format!("{}:{}", relative_path, line)
+            } else {
+                relative_path.clone()
+            };
+
+            let rerun_cmd = if let Some(line) = failed_test.line_number {
+                format!("scripts/glsl-filetests.sh {}:{}", relative_path, line)
+            } else {
+                format!("scripts/glsl-filetests.sh {}", relative_path)
+            };
+
+            println!("  {}", display_path);
+            println!("    Rerun: {}", rerun_cmd);
+        }
+    }
 
     if failed > 0 {
         anyhow::bail!("{} test file(s) failed", failed);

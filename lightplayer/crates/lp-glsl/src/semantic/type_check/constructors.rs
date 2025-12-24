@@ -187,56 +187,91 @@ pub fn check_matrix_constructor(
     // Case 2: Column vectors - one vector per column
     if args.len() == cols {
         // Check all args are vectors of correct type
-        for (i, arg) in args.iter().enumerate() {
+        let mut all_vectors = true;
+        for arg in args {
             if !arg.is_vector() {
-                return Err(GlslError::new(
-                    ErrorCode::E0103,
-                    format!("matrix column {} must be a vector, got `{:?}`", i, arg)
-                ));
-            }
-            if arg.component_count() != Some(rows) {
-                return Err(GlslError::new(
-                    ErrorCode::E0115,
-                    format!("matrix column {} has wrong size: expected {} components, got {}", 
-                        i, rows, arg.component_count().unwrap_or(0))
-                ));
-            }
-            // Check base type can convert to float
-            let arg_base = arg.vector_base_type().unwrap();
-            if !can_implicitly_convert(&arg_base, &Type::Float) {
-                return Err(GlslError::new(
-                    ErrorCode::E0103,
-                    format!("matrix column {} has incompatible base type: `{:?}`", i, arg_base)
-                ));
+                all_vectors = false;
+                break;
             }
         }
-        return Ok(result_type);
-    }
-
-    // Case 3: Mixed scalars - column-major order
-    if args.len() == element_count {
-        // Check all args are scalars that can convert to float
-        for (i, arg) in args.iter().enumerate() {
-            if !arg.is_scalar() {
-                return Err(GlslError::new(
-                    ErrorCode::E0103,
-                    format!("matrix element {} must be a scalar, got `{:?}`", i, arg)
-                ));
+        if all_vectors {
+            for (i, arg) in args.iter().enumerate() {
+                if arg.component_count() != Some(rows) {
+                    return Err(GlslError::new(
+                        ErrorCode::E0115,
+                        format!("matrix column {} has wrong size: expected {} components, got {}", 
+                            i, rows, arg.component_count().unwrap_or(0))
+                    ));
+                }
+                // Check base type can convert to float
+                let arg_base = arg.vector_base_type().unwrap();
+                if !can_implicitly_convert(&arg_base, &Type::Float) {
+                    return Err(GlslError::new(
+                        ErrorCode::E0103,
+                        format!("matrix column {} has incompatible base type: `{:?}`", i, arg_base)
+                    ));
+                }
             }
-            if !can_implicitly_convert(arg, &Type::Float) {
-                return Err(GlslError::new(
-                    ErrorCode::E0103,
-                    format!("matrix element {} cannot be converted to float: `{:?}`", i, arg)
-                ));
-            }
+            return Ok(result_type);
         }
-        return Ok(result_type);
+        // If not all vectors, fall through to check mixed case
     }
 
-    // Case 4: Single matrix - conversion between matrix sizes
+    // Case 3: Single matrix - conversion between matrix sizes
+    // Check this before counting components, since count_total_components doesn't handle matrices
     if args.len() == 1 && args[0].is_matrix() {
         // Matrix conversion is allowed - smaller matrices are padded with identity,
         // larger matrices are truncated
+        return Ok(result_type);
+    }
+
+    // Case 4: Mixed scalars - column-major order
+    if args.len() == element_count {
+        // Check all args are scalars that can convert to float
+        let mut all_scalars = true;
+        for arg in args {
+            if !arg.is_scalar() {
+                all_scalars = false;
+                break;
+            }
+        }
+        if all_scalars {
+            for (i, arg) in args.iter().enumerate() {
+                if !can_implicitly_convert(arg, &Type::Float) {
+                    return Err(GlslError::new(
+                        ErrorCode::E0103,
+                        format!("matrix element {} cannot be converted to float: `{:?}`", i, arg)
+                    ));
+                }
+            }
+            return Ok(result_type);
+        }
+    }
+
+    // Case 5: Mixed scalars and vectors - column-major order
+    // Count total elements from all arguments
+    let total_elements = count_total_components(args)?;
+    if total_elements == element_count {
+        // Validate each argument can convert to float
+        for (i, arg) in args.iter().enumerate() {
+            let arg_base = if arg.is_vector() {
+                arg.vector_base_type().unwrap()
+            } else if arg.is_scalar() {
+                arg.clone()
+            } else {
+                return Err(GlslError::new(
+                    ErrorCode::E0103,
+                    format!("matrix constructor argument {} must be a scalar or vector, got `{:?}`", i, arg)
+                ));
+            };
+            
+            if !can_implicitly_convert(&arg_base, &Type::Float) {
+                return Err(GlslError::new(
+                    ErrorCode::E0103,
+                    format!("matrix constructor argument {} cannot be converted to float: `{:?}`", i, arg_base)
+                ));
+            }
+        }
         return Ok(result_type);
     }
 
@@ -245,7 +280,7 @@ pub fn check_matrix_constructor(
         ErrorCode::E0115,
         format!("`{}` constructor has wrong number of arguments", type_name)
     )
-    .with_note(format!("expected 1 (identity/matrix), {} (columns), or {} (scalars), found {}",
-        cols, element_count, args.len())))
+    .with_note(format!("expected 1 (identity/matrix), {} (columns), {} (scalars), or {} total elements (mixed), found {}",
+        cols, element_count, element_count, args.len())))
 }
 
