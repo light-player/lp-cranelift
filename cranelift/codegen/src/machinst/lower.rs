@@ -27,8 +27,6 @@ use cranelift_control::ControlPlane;
 use crate::{FxHashMap, FxHashSet};
 use smallvec::{SmallVec, smallvec};
 use core::fmt::Debug;
-#[cfg(feature = "std")]
-use std::io::Write;
 
 use super::{VCodeBuildDirection, VRegAllocator};
 
@@ -591,19 +589,6 @@ impl<'func, I: VCodeInst> Lower<'func, I> {
 
     /// Generate the return instruction.
     pub fn gen_return(&mut self, rets: &[ValueRegs<Reg>]) {
-        // #region agent log
-        #[cfg(feature = "std")]
-        if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
-            let _ = writeln!(&mut file, "DEBUG gen_return: called rets_count={} sig_returns_count={}", rets.len(), self.abi().signature().returns.len());
-            for (i, ret) in rets.iter().enumerate() {
-                let _ = writeln!(&mut file, "DEBUG gen_return: ret[{}] regs_count={}", i, ret.len());
-                for (j, reg) in ret.regs().iter().enumerate() {
-                    let _ = writeln!(&mut file, "DEBUG gen_return: ret[{}].reg[{}]={:?} is_virtual={}", i, j, reg, reg.is_virtual());
-                }
-            }
-        }
-        // #endregion
-
         let mut out_rets = vec![];
 
         let mut rets = rets.into_iter();
@@ -615,14 +600,7 @@ impl<'func, I: VCodeInst> Lower<'func, I> {
         let sig = self.vcode.sigs().abi_sig_for_signature(&self.f.signature);
         let sig_returns = self.abi().signature().returns.clone();
         let num_abi_rets = self.vcode.sigs().num_rets(sig);
-        
-        // #region agent log
-        #[cfg(feature = "std")]
-        if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
-            let _ = writeln!(&mut file, "DEBUG gen_return: num_abi_rets={} sig_returns_len={} rets_len={}", num_abi_rets, sig_returns.len(), rets.len());
-        }
-        // #endregion
-        
+
         // Iterate over signature returns if available, otherwise use ABI return count.
         // For riscv32 with implicit sret, signature().returns is empty but sigs.rets() has the locations.
         let returns_to_process = if !sig_returns.is_empty() {
@@ -644,24 +622,12 @@ impl<'func, I: VCodeInst> Lower<'func, I> {
                 *rets.next().unwrap()
             };
 
-            // #region agent log
-            #[cfg(feature = "std")]
-            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
-                let _ = writeln!(&mut file, "DEBUG gen_return: processing return[{}] from_regs_len={}", i, regs.len());
-            }
-            // #endregion
             let (regs, insns) = self.vcode.abi().gen_copy_regs_to_retval(
                 self.vcode.sigs(),
                 i,
                 regs,
                 &mut self.vregs,
             );
-            // #region agent log
-            #[cfg(feature = "std")]
-            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
-                let _ = writeln!(&mut file, "DEBUG gen_return: gen_copy_regs_to_retval returned ret_pairs={} insts={}", regs.len(), insns.len());
-            }
-            // #endregion
             out_rets.extend(regs);
             for insn in insns {
                 self.emit(insn);
@@ -680,22 +646,7 @@ impl<'func, I: VCodeInst> Lower<'func, I> {
             }
         }
 
-        // #region agent log
-        #[cfg(feature = "std")]
-        if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
-            let _ = writeln!(&mut file, "DEBUG gen_return: calling gen_rets ret_pairs_count={}", out_rets.len());
-            for (i, rp) in out_rets.iter().enumerate() {
-                let _ = writeln!(&mut file, "DEBUG gen_return: RetPair[{}] vreg={:?} preg={:?} vreg_is_virtual={} preg_hw_enc={}", i, rp.vreg, rp.preg, rp.vreg.is_virtual(), rp.preg.to_real_reg().map(|r| r.hw_enc()).unwrap_or(255));
-            }
-        }
-        // #endregion
         let inst = self.abi().gen_rets(out_rets);
-        // #region agent log
-        #[cfg(feature = "std")]
-        if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
-            let _ = writeln!(&mut file, "DEBUG gen_return: gen_rets returned inst={:?}, emitting", inst);
-        }
-        // #endregion
         self.emit(inst);
     }
 

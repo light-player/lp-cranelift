@@ -21,8 +21,6 @@ use regalloc2::{MachineEnv, PReg, PRegSet};
 use smallvec::{SmallVec, smallvec};
 #[cfg(feature = "std")]
 use std::sync::OnceLock;
-#[cfg(feature = "std")]
-use std::io::Write;
 use alloc::borrow::ToOwned;
 
 /// Support for the Riscv32 ABI from the callee side (within a function body).
@@ -241,15 +239,6 @@ impl ABIMachineSpec for Riscv32MachineDeps {
     }
 
     fn gen_rets(rets: Vec<RetPair>) -> Inst {
-        // #region agent log
-        #[cfg(feature = "std")]
-        if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
-            let _ = writeln!(&mut file, "DEBUG gen_rets: called rets_count={}", rets.len());
-            for (i, rp) in rets.iter().enumerate() {
-                let _ = writeln!(&mut file, "DEBUG gen_rets: RetPair[{}] vreg={:?} vreg_is_virtual={} preg={:?} preg_hw_enc={}", i, rp.vreg, rp.vreg.is_virtual(), rp.preg, rp.preg.to_real_reg().map(|r| r.hw_enc()).unwrap_or(255));
-            }
-        }
-        // #endregion
         Inst::Rets { rets }
     }
 
