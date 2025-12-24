@@ -521,11 +521,10 @@ fn print_failed_tests_summary(
 ) {
     if show_summary && !failed_tests.is_empty() {
         // Print title with count and bold styling
-        let count = failed_tests.len();
         let title = if should_color() {
-            format!("{}{}Failed tests{}", colors::RED, colors::BOLD, colors::RESET)
+            format!("{}{}{} Failed tests{}", colors::RED, colors::BOLD, failed_tests.len(), colors::RESET)
         } else {
-            "Failed tests".to_string()
+            format!("{} Failed tests", failed_tests.len())
         };
         println!("\n{}", title);
         
