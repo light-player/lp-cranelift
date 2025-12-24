@@ -149,6 +149,68 @@ pub fn is_matrix_type_name(name: &str) -> bool {
     matches!(name, "mat2" | "mat3" | "mat4")
 }
 
+/// Check if a name is a scalar type constructor
+pub fn is_scalar_type_name(name: &str) -> bool {
+    matches!(name, "bool" | "int" | "float")
+    // TODO: Add "uint" when Type::UInt is added
+}
+
+/// Check scalar constructor arguments and infer result type
+pub fn check_scalar_constructor(type_name: &str, args: &[Type]) -> Result<Type, GlslError> {
+    check_scalar_constructor_with_span(type_name, args, None)
+}
+
+/// Check scalar constructor arguments and infer result type with optional span
+pub fn check_scalar_constructor_with_span(
+    type_name: &str,
+    args: &[Type],
+    span: Option<SourceSpan>,
+) -> Result<Type, GlslError> {
+    // Scalar constructors take exactly one argument
+    if args.len() != 1 {
+        let mut error = GlslError::new(
+            ErrorCode::E0115,
+            format!("`{}` constructor requires exactly one argument", type_name),
+        );
+        if let Some(ref s) = span {
+            error = error.with_location(source_span_to_location(s));
+        }
+        return Err(error);
+    }
+
+    // Argument must be scalar
+    if !args[0].is_scalar() {
+        let mut error = GlslError::new(
+            ErrorCode::E0115,
+            format!("`{}` constructor requires scalar argument", type_name),
+        );
+        if let Some(ref s) = span {
+            error = error.with_location(source_span_to_location(s));
+        }
+        return Err(error);
+    }
+
+    // Determine result type
+    let result_type = match type_name {
+        "bool" => Type::Bool,
+        "int" => Type::Int,
+        "float" => Type::Float,
+        // TODO: Add uint when Type::UInt is added
+        _ => {
+            let mut error = GlslError::new(
+                ErrorCode::E0112,
+                format!("`{}` is not a scalar type", type_name),
+            );
+            if let Some(ref s) = span {
+                error = error.with_location(source_span_to_location(s));
+            }
+            return Err(error);
+        }
+    };
+
+    Ok(result_type)
+}
+
 /// Parse matrix type name to Type
 fn parse_matrix_type_name(name: &str) -> Result<Type, GlslError> {
     match name {

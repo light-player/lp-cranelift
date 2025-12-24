@@ -1,7 +1,7 @@
 use crate::codegen::context::CodegenContext;
 use crate::codegen::rvalue::RValue;
 use crate::error::{ErrorCode, GlslError, source_span_to_location};
-use crate::semantic::type_check::{is_matrix_type_name, is_vector_type_name};
+use crate::semantic::type_check::{is_matrix_type_name, is_vector_type_name, is_scalar_type_name};
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::InstBuilder;
 use glsl::syntax::Expr;
@@ -52,6 +52,11 @@ pub fn translate_function_call(
 
     if is_matrix_type_name(func_name) {
         return constructor::translate_matrix_constructor(ctx, func_name, args);
+    }
+
+    // Check for scalar constructors
+    if is_scalar_type_name(func_name) {
+        return constructor::translate_scalar_constructor(ctx, func_name, args, span.clone());
     }
 
     // Check if it's a built-in function

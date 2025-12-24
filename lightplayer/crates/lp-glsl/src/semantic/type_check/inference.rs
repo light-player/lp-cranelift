@@ -16,8 +16,8 @@ use alloc::vec::Vec;
 use std::vec::Vec;
 
 use super::constructors::{
-    check_matrix_constructor, check_vector_constructor_with_span, is_matrix_type_name,
-    is_vector_type_name,
+    check_matrix_constructor, check_scalar_constructor_with_span, check_vector_constructor_with_span, is_matrix_type_name,
+    is_scalar_type_name, is_vector_type_name,
 };
 use super::operators::{infer_binary_result_type, infer_postdec_result_type, infer_postinc_result_type, infer_unary_result_type};
 use super::swizzle::parse_swizzle_length;
@@ -153,6 +153,11 @@ pub fn infer_expr_type_with_registry(
 
             if is_matrix_type_name(func_name) {
                 return check_matrix_constructor(func_name, &arg_types);
+            }
+
+            // Check for scalar constructors
+            if is_scalar_type_name(func_name) {
+                return check_scalar_constructor_with_span(func_name, &arg_types, Some(span.clone()));
             }
 
             // Check if it's a built-in function

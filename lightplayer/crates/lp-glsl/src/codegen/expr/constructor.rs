@@ -1,7 +1,7 @@
 use crate::codegen::context::CodegenContext;
 use crate::semantic::types::Type as GlslType;
 use crate::semantic::type_check::{check_vector_constructor_with_span, check_matrix_constructor};
-use crate::error::{GlslError, source_span_to_location};
+use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use glsl::syntax::Expr;
 use cranelift_codegen::ir::InstBuilder;
 
@@ -201,5 +201,65 @@ pub fn translate_matrix_constructor(
     }
 
     Ok((result_vals, result_type))
+}
+
+/// Translate scalar type constructor (bool(int), int(bool), etc.)
+pub fn translate_scalar_constructor(
+    ctx: &mut CodegenContext,
+    type_name: &str,
+    args: &[Expr],
+    span: glsl::syntax::SourceSpan,
+) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {
+    // Ensure we're in a block before evaluating
+    ctx.ensure_block()?;
+
+    // Scalar constructors take exactly one argument
+    if args.len() != 1 {
+        return Err(GlslError::new(
+            ErrorCode::E0115,
+            format!("`{}` constructor requires exactly one argument", type_name),
+        )
+        .with_location(source_span_to_location(&span)));
+    }
+
+    // Translate argument
+    let arg_rvalue = ctx.emit_rvalue(&args[0])?;
+    let arg_ty = arg_rvalue.ty().clone();
+    let arg_vals = arg_rvalue.into_values();
+    if arg_vals.len() != 1 {
+        return Err(GlslError::new(
+            ErrorCode::E0115,
+            format!("`{}` constructor requires scalar argument", type_name),
+        )
+        .with_location(source_span_to_location(&span)));
+    }
+    let arg_val = arg_vals[0];
+
+    // Determine result type
+    let result_ty = match type_name {
+        "bool" => GlslType::Bool,
+        "int" => GlslType::Int,
+        "float" => GlslType::Float,
+        // TODO: Add uint support when Type::UInt is added
+        // "uint" => GlslType::UInt,
+        _ => {
+            return Err(GlslError::new(
+                ErrorCode::E0112,
+                format!("`{}` is not a scalar type", type_name),
+            )
+            .with_location(source_span_to_location(&span)));
+        }
+    };
+
+    // Convert argument to result type using coercion
+    let result_val = coercion::coerce_to_type_with_location(
+        ctx,
+        arg_val,
+        &arg_ty,
+        &result_ty,
+        Some(span.clone()),
+    )?;
+
+    Ok((vec![result_val], result_ty))
 }
 

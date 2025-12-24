@@ -11,7 +11,7 @@ pub mod swizzle;
 // Re-export public API
 pub use constructors::{
     check_matrix_constructor, check_vector_constructor, check_vector_constructor_with_span,
-    is_matrix_type_name, is_vector_type_name,
+    check_scalar_constructor_with_span, is_matrix_type_name, is_vector_type_name, is_scalar_type_name,
 };
 pub use conversion::{
     can_implicitly_convert, check_assignment, check_assignment_with_span, promote_numeric,
