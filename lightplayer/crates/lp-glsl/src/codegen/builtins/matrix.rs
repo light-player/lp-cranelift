@@ -126,6 +126,43 @@ impl<'a> CodegenContext<'a> {
         Ok((result_vals, m_ty.clone()))
     }
 
+    /// Helper to compute 3x3 determinant from column-major values
+    /// Values should be 9 elements: [col0_row0, col0_row1, col0_row2, col1_row0, ...]
+    fn compute_3x3_determinant(&mut self, vals: &[Value]) -> Value {
+        // Helper to get element at (row, col) from column-major storage
+        let get = |row: usize, col: usize| -> Value { vals[col * 3 + row] };
+
+        // Sarrus rule for 3x3
+        // det = a(ei - fh) - b(di - fg) + c(dh - eg)
+        let a = get(0, 0);
+        let b = get(0, 1);
+        let c = get(0, 2);
+        let d = get(1, 0);
+        let e = get(1, 1);
+        let f = get(1, 2);
+        let g = get(2, 0);
+        let h = get(2, 1);
+        let i = get(2, 2);
+
+        let ei = self.builder.ins().fmul(e, i);
+        let fh = self.builder.ins().fmul(f, h);
+        let ei_minus_fh = self.builder.ins().fsub(ei, fh);
+        let term1 = self.builder.ins().fmul(a, ei_minus_fh);
+
+        let di = self.builder.ins().fmul(d, i);
+        let fg = self.builder.ins().fmul(f, g);
+        let di_minus_fg = self.builder.ins().fsub(di, fg);
+        let term2 = self.builder.ins().fmul(b, di_minus_fg);
+
+        let dh = self.builder.ins().fmul(d, h);
+        let eg = self.builder.ins().fmul(e, g);
+        let dh_minus_eg = self.builder.ins().fsub(dh, eg);
+        let term3 = self.builder.ins().fmul(c, dh_minus_eg);
+
+        let term1_minus_term2 = self.builder.ins().fsub(term1, term2);
+        self.builder.ins().fadd(term1_minus_term2, term3)
+    }
+
     /// Compute matrix determinant
     pub fn builtin_determinant(
         &mut self,
@@ -197,12 +234,53 @@ impl<'a> CodegenContext<'a> {
             }
             4 => {
                 // Cofactor expansion for 4x4 (using first row)
-                // This is complex, so we'll use a simpler approach: compute via minors
-                // For now, return an error and implement later if needed
-                return Err(GlslError::new(
-                    ErrorCode::E0400,
-                    "4x4 determinant not yet implemented",
-                ));
+                // det(M) = Σ(-1)^(1+j) * M[0][j] * det(M_minor_j)
+                // Where M_minor_j is the 3x3 matrix obtained by removing row 0 and column j
+
+                let zero = self.builder.ins().f32const(0.0);
+                let mut det = zero;
+
+                // Expand along first row (row 0)
+                for j in 0..4 {
+                    // Get element M[0][j] from first row
+                    let m_0j = get(0, j);
+
+                    // Compute sign: (-1)^(1+j) = 1 if j is even, -1 if j is odd
+                    let sign = if j % 2 == 0 {
+                        self.builder.ins().f32const(1.0)
+                    } else {
+                        self.builder.ins().f32const(-1.0)
+                    };
+
+                    // Extract 3x3 minor matrix by removing row 0 and column j
+                    // Minor matrix uses rows 1,2,3 and columns 0,1,2,3 except column j
+                    let mut minor_vals = Vec::new();
+                    // Iterate over the 3 columns of the minor matrix
+                    for minor_col in 0..3 {
+                        // Map minor column index to original column index
+                        // Original columns are [0,1,2,3] with j removed
+                        // If minor_col < j: original column = minor_col
+                        // If minor_col >= j: original column = minor_col + 1 (skip j)
+                        let orig_col = if minor_col < j { minor_col } else { minor_col + 1 };
+                        // Extract rows 1, 2, 3 (skip row 0)
+                        for minor_row in 0..3 {
+                            let orig_row = minor_row + 1; // Skip row 0
+                            minor_vals.push(get(orig_row, orig_col));
+                        }
+                    }
+
+                    // Compute determinant of minor
+                    let minor_det = self.compute_3x3_determinant(&minor_vals);
+
+                    // Compute: sign * M[0][j] * det(minor)
+                    let m_times_det = self.builder.ins().fmul(m_0j, minor_det);
+                    let cofactor = self.builder.ins().fmul(sign, m_times_det);
+
+                    // Accumulate: det += cofactor
+                    det = self.builder.ins().fadd(det, cofactor);
+                }
+
+                det
             }
             _ => {
                 return Err(GlslError::new(
