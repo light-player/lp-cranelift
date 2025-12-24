@@ -1,4 +1,6 @@
 use crate::codegen::context::CodegenContext;
+use crate::codegen::rvalue::RValue;
+use crate::codegen::lvalue::emit_lvalue_as_rvalue;
 use crate::error::{ErrorCode, GlslError, extract_span_from_expr, source_span_to_location};
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::Value;
@@ -333,4 +335,18 @@ pub fn has_duplicates(indices: &[usize]) -> bool {
         }
     }
     false
+}
+
+/// Emit component access expression as RValue
+///
+/// Handles dot notation (e.g., `vec.x`, `vec.xy`) by resolving as LValue then loading.
+pub fn emit_component_access_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+    emit_lvalue_as_rvalue(ctx, expr)
+}
+
+/// Emit matrix/vector indexing expression as RValue
+///
+/// Handles bracket notation (e.g., `vec[0]`, `mat[0][1]`) by resolving as LValue then loading.
+pub fn emit_matrix_indexing_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+    emit_lvalue_as_rvalue(ctx, expr)
 }

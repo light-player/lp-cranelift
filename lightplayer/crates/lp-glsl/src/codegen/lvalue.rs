@@ -5,6 +5,7 @@
 //! eliminating code duplication across assignment, increment, and decrement operations.
 
 use crate::codegen::context::CodegenContext;
+use crate::codegen::rvalue::RValue;
 use crate::error::{ErrorCode, GlslError, extract_span_from_expr, extract_span_from_identifier, source_span_to_location};
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::Value;
@@ -504,3 +505,13 @@ pub fn write_lvalue(
     }
 }
 
+/// Common pattern: resolve expression as LValue, then load it as RValue
+///
+/// This pattern is used for Variable, Dot, and Bracket expressions.
+/// First resolves the expression to a modifiable location (LValue),
+/// then reads the current value(s) from that location.
+pub fn emit_lvalue_as_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+    let lvalue = resolve_lvalue(ctx, expr)?;
+    let (vals, ty) = read_lvalue(ctx, &lvalue)?;
+    Ok(RValue::from_aggregate(vals, ty))
+}

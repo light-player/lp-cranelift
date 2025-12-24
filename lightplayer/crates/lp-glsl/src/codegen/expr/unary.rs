@@ -6,43 +6,58 @@ use crate::error::{ErrorCode, GlslError};
 use glsl::syntax::Expr;
 use cranelift_codegen::ir::{types, Value, condcodes::IntCC, InstBuilder};
 
+use super::incdec;
+
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-/// Emit code to compute a unary expression as an RValue
-pub fn emit_unary_rvalue(
-    ctx: &mut CodegenContext,
-    expr: &Expr,
-) -> Result<RValue, GlslError> {
-    // Ensure we're in a block before evaluating
-    ctx.ensure_block()?;
-    
+/// Emit unary expression as RValue
+///
+/// Handles pre-increment/decrement specially, delegates other unary operations
+/// to translate_unary_op.
+pub fn emit_unary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
     let Expr::Unary(op, operand, span) = expr else {
         unreachable!("emit_unary_rvalue called on non-unary expr");
     };
-    
-    let operand_rvalue = ctx.emit_rvalue(operand)?;
-    let ty = operand_rvalue.ty().clone();
-    let vals = operand_rvalue.into_values();
-    
-    let result_ty = infer_unary_result_type(op, &ty, span.clone())?;
-    
-    // Handle scalar, vector, and matrix operations
-    if vals.len() == 1 {
-        // Scalar operation
-        let val = vals[0];
-        let result_val = translate_unary_op(ctx, op, val, &ty)?;
-        Ok(RValue::from_scalar(result_val, result_ty))
-    } else {
-        // Vector or matrix operation - apply component-wise
-        let mut result_vals = Vec::new();
-        for val in vals {
-            let result_val = translate_unary_op(ctx, op, val, &ty)?;
-            result_vals.push(result_val);
+
+    use glsl::syntax::UnaryOp::*;
+    match op {
+        Inc => {
+            let (vals, ty) = incdec::translate_preinc(ctx, operand, span.clone())?;
+            Ok(RValue::from_aggregate(vals, ty))
         }
-        Ok(RValue::from_aggregate(result_vals, result_ty))
+        Dec => {
+            let (vals, ty) = incdec::translate_predec(ctx, operand, span.clone())?;
+            Ok(RValue::from_aggregate(vals, ty))
+        }
+        _ => {
+            // Ensure we're in a block before evaluating
+            ctx.ensure_block()?;
+
+            let operand_rvalue = ctx.emit_rvalue(operand)?;
+            let ty = operand_rvalue.ty().clone();
+            let vals = operand_rvalue.into_values();
+
+            let result_ty = infer_unary_result_type(op, &ty, span.clone())?;
+
+            // Handle scalar, vector, and matrix operations
+            if vals.len() == 1 {
+                // Scalar operation
+                let val = vals[0];
+                let result_val = translate_unary_op(ctx, op, val, &ty)?;
+                Ok(RValue::from_scalar(result_val, result_ty))
+            } else {
+                // Vector or matrix operation - apply component-wise
+                let mut result_vals = Vec::new();
+                for val in vals {
+                    let result_val = translate_unary_op(ctx, op, val, &ty)?;
+                    result_vals.push(result_val);
+                }
+                Ok(RValue::from_aggregate(result_vals, result_ty))
+            }
+        }
     }
 }
 

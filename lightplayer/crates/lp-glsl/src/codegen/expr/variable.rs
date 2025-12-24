@@ -1,4 +1,6 @@
 use crate::codegen::context::CodegenContext;
+use crate::codegen::rvalue::RValue;
+use crate::codegen::lvalue::emit_lvalue_as_rvalue;
 use crate::semantic::types::Type as GlslType;
 use crate::error::{GlslError, extract_span_from_identifier, source_span_to_location};
 use glsl::syntax::Expr;
@@ -53,7 +55,12 @@ pub fn translate_variable(
     Ok((vals, ty))
 }
 
-
+/// Emit variable expression as RValue
+///
+/// Reads a variable by resolving it as an LValue, then loading its value.
+pub fn emit_variable_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+    emit_lvalue_as_rvalue(ctx, expr)
+}
 
 
 

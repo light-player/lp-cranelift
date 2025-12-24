@@ -6,6 +6,7 @@
 
 use crate::codegen::context::CodegenContext;
 use crate::codegen::lvalue::{resolve_lvalue, read_lvalue, write_lvalue};
+use crate::codegen::rvalue::RValue;
 use crate::semantic::types::Type as GlslType;
 use crate::semantic::type_check::{infer_postinc_result_type, infer_postdec_result_type, infer_preinc_result_type, infer_predec_result_type};
 use crate::error::{ErrorCode, GlslError, source_span_to_location};
@@ -129,6 +130,28 @@ fn translate_incdec(
     };
     
     Ok((return_values, result_ty))
+}
+
+/// Emit post-increment expression as RValue
+///
+/// Returns the original value before incrementing (post-increment semantics).
+pub fn emit_postinc_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+    let Expr::PostInc(operand, span) = expr else {
+        unreachable!("emit_postinc_rvalue called on non-postinc expr");
+    };
+    let (vals, ty) = translate_postinc(ctx, operand, span.clone())?;
+    Ok(RValue::from_aggregate(vals, ty))
+}
+
+/// Emit post-decrement expression as RValue
+///
+/// Returns the original value before decrementing (post-decrement semantics).
+pub fn emit_postdec_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+    let Expr::PostDec(operand, span) = expr else {
+        unreachable!("emit_postdec_rvalue called on non-postdec expr");
+    };
+    let (vals, ty) = translate_postdec(ctx, operand, span.clone())?;
+    Ok(RValue::from_aggregate(vals, ty))
 }
 
 
