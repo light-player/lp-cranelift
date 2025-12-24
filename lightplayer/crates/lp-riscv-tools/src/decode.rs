@@ -836,8 +836,6 @@ mod tests {
     /// Test that negative imm_i values (from SRAI) are handled correctly
     #[test]
     fn test_srai_negative_imm_handling() {
-        use crate::regs::Gpr;
-
         // For SRAI, imm_i will be negative because bits [31:25] = 0x20
         // This sets bit 11 of the immediate, making it negative when sign-extended
         // But imm_i & 0x1f should still correctly extract bits [4:0]

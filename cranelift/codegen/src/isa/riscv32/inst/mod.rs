@@ -20,6 +20,10 @@ use alloc::vec::Vec;
 use core::fmt::Write;
 use regalloc2::RegClass;
 use smallvec::{SmallVec, smallvec};
+#[cfg(feature = "std")]
+use std::fs::OpenOptions;
+#[cfg(feature = "std")]
+use std::io::Write as IoWrite;
 
 pub mod regs;
 pub use self::regs::*;
@@ -322,6 +326,15 @@ fn riscv32_get_operands(inst: &mut Inst, collector: &mut impl OperandVisitor) {
             }
         }
         Inst::Rets { rets } => {
+            // #region agent log
+            #[cfg(feature = "std")]
+            if let Ok(mut file) = OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+                let _ = writeln!(&mut file, "DEBUG Rets operands: processing rets_count={}", rets.len());
+                for (i, RetPair { vreg, preg }) in rets.iter().enumerate() {
+                    let _ = writeln!(&mut file, "DEBUG Rets operands: RetPair[{}] vreg={:?} vreg_is_virtual={} preg={:?} preg_hw_enc={} calling reg_fixed_use", i, vreg, vreg.is_virtual(), preg, preg.to_real_reg().map(|r| r.hw_enc()).unwrap_or(255));
+                }
+            }
+            // #endregion
             for RetPair { vreg, preg } in rets {
                 collector.reg_fixed_use(vreg, *preg);
             }

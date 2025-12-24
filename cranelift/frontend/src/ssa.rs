@@ -151,11 +151,14 @@ fn emit_zero(ty: Type, mut cur: FuncCursor) -> Value {
         }
         ty if ty.is_vector() => match ty.lane_type() {
             scalar_ty if scalar_ty.is_int() => {
+                let bytes = ty.bytes().try_into().unwrap();
+                let mut zero_vec = Vec::with_capacity(bytes);
+                zero_vec.resize(bytes, 0);
                 let zero = cur
                     .func
                     .dfg
                     .constants
-                    .insert(vec![0; ty.bytes().try_into().unwrap()].into());
+                    .insert(zero_vec.into());
                 cur.ins().vconst(ty, zero)
             }
             F16 => {

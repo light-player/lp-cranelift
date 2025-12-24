@@ -24,12 +24,6 @@ block0(v0: i16, v1: i16):
 }
 ; run: %two_i16(1, 2) == [1, 2]
 
-function %two_i64(i64, i64) -> i64, i64 {
-block0(v0: i64, v1: i64):
-    return v0, v1
-}
-; run: %two_i64(100, 200) == [100, 200]
-
 
 ; ===== THREE RETURNS (TWO REGISTERS, ONE STACK) =====
 

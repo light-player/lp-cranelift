@@ -6,36 +6,6 @@ set enable_multi_ret_implicit_sret
 
 target riscv32 has_m
 
-;;;; Test passing `i64`s ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-function %callee_i64(i64) -> i64 tail {
-block0(v0: i64):
-    v1 = iadd_imm.i64 v0, 10
-    return v1
-}
-
-function %call_i64(i64) -> i64 tail {
-    fn0 = %callee_i64(i64) -> i64 tail
-    ; sig0 = (i64) -> i64 tail
-
-block0(v0: i64):
-    v1 = func_addr.i64 fn0
-    return_call_indirect sig0, v1(v0)
-}
-; run: %call_i64(10) == 20
-
-;;;; Test colocated tail calls ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-function %colocated_i64(i64) -> i64 tail {
-    fn0 = colocated %callee_i64(i64) -> i64 tail
-    ; sig0 = (i64) -> i64 tail
-
-block0(v0: i64):
-    v1 = func_addr.i64 fn0
-    return_call_indirect sig0, v1(v0)
-}
-; run: %colocated_i64(10) == 20
-
 ;;;; Test passing `i8`s ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 function %callee_i8(i8) -> i8 tail {

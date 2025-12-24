@@ -534,7 +534,7 @@ impl<'a> FunctionBuilder<'a> {
                     _ => panic!("Unexpected ValueLabelAssignments at this stage"),
                 },
                 Entry::Vacant(e) => {
-                    e.insert(ValueLabelAssignments::Starts(vec![start]));
+                    e.insert(ValueLabelAssignments::Starts(Vec::from([start])));
                 }
             }
         }

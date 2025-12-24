@@ -383,6 +383,19 @@ pub fn execute_instruction(
             let base = read_reg(regs, rs1);
             let address = base.wrapping_add(imm) as u32;
 
+            // #region agent log
+            #[cfg(feature = "std")]
+            if rs1.num() == 2 { // SP register
+                if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+                    use std::io::Write;
+                    let _ = writeln!(&mut file, "{{\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\",\"location\":\"executor.rs:382\",\"message\":\"Reading from stack (lw)\",\"data\":{{\"pc\":{},\"rs1\":\"sp\",\"base\":{},\"imm\":{},\"address\":{}}},\"timestamp\":{}}}", 
+                        pc, base, imm, address,
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+                    );
+                }
+            }
+            // #endregion
+
             // Save register state for error context
             let error_regs = *regs;
             let value = memory.read_word(address).map_err(|mut e| {
@@ -412,6 +425,19 @@ pub fn execute_instruction(
             if rd.num() != 0 {
                 regs[rd.num() as usize] = value;
             }
+
+            // #region agent log
+            #[cfg(feature = "std")]
+            if rs1.num() == 2 { // SP register
+                if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+                    use std::io::Write;
+                    let _ = writeln!(&mut file, "{{\"sessionId\":\"debug-session\",\"runId\":\"run1\",\"hypothesisId\":\"C\",\"location\":\"executor.rs:414\",\"message\":\"Read value from stack\",\"data\":{{\"pc\":{},\"address\":{},\"value\":{},\"rd\":{}}},\"timestamp\":{}}}", 
+                        pc, address, value, rd.num(),
+                        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()
+                    );
+                }
+            }
+            // #endregion
 
             InstLog::Load {
                 cycle: 0, // Will be set by emu

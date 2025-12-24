@@ -47,10 +47,10 @@ pub struct DefinedFunction {
     /// Object [FuncId]
     func_id: cranelift_module::FuncId,
 
-    /// V-Code generated during compilation (for debugging)
+    /// V-Code generated during compilation (for debugging runtests)
     pub vcode: Option<String>,
 
-    /// Disassembly generated during compilation (for debugging)
+    /// Disassembly generated during compilation (for debugging runtests)
     pub disassembly: Option<String>,
 }
 
@@ -233,7 +233,7 @@ impl ObjectTestFileCompiler {
             disassembly: None,
         })?;
         
-        // Enable disassembly for debugging
+        // Enable disassembly for debugging runtests
         self.ctx.set_disasm(true);
         
         // Store function params and ISA for later use
@@ -246,7 +246,7 @@ impl ObjectTestFileCompiler {
             ctrl_plane,
         )?;
         
-        // Capture V-Code and disassembly if available
+        // Capture V-Code and disassembly if available (for runtests debugging)
         // Note: compiled_code is available after define_function_with_control_plane
         let (vcode, disassembly) = if let Some(compiled_code) = self.ctx.compiled_code() {
             // The vcode field contains disassembly when want_disasm is true

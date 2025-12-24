@@ -21,6 +21,9 @@ use regalloc2::{MachineEnv, PReg, PRegSet};
 use smallvec::{SmallVec, smallvec};
 #[cfg(feature = "std")]
 use std::sync::OnceLock;
+#[cfg(feature = "std")]
+use std::io::Write;
+use alloc::borrow::ToOwned;
 
 /// Support for the Riscv32 ABI from the callee side (within a function body).
 pub(crate) type Riscv32Callee = Callee<Riscv32MachineDeps>;
@@ -121,7 +124,7 @@ impl ABIMachineSpec for Riscv32MachineDeps {
                 x_reg(x_start).to_real_reg().unwrap(),
                 I32,
                 ir::ArgumentExtension::None,
-                ir::ArgumentPurpose::StructReturn,
+                ir::ArgumentPurpose::Normal,
             ))
         } else {
             None
@@ -158,19 +161,11 @@ impl ABIMachineSpec for Riscv32MachineDeps {
                     });
                 } else {
                     if args_or_rets == ArgsOrRets::Rets && !flags.enable_multi_ret_implicit_sret() {
-                        // For riscv32, automatically use StructReturn when there are too many return values
-                        // Instead of erroring, set sized_stack_ret_space to indicate StructReturn is needed
-                        // The caller will handle this appropriately
-                        let reg_ty = Inst::rc_for_type(param.value_type)?.1[0];
-                        let size = reg_ty.bits() / 8;
-                        let size = core::cmp::max(size, Self::word_bytes());
-                        next_stack = align_to(next_stack, size);
-                        slots.push(ABIArgSlot::Stack {
-                            offset: next_stack as i64,
-                            ty: reg_ty,
-                            extension: param.extension,
-                        });
-                        next_stack += size;
+                        return Err(crate::CodegenError::Unsupported(
+                            "Too many return values to fit in registers. \
+                            Use a StructReturn argument instead. (#9510)"
+                                .to_owned(),
+                        ));
                     }
 
                     // Compute size and 16-byte stack alignment happens
@@ -246,6 +241,15 @@ impl ABIMachineSpec for Riscv32MachineDeps {
     }
 
     fn gen_rets(rets: Vec<RetPair>) -> Inst {
+        // #region agent log
+        #[cfg(feature = "std")]
+        if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+            let _ = writeln!(&mut file, "DEBUG gen_rets: called rets_count={}", rets.len());
+            for (i, rp) in rets.iter().enumerate() {
+                let _ = writeln!(&mut file, "DEBUG gen_rets: RetPair[{}] vreg={:?} vreg_is_virtual={} preg={:?} preg_hw_enc={}", i, rp.vreg, rp.vreg.is_virtual(), rp.preg, rp.preg.to_real_reg().map(|r| r.hw_enc()).unwrap_or(255));
+            }
+        }
+        // #endregion
         Inst::Rets { rets }
     }
 
@@ -1089,6 +1093,79 @@ pub fn compute_return_locations_for_emulator(
     }
     
     Ok(return_locations)
+}
+
+/// Compute argument locations for emulator use.
+///
+/// This function computes where each argument should be placed according to
+/// the RISC-V 32-bit ABI, returning the information in a format suitable
+/// for the emulator to set up function calls.
+///
+/// # Arguments
+///
+/// * `call_conv` - The calling convention
+/// * `flags` - Compilation flags
+/// * `params` - The function parameters
+/// * `add_ret_area_ptr` - If true, a0 is taken by return area pointer, so arguments start from a1
+///
+/// # Returns
+///
+/// A vector of argument locations, where each element is a vector of slots
+/// for that argument. Each slot is represented as (reg_encoding, stack_offset, type).
+pub fn compute_arg_locations_for_emulator(
+    call_conv: isa::CallConv,
+    flags: &settings::Flags,
+    params: &[ir::AbiParam],
+    add_ret_area_ptr: bool,
+) -> CodegenResult<Vec<Vec<(Option<u8>, Option<i64>, ir::Type)>>> {
+    use crate::machinst::abi::{ArgsAccumulator, ArgsOrRets};
+    let mut abi_args = Vec::new();
+    let accumulator = ArgsAccumulator::new(&mut abi_args);
+
+    let (_stack_space, _ret_area_ptr) = Riscv32MachineDeps::compute_arg_locs(
+        call_conv,
+        flags,
+        params,
+        ArgsOrRets::Args,
+        add_ret_area_ptr, // Pass through to account for return area pointer taking a0
+        accumulator,
+    )?;
+
+    // Group slots by argument (each ABIArg::Slots corresponds to one argument)
+    // Only process formal parameters - if add_ret_area_ptr is true, the return area pointer
+    // is added as a non-formal argument at the end, which we skip
+    let mut arg_locations = Vec::new();
+    let num_formal_args = params.len();
+    for (i, abi_arg) in abi_args.iter().take(num_formal_args).enumerate() {
+        match abi_arg {
+            crate::machinst::abi::ABIArg::Slots { slots, .. } => {
+                let mut slots_for_arg = Vec::new();
+                for slot in slots {
+                    match slot {
+                        crate::machinst::abi::ABIArgSlot::Reg { reg, ty, .. } => {
+                            slots_for_arg.push((Some(reg.hw_enc()), None, *ty));
+                        }
+                        crate::machinst::abi::ABIArgSlot::Stack { offset, ty, .. } => {
+                            slots_for_arg.push((None, Some(*offset), *ty));
+                        }
+                    }
+                }
+                arg_locations.push(slots_for_arg);
+            }
+            _ => {
+                // Skip non-Slots arguments (shouldn't happen for formal params)
+                #[cfg(not(feature = "std"))]
+                use alloc::format;
+                #[cfg(feature = "std")]
+                use std::format;
+                return Err(crate::CodegenError::Unsupported(
+                    format!("Unexpected ABIArg variant for formal parameter {}: {:?}", i, abi_arg).into(),
+                ));
+            }
+        }
+    }
+
+    Ok(arg_locations)
 }
 
 impl Riscv32MachineDeps {

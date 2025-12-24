@@ -36,6 +36,27 @@ pub struct ReturnValueLocation {
     pub ty: Type,
 }
 
+/// Complete argument location information.
+/// Contains all slots for a single argument.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ArgLocation {
+    /// All slots for this argument (e.g., i64 has 2 slots).
+    pub slots: Vec<ArgSlot>,
+    /// The original argument type.
+    pub ty: Type,
+}
+
+/// Location where an argument slot is stored.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ArgSlot {
+    /// Argument slot is in a register.
+    /// The u8 is the hardware register encoding (0-31).
+    Reg(u8, Type),
+    /// Argument slot is on the stack at the given offset from SP.
+    /// Offset is in bytes, positive means above SP (in outgoing args area).
+    Stack(i64, Type),
+}
+
 /// Compute return value locations for a given signature.
 ///
 /// This uses the same ABI logic as Cranelift's code generation to determine
@@ -118,6 +139,93 @@ pub fn compute_return_locations(
     }
 
     Ok(return_values)
+}
+
+/// Compute argument locations for a given signature.
+///
+/// This uses the same ABI logic as Cranelift's code generation to determine
+/// where each argument is stored (registers or stack slots).
+///
+/// # Arguments
+///
+/// * `signature` - The function signature containing argument information
+/// * `flags` - Cranelift settings flags (must have enable_multi_ret_implicit_sret if needed)
+/// * `needs_return_area` - If true, a0 is taken by return area pointer, so arguments start from a1
+///
+/// # Returns
+///
+/// A vector of argument locations, one per argument in the signature.
+/// Each argument may have multiple slots (e.g., i64 uses 2 slots).
+/// Returns an error if the ABI computation fails.
+pub fn compute_arg_locations(
+    signature: &Signature,
+    flags: &Flags,
+    needs_return_area: bool,
+) -> CodegenResult<Vec<ArgLocation>> {
+    // Convert signature params to AbiParam slice
+    let params: Vec<AbiParam> = signature
+        .params
+        .iter()
+        .map(|param| AbiParam {
+            value_type: param.value_type,
+            extension: param.extension,
+            purpose: param.purpose,
+        })
+        .collect();
+
+    // Use the ABI to compute argument locations
+    // Pass needs_return_area so ABI knows a0 is taken if return area pointer is needed
+    let abi_locations = abi::compute_arg_locations_for_emulator(
+        signature.call_conv,
+        flags,
+        &params,
+        needs_return_area,
+    )?;
+
+    // Convert to our ArgLocation structs
+    let mut arg_locations = Vec::new();
+    for (i, slots_for_arg) in abi_locations.iter().enumerate() {
+        let mut slots = Vec::new();
+        let mut arg_ty = None;
+
+        for (reg_enc, stack_offset, ty) in slots_for_arg {
+            // Use the type from the first slot (all slots for same argument should have same type)
+            if arg_ty.is_none() {
+                arg_ty = Some(*ty);
+            }
+
+            match (reg_enc, stack_offset) {
+                (Some(enc), None) => {
+                    slots.push(ArgSlot::Reg(*enc, *ty));
+                }
+                (None, Some(offset)) => {
+                    slots.push(ArgSlot::Stack(*offset, *ty));
+                }
+                _ => {
+                    // Shouldn't happen - each location is either reg or stack
+                    #[cfg(not(feature = "std"))]
+                    use alloc::format;
+                    #[cfg(feature = "std")]
+                    use std::format;
+                    return Err(cranelift_codegen::CodegenError::Unsupported(
+                        format!("Invalid argument location for argument {}: both reg and stack are None or both are Some", i).into(),
+                    ));
+                }
+            }
+        }
+
+        // Get the original argument type from the signature
+        let ty = if i < signature.params.len() {
+            signature.params[i].value_type
+        } else {
+            // Fallback to type from first slot if signature doesn't match
+            arg_ty.unwrap_or(types::I32)
+        };
+
+        arg_locations.push(ArgLocation { slots, ty });
+    }
+
+    Ok(arg_locations)
 }
 
 #[cfg(test)]

@@ -112,6 +112,8 @@ use alloc::{boxed::Box, format, vec, vec::Vec};
 use core::marker::PhantomData;
 use regalloc2::{MachineEnv, PReg, PRegSet};
 use smallvec::smallvec;
+#[cfg(feature = "std")]
+use std::io::Write;
 
 /// A small vector of instructions (with some reasonable size); appropriate for
 /// a small fixed sequence implementing one operation.
@@ -910,8 +912,9 @@ impl SigSet {
             /* extra ret-area ptr = */ false,
             ArgsAccumulator::new(&mut self.abi_args),
         )?;
-        // Note: For riscv32, we allow stack returns even when enable_multi_ret_implicit_sret
-        // is false, as they are automatically converted to StructReturn.
+        if !flags.enable_multi_ret_implicit_sret() {
+            assert_eq!(sized_stack_ret_space, 0);
+        }
         let rets_end = u32::try_from(self.abi_args.len()).unwrap();
 
         // To avoid overflow issues, limit the return size to something reasonable.
@@ -1332,19 +1335,8 @@ impl<M: ABIMachineSpec> Callee<M> {
 
         let tail_args_size = sigs[sig].sized_stack_arg_space;
 
-        let mut legalized_ir_sig = ensure_struct_return_ptr_is_returned(&f.signature);
-
-        // For riscv32, automatically convert functions that use stack return area to StructReturn
-        if sigs[sig].stack_ret_arg.is_some() && !legalized_ir_sig.returns.is_empty() {
-            // This function uses stack returns but the signature still has explicit returns.
-            // The ABI already added a StructReturn parameter, so just clear the returns.
-            let mut new_sig = legalized_ir_sig.clone();
-            new_sig.returns.clear();
-            legalized_ir_sig = new_sig;
-        }
-
         Ok(Self {
-            ir_sig: legalized_ir_sig,
+            ir_sig: ensure_struct_return_ptr_is_returned(&f.signature),
             sig,
             dynamic_stackslots,
             dynamic_type_sizes,
@@ -1691,11 +1683,27 @@ impl<M: ABIMachineSpec> Callee<M> {
         from_regs: ValueRegs<Reg>,
         vregs: &mut VRegAllocator<M::I>,
     ) -> (SmallVec<[RetPair; 2]>, SmallInstVec<M::I>) {
+        // #region agent log
+        #[cfg(feature = "std")]
+        if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+            let _ = writeln!(&mut file, "DEBUG gen_copy_regs_to_retval: called idx={} from_regs_len={}", idx, from_regs.len());
+            for (i, reg) in from_regs.regs().iter().enumerate() {
+                let _ = writeln!(&mut file, "DEBUG gen_copy_regs_to_retval: from_reg[{}]={:?} is_virtual={}", i, reg, reg.is_virtual());
+            }
+        }
+        // #endregion
+
         let mut reg_pairs = smallvec![];
         let mut ret = smallvec![];
         let word_bits = M::word_bits() as u8;
         match &sigs.rets(self.sig)[idx] {
             &ABIArg::Slots { ref slots, .. } => {
+                // #region agent log
+                #[cfg(feature = "std")]
+                if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+                    let _ = writeln!(&mut file, "DEBUG gen_copy_regs_to_retval: ABIArg::Slots slots_count={}", slots.len());
+                }
+                // #endregion
                 assert_eq!(from_regs.len(), slots.len());
                 for (slot, &from_reg) in slots.iter().zip(from_regs.regs().iter()) {
                     match slot {
@@ -1730,6 +1738,7 @@ impl<M: ABIMachineSpec> Callee<M> {
                                 vreg,
                                 preg: Reg::from(reg),
                             });
+
                         }
                         &ABIArgSlot::Stack {
                             offset,
@@ -1784,6 +1793,13 @@ impl<M: ABIMachineSpec> Callee<M> {
                 panic!("ImplicitPtrArg in return position is unsupported");
             }
         }
+
+        // #region agent log
+        #[cfg(feature = "std")]
+        if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+            let _ = writeln!(&mut file, "DEBUG gen_copy_regs_to_retval: returning ret_pairs={} insts={}", reg_pairs.len(), ret.len());
+        }
+        // #endregion
         (reg_pairs, ret)
     }
 
@@ -1797,11 +1813,29 @@ impl<M: ABIMachineSpec> Callee<M> {
         sigs: &SigSet,
         vregs: &mut VRegAllocator<M::I>,
     ) -> Option<M::I> {
+        // #region agent log
+        #[cfg(feature = "std")]
+        if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+            let _ = writeln!(&mut file, "DEBUG gen_retval_area_setup: called stack_ret_arg={:?} ret_area_ptr={:?}", sigs[self.sig].stack_ret_arg, self.ret_area_ptr);
+        }
+        // #endregion
         if let Some(i) = sigs[self.sig].stack_ret_arg {
             let ret_area_ptr = Writable::from_reg(self.ret_area_ptr.unwrap());
+            // #region agent log
+            #[cfg(feature = "std")]
+            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+                let _ = writeln!(&mut file, "DEBUG gen_retval_area_setup: copying arg[{}] to ret_area_ptr={:?}", i, ret_area_ptr.to_reg());
+            }
+            // #endregion
             let insts =
                 self.gen_copy_arg_to_regs(sigs, i.into(), ValueRegs::one(ret_area_ptr), vregs);
             insts.into_iter().next().map(|inst| {
+                // #region agent log
+                #[cfg(feature = "std")]
+                if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+                    let _ = writeln!(&mut file, "DEBUG gen_retval_area_setup: generated inst={:?} ptr reg={:?}", inst, ret_area_ptr.to_reg());
+                }
+                // #endregion
                 trace!(
                     "gen_retval_area_setup: inst {:?}; ptr reg is {:?}",
                     inst,
@@ -1810,6 +1844,12 @@ impl<M: ABIMachineSpec> Callee<M> {
                 inst
             })
         } else {
+            // #region agent log
+            #[cfg(feature = "std")]
+            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+                let _ = writeln!(&mut file, "DEBUG gen_retval_area_setup: not needed (no stack_ret_arg)");
+            }
+            // #endregion
             trace!("gen_retval_area_setup: not needed");
             None
         }
@@ -2194,12 +2234,12 @@ impl<M: ABIMachineSpec> Callee<M> {
     pub fn sized_stackslot_addr(
         &self,
         slot: StackSlot,
-        _offset: u32,
+        offset: u32,
         into_reg: Writable<Reg>,
     ) -> M::I {
         // Offset from beginning of stackslot area.
         let stack_off = self.sized_stackslots[slot] as i64;
-        let sp_off = stack_off;
+        let sp_off: i64 = stack_off + (offset as i64);
         M::gen_get_stack_addr(StackAMode::Slot(sp_off), into_reg)
     }
 
@@ -2217,8 +2257,24 @@ impl<M: ABIMachineSpec> Callee<M> {
             // establishes live-ranges for in-register arguments and
             // constrains them at the start of the function to the
             // locations defined by the ABI.
-            Some(M::gen_args(core::mem::take(&mut self.reg_args)))
+            let args = core::mem::take(&mut self.reg_args);
+            // #region agent log
+            #[cfg(feature = "std")]
+            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+                let _ = writeln!(&mut file, "DEBUG take_args: emitting Args instruction with {} arg pairs", args.len());
+                for (i, ArgPair { vreg, preg }) in args.iter().enumerate() {
+                    let _ = writeln!(&mut file, "DEBUG take_args: ArgPair[{}] vreg={:?} vreg_is_virtual={} preg={:?} preg_hw_enc={}", i, vreg, vreg.to_reg().is_virtual(), preg, preg.to_real_reg().map(|r| r.hw_enc()).unwrap_or(255));
+                }
+            }
+            // #endregion
+            Some(M::gen_args(args))
         } else {
+            // #region agent log
+            #[cfg(feature = "std")]
+            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).create(true).open("/Users/yona/dev/photomancer/lp-cranelift/.cursor/debug.log") {
+                let _ = writeln!(&mut file, "DEBUG take_args: reg_args is empty, returning None");
+            }
+            // #endregion
             None
         }
     }

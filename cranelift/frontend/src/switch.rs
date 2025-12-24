@@ -75,7 +75,7 @@ impl Switch {
         let mut cases = self.cases.into_iter().collect::<Vec<(_, _)>>();
         cases.sort_by_key(|&(index, _)| index);
 
-        let mut contiguous_case_ranges: Vec<ContiguousCaseRange> = vec![];
+        let mut contiguous_case_ranges = Vec::new();
         let mut last_index = None;
         for (index, block) in cases {
             match last_index {
