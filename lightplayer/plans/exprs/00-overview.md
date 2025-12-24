@@ -102,13 +102,15 @@ void CodeGenFunction::EmitIfStmt(const IfStmt &S) {
 - Ensure proper block creation and branching
 - Fix control flow handling
 
-### Phase 5: Expression Visitor Pattern (Optional)
+### Phase 5: Extract Expression Helpers (Idiomatic Rust)
 
-**Goal**: Improve maintainability with visitor pattern
+**Goal**: Improve maintainability with idiomatic Rust patterns
 
-- Create expression visitor trait
-- Refactor expression handlers to use visitor pattern
-- Improve extensibility
+- Extract helper functions for complex and repeated logic
+- Keep match statements (exhaustive, type-safe, idiomatic)
+- Extract common "resolve LValue then load" pattern
+- Make helpers public for testing
+- Add documentation to all helpers
 
 ## Current Test Failures
 
@@ -143,7 +145,7 @@ scripts/glsl-filetests.sh vec4/indexing/array-indexing.glsl:43
 - Phase 2 (RValue/LValue) depends on Phase 1
 - Phase 3 (block management) depends on Phase 2
 - Phase 4 (statement implementation) depends on Phase 3 (can leverage new structure)
-- Phase 5 (visitor pattern) is optional and can be done independently
+- Phase 5 (extract helpers) is a pure refactoring and can be done independently after Phase 2
 
 ## Commit Instructions
 

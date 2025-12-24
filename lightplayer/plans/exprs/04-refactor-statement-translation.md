@@ -98,6 +98,7 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S) {
 ### Step 1: Refactor If Statement
 
 1. Update `translate_selection`:
+
    - Match Clang's `EmitIfStmt` pattern exactly
    - Create blocks before branching
    - Evaluate condition in current block
@@ -127,6 +128,7 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S) {
 ### Step 4: Refactor Other Statements
 
 1. Update `translate_return`:
+
    - Match Clang's `EmitReturnStmt` pattern
    - Handle return value correctly
 
@@ -142,6 +144,7 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S) {
 ## Reference Implementation
 
 Study Clang's implementation:
+
 - `CGStmt.cpp` - `EmitIfStmt`, `EmitWhileStmt`, `EmitForStmt`
 - `CodeGenFunction.h` - Method signatures and patterns
 
@@ -164,9 +167,10 @@ Study Clang's implementation:
 
 ## Verification
 
-Run all tests:
+Run all matrix tests:
+
 ```bash
-scripts/glsl-filetests.sh vec4/
+scripts/glsl-filetests.sh matrix/
 ```
 
 Expected result: All tests pass, control flow matches Clang patterns.
@@ -179,4 +183,3 @@ Once all tests pass:
 git add -A
 git commit -m "lpc: refactor statement translation to match Clang patterns"
 ```
-
