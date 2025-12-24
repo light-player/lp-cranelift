@@ -3,7 +3,7 @@
 use crate::error::{ErrorCode, GlslError};
 use crate::semantic::functions::FunctionRegistry;
 use cranelift_codegen::CodegenError;
-use cranelift_codegen::ir::Function;
+use cranelift_codegen::ir::{Function, SourceLoc, TrapCode};
 use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_codegen::print_errors::pretty_verifier_error;
 use cranelift_codegen::write_function;
@@ -24,6 +24,17 @@ use std::vec::Vec;
 use alloc::format as alloc_format;
 #[cfg(feature = "std")]
 use std::format as alloc_format;
+
+/// Information about a trap site in compiled code.
+#[derive(Clone, Debug)]
+pub struct TrapInfo {
+    /// Offset of the trap within the function (relative to function start).
+    pub offset: u32,
+    /// Type of trap that occurs at this location.
+    pub code: TrapCode,
+    /// Source location where this trap originates.
+    pub srcloc: SourceLoc,
+}
 
 /// Immutable module representation holding CLIF IR functions before linking/compilation.
 ///
@@ -109,11 +120,12 @@ impl ClifModule {
         &self,
         module: &mut M,
         main_linkage: Linkage,
-    ) -> Result<(HashMap<String, FuncId>, String), GlslError> {
+    ) -> Result<(HashMap<String, FuncId>, String, Vec<(String, Vec<TrapInfo>)>), GlslError> {
         use crate::error::{ErrorCode, GlslError};
 
         let mut name_to_id = HashMap::new();
         let mut clif_functions = Vec::new(); // Store (name, clif_text) pairs in declaration order
+        let mut traps = Vec::new(); // Store (function_name, trap_info) pairs
 
         // Declare all functions first to get their FuncIds
         for (name, func) in &self.user_functions {
@@ -386,6 +398,41 @@ impl ClifModule {
                 extract_and_format_module_error(&e, &ctx.func, &format!("function '{}'", name))
             })?;
 
+            // Collect trap information from compiled code
+            let mut func_traps = Vec::new();
+            if let Some(compiled_code) = ctx.compiled_code() {
+                let buffer = &compiled_code.buffer;
+                let srclocs = buffer.get_srclocs_sorted();
+
+                for trap in buffer.traps() {
+                    // Find the source location for this trap offset
+                    let srcloc = srclocs
+                        .iter()
+                        .find(|loc| loc.start <= trap.offset && trap.offset < loc.end)
+                        .map(|loc| loc.loc)
+                        .unwrap_or_else(|| {
+                        // Get source location from the first instruction in the entry block
+                        let entry_block = ctx.func.layout.entry_block().unwrap();
+                        if let Some(first_inst) = ctx.func.layout.block_insts(entry_block).next() {
+                            ctx.func.srcloc(first_inst)
+                        } else {
+                            // No instructions in the block, use default source location
+                            cranelift_codegen::ir::SourceLoc::default()
+                        }
+                    });
+
+                    func_traps.push(TrapInfo {
+                        offset: trap.offset,
+                        code: trap.code,
+                        srcloc,
+                    });
+                }
+            }
+
+            if !func_traps.is_empty() {
+                traps.push((name.clone(), func_traps));
+            }
+
             // Capture CLIF with correct function name before clearing context
             let clif_text = format_function_clif(&ctx.func)?;
             clif_functions.push((name.clone(), clif_text));
@@ -452,6 +499,41 @@ impl ClifModule {
             .define_function(main_id, &mut ctx)
             .map_err(|e| extract_and_format_module_error(&e, &ctx.func, "main function"))?;
 
+        // Collect trap information from compiled code for main function
+        let mut main_traps = Vec::new();
+        if let Some(compiled_code) = ctx.compiled_code() {
+            let buffer = &compiled_code.buffer;
+            let srclocs = buffer.get_srclocs_sorted();
+
+            for trap in buffer.traps() {
+                // Find the source location for this trap offset
+                let srcloc = srclocs
+                    .iter()
+                    .find(|loc| loc.start <= trap.offset && trap.offset < loc.end)
+                    .map(|loc| loc.loc)
+                    .unwrap_or_else(|| {
+                        // Get source location from the first instruction in the entry block
+                        let entry_block = ctx.func.layout.entry_block().unwrap();
+                        if let Some(first_inst) = ctx.func.layout.block_insts(entry_block).next() {
+                            ctx.func.srcloc(first_inst)
+                        } else {
+                            // No instructions in the block, use default source location
+                            cranelift_codegen::ir::SourceLoc::default()
+                        }
+                    });
+
+                main_traps.push(TrapInfo {
+                    offset: trap.offset,
+                    code: trap.code,
+                    srcloc,
+                });
+            }
+        }
+
+        if !main_traps.is_empty() {
+            traps.push((String::from("main"), main_traps));
+        }
+
         // Capture CLIF with correct function name before clearing context
         let clif_text = format_function_clif(&ctx.func)?;
         clif_functions.push((String::from("main"), clif_text));
@@ -467,12 +549,12 @@ impl ClifModule {
             clif_ir.push('\n');
         }
 
-        Ok((name_to_id, clif_ir))
+        Ok((name_to_id, clif_ir, traps))
     }
 
     /// Build an ObjectModule from this CLIF module and extract both ELF bytes and CLIF IR
-    /// Returns (ELF bytes, formatted CLIF IR string)
-    pub fn build_object_module(&self) -> Result<(Vec<u8>, String), GlslError> {
+    /// Returns (ELF bytes, formatted CLIF IR string, trap information)
+    pub fn build_object_module(&self) -> Result<(Vec<u8>, String, Vec<(String, Vec<TrapInfo>)>), GlslError> {
         use cranelift_module::Linkage;
         use cranelift_object::{ObjectBuilder, ObjectModule};
 
@@ -503,7 +585,7 @@ impl ClifModule {
 
         // Link all functions into the ObjectModule (handles relocations)
         // This returns (name_to_id, clif_ir) where clif_ir contains the formatted CLIF
-        let (_name_to_id, clif_ir) = self.link_into(&mut object_module, Linkage::Export)?;
+        let (_name_to_id, clif_ir, traps) = self.link_into(&mut object_module, Linkage::Export)?;
 
         // Finish the module and get the object file
         let object_product = object_module.finish();
@@ -514,7 +596,7 @@ impl ClifModule {
             )
         })?;
 
-        Ok((object_bytes, clif_ir))
+        Ok((object_bytes, clif_ir, traps))
     }
 }
 

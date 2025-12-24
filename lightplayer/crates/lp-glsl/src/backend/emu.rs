@@ -33,6 +33,8 @@ pub struct GlslEmulatorModule {
     pub(crate) vcode: Option<String>,
     // Store disassembly for all functions (used in error diagnostics)
     pub(crate) disassembly: Option<String>,
+    // Store trap source information for error reporting: (absolute_offset, trap_code, srcloc, func_name)
+    pub(crate) trap_source_info: Vec<(u32, cranelift_codegen::ir::TrapCode, cranelift_codegen::ir::SourceLoc, String)>,
     // Track next buffer allocation address (allocated from start of RAM, growing upward)
     pub(crate) next_buffer_addr: u32,
 }
@@ -125,6 +127,11 @@ impl GlslEmulatorModule {
         #[cfg(feature = "std")]
         use std::string::ToString;
 
+        // Check if this is a trap error and format it specially
+        if let Some(trap_error) = self.try_format_trap_error(base_message, function_name) {
+            return trap_error;
+        }
+
         let mut error = GlslError::new(code, base_message.to_string());
 
         // Add CLIF IR if available (both before and after transformation)
@@ -159,6 +166,67 @@ impl GlslEmulatorModule {
         }
 
         error
+    }
+
+    /// Try to format a trap error in Rust style with source location information
+    fn try_format_trap_error(&self, base_message: &str, function_name: &str) -> Option<GlslError> {
+        use crate::error::ErrorCode;
+
+        // Check if this looks like a trap error
+        if !base_message.contains("Trap:") {
+            return None;
+        }
+
+        // Extract trap code and PC from the message
+        // The message format should be something like: "Trap: integer division by zero at PC 0x00001234"
+        let pc_start = base_message.find("at PC 0x")?;
+        let pc_str = &base_message[pc_start + 7..]; // Skip "at PC 0x"
+        let pc_end = pc_str.find(char::is_whitespace).unwrap_or(pc_str.len());
+        let pc_str = &pc_str[..pc_end];
+        let pc = u32::from_str_radix(pc_str, 16).ok()?;
+
+        // Find the trap source information for this PC
+        let trap_info = self.trap_source_info.iter().find(|(trap_pc, _, _, _)| *trap_pc == pc)?;
+
+        let (trap_pc, trap_code, srcloc, func_name) = trap_info;
+
+        // For now, create a basic trap error message
+        // TODO: Map SourceLoc to actual GLSL source file and line number
+        let trap_name = match *trap_code {
+            cranelift_codegen::ir::TrapCode::INTEGER_DIVISION_BY_ZERO => "integer division by zero",
+            cranelift_codegen::ir::TrapCode::INTEGER_OVERFLOW => "integer overflow",
+            cranelift_codegen::ir::TrapCode::HEAP_OUT_OF_BOUNDS => "heap out of bounds",
+            cranelift_codegen::ir::TrapCode::STACK_OVERFLOW => "stack overflow",
+            cranelift_codegen::ir::TrapCode::BAD_CONVERSION_TO_INTEGER => "bad conversion to integer",
+            _ => "unknown trap",
+        };
+
+        let mut error = GlslError::new(
+            ErrorCode::E0400,
+            format!("execution trapped: {}", trap_name),
+        );
+
+        // TODO: Map SourceLoc to actual GLSL source file and line number for better error messages
+        // For now, show trap details
+        error = error.with_note(format!("Trap occurred at PC 0x{:08x}", pc));
+        error = error.with_note(format!("Trap code: {:?}", trap_code));
+
+        if !func_name.is_empty() {
+            error = error.with_note(format!("Function: {}", func_name));
+        }
+
+        // Add a note about source location mapping being a future enhancement
+        error = error.with_note("Source location mapping to GLSL code is not yet implemented");
+
+        // Add CLIF IR for context
+        if let Some(ref transformed_clif) = self.transformed_clif {
+            error = error.with_note(format!(
+                "=== CLIF IR (AFTER transformation) ===\n{}",
+                transformed_clif
+            ));
+        }
+
+        Some(error)
     }
 
     /// Safely format a function, avoiding panics from Display

@@ -63,6 +63,3 @@ pub fn compare_results(
     }
 }
 
-
-
-

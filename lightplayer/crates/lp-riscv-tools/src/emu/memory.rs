@@ -417,4 +417,9 @@ impl Memory {
     pub fn code(&self) -> &[u8] {
         &self.code
     }
+
+    /// Get the base address of the code region.
+    pub fn code_start(&self) -> u32 {
+        self.code_start
+    }
 }

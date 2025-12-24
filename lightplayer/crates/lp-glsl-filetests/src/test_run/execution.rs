@@ -117,6 +117,3 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
     }
 }
 
-
-
-

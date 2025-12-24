@@ -171,6 +171,10 @@ fn run_nostd_test() -> Result<(), String> {
                     }
                 }
             }
+            Ok(StepResult::Trap(_)) => {
+                println!("   ✓ Program halted (TRAP)");
+                break;
+            }
             Ok(StepResult::Halted) => {
                 println!("   ✓ Program halted (EBREAK)");
                 break;

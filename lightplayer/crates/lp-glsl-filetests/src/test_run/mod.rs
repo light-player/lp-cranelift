@@ -87,13 +87,74 @@ pub fn run_test_file_with_line_filter(
 
         // Execute main() and get result
         let actual_value = execution::execute_main(&mut *executable).map_err(|e| {
-            // Add rerun command to execution errors
+            // Check if this is a trap error
             let error_str = format!("{:#}", e);
+            let is_trap = error_str.contains("Trap:") || error_str.contains("trap") || error_str.contains("execution trapped");
+            
+            // Get emulator state if available
+            let emulator_state = executable.format_emulator_state();
+            
+            // Get CLIF IR (before and after transformation) if available
+            let (original_ir, transformed_ir) = executable.format_clif_ir();
+            let mut clif_ir_section = String::new();
+            if let Some(ref orig) = original_ir {
+                clif_ir_section.push_str("\n\n=== CLIF IR (BEFORE transformation) ===\n");
+                clif_ir_section.push_str(orig);
+            }
+            if let Some(ref trans) = transformed_ir {
+                clif_ir_section.push_str("\n\n=== CLIF IR (AFTER transformation) ===\n");
+                clif_ir_section.push_str(trans);
+            }
+            
+            // Generate rerun command
             let rerun_cmd = format!(
                 "cargo run --bin lp-test -- test {}:{}",
                 relative_path, directive.line_number
             );
-            anyhow::anyhow!("{}\n\nTo rerun just this test:\n{}", error_str, rerun_cmd)
+            
+            if is_trap {
+                // Format trap error with clear message
+                let trap_msg = if let Some(state) = emulator_state {
+                    format!(
+                        "run test failed at line {}: execution trapped{}\n\
+                         \n\
+                         The test expected a value but execution trapped instead.\n\
+                         This indicates the code under test encountered an error condition\n\
+                         (e.g., division by zero, overflow, etc.).\n\
+                         \n\
+                         Error details:\n\
+                         {}{}\n\
+                         \n\
+                         To rerun just this test:\n\
+                         {}",
+                        directive.line_number, clif_ir_section, error_str, state, rerun_cmd
+                    )
+                } else {
+                    format!(
+                        "run test failed at line {}: execution trapped{}\n\
+                         \n\
+                         The test expected a value but execution trapped instead.\n\
+                         This indicates the code under test encountered an error condition\n\
+                         (e.g., division by zero, overflow, etc.).\n\
+                         \n\
+                         Error details:\n\
+                         {}\n\
+                         \n\
+                         To rerun just this test:\n\
+                         {}",
+                        directive.line_number, clif_ir_section, error_str, rerun_cmd
+                    )
+                };
+                anyhow::anyhow!("{}", trap_msg)
+            } else {
+                // Regular execution error
+                let error_msg = if let Some(state) = emulator_state {
+                    format!("{}{}\n\nTo rerun just this test:\n{}", error_str, state, rerun_cmd)
+                } else {
+                    format!("{}\n\nTo rerun just this test:\n{}", error_str, rerun_cmd)
+                };
+                anyhow::anyhow!("{}", error_msg)
+            }
         })?;
 
         // Parse expected value

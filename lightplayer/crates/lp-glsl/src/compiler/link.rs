@@ -756,7 +756,7 @@ pub fn link_glsl_for_jit(
     let builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
     let mut jit_module = JITModule::new(builder);
 
-    let (name_to_id, _clif_ir) = module.link_into(&mut jit_module, Linkage::Export)?;
+    let (name_to_id, _clif_ir, _traps) = module.link_into(&mut jit_module, Linkage::Export)?;
 
     jit_module.finalize_definitions().map_err(|e| {
         GlslError::new(
@@ -948,7 +948,7 @@ pub fn link_glsl_for_emulator(
     let original_clif = format_clif_from_module(&original_module)?;
 
     // Build ObjectModule from transformed module to get ELF and CLIF
-    let (elf_bytes, transformed_clif) = transformed_module.build_object_module()?;
+    let (elf_bytes, transformed_clif, trap_info) = transformed_module.build_object_module()?;
 
     // Load ELF and apply relocations
     let load_info = load_elf(&elf_bytes)
@@ -982,10 +982,38 @@ pub fn link_glsl_for_emulator(
 
     let binary = load_info.code;
 
-    // Create emulator
+    // Map trap offsets to absolute addresses and preserve source location information
+    let mut traps = Vec::new();
+    let mut trap_source_info = Vec::new();
+
+    // Map trap offsets to absolute addresses using ELF function addresses
+    for (func_name, func_traps) in &trap_info {
+        // Find function address in ELF
+        let func_address = if func_name == "main" {
+            main_address
+        } else {
+            find_symbol_address(&obj, func_name, text_section_base).map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("Failed to find function '{}' symbol: {}", func_name, e),
+                )
+            })?
+        };
+
+        for trap in func_traps {
+            // Calculate absolute offset: function_address + relative_trap_offset
+            let absolute_offset = func_address as u32 + trap.offset;
+            traps.push((absolute_offset, trap.code));
+
+            // Store source location information for error reporting
+            trap_source_info.push((absolute_offset, trap.code, trap.srcloc, func_name.clone()));
+        }
+    }
+
+    // Create emulator with trap information
     let ram_size = emulator_options.max_memory;
     use lp_riscv_tools::emu::LogLevel;
-    let mut emulator = Riscv32Emulator::new(binary.clone(), vec![0; ram_size])
+    let mut emulator = Riscv32Emulator::with_traps(binary.clone(), vec![0; ram_size], &traps)
         .with_max_instructions(emulator_options.max_instructions)
         .with_log_level(LogLevel::Instructions);
 
@@ -1041,6 +1069,7 @@ pub fn link_glsl_for_emulator(
         original_clif: Some(original_clif),
         vcode,
         disassembly,
+        trap_source_info,
         next_buffer_addr: DEFAULT_RAM_START,
     })
 }
@@ -1050,8 +1079,8 @@ pub fn link_glsl_for_emulator(
 /// Returns the ELF bytes
 #[cfg(feature = "emulator")]
 fn compile_clif_to_elf(module: &ClifModule) -> Result<Vec<u8>, crate::error::GlslError> {
-    // Use the new build_object_module method which returns (elf_bytes, clif_ir)
+    // Use the new build_object_module method which returns (elf_bytes, clif_ir, traps)
     // We only need the ELF bytes here
-    let (elf_bytes, _clif_ir) = module.build_object_module()?;
+    let (elf_bytes, _clif_ir, _traps) = module.build_object_module()?;
     Ok(elf_bytes)
 }

@@ -5,6 +5,7 @@ extern crate alloc;
 use alloc::string::String;
 
 use crate::Gpr;
+use cranelift_codegen::ir::TrapCode;
 
 /// Kind of memory access that failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,6 +56,12 @@ pub enum EmulatorError {
     },
     /// Invalid register access.
     InvalidRegister { reg: Gpr, pc: u32, reason: String },
+    /// Trap encountered during execution.
+    Trap {
+        code: TrapCode,
+        pc: u32,
+        regs: [i32; 32],
+    },
 }
 
 impl EmulatorError {
@@ -67,6 +74,7 @@ impl EmulatorError {
             EmulatorError::UnalignedAccess { pc, .. } => *pc,
             EmulatorError::UnknownOpcode { pc, .. } => *pc,
             EmulatorError::InvalidRegister { pc, .. } => *pc,
+            EmulatorError::Trap { pc, .. } => *pc,
         }
     }
 
@@ -79,6 +87,7 @@ impl EmulatorError {
             EmulatorError::UnalignedAccess { regs, .. } => Some(regs),
             EmulatorError::UnknownOpcode { regs, .. } => Some(regs),
             EmulatorError::InvalidRegister { .. } => None,
+            EmulatorError::Trap { regs, .. } => Some(regs),
         }
     }
 }
@@ -150,6 +159,22 @@ impl core::fmt::Display for EmulatorError {
                 "Invalid register access: {:?} at PC 0x{:08x}: {}",
                 reg, pc, reason
             ),
+            EmulatorError::Trap { code, pc, .. } => {
+                let trap_name = if *code == TrapCode::STACK_OVERFLOW {
+                    "stack overflow"
+                } else if *code == TrapCode::INTEGER_OVERFLOW {
+                    "integer overflow"
+                } else if *code == TrapCode::HEAP_OUT_OF_BOUNDS {
+                    "heap out of bounds"
+                } else if *code == TrapCode::INTEGER_DIVISION_BY_ZERO {
+                    "integer division by zero"
+                } else if *code == TrapCode::BAD_CONVERSION_TO_INTEGER {
+                    "bad conversion to integer"
+                } else {
+                    "unknown trap"
+                };
+                write!(f, "Trap: {} at PC 0x{:08x}", trap_name, pc)
+            }
         }
     }
 }

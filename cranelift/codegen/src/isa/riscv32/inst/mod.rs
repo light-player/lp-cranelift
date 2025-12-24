@@ -711,7 +711,7 @@ impl MachInst for Inst {
 
     // https://github.com/riscv/riscv-isa-manual/issues/850
     // all zero will cause invalid opcode.
-    const TRAP_OPCODE: &'static [u8] = &[0; 4];
+    const TRAP_OPCODE: &'static [u8] = &[0x73, 0x00, 0x10, 0x00]; // ebreak (0x00100073 in little-endian)
 
     fn gen_dummy_use(reg: Reg) -> Self {
         Inst::DummyUse { reg }

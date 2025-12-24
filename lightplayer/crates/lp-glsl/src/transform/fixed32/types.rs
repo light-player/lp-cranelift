@@ -50,3 +50,35 @@ pub fn float_to_fixed16x16(f: f32) -> i32 {
     };
     rounded
 }
+
+/// Convert fixed16x16 back to float32 (for debugging/constants).
+#[allow(dead_code)]
+pub fn fixed16x16_to_float(fixed: i32) -> f32 {
+    fixed as f32 / crate::codegen::constants::FIXED16X16_SCALE
+}
+
+/// Convert a float32 value to fixed32x32 representation.
+///
+/// Fixed32x32 format uses 32 integer bits and 32 fractional bits.
+/// Range: -2147483648.0 to +2147483647.9999999998
+/// Precision: 1/4294967296 (approximately 0.00000000023)
+pub fn float_to_fixed32x32(f: f32) -> i64 {
+    // Convert to f64 for more precision in intermediate calculations
+    let f64_val = f as f64;
+    // Clamp to representable range
+    let clamped = f64_val.clamp(-2147483648.0, 2147483647.9999999998);
+    // Convert to fixed-point (round to nearest)
+    let scaled = clamped * 4294967296.0;
+    let rounded = if scaled >= 0.0 {
+        (scaled + 0.5) as i64
+    } else {
+        (scaled - 0.5) as i64
+    };
+    rounded
+}
+
+/// Convert fixed32x32 back to float32 (for debugging/constants).
+#[allow(dead_code)]
+pub fn fixed32x32_to_float(fixed: i64) -> f32 {
+    (fixed as f64 / 4294967296.0) as f32
+}

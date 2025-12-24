@@ -12,9 +12,9 @@ use super::{
     logging::{InstLog, LogLevel, SystemKind},
     memory::Memory,
 };
-use crate::Gpr;
+use crate::{Gpr, Inst};
 use cranelift_codegen::data_value::DataValue;
-use cranelift_codegen::ir::Signature;
+use cranelift_codegen::ir::{Signature, TrapCode};
 
 /// Default RAM start address (0x80000000, matching embive's RAM_OFFSET).
 pub const DEFAULT_RAM_START: u32 = 0x80000000;
@@ -28,6 +28,8 @@ pub enum StepResult {
     Syscall(SyscallInfo),
     /// EBREAK encountered, execution halted
     Halted,
+    /// Trap encountered with trap code
+    Trap(TrapCode),
 }
 
 /// Information about a syscall (ECALL).
@@ -48,16 +50,22 @@ pub struct Riscv32Emulator {
     max_instructions: u64,
     log_level: LogLevel,
     log_buffer: Vec<InstLog>,
+    traps: Vec<(u32, TrapCode)>, // sorted by offset (offset, trap_code) pairs
 }
 
 impl Riscv32Emulator {
-    /// Create a new emu with the given code and RAM.
+    /// Create a new emulator with the given code, RAM, and trap information.
     ///
     /// # Arguments
     ///
     /// * `code` - Code region (instructions)
     /// * `ram` - RAM region (data)
-    pub fn new(code: Vec<u8>, ram: Vec<u8>) -> Self {
+    /// * `traps` - Trap information from compiled code (offset -> TrapCode pairs)
+    pub fn with_traps(code: Vec<u8>, ram: Vec<u8>, traps: &[(u32, TrapCode)]) -> Self {
+        // Sort traps by offset for efficient binary search lookup
+        let mut trap_list: Vec<(u32, TrapCode)> = traps.to_vec();
+        trap_list.sort_by_key(|(offset, _)| *offset);
+
         Self {
             regs: [0; 32],
             pc: 0,
@@ -66,7 +74,18 @@ impl Riscv32Emulator {
             max_instructions: 100_000,
             log_level: LogLevel::None,
             log_buffer: Vec::new(),
+            traps: trap_list,
         }
+    }
+
+    /// Create a new emu with the given code and RAM.
+    ///
+    /// # Arguments
+    ///
+    /// * `code` - Code region (instructions)
+    /// * `ram` - RAM region (data)
+    pub fn new(code: Vec<u8>, ram: Vec<u8>) -> Self {
+        Self::with_traps(code, ram, &[])
     }
 
     /// Set the maximum number of instructions to execute.
@@ -132,6 +151,15 @@ impl Riscv32Emulator {
         // Increment instruction count before execution (for cycle counting)
         self.instruction_count += 1;
 
+        // Check if this is a trap BEFORE executing the instruction
+        // For EBREAK instructions, we need to check if the current PC is a trap location
+        let is_trap_before_execution = if let Inst::Ebreak = decoded {
+            // Traps are stored as absolute addresses, compare directly with PC
+            self.traps.binary_search_by_key(&self.pc, |(addr, _)| *addr).is_ok()
+        } else {
+            false
+        };
+
         // Execute instruction
         let exec_result = execute_instruction(decoded, self.pc, &mut self.regs, &mut self.memory)?;
 
@@ -147,7 +175,16 @@ impl Riscv32Emulator {
 
         // Handle special cases
         if exec_result.should_halt {
-            Ok(StepResult::Halted)
+            if is_trap_before_execution {
+                // This was a trap - find the trap code using the original PC (before PC update)
+                let original_pc = self.pc.saturating_sub(pc_increment);
+                let index = self.traps.binary_search_by_key(&original_pc, |(addr, _)| *addr).unwrap();
+                let trap_code = self.traps[index].1;
+                Ok(StepResult::Trap(trap_code))
+            } else {
+                // Regular ebreak (not a trap)
+                Ok(StepResult::Halted)
+            }
         } else if exec_result.syscall {
             // Extract syscall info from registers
             let syscall_info = SyscallInfo {
@@ -174,6 +211,14 @@ impl Riscv32Emulator {
             match self.step()? {
                 StepResult::Halted => {
                     return Ok(self.regs[Gpr::A0.num() as usize]);
+                }
+                StepResult::Trap(code) => {
+                    // Trap encountered - return error
+                    return Err(EmulatorError::Trap {
+                        code,
+                        pc: self.pc,
+                        regs: self.regs,
+                    });
                 }
                 StepResult::Continue => {
                     // Continue execution
@@ -203,6 +248,14 @@ impl Riscv32Emulator {
                         pc: self.pc,
                         instruction: 0,
                         reason: String::from("Unexpected EBREAK in run_until_ecall"),
+                        regs: self.regs,
+                    });
+                }
+                StepResult::Trap(_) => {
+                    return Err(EmulatorError::InvalidInstruction {
+                        pc: self.pc,
+                        instruction: 0,
+                        reason: String::from("Unexpected trap in run_until_ecall"),
                         regs: self.regs,
                     });
                 }
@@ -479,6 +532,14 @@ impl Riscv32Emulator {
                 StepResult::Halted => {
                     // EBREAK encountered
                     break;
+                }
+                StepResult::Trap(code) => {
+                    // Trap encountered - return error
+                    return Err(EmulatorError::Trap {
+                        code,
+                        pc: self.pc,
+                        regs: self.regs,
+                    });
                 }
                 StepResult::Continue => {
                     // Keep executing
