@@ -334,7 +334,19 @@ fn translate_scalar_binary_op(
             let rhs_result = ctx.builder.ins().select(rhs_nonzero, one, zero);
             ctx.builder.ins().select(lhs_nonzero, rhs_result, zero)
         }
-        Or | Xor => {
+        Or => {
+            // Logical OR: both operands must be bool (I8)
+            // Result: (lhs != 0) || (rhs != 0) ? 1 : 0
+            let zero = ctx.builder.ins().iconst(types::I8, 0);
+            let one = ctx.builder.ins().iconst(types::I8, 1);
+            let lhs_nonzero = ctx.builder.ins().icmp(IntCC::NotEqual, lhs, zero);
+            let rhs_nonzero = ctx.builder.ins().icmp(IntCC::NotEqual, rhs, zero);
+            // Result is 1 if either is non-zero, 0 otherwise
+            // Equivalent to: lhs != 0 ? 1 : (rhs != 0 ? 1 : 0)
+            let rhs_result = ctx.builder.ins().select(rhs_nonzero, one, zero);
+            ctx.builder.ins().select(lhs_nonzero, one, rhs_result)
+        }
+        Xor => {
             return Err(GlslError::new(
                 ErrorCode::E0400,
                 format!("logical operator {:?} not yet implemented", op),
