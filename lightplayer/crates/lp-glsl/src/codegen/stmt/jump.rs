@@ -1,0 +1,19 @@
+use glsl::syntax::JumpStatement;
+
+use crate::codegen::context::CodegenContext;
+use crate::error::{ErrorCode, GlslError};
+
+/// Emit jump statement (dispatch to break, continue, return)
+pub fn emit_jump_stmt(ctx: &mut CodegenContext, jump: &JumpStatement) -> Result<(), GlslError> {
+    use glsl::syntax::JumpStatement;
+
+    match jump {
+        JumpStatement::Break => crate::codegen::stmt::r#break::emit_break_stmt(ctx),
+        JumpStatement::Continue => crate::codegen::stmt::r#continue::emit_continue_stmt(ctx),
+        JumpStatement::Return(expr) => crate::codegen::stmt::r#return::emit_return_stmt(ctx, expr.as_ref().map(|v| &**v)),
+        _ => Err(GlslError::new(
+            ErrorCode::E0400,
+            format!("jump statement not supported: {:?}", jump),
+        )),
+    }
+}

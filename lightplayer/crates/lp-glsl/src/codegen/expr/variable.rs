@@ -36,8 +36,18 @@ pub fn translate_variable(
         })?
         .clone();
     
+    // Ensure we're in the correct block before reading variables
+    // This is important when reading variables in merge blocks after control flow
+    let _current_block = ctx.builder.current_block().expect("must be in a block to read variables");
+    ctx.builder.ensure_inserted_block();
+    
+    // Read all component values fresh in the current block context
+    // This ensures we get the correct SSA values for the current block
     let vals: Vec<Value> = vars.iter()
-        .map(|&v| ctx.builder.use_var(v))
+        .map(|&v| {
+            // Force a fresh read of the variable in the current block
+            ctx.builder.use_var(v)
+        })
         .collect();
     
     Ok((vals, ty))

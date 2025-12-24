@@ -325,7 +325,7 @@ impl GlslCompiler {
 
         // Translate function body
         for stmt in &func.body {
-            codegen_ctx.translate_statement(stmt)?;
+            codegen_ctx.emit_statement(stmt)?;
         }
 
         // Generate default return if needed
@@ -488,7 +488,7 @@ impl GlslCompiler {
 
         // Translate main function body
         for stmt in &main_func.body {
-            codegen_ctx.translate_statement(stmt)?;
+            codegen_ctx.emit_statement(stmt)?;
         }
 
         // Generate default return if needed

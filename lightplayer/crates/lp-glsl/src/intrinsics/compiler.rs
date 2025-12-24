@@ -296,7 +296,7 @@ pub fn compile_intrinsic_functions(
 
             // Translate function body
             for stmt in &user_func.body {
-                codegen_ctx.translate_statement(stmt)?;
+                codegen_ctx.emit_statement(stmt)?;
             }
 
             // Generate default return if needed
