@@ -484,13 +484,9 @@ fn test_neg_operation() {
 }
 
 // Vector operation tests with fixed-point
-// NOTE: These tests are ignored due to SIGBUS issues with native JIT execution of fixed-point vectors.
-// The issue appears to be in codegen/ABI handling, not buffer alignment. Filetests work correctly
-// on riscv32 emulator. These will be re-enabled once the native JIT path is fixed.
 
 #[cfg(feature = "emulator")]
 #[test]
-#[ignore]
 fn test_vec2_fixed32() {
     let options = lp_glsl::GlslOptions::emu_riscv32_imac();
     let shader = r#"
@@ -517,7 +513,6 @@ fn test_vec2_fixed32() {
 
 #[cfg(feature = "emulator")]
 #[test]
-#[ignore]
 fn test_vec3_fixed32() {
     let options = lp_glsl::GlslOptions::emu_riscv32_imac();
     let shader = r#"
@@ -546,7 +541,6 @@ fn test_vec3_fixed32() {
 
 #[cfg(feature = "emulator")]
 #[test]
-#[ignore]
 fn test_vec4_fixed32() {
     let options = lp_glsl::GlslOptions::emu_riscv32_imac();
     let shader = r#"
@@ -577,7 +571,6 @@ fn test_vec4_fixed32() {
 
 #[cfg(feature = "emulator")]
 #[test]
-#[ignore]
 fn test_vec2_multiplication_fixed32() {
     let options = lp_glsl::GlslOptions::emu_riscv32_imac();
     let shader = r#"
@@ -604,7 +597,6 @@ fn test_vec2_multiplication_fixed32() {
 
 #[cfg(feature = "emulator")]
 #[test]
-#[ignore]
 fn test_vec3_division_fixed32() {
     let options = lp_glsl::GlslOptions::emu_riscv32_imac();
     let shader = r#"
@@ -633,7 +625,6 @@ fn test_vec3_division_fixed32() {
 
 #[cfg(feature = "emulator")]
 #[test]
-#[ignore]
 fn test_vec4_complex_expression_fixed32() {
     let options = lp_glsl::GlslOptions::emu_riscv32_imac();
     let shader = r#"

@@ -38,6 +38,9 @@ pub use compiler::{
     Backend, CompilationPipeline, CompiledShader, GlslCompiler, ParseResult, SemanticResult,
     TransformationPass, parse_program_with_registry,
 };
+
+/// Type alias for convenience
+pub type Compiler = GlslCompiler;
 pub use error::{ErrorCode, GlslError, SourceLocation};
 pub use ir::ClifModule;
 pub use semantic::type_check::inference::infer_expr_type_in_context;

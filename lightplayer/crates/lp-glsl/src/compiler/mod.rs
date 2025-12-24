@@ -60,23 +60,31 @@ pub fn compile_glsl_to_clif(source: &str, options: &GlslOptions) -> Result<ClifM
 
     // Determine ISA based on run mode
     let isa = match &options.run_mode {
-        #[cfg(feature = "std")]
-        RunMode::HostJit => create_host_isa()?,
-        #[cfg(all(feature = "emulator", feature = "std"))]
-        RunMode::Emulator { .. } => create_riscv32_isa()?,
-        #[cfg(not(feature = "emulator"))]
-        RunMode::Emulator { .. } => {
-            return Err(GlslError::new(
-                crate::error::ErrorCode::E0400,
-                "Emulator mode requires 'emulator' feature flag",
-            ));
-        }
-        #[cfg(all(not(feature = "std"), feature = "emulator"))]
         RunMode::HostJit => {
-            return Err(GlslError::new(
-                crate::error::ErrorCode::E0400,
-                "HostJit mode requires 'std' feature flag",
-            ));
+            #[cfg(feature = "std")]
+            {
+                create_host_isa()?
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                return Err(GlslError::new(
+                    crate::error::ErrorCode::E0400,
+                    "HostJit mode requires 'std' feature flag",
+                ));
+            }
+        }
+        RunMode::Emulator { .. } => {
+            #[cfg(feature = "emulator")]
+            {
+                create_riscv32_isa()?
+            }
+            #[cfg(not(feature = "emulator"))]
+            {
+                return Err(GlslError::new(
+                    crate::error::ErrorCode::E0400,
+                    "Emulator mode requires 'emulator' feature flag",
+                ));
+            }
         }
     };
 

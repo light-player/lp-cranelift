@@ -15,11 +15,11 @@ use alloc::string::String;
 use std::string::String;
 
 #[cfg(not(feature = "std"))]
-use alloc::{format, vec::Vec};
+use alloc::{boxed::Box, format, vec::Vec};
 #[cfg(feature = "std")]
 use std::format;
 #[cfg(feature = "std")]
-use std::vec::Vec;
+use std::{boxed::Box, vec::Vec};
 
 /// GLSL compiler that compiles GLSL source to ClifModule
 pub struct GlslCompiler {
@@ -146,6 +146,48 @@ impl GlslCompiler {
             .add_func_id_mappings(func_id_to_name)
             .set_source_loc_manager(source_loc_manager)
             .build()?)
+    }
+
+    /// Compile GLSL source to machine code bytes
+    /// This is a convenience method for embedded targets that need raw machine code
+    pub fn compile_to_code(
+        &mut self,
+        source: &str,
+        isa: &dyn cranelift_codegen::isa::TargetIsa,
+    ) -> Result<Vec<u8>, GlslError> {
+        use crate::error::{ErrorCode, GlslError};
+        use cranelift_codegen::Context;
+        use cranelift_control::ControlPlane;
+
+        // Compile to CLIF module
+        let isa_owned = {
+            let isa_builder = cranelift_codegen::isa::Builder::from_target_isa(isa);
+            let flags = isa.flags().clone();
+            isa_builder.finish(flags).map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("failed to recreate ISA: {:?}", e),
+                )
+            })?
+        };
+        let module = self.compile_to_clif_module(source, isa_owned)?;
+
+        // Compile the main function to machine code
+        let main_func = module.main_function();
+        let mut ctx = Context::for_function(main_func.clone());
+        let mut ctrl_plane = ControlPlane::default();
+        let compiled_code = ctx.compile(isa, &mut ctrl_plane).map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("failed to compile function: {:?}", e),
+            )
+        })?;
+
+        // Get the machine code bytes
+        let code_info = compiled_code.code_info();
+        let mut code = Vec::new();
+        code.extend_from_slice(compiled_code.buffer.data());
+        Ok(code)
     }
 
     fn compile_function_to_clif(
@@ -400,11 +442,11 @@ impl Default for GlslCompiler {
 /// This is used to get FuncIds for cross-function calls
 pub fn create_minimal_module_for_declarations(
     isa: &dyn cranelift_codegen::isa::TargetIsa,
-) -> Result<std::boxed::Box<dyn Module>, GlslError> {
+) -> Result<Box<dyn Module>, GlslError> {
     use crate::error::{ErrorCode, GlslError};
     use cranelift_codegen::entity::PrimaryMap;
     use cranelift_codegen::isa;
-    use std::cell::RefCell;
+    use core::cell::RefCell;
 
     // Recreate OwnedTargetIsa from the reference
     let isa_builder = isa::Builder::from_target_isa(isa);
@@ -419,6 +461,8 @@ pub fn create_minimal_module_for_declarations(
         func_ids: HashMap<String, FuncId>,
         functions: RefCell<PrimaryMap<FuncId, cranelift_module::FunctionDeclaration>>,
         names: RefCell<HashMap<String, cranelift_module::FuncOrDataId>>,
+        #[cfg(not(feature = "std"))]
+        declarations: ModuleDeclarations,
     }
 
     impl Module for MinimalModule {
@@ -427,9 +471,16 @@ pub fn create_minimal_module_for_declarations(
         }
 
         fn declarations(&self) -> &ModuleDeclarations {
-            use std::sync::OnceLock;
-            static EMPTY: OnceLock<ModuleDeclarations> = OnceLock::new();
-            EMPTY.get_or_init(|| ModuleDeclarations::default())
+            #[cfg(feature = "std")]
+            {
+                use std::sync::OnceLock;
+                static EMPTY: OnceLock<ModuleDeclarations> = OnceLock::new();
+                EMPTY.get_or_init(|| ModuleDeclarations::default())
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                &self.declarations
+            }
         }
 
         fn declare_function(
@@ -479,6 +530,7 @@ pub fn create_minimal_module_for_declarations(
             }
             #[cfg(not(feature = "std"))]
             {
+                use alloc::string::ToString;
                 Err(ModuleError::Undeclared(
                     "Data declarations not supported".to_string(),
                 ))
@@ -521,6 +573,7 @@ pub fn create_minimal_module_for_declarations(
             }
             #[cfg(not(feature = "std"))]
             {
+                use alloc::string::ToString;
                 Err(ModuleError::Undeclared(
                     "Data definitions not supported".to_string(),
                 ))
@@ -554,6 +607,7 @@ pub fn create_minimal_module_for_declarations(
             }
             #[cfg(not(feature = "std"))]
             {
+                use alloc::string::ToString;
                 Err(ModuleError::Undeclared(
                     "Data declarations not supported".to_string(),
                 ))
@@ -592,11 +646,13 @@ pub fn create_minimal_module_for_declarations(
         }
     }
 
-    Ok(std::boxed::Box::new(MinimalModule {
+    Ok(Box::new(MinimalModule {
         isa: owned_isa,
         func_counter: 0,
         func_ids: HashMap::new(),
         functions: RefCell::new(PrimaryMap::new()),
         names: RefCell::new(HashMap::new()),
+        #[cfg(not(feature = "std"))]
+        declarations: ModuleDeclarations::default(),
     }))
 }

@@ -647,13 +647,8 @@ debug = "line-tables-only"
 # For now, the build will fail until one of these solutions is implemented.
 [patch.crates-io]
 
-[profile.release.package.esp32-glsl-jit]
-# Strip debug symbols - saves ~1-1.5 MB
-strip = true
-# Optimize for size instead of speed - saves ~200-500 KB
-opt-level = "z"
-# Single codegen unit for better dead code elimination - saves ~50-100 KB
-codegen-units = 1
+# Note: ESP32-GLSL-JIT size optimizations are configured in lightplayer/apps/esp32-glsl-jit/Cargo.toml
+# Package-specific profiles have limitations, so we configure them in the app's Cargo.toml instead
 
 [profile.fastest-runtime]
 inherits = "release"
