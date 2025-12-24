@@ -15,12 +15,21 @@ The current control flow implementation has several critical issues:
 
 ## Current Test Status
 
-**38 failing tests** across control flow categories:
+**18 failing tests** across control flow categories (down from 38 after Phase 2):
 
-- Edge cases: break-continue-edge-cases, condition-expressions, loop-expression-scope, non-terminating, variable-shadowing
-- Loop types: do-while, for, while (basic, nested, complex conditions, variable scope)
-- Break/continue: do-while-loop, for-loop, while-loop, nested
+- Edge cases: break-continue-edge-cases, condition-expressions, loop-expression-scope, non-terminating
+- Loop types: do-while (basic, nested, variable scope), for/while (nested, complex conditions, variable scope)
+- Break/continue: do-while-loop (break/continue)
 - Nested control flow: complex combinations
+
+**Remaining failures likely due to:**
+
+- Phase 1 (block sealing) - do-while loops, break/continue
+- Phase 2a/2b (do-while fixes) - scope and condition handling
+- Phase 2c (test expectations) - incorrect expected values
+- Phase 2d (nested loops) - scope management issues
+- Phase 2e (complex conditions) - logical operators, condition evaluation
+- Phase 6 (logical OR) - missing `||` operator
 
 ## Reference Architecture: DirectXShaderCompiler/Clang
 
@@ -29,17 +38,20 @@ We're aligning with Clang's proven control flow patterns:
 ### Key Patterns
 
 1. **Block Management**:
+
    - Blocks created before branching
    - Blocks sealed only after all predecessors are known
    - Loop headers receive back edges, so sealed after loop body is emitted
    - Merge blocks sealed after all branches converge
 
 2. **SSA Form**:
+
    - Variables modified in different paths require phi nodes at merge points
    - Cranelift's FunctionBuilder automatically creates phi nodes via `use_var` in correct block context
    - Variables read after control flow must be read in merge block, not before branching
 
 3. **Variable Scope**:
+
    - Variables declared in inner scopes shadow outer variables
    - Variable lookups must respect scope hierarchy
    - Variables go out of scope when leaving their declaration block
@@ -101,7 +113,8 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S) {
 
 **Problem**: When variables are modified in different control flow paths (e.g., nested if statements), reading the variable after the merge point tries to use a value from a non-dominating block.
 
-**Example**: 
+**Example**:
+
 ```
 block1: if (cond1) {
   block2: if (cond2) {
@@ -133,6 +146,15 @@ block1: if (cond1) {
 
 ## Fix Phases
 
+### Phase 01a: Fix Compound Statement Scoping
+
+**Goal**: Ensure compound statements (`{ ... }`) properly create and exit variable scopes
+
+- Add `enter_scope()`/`exit_scope()` calls to compound statements
+- Match semantic analysis behavior (semantic analysis already creates scopes)
+- Fix fundamental scoping issue affecting all `{ }` blocks
+- Should be done first as it's foundational
+
 ### Phase 1: Fix Block Sealing in Do-While Loops
 
 **Goal**: Fix block sealing order so do-while loops don't panic
@@ -141,7 +163,7 @@ block1: if (cond1) {
 - Ensure header block declares successors before any blocks are sealed
 - Test with all do-while loop tests
 
-### Phase 2: Fix SSA Dominance Violations
+### Phase 2: Fix SSA Dominance Violations ✅ COMPLETE
 
 **Goal**: Ensure variables modified in control flow paths have proper phi nodes
 
@@ -149,7 +171,47 @@ block1: if (cond1) {
 - Ensure `use_var` is called in blocks with proper dominance
 - Fix nested control flow variable handling
 
-### Phase 3: Fix Variable Shadowing
+### Phase 2a: Fix Do-While Loop Scope Management
+
+**Goal**: Add proper scope management to do-while loops
+
+- Add `enter_scope()`/`exit_scope()` calls to do-while loop bodies
+- Ensure variables declared in do-while bodies are properly scoped
+- Fix variable shadowing in do-while loops
+
+### Phase 2b: Fix Do-While Loop Condition Type Handling
+
+**Goal**: Ensure do-while conditions are properly converted to boolean type
+
+- Use proper type validation for do-while conditions
+- Match the pattern used in while loops
+- Ensure GLSL spec compliance (conditions must be bool type)
+
+### Phase 2c: Fix Test Expectations for Variable Shadowing
+
+**Goal**: Correct test expectations that have incorrect expected values
+
+- Fix `test_if_variable_shadowing` expectation (10 → 5)
+- Fix `test_for_loop_init_shadowing` expectation (3 → 100)
+- Fix `test_while_loop_shadowing` expectation (20 → 100)
+
+### Phase 2d: Fix Nested Loop Scope Management
+
+**Goal**: Ensure nested loops properly manage variable scopes
+
+- Verify scope stack handles nested scopes correctly
+- Fix inner loop variables shadowing outer loop variables
+- Ensure proper scope nesting for all loop types
+
+### Phase 2e: Fix Complex Condition Expressions
+
+**Goal**: Ensure complex condition expressions work correctly
+
+- Fix logical AND (`&&`) operator in conditions
+- Fix condition evaluation for complex expressions
+- Note: Logical OR (`||`) is Phase 6 (separate feature)
+
+### Phase 3: Fix Variable Shadowing ✅ COMPLETE (merged into Phase 2)
 
 **Goal**: Properly handle variable shadowing in nested scopes
 
@@ -219,12 +281,18 @@ scripts/glsl-filetests.sh control/edge_cases/variable-shadowing.glsl:47
 
 ## Dependencies
 
-- Phase 1 (block sealing) should be done first - fixes most common failures
-- Phase 2 (SSA dominance) depends on Phase 1 - needs correct block structure
-- Phase 3 (variable shadowing) can be done independently
-- Phase 4 (loop variables) depends on Phase 2 - needs proper phi nodes
-- Phase 5 (type handling) can be done independently
-- Phase 6 (logical OR) is a separate feature and can be done independently
+- Phase 01a (compound scoping) - foundational fix, should be done first
+- Phase 1 (block sealing) - should be done after Phase 01a - fixes most common failures
+- Phase 2 (SSA dominance) ✅ COMPLETE - depends on Phase 01a/Phase 1 - needs correct block structure
+- Phase 2a (do-while scope) - should be done after Phase 2, before Phase 2b
+- Phase 2b (do-while condition) - depends on Phase 2a
+- Phase 2c (test expectations) - can be done after Phase 2, verifies correctness
+- Phase 2d (nested loops) - depends on Phase 01a, Phase 2a/2b, may reveal Phase 1 issues
+- Phase 2e (complex conditions) - depends on Phase 2b, some tests require Phase 6
+- Phase 3 (variable shadowing) ✅ COMPLETE - merged into Phase 2
+- Phase 4 (loop variables) - depends on Phase 2 - needs proper phi nodes
+- Phase 5 (type handling) - can be done independently
+- Phase 6 (logical OR) - separate feature, required for some Phase 2e tests
 
 ## Commit Instructions
 
@@ -252,4 +320,3 @@ After completing each phase:
 - **Align with Clang** - follow proven patterns from Clang's codegen
 - **Do it right** - take time to understand and implement correctly
 - **Test frequently** - run tests after each change to catch regressions early
-
