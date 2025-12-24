@@ -21,6 +21,7 @@ target-lexicon = { workspace = true }
 regex = { workspace = true }
 walkdir = "2"
 glob = { workspace = true }
+num_cpus = "1.17.0"
 
 [[test]]
 name = "filetests"

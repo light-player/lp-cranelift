@@ -5,6 +5,7 @@
 
 #![deny(missing_docs)]
 
+pub mod concurrent;
 pub mod file_update;
 pub mod filetest;
 pub mod filetest_parse;
@@ -93,6 +94,20 @@ struct FileSpec {
 struct FailedTest {
     path: PathBuf,
     line_number: Option<usize>,
+}
+
+/// Test execution state for tracking parallel execution.
+#[derive(Debug)]
+enum TestState {
+    New,
+    Queued,
+    Done(anyhow::Result<()>),
+}
+
+/// Test entry for parallel execution.
+struct TestEntry {
+    spec: FileSpec,
+    state: TestState,
 }
 
 
@@ -246,16 +261,15 @@ pub fn run(verbose: bool, files: &[String]) -> anyhow::Result<()> {
     // Sort for deterministic output
     test_specs.sort_by(|a, b| a.path.cmp(&b.path));
 
-    let mut passed = 0;
-    let mut failed = 0;
-    let mut failed_tests = Vec::new();
-
     println!("Running {} test file(s)...\n", test_specs.len());
 
     // Determine if we're running a single test (show full output) or multiple tests (suppress verbose output)
     let show_full_output = test_specs.len() == 1;
 
-    for spec in &test_specs {
+    // Use parallel execution for multiple tests, sequential for single test
+    if test_specs.len() == 1 {
+        // Single test: run sequentially for simplicity
+        let spec = &test_specs[0];
         let display_path = if let Some(line) = spec.line_number {
             format!("{}:{}", spec.path.display(), line)
         } else {
@@ -266,35 +280,147 @@ pub fn run(verbose: bool, files: &[String]) -> anyhow::Result<()> {
             println!("Running test: {}", display_path);
         }
 
-        match run_filetest_with_line_filter(&spec.path, spec.line_number, show_full_output) {
+        let result = run_filetest_with_line_filter(&spec.path, spec.line_number, show_full_output);
+        let (passed, failed, failed_tests) = match result {
             Ok(()) => {
                 println!("✓ {}", display_path);
-                passed += 1;
+                (1, 0, Vec::new())
             }
             Err(e) => {
                 println!("✗ {}: {}", display_path, e);
                 if verbose {
                     println!("  Error details: {:#}", e);
                 }
-                failed += 1;
-                failed_tests.push(FailedTest {
-                    path: spec.path.clone(),
-                    line_number: spec.line_number,
-                });
+                (
+                    0,
+                    1,
+                    vec![FailedTest {
+                        path: spec.path.clone(),
+                        line_number: spec.line_number,
+                    }],
+                )
+            }
+        };
+
+        println!("\nResults: {} passed, {} failed", passed, failed);
+        print_failed_tests_summary(&failed_tests, &filetests_dir, !show_full_output);
+        
+        if failed > 0 {
+            anyhow::bail!("{} test file(s) failed", failed);
+        }
+        
+        return Ok(());
+    }
+
+    // Multiple tests: use parallel execution
+    let mut tests: Vec<TestEntry> = test_specs
+        .into_iter()
+        .map(|spec| TestEntry {
+            spec,
+            state: TestState::New,
+        })
+        .collect();
+
+    let mut concurrent_runner = concurrent::ConcurrentRunner::new();
+    let mut next_test = 0;
+    let mut reported_tests = 0;
+    let mut passed = 0;
+    let mut failed = 0;
+    let mut failed_tests = Vec::new();
+
+    // Queue all tests
+    while next_test < tests.len() {
+        let jobid = next_test;
+        tests[jobid].state = TestState::Queued;
+        concurrent_runner.put(
+            jobid,
+            &tests[jobid].spec.path,
+            tests[jobid].spec.line_number,
+            show_full_output,
+        );
+        next_test += 1;
+    }
+
+    // Process replies and report results in order
+    while reported_tests < tests.len() {
+        // Check for completed jobs
+        while let Some(reply) = concurrent_runner.try_get() {
+            match reply {
+                concurrent::Reply::Done { jobid, result } => {
+                    tests[jobid].state = TestState::Done(result);
+                }
+            }
+        }
+
+        // Report next test in order if it's done
+        if reported_tests < tests.len() {
+            if let TestState::Done(ref result) = tests[reported_tests].state {
+                let spec = &tests[reported_tests].spec;
+                let display_path = if let Some(line) = spec.line_number {
+                    format!("{}:{}", spec.path.display(), line)
+                } else {
+                    spec.path.display().to_string()
+                };
+
+                match result {
+                    Ok(()) => {
+                        println!("✓ {}", display_path);
+                        passed += 1;
+                    }
+                    Err(e) => {
+                        println!("✗ {}: {}", display_path, e);
+                        if verbose {
+                            println!("  Error details: {:#}", e);
+                        }
+                        failed += 1;
+                        failed_tests.push(FailedTest {
+                            path: spec.path.clone(),
+                            line_number: spec.line_number,
+                        });
+                    }
+                }
+                reported_tests += 1;
+                continue;
+            }
+        }
+
+        // If we can't report the next test yet, wait for more replies
+        if let Some(reply) = concurrent_runner.get() {
+            match reply {
+                concurrent::Reply::Done { jobid, result } => {
+                    tests[jobid].state = TestState::Done(result);
+                }
             }
         }
     }
 
-    println!("\nResults: {} passed, {} failed", passed, failed);
+    // Shutdown threads
+    concurrent_runner.shutdown();
+    concurrent_runner.join();
 
-    // Print summary of failed tests when running multiple tests
-    if !show_full_output && failed > 0 {
+    println!("\nResults: {} passed, {} failed", passed, failed);
+    print_failed_tests_summary(&failed_tests, &filetests_dir, !show_full_output);
+
+    if failed > 0 {
+        anyhow::bail!("{} test file(s) failed", failed);
+    }
+
+    Ok(())
+}
+
+/// Print summary of failed tests.
+fn print_failed_tests_summary(
+    failed_tests: &[FailedTest],
+    filetests_dir: &Path,
+    show_summary: bool,
+) {
+    if show_summary && !failed_tests.is_empty() {
         println!("\nFailed tests:");
-        for failed_test in &failed_tests {
+        for failed_test in failed_tests {
             // Compute relative path from filetests_dir
             let relative_path = failed_test
                 .path
-                .strip_prefix(&filetests_dir)
+                .strip_prefix(filetests_dir)
                 .unwrap_or(&failed_test.path)
                 .to_string_lossy()
                 .to_string();
@@ -315,10 +441,4 @@ pub fn run(verbose: bool, files: &[String]) -> anyhow::Result<()> {
             println!("    Rerun: {}", rerun_cmd);
         }
     }
-
-    if failed > 0 {
-        anyhow::bail!("{} test file(s) failed", failed);
-    }
-
-    Ok(())
 }
