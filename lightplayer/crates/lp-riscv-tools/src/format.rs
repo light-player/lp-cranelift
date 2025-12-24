@@ -299,7 +299,7 @@ mod tests {
                 | (funct3 << 12)
                 | ((*rs1 as u32) << 15)
                 | ((*rs2 as u32) << 20)
-                | ((*funct7 as u32) << 25);
+                | (funct7 << 25);
 
             let decoded = TypeR::from_riscv(inst_word);
             assert_eq!(decoded.rd, *rd);
@@ -307,7 +307,7 @@ mod tests {
             assert_eq!(decoded.rs2, *rs2);
             assert_eq!(decoded.func, func);
 
-            let encoded = decoded.to_riscv_no_opcode() | (*opcode as u32);
+            let encoded = decoded.to_riscv_no_opcode() | u32::from(*opcode);
             assert_eq!(
                 encoded, inst_word,
                 "Round-trip failed for R-type: opcode=0x{:02x}, rd={}, rs1={}, rs2={}, \

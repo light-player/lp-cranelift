@@ -178,7 +178,8 @@ impl Riscv32Emulator {
             if is_trap_before_execution {
                 // This was a trap - find the trap code using the original PC (before PC update)
                 let original_pc = self.pc.saturating_sub(pc_increment);
-                let index = self.traps.binary_search_by_key(&original_pc, |(addr, _)| *addr).unwrap();
+                let index = self.traps.binary_search_by_key(&original_pc, |(addr, _)| *addr)
+                    .expect("Trap should be found since is_trap_before_execution was true");
                 let trap_code = self.traps[index].1;
                 Ok(StepResult::Trap(trap_code))
             } else {

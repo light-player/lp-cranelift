@@ -255,7 +255,7 @@ fn apply_relocations(
             }
 
             let addr = symbol.address();
-            let symbol_section = symbol.section();
+            let _symbol_section = symbol.section();
 
             // Address 0 is valid if the text section starts at 0 and this is the first function
             // So we use the address as-is

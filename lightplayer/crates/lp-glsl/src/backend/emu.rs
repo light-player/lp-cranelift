@@ -8,7 +8,7 @@ use crate::backend::glsl_value::GlslValue;
 use crate::error::GlslError;
 use crate::semantic::functions::FunctionSignature;
 use hashbrown::HashMap;
-use lp_riscv_tools::emu::error::EmulatorError;
+use lp_riscv_tools::emu::error::{EmulatorError, trap_code_to_string};
 
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String, vec::Vec};
@@ -65,14 +65,18 @@ impl GlslEmulatorModule {
         Ok(())
     }
 
-    /// Validate that no arguments are provided (panics for emulator)
-    fn validate_no_args(args: &[GlslValue]) {
+    /// Validate that no arguments are provided (returns error for emulator)
+    fn validate_no_args(args: &[GlslValue]) -> Result<(), GlslError> {
         if !args.is_empty() {
-            panic!(
-                "Emulator only supports calling main with no arguments (got {} args)",
-                args.len()
-            );
+            return Err(GlslError::new(
+                crate::error::ErrorCode::E0400,
+                format!(
+                    "Emulator only supports calling main with no arguments (got {} args)",
+                    args.len()
+                ),
+            ));
         }
+        Ok(())
     }
 
     /// Allocate a buffer in the emulator's RAM and return its address.
@@ -139,7 +143,13 @@ impl GlslEmulatorModule {
         #[cfg(feature = "std")]
         use std::string::ToString;
 
-        let mut error = GlslError::new(code, base_message.to_string());
+        // Include function name in error message for better context
+        let full_message = if function_name.is_empty() {
+            base_message.to_string()
+        } else {
+            format!("{} (function: {})", base_message, function_name)
+        };
+        let mut error = GlslError::new(code, full_message);
 
         // Add CLIF IR if available (both before and after transformation)
         if let Some(ref original_clif) = self.original_clif {
@@ -175,6 +185,41 @@ impl GlslEmulatorModule {
         error
     }
 
+    /// Format source lines around a trap location for error display
+    fn format_source_lines_around_trap(
+        &self,
+        trap_line: usize,
+        trap_column: usize,
+    ) -> Option<String> {
+        let source_text = self.source_text.as_ref()?;
+        let lines: Vec<&str> = source_text.lines().collect();
+
+        if trap_line == 0 || trap_line > lines.len() {
+            return None;
+        }
+
+        let start_line = trap_line.saturating_sub(3).max(1);
+        let end_line = (trap_line + 3).min(lines.len());
+        let source_lines: Vec<&str> = lines[start_line.saturating_sub(1)..end_line].to_vec();
+
+        let mut source_display = String::new();
+        for (idx, line) in source_lines.iter().enumerate() {
+            let line_num = start_line + idx;
+            if line_num == trap_line {
+                source_display.push_str(&format!("{:>3} | {}\n", line_num, line));
+                // Bound check col_pos to prevent excessive string allocation
+                let col_pos = trap_column.saturating_sub(1).min(line.len()).min(200);
+                source_display.push_str(&format!(
+                    "    | {}^ trap occurred here\n",
+                    " ".repeat(col_pos)
+                ));
+            } else {
+                source_display.push_str(&format!("{:>3} | {}\n", line_num, line));
+            }
+        }
+        Some(String::from(source_display.trim_end()))
+    }
+
     /// Format a trap error in Rust style with source location information
     /// Takes trap code, PC, and regs directly from EmulatorError::Trap variant
     fn format_trap_error_from_emulator_error(
@@ -206,16 +251,7 @@ impl GlslEmulatorModule {
                 )
             };
 
-        let trap_name = match trap_code {
-            cranelift_codegen::ir::TrapCode::INTEGER_DIVISION_BY_ZERO => "integer division by zero",
-            cranelift_codegen::ir::TrapCode::INTEGER_OVERFLOW => "integer overflow",
-            cranelift_codegen::ir::TrapCode::HEAP_OUT_OF_BOUNDS => "heap out of bounds",
-            cranelift_codegen::ir::TrapCode::STACK_OVERFLOW => "stack overflow",
-            cranelift_codegen::ir::TrapCode::BAD_CONVERSION_TO_INTEGER => {
-                "bad conversion to integer"
-            }
-            _ => "unknown trap",
-        };
+        let trap_name = trap_code_to_string(trap_code);
 
         let mut error = GlslError::new(
             ErrorCode::E0400,
@@ -238,31 +274,7 @@ impl GlslEmulatorModule {
             found_location = Some(trap_location);
 
             // Extract source lines
-            if let Some(source_text) = self.source_text.as_ref() {
-                let lines: Vec<&str> = source_text.lines().collect();
-                if trap_line > 0 && trap_line <= lines.len() {
-                    let start_line = trap_line.saturating_sub(3).max(1);
-                    let end_line = (trap_line + 3).min(lines.len());
-                    let source_lines: Vec<&str> =
-                        lines[start_line.saturating_sub(1)..end_line].to_vec();
-
-                    let mut source_display = String::new();
-                    for (idx, line) in source_lines.iter().enumerate() {
-                        let line_num = start_line + idx;
-                        if line_num == trap_line {
-                            source_display.push_str(&format!("{:>3} | {}\n", line_num, line));
-                            let col_pos = trap_column.saturating_sub(1).min(line.len());
-                            source_display.push_str(&format!(
-                                "    | {}^ trap occurred here\n",
-                                " ".repeat(col_pos)
-                            ));
-                        } else {
-                            source_display.push_str(&format!("{:>3} | {}\n", line_num, line));
-                        }
-                    }
-                    found_span_text = Some(String::from(source_display.trim_end()));
-                }
-            }
+            found_span_text = self.format_source_lines_around_trap(trap_line, trap_column);
         }
 
         // Fallback: if location lookup failed, try closest trap_info entry
@@ -290,33 +302,8 @@ impl GlslEmulatorModule {
                         found_location = Some(trap_location);
 
                         // Extract source lines
-                        if let Some(source_text) = self.source_text.as_ref() {
-                            let lines: Vec<&str> = source_text.lines().collect();
-                            if trap_line > 0 && trap_line <= lines.len() {
-                                let start_line = trap_line.saturating_sub(3).max(1);
-                                let end_line = (trap_line + 3).min(lines.len());
-                                let source_lines: Vec<&str> =
-                                    lines[start_line.saturating_sub(1)..end_line].to_vec();
-
-                                let mut source_display = String::new();
-                                for (idx, line) in source_lines.iter().enumerate() {
-                                    let line_num = start_line + idx;
-                                    if line_num == trap_line {
-                                        source_display
-                                            .push_str(&format!("{:>3} | {}\n", line_num, line));
-                                        let col_pos = trap_column.saturating_sub(1).min(line.len());
-                                        source_display.push_str(&format!(
-                                            "    | {}^ trap occurred here\n",
-                                            " ".repeat(col_pos)
-                                        ));
-                                    } else {
-                                        source_display
-                                            .push_str(&format!("{:>3} | {}\n", line_num, line));
-                                    }
-                                }
-                                found_span_text = Some(String::from(source_display.trim_end()));
-                            }
-                        }
+                        found_span_text =
+                            self.format_source_lines_around_trap(trap_line, trap_column);
                     }
                 }
             }
@@ -348,6 +335,7 @@ impl GlslEmulatorModule {
     }
 
     /// Safely format a function, avoiding panics from Display
+    #[allow(dead_code)] // Reserved for future use in error reporting
     fn format_function_safely(&self, func: &cranelift_codegen::ir::Function) -> String {
         #[cfg(feature = "std")]
         {
@@ -533,6 +521,7 @@ impl GlslEmulatorModule {
     }
 
     /// Find the source location (line number) of a function definition in the GLSL source
+    #[allow(dead_code)] // Reserved for future use in error reporting
     fn find_function_source_location(
         &self,
         func_name: &str,
@@ -563,6 +552,7 @@ impl GlslEmulatorModule {
     }
 
     /// Extract source lines around a given line number for display
+    #[allow(dead_code)] // Reserved for future use in error reporting
     fn extract_source_lines(
         &self,
         line_num: usize,
@@ -596,7 +586,7 @@ impl GlslExecutable for GlslEmulatorModule {
         use crate::error::ErrorCode;
 
         Self::validate_main_only(name)?;
-        Self::validate_no_args(args);
+        Self::validate_no_args(args)?;
 
         // Main is always at address 0x00
         const MAIN_ENTRY: u32 = 0x00;
@@ -628,7 +618,7 @@ impl GlslExecutable for GlslEmulatorModule {
         use crate::error::ErrorCode;
 
         Self::validate_main_only(name)?;
-        Self::validate_no_args(args);
+        Self::validate_no_args(args)?;
 
         // Get the actual Cranelift signature for main
         let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
@@ -664,7 +654,7 @@ impl GlslExecutable for GlslEmulatorModule {
         use crate::error::ErrorCode;
 
         Self::validate_main_only(name)?;
-        Self::validate_no_args(args);
+        Self::validate_no_args(args)?;
 
         // Get the actual Cranelift signature for main
         let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
@@ -686,11 +676,11 @@ impl GlslExecutable for GlslEmulatorModule {
                 ),
             })?;
 
-        // Extract i32 return value and convert from fixed-point
+        // Extract i32 return value and convert from fixed-point to f32
         match results.first() {
             Some(cranelift_codegen::data_value::DataValue::I32(v)) => {
-                // TODO: Convert from fixed-point to f32 when needed
-                // For now, treat as fixed-point
+                // Convert from fixed-point (i32) to f32
+                // Fixed-point values are stored as i32 with FIXED16X16_SCALE denominator
                 Ok(*v as f32 / crate::codegen::constants::FIXED16X16_SCALE)
             }
             _ => Err(GlslError::new(
@@ -704,7 +694,7 @@ impl GlslExecutable for GlslEmulatorModule {
         use crate::error::ErrorCode;
 
         Self::validate_main_only(name)?;
-        Self::validate_no_args(args);
+        Self::validate_no_args(args)?;
 
         // Get the actual Cranelift signature for main
         let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
@@ -740,7 +730,7 @@ impl GlslExecutable for GlslEmulatorModule {
         use cranelift_codegen::ir::ArgumentPurpose;
 
         Self::validate_main_only(name)?;
-        Self::validate_no_args(args);
+        Self::validate_no_args(args)?;
 
         // Get the actual Cranelift signature for main
         let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
@@ -837,7 +827,7 @@ impl GlslExecutable for GlslEmulatorModule {
         use cranelift_codegen::ir::ArgumentPurpose;
 
         Self::validate_main_only(name)?;
-        Self::validate_no_args(args);
+        Self::validate_no_args(args)?;
 
         // Get the actual Cranelift signature for main
         let sig = self.cranelift_signatures.get("main").ok_or_else(|| {

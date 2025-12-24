@@ -1,11 +1,10 @@
 //! Unit tests for SourceLoc mapping functionality.
 
-use cranelift_codegen::ir::SourceLoc;
 use cranelift_codegen::isa::OwnedTargetIsa;
 use lp_glsl::codegen::sourceloc::SourceLocManager;
 #[cfg(feature = "emulator")]
 use lp_glsl::glsl_emu_riscv32_with_metadata;
-use lp_glsl::{ClifModule, GlslCompiler, GlslError, GlslOptions, RunMode};
+use lp_glsl::{GlslCompiler, GlslError, GlslOptions, RunMode};
 
 #[cfg(feature = "emulator")]
 #[test]

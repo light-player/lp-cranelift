@@ -64,6 +64,18 @@ pub enum EmulatorError {
     },
 }
 
+/// Convert a TrapCode to a human-readable string.
+pub fn trap_code_to_string(code: TrapCode) -> &'static str {
+    match code {
+        TrapCode::STACK_OVERFLOW => "stack overflow",
+        TrapCode::INTEGER_OVERFLOW => "integer overflow",
+        TrapCode::HEAP_OUT_OF_BOUNDS => "heap out of bounds",
+        TrapCode::INTEGER_DIVISION_BY_ZERO => "integer division by zero",
+        TrapCode::BAD_CONVERSION_TO_INTEGER => "bad conversion to integer",
+        _ => "unknown trap",
+    }
+}
+
 impl EmulatorError {
     /// Get the PC where the error occurred.
     pub fn pc(&self) -> u32 {
@@ -160,19 +172,7 @@ impl core::fmt::Display for EmulatorError {
                 reg, pc, reason
             ),
             EmulatorError::Trap { code, pc, .. } => {
-                let trap_name = if *code == TrapCode::STACK_OVERFLOW {
-                    "stack overflow"
-                } else if *code == TrapCode::INTEGER_OVERFLOW {
-                    "integer overflow"
-                } else if *code == TrapCode::HEAP_OUT_OF_BOUNDS {
-                    "heap out of bounds"
-                } else if *code == TrapCode::INTEGER_DIVISION_BY_ZERO {
-                    "integer division by zero"
-                } else if *code == TrapCode::BAD_CONVERSION_TO_INTEGER {
-                    "bad conversion to integer"
-                } else {
-                    "unknown trap"
-                };
+                let trap_name = trap_code_to_string(*code);
                 write!(f, "Trap: {} at PC 0x{:08x}", trap_name, pc)
             }
         }

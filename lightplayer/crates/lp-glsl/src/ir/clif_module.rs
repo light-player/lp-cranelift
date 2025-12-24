@@ -587,7 +587,6 @@ impl ClifModule {
     /// Returns (ELF bytes, formatted CLIF IR string, trap information)
     #[cfg(feature = "emulator")]
     pub fn build_object_module(&self) -> Result<(Vec<u8>, String, Vec<(String, Vec<TrapInfo>)>), GlslError> {
-        extern crate cranelift_object;
         use cranelift_module::Linkage;
         use cranelift_object::{ObjectBuilder, ObjectModule};
 
