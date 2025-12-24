@@ -331,6 +331,9 @@ impl GlslCompiler {
         // Generate default return if needed
         crate::codegen::helpers::generate_default_return(&mut codegen_ctx, &func.return_type)?;
 
+        // Seal all blocks before finalizing (safety net for any blocks not explicitly sealed)
+        codegen_ctx.builder.seal_all_blocks();
+
         // Finalize
         codegen_ctx.builder.finalize();
 
@@ -493,6 +496,9 @@ impl GlslCompiler {
 
         // Generate default return if needed
         crate::codegen::helpers::generate_default_return(&mut codegen_ctx, &main_func.return_type)?;
+
+        // Seal all blocks before finalizing (safety net for any blocks not explicitly sealed)
+        codegen_ctx.builder.seal_all_blocks();
 
         // Finalize
         codegen_ctx.builder.finalize();

@@ -233,15 +233,47 @@ impl<'a> CodegenContext<'a> {
         })
     }
 
-    /// Switch to block and seal it (following Clang's EmitBlock pattern)
-    /// This is the primary method for switching to a new block.
+    /// Switch to a block without sealing it.
+    /// Use this when the block may receive additional predecessors (e.g., loop headers).
+    pub fn switch_to_block(&mut self, block: Block) {
+        self.builder.switch_to_block(block);
+    }
+
+    /// Switch to block and seal it.
+    /// Only use this when you know all predecessors have been declared.
+    /// For blocks that may receive multiple predecessors (like loop headers),
+    /// use `switch_to_block()` instead and seal manually later.
     pub fn emit_block(&mut self, block: Block) {
         self.builder.switch_to_block(block);
         self.builder.seal_block(block);
     }
 
-    /// Create a new block, switch to it, and seal it
-    /// Convenience method for common pattern.
+    /// Seal the current block.
+    /// Call this when you know no more blocks will jump to the current block.
+    pub fn seal_current_block(&mut self) {
+        let block = self
+            .builder
+            .current_block()
+            .expect("cannot seal block when not in a block");
+        self.builder.seal_block(block);
+    }
+
+    /// Seal a specific block.
+    /// Call this when you know no more blocks will jump to the specified block.
+    pub fn seal_block(&mut self, block: Block) {
+        self.builder.seal_block(block);
+    }
+
+    /// Create a new block, switch to it, but don't seal it.
+    /// Convenience method for blocks that may receive multiple predecessors.
+    pub fn create_and_switch_to_block(&mut self) -> Block {
+        let block = self.builder.create_block();
+        self.switch_to_block(block);
+        block
+    }
+
+    /// Create a new block, switch to it, and seal it.
+    /// Convenience method for blocks with all predecessors known.
     pub fn create_and_emit_block(&mut self) -> Block {
         let block = self.builder.create_block();
         self.emit_block(block);

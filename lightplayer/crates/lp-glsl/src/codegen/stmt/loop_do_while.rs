@@ -27,11 +27,15 @@ pub fn emit_loop_do_while_stmt(
     ctx.emit_branch(header_block)?;
 
     // Header: evaluate condition
-    ctx.emit_block(header_block);
+    // Don't seal header yet - it will receive a back edge from body
+    ctx.switch_to_block(header_block);
     let condition_value = ctx.translate_expr(condition)?;
     ctx.emit_cond_branch(condition_value, body_block, exit_block)?;
 
-    // Exit
+    // Now seal header block - all predecessors (initial jump + back edge from body) are known
+    ctx.seal_block(header_block);
+
+    // Exit - seal immediately since all predecessors are known
     ctx.emit_block(exit_block);
 
     ctx.loop_stack.pop();
