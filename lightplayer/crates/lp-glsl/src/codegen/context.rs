@@ -163,7 +163,15 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// Store a value to a matrix element at (row, col)
-    /// Matrix is stored in column-major order: element (row, col) = vars[col * rows + row]
+    ///
+    /// Matrix is stored in column-major order per GLSL specification.
+    /// Element (row, col) is stored at index `col * rows + row` in the flat array.
+    ///
+    /// Example for mat2:
+    /// - Element (0, 0) → index 0 * 2 + 0 = 0
+    /// - Element (1, 0) → index 0 * 2 + 1 = 1 (column 0, row 1)
+    /// - Element (0, 1) → index 1 * 2 + 0 = 2 (column 1, row 0)
+    /// - Element (1, 1) → index 1 * 2 + 1 = 3
     pub fn store_matrix_element(
         &mut self,
         matrix_vars: &[Variable],

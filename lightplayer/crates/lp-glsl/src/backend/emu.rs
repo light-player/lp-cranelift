@@ -747,19 +747,13 @@ impl GlslExecutable for GlslEmulatorModule {
             // Clone signature before mutable borrow
             let sig = sig.clone();
 
-            // Allocate buffer in emulator RAM for struct return
+            // Calculate buffer size for struct return
             // Each element is 4 bytes (i32 for fixed-point)
             let buffer_size = dim * 4;
-            let buffer_addr = self.allocate_buffer_in_ram(buffer_size)?;
 
-            // Prepare arguments: StructReturn pointer as first argument
-            let call_args = vec![cranelift_codegen::data_value::DataValue::I32(
-                buffer_addr as i32,
-            )];
-
-            // Call main via emulator with struct return buffer pointer
-            self.emulator
-                .call_function(self.main_address, &call_args, &sig)
+            // Call main via emulator with struct return (buffer allocation handled internally)
+            let results = self.emulator
+                .call_function_with_struct_return(self.main_address, &[], &sig, buffer_size)
                 .map_err(|e| match e {
                     EmulatorError::Trap { code, pc, regs } => {
                         self.format_trap_error_from_emulator_error(code, pc, &regs, name)
@@ -771,17 +765,20 @@ impl GlslExecutable for GlslEmulatorModule {
                     ),
                 })?;
 
-            // Read results from buffer (fixed-point i32 values)
+            // Convert results from returned Vec<DataValue> (fixed-point i32 values)
             let mut vec_result = Vec::with_capacity(dim);
-            for i in 0..dim {
-                let addr = buffer_addr + (i * 4) as u32;
-                let value = self.emulator.memory().read_word(addr).map_err(|e| {
-                    GlslError::new(
-                        ErrorCode::E0400,
-                        format!("Failed to read result from buffer at 0x{:08x}: {}", addr, e),
-                    )
-                })?;
-                vec_result.push(value as f32 / crate::codegen::constants::FIXED16X16_SCALE);
+            for result in results.iter().take(dim) {
+                match result {
+                    cranelift_codegen::data_value::DataValue::I32(v) => {
+                        vec_result.push(*v as f32 / crate::codegen::constants::FIXED16X16_SCALE);
+                    }
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "Expected i32 return values",
+                        ));
+                    }
+                }
             }
             Ok(vec_result)
         } else {
@@ -844,20 +841,14 @@ impl GlslExecutable for GlslEmulatorModule {
             // Clone signature before mutable borrow
             let sig = sig.clone();
 
-            // Allocate buffer in emulator RAM for struct return
+            // Calculate buffer size for struct return
             // Each element is 4 bytes (i32 for fixed-point)
             let count = rows * cols;
             let buffer_size = count * 4;
-            let buffer_addr = self.allocate_buffer_in_ram(buffer_size)?;
 
-            // Prepare arguments: StructReturn pointer as first argument
-            let call_args = vec![cranelift_codegen::data_value::DataValue::I32(
-                buffer_addr as i32,
-            )];
-
-            // Call main via emulator with struct return buffer pointer
-            self.emulator
-                .call_function(self.main_address, &call_args, &sig)
+            // Call main via emulator with struct return (buffer allocation handled internally)
+            let results = self.emulator
+                .call_function_with_struct_return(self.main_address, &[], &sig, buffer_size)
                 .map_err(|e| match e {
                     EmulatorError::Trap { code, pc, regs } => {
                         self.format_trap_error_from_emulator_error(code, pc, &regs, name)
@@ -869,17 +860,20 @@ impl GlslExecutable for GlslEmulatorModule {
                     ),
                 })?;
 
-            // Read results from buffer (fixed-point i32 values)
+            // Convert results from returned Vec<DataValue> (fixed-point i32 values)
             let mut mat_result = Vec::with_capacity(count);
-            for i in 0..count {
-                let addr = buffer_addr + (i * 4) as u32;
-                let value = self.emulator.memory().read_word(addr).map_err(|e| {
-                    GlslError::new(
-                        ErrorCode::E0400,
-                        format!("Failed to read result from buffer at 0x{:08x}: {}", addr, e),
-                    )
-                })?;
-                mat_result.push(value as f32 / crate::codegen::constants::FIXED16X16_SCALE);
+            for result in results.iter().take(count) {
+                match result {
+                    cranelift_codegen::data_value::DataValue::I32(v) => {
+                        mat_result.push(*v as f32 / crate::codegen::constants::FIXED16X16_SCALE);
+                    }
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "Expected i32 return values",
+                        ));
+                    }
+                }
             }
             Ok(mat_result)
         } else {

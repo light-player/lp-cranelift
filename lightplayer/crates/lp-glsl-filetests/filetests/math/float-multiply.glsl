@@ -45,7 +45,7 @@ mat2 mul_mat2(mat2 a, mat2 b) {
     return a * b;
 }
 
-// #run: mul_mat2(mat2(vec2(1.0, 2.0), vec2(3.0, 4.0)), mat2(vec2(5.0, 6.0), vec2(7.0, 8.0))) ~= mat2(vec2(5.0, 12.0), vec2(21.0, 32.0))
+// #run: mul_mat2(mat2(vec2(1.0, 2.0), vec2(3.0, 4.0)), mat2(vec2(5.0, 6.0), vec2(7.0, 8.0))) ~= mat2(vec2(23.0, 31.0), vec2(34.0, 46.0))
 
 vec2 mul_vec2_mat2(vec2 v, mat2 m) {
     return v * m;

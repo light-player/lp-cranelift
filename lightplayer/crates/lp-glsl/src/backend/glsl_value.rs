@@ -9,6 +9,25 @@ use alloc::{format, vec::Vec};
 use std::{format, vec::Vec};
 
 /// GLSL value types for function arguments
+///
+/// ## Matrix Storage Format
+///
+/// Matrices are stored in **column-major order** per GLSL specification.
+/// The internal representation uses `m[row][col]` indexing, which provides
+/// a row-major view of column-major storage.
+///
+/// Example: `mat2(vec2(1.0, 2.0), vec2(3.0, 4.0))`
+/// - Column 0: [1.0, 2.0]
+/// - Column 1: [3.0, 4.0]
+/// - Storage (column-major): [1.0, 2.0, 3.0, 4.0]
+/// - Internal representation: `[[1.0, 3.0], [2.0, 4.0]]` (m[row][col])
+///   - m[0][0] = 1.0 (row 0, col 0)
+///   - m[1][0] = 2.0 (row 1, col 0)
+///   - m[0][1] = 3.0 (row 0, col 1)
+///   - m[1][1] = 4.0 (row 1, col 1)
+///
+/// To access column `col`, use `m[row][col]` for `row` in 0..rows.
+/// To access row `row`, use `m[row][col]` for `col` in 0..cols.
 #[derive(Debug, Clone)]
 pub enum GlslValue {
     I32(i32),

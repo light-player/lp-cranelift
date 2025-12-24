@@ -136,62 +136,42 @@ pub(crate) fn convert_fdiv(
     let numerator_is_zero = builder.ins().icmp(IntCC::Equal, arg1, zero);
     let is_negative = builder.ins().icmp(IntCC::SignedLessThan, arg1, zero);
 
-    // Compute saturation value using arithmetic (select instruction is now supported on riscv32)
+    // Compute saturation value using select instructions
     let max_fixed = create_max_fixed_const(builder, format);
     let min_fixed = create_min_fixed_const(builder, format);
 
-    // infinity_value = min + (max - min) * is_negative_as_int
-    let min_max_diff = builder.ins().isub(max_fixed, min_fixed);
-    let is_negative_i32 = builder.ins().uextend(types::I32, is_negative);
-    let scaled_diff = builder.ins().imul(is_negative_i32, min_max_diff);
-    let infinity_value = builder.ins().iadd(min_fixed, scaled_diff);
+    // infinity_value = is_negative ? min_fixed : max_fixed
+    let infinity_value = builder.ins().select(is_negative, min_fixed, max_fixed);
 
-    // saturation_value = (numerator_is_zero_as_int * 0) + (!numerator_is_zero_as_int * infinity_value)
-    let one = builder.ins().iconst(target_type, 1);
-    let numerator_is_zero_i32 = builder.ins().uextend(types::I32, numerator_is_zero);
-    let not_numerator_zero_i32 = builder.ins().isub(one, numerator_is_zero_i32);
-    let zero_contrib = builder.ins().imul(numerator_is_zero_i32, zero);
-    let infinity_contrib = builder.ins().imul(not_numerator_zero_i32, infinity_value);
-    let saturation_value = builder.ins().iadd(zero_contrib, infinity_contrib);
+    // saturation_value = numerator_is_zero ? zero : infinity_value
+    let saturation_value = builder.ins().select(numerator_is_zero, zero, infinity_value);
 
     // Perform division if divisor is non-zero
     let shift_const = builder.ins().iconst(target_type, shift_amount);
-    let divisor_shifted = builder.ins().ushr(arg2, shift_const);
+    // Use signed shift right to preserve sign bit for negative divisors
+    let divisor_shifted = builder.ins().sshr(arg2, shift_const);
 
     // Check if divisor_shifted became zero (bug fix for small divisors < 2^16)
     let divisor_shifted_is_zero = builder.ins().icmp(IntCC::Equal, divisor_shifted, zero);
 
     // Use a safe divisor for the shifted case to avoid division by zero
     let one = builder.ins().iconst(target_type, 1);
-    let divisor_shifted_is_zero_i32 = builder.ins().uextend(types::I32, divisor_shifted_is_zero);
-    let safe_divisor_shifted = builder
-        .ins()
-        .iadd(divisor_shifted, divisor_shifted_is_zero_i32);
+    let safe_divisor_shifted = builder.ins().select(divisor_shifted_is_zero, one, divisor_shifted);
 
     // For normal case: arg1 / safe_divisor_shifted
     let div_by_shifted_divisor = builder.ins().sdiv(arg1, safe_divisor_shifted);
 
-    // For small divisor case: (arg1 << shift_amount) / arg2
+    // For small divisor case: (arg1 << shift_amount) / safe_arg2
     // Ensure arg2 is never zero for division to avoid SIGILL
-    let is_zero_i32_for_safe = builder.ins().uextend(types::I32, is_zero);
-    let safe_arg2 = builder.ins().iadd(arg2, is_zero_i32_for_safe);
+    let safe_arg2 = builder.ins().select(is_zero, one, arg2);
     let arg1_shifted = builder.ins().ishl(arg1, shift_const);
     let div_by_full_divisor = builder.ins().sdiv(arg1_shifted, safe_arg2);
 
     // Select the result: if divisor_shifted_is_zero then div_by_full_divisor else div_by_shifted_divisor
-    // Using arithmetic: result = div_by_shifted + (div_by_full - div_by_shifted) * is_zero
-    let div_diff = builder
-        .ins()
-        .isub(div_by_full_divisor, div_by_shifted_divisor);
-    let scaled_diff = builder.ins().imul(divisor_shifted_is_zero_i32, div_diff);
-    let div_result = builder.ins().iadd(div_by_shifted_divisor, scaled_diff);
+    let div_result = builder.ins().select(divisor_shifted_is_zero, div_by_full_divisor, div_by_shifted_divisor);
 
-    // Final result: saturation_value + (div_result - saturation_value) * (!is_zero_as_int)
-    let is_zero_i32 = builder.ins().uextend(types::I32, is_zero);
-    let not_is_zero_i32 = builder.ins().isub(one, is_zero_i32);
-    let div_minus_sat = builder.ins().isub(div_result, saturation_value);
-    let scaled_diff_result = builder.ins().imul(not_is_zero_i32, div_minus_sat);
-    let new_result = builder.ins().iadd(saturation_value, scaled_diff_result);
+    // Final result: if divisor was zero, use saturation_value, else use div_result
+    let new_result = builder.ins().select(is_zero, saturation_value, div_result);
 
     let old_result = get_first_result(old_func, old_inst);
     value_map.insert(old_result, new_result);

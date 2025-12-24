@@ -153,10 +153,17 @@ pub fn translate_matrix_binary(
 
                 // Result is lhs_rows × rhs_cols matrix
                 // For each (i, j): result[i][j] = dot(row i of lhs, column j of rhs)
+                //
+                // Store result in column-major order: iterate by columns first, then rows
+                // This ensures the output matches GLSL's column-major storage format.
+                // Loop order: for j in 0..rhs_cols { for i in 0..lhs_rows { ... } }
+                // produces: [col0_row0, col0_row1, ..., col1_row0, col1_row1, ...]
                 let mut result_vals = Vec::new();
-                for i in 0..lhs_rows {
-                    for j in 0..rhs_cols {
+                for j in 0..rhs_cols {
+                    for i in 0..lhs_rows {
                         // Dot product of row i of lhs with column j of rhs
+                        // lhs element (i, k): lhs_vals[k * lhs_rows + i]
+                        // rhs element (k, j): rhs_vals[j * rhs_rows + k]
                         let mut sum = ctx.builder.ins().fmul(
                             lhs_vals[0 * lhs_rows + i], // Element at (i, 0) of lhs
                             rhs_vals[j * rhs_rows + 0]  // Element at (0, j) of rhs
