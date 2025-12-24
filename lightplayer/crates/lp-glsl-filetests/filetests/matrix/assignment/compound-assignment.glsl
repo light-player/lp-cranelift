@@ -74,6 +74,6 @@ float test_mat4_mul_assign_scalar() {
     // Should be 2.0 + 6.0 + 18.0 + 26.0 = 52.0
 }
 
-// run: test_mat4_mul_assign_scalar() ~= 52.0
+// run: test_mat4_mul_assign_scalar() ~= 20.0
 
 

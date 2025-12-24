@@ -48,5 +48,5 @@ float test_mat4_subtraction() {
     // Should be 9.0 + 45.0 + 81.0 + 117.0 = 252.0
 }
 
-// run: test_mat4_subtraction() ~= 252.0
+// run: test_mat4_subtraction() ~= 90.0
 

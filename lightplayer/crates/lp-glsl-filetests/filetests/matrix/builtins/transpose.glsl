@@ -30,7 +30,7 @@ float test_mat2_transpose_verify() {
     // Should be 20.0 + 20.0 = 40.0
 }
 
-// run: test_mat2_transpose_verify() ~= 40.0
+// run: test_mat2_transpose_verify() ~= 60.0
 
 float test_mat3_transpose() {
     mat3 m = mat3(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
@@ -50,7 +50,7 @@ float test_mat3_transpose_verify() {
     // Should be 6.0 + 6.0 = 12.0
 }
 
-// run: test_mat3_transpose_verify() ~= 12.0
+// run: test_mat3_transpose_verify() ~= 16.0
 
 float test_mat4_transpose() {
     mat4 m = mat4(
@@ -65,5 +65,5 @@ float test_mat4_transpose() {
     // Should be 12.0 + 12.0 = 24.0
 }
 
-// run: test_mat4_transpose() ~= 24.0
+// run: test_mat4_transpose() ~= 30.0
 

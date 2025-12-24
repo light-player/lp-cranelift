@@ -6,6 +6,7 @@ This directory contains plans for fixing matrix-related issues in the GLSL compi
 
 - Matrix access is column-major: mat[col][row]
 - GLSL Spec is here: /Users/yona/dev/photomancer/glsl-spec/chapters
+- Run tests with scripts/glsl-filetests.sh [filename] or --list to see all tests, --help for help.
 
 Many tests have wrong expecations and comments around matrix storage order that assume row-major. These should be updated to use column-major.
 

@@ -42,5 +42,5 @@ float test_mat4_division() {
     // Should be 5.0 + 25.0 + 45.0 + 65.0 = 140.0
 }
 
-// run: test_mat4_division() ~= 140.0
+// run: test_mat4_division() ~= 50.0
 

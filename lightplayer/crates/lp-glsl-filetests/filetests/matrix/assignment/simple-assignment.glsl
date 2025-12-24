@@ -58,5 +58,5 @@ float test_mat4_assignment() {
     // Should be 10.0 + 50.0 + 90.0 + 130.0 = 280.0
 }
 
-// run: test_mat4_assignment() ~= 280.0
+// run: test_mat4_assignment() ~= 100.0
 

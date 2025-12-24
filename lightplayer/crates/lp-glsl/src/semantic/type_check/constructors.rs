@@ -233,12 +233,19 @@ pub fn check_matrix_constructor(
         return Ok(result_type);
     }
 
+    // Case 4: Single matrix - conversion between matrix sizes
+    if args.len() == 1 && args[0].is_matrix() {
+        // Matrix conversion is allowed - smaller matrices are padded with identity,
+        // larger matrices are truncated
+        return Ok(result_type);
+    }
+
     // Wrong number of arguments
     Err(GlslError::new(
         ErrorCode::E0115,
         format!("`{}` constructor has wrong number of arguments", type_name)
     )
-    .with_note(format!("expected 1 (identity), {} (columns), or {} (scalars), found {}", 
+    .with_note(format!("expected 1 (identity/matrix), {} (columns), or {} (scalars), found {}",
         cols, element_count, args.len())))
 }
 

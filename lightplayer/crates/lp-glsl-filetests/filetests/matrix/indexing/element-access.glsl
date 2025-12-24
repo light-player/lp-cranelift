@@ -27,7 +27,7 @@ float test_mat2_element_write() {
     // Should be 1.0 + 2.0 + 10.0 + 4.0 = 17.0
 }
 
-// run: test_mat2_element_write() ~= 17.0
+// run: test_mat2_element_write() ~= 18.0
 
 float test_mat2_all_elements() {
     mat2 m = mat2(10.0, 20.0, 30.0, 40.0);

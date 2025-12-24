@@ -147,6 +147,28 @@ if [ "$SHOW_LIST" = true ]; then
 
     echo ""
     echo "Total: $(find "$FILETESTS_DIR" -name "*.glsl" -type f | wc -l | tr -d ' ') test files"
+    echo ""
+    echo "To run tests:"
+    echo "  # Run all tests"
+    echo "  ./scripts/glsl-filetests.sh"
+    echo ""
+    echo "  # Run specific test file (searched recursively)"
+    echo "  ./scripts/glsl-filetests.sh filename.glsl"
+    echo ""
+    echo "  # Run tests in a directory"
+    echo "  ./scripts/glsl-filetests.sh directory/"
+    echo ""
+    echo "  # Run tests matching patterns (supports wildcards)"
+    echo "  ./scripts/glsl-filetests.sh \"*pattern*\" \"directory/*\""
+    echo ""
+    echo "  # Run specific test case by line number"
+    echo "  ./scripts/glsl-filetests.sh filename.glsl:10"
+    echo ""
+    echo "Wildcard patterns:"
+    echo "  *         - Matches any sequence of characters"
+    echo "  ?         - Matches any single character"
+    echo "  [abc]     - Matches any character in the set"
+    echo "  {a,b,c}   - Matches any of the comma-separated patterns"
     exit 0
 fi
 

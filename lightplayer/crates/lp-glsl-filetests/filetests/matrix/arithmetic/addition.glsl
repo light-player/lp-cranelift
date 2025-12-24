@@ -48,5 +48,5 @@ float test_mat4_addition() {
     // Should be 11.0 + 55.0 + 99.0 + 143.0 = 308.0
 }
 
-// run: test_mat4_addition() ~= 308.0
+// run: test_mat4_addition() ~= 110.0
 

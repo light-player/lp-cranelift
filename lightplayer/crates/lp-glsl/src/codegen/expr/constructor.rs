@@ -130,11 +130,36 @@ pub fn translate_matrix_constructor(
             }
         }
     }
-    // Case 3: Mixed scalars - column-major order
+    // Case 3: Single matrix - conversion between matrix sizes
+    else if arg_types.len() == 1 && arg_types[0].is_matrix() {
+        let src_matrix_vals = &arg_vals[0];
+        let src_ty = &arg_types[0];
+        let (src_rows, src_cols) = src_ty.matrix_dims().unwrap();
+
+        // Copy elements from source matrix, padding with identity/truncating as needed
+        for col in 0..cols {
+            for row in 0..rows {
+                let value = if col < src_cols && row < src_rows {
+                    // Copy from source matrix
+                    let src_idx = col * src_rows + row;
+                    src_matrix_vals[src_idx]
+                } else if col == row {
+                    // Identity padding (diagonal = 1.0)
+                    ctx.builder.ins().f32const(1.0)
+                } else {
+                    // Off-diagonal padding = 0.0
+                    ctx.builder.ins().f32const(0.0)
+                };
+                let var_idx = col * rows + row;
+                ctx.builder.def_var(matrix_vars[var_idx], value);
+            }
+        }
+    }
+    // Case 4: Mixed scalars - column-major order
     else {
-        for row in 0..rows {
-            for col in 0..cols {
-                let scalar_index = row * cols + col;
+        for col in 0..cols {
+            for row in 0..rows {
+                let scalar_index = col * rows + row;
                 let scalar = arg_vals[scalar_index][0];
                 let scalar_ty = &arg_types[scalar_index];
                 let float_val = coercion::coerce_to_type(ctx, scalar, scalar_ty, &GlslType::Float)?;

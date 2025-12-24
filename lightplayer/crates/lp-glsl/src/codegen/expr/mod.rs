@@ -105,10 +105,10 @@ impl<'a> CodegenContext<'a> {
         use crate::error::extract_span_from_identifier;
         use crate::semantic::type_check::check_assignment;
         use component;
-        
-        // Only simple assignment (=) for now
+
+        // Handle compound assignment operators (+=, -=, *=, /=)
         if !matches!(op, glsl::syntax::AssignmentOp::Equal) {
-            return Err(GlslError::new(ErrorCode::E0400, "only simple assignment (=) supported"));
+            return self.translate_compound_assignment_typed(lhs, op, rhs);
         }
 
         // Resolve LHS to an LValue
@@ -208,6 +208,126 @@ impl<'a> CodegenContext<'a> {
         };
 
         Ok(result_vals)
+    }
+
+    /// Handle compound assignment operators (+=, -=, *=, /=)
+    fn translate_compound_assignment_typed(
+        &mut self,
+        lhs: &Expr,
+        op: &glsl::syntax::AssignmentOp,
+        rhs: &Expr,
+    ) -> Result<(Vec<Value>, GlslType), GlslError> {
+        use crate::codegen::lvalue::{resolve_lvalue, write_lvalue, read_lvalue};
+        use crate::error::extract_span_from_expr;
+        use crate::semantic::type_check::check_assignment;
+        use matrix;
+        use vector;
+        use binary;
+        use glsl::syntax::BinaryOp;
+
+        // Resolve LHS to an LValue
+        let lvalue = resolve_lvalue(self, lhs)?;
+        let lhs_ty = lvalue.ty();
+
+        // Translate RHS
+        let (rhs_vals, rhs_ty) = self.translate_expr_typed(rhs)?;
+        let rhs_span = extract_span_from_expr(rhs);
+
+        // Validate assignment types
+        // For compound assignment, we allow:
+        // - Same type operations (matrix + matrix, vector + vector, scalar + scalar)
+        // - Scalar operations on matrices/vectors (matrix * scalar, vector * scalar)
+        // Only validate direct assignment compatibility for same-type operations
+        let is_scalar_op_on_matrix = (lhs_ty.is_matrix() || lhs_ty.is_vector()) && rhs_ty.is_scalar();
+        let is_scalar_op_on_vector = lhs_ty.is_vector() && rhs_ty.is_scalar();
+        
+        if !is_scalar_op_on_matrix && !is_scalar_op_on_vector {
+            // For same-type operations, validate assignment compatibility
+            match check_assignment(&lhs_ty, &rhs_ty) {
+                Ok(()) => {}
+                Err(mut error) => {
+                    if error.location.is_none() {
+                        error = error.with_location(source_span_to_location(&rhs_span));
+                    }
+                    return Err(self.add_span_to_error(error, &rhs_span));
+                }
+            }
+        }
+
+        // Read current value from LHS
+        let (lhs_vals, _) = read_lvalue(self, &lvalue)?;
+
+        // Convert assignment operator to binary operator
+        let binary_op = match op {
+            glsl::syntax::AssignmentOp::Add => BinaryOp::Add,
+            glsl::syntax::AssignmentOp::Sub => BinaryOp::Sub,
+            glsl::syntax::AssignmentOp::Mult => BinaryOp::Mult,
+            glsl::syntax::AssignmentOp::Div => BinaryOp::Div,
+            _ => return Err(GlslError::new(ErrorCode::E0400, format!("unsupported compound assignment operator: {:?}", op))),
+        };
+
+        // Perform the compound operation
+        let (operation_result_vals, operation_result_ty) = if lhs_ty.is_matrix() || rhs_ty.is_matrix() {
+            // Use matrix operations for matrix compound assignments
+            matrix::translate_matrix_binary(self, &binary_op, lhs_vals, &lhs_ty, rhs_vals, &rhs_ty, rhs_span.clone())?
+        } else if lhs_ty.is_vector() || rhs_ty.is_vector() {
+            // Use vector operations
+            vector::translate_vector_binary(
+                self,
+                &binary_op,
+                lhs_vals,
+                &lhs_ty,
+                rhs_vals,
+                &rhs_ty,
+                Some(rhs_span.clone()),
+            )?
+        } else {
+            // Use scalar operations - need to determine base type for coercion
+            let base_ty = if lhs_ty.is_numeric() && rhs_ty.is_numeric() {
+                use crate::semantic::type_check::promote_numeric;
+                promote_numeric(&lhs_ty, &rhs_ty)
+            } else {
+                lhs_ty.clone()
+            };
+            
+            // Coerce operands to common type
+            let lhs_val_coerced = coercion::coerce_to_type(self, lhs_vals[0], &lhs_ty, &base_ty)?;
+            let rhs_val_coerced = coercion::coerce_to_type(self, rhs_vals[0], &rhs_ty, &base_ty)?;
+            
+            // Perform scalar operation
+            let result_val = binary::translate_scalar_binary_op_internal(
+                self,
+                &binary_op,
+                lhs_val_coerced,
+                rhs_val_coerced,
+                &base_ty,
+                rhs_span.clone(),
+            )?;
+            
+            // Result type is the same as the promoted type
+            (vec![result_val], base_ty)
+        };
+
+        // Write result back to LHS
+        write_lvalue(self, &lvalue, &operation_result_vals)?;
+
+        // Return the result (same as simple assignment)
+        let final_result = match &lvalue {
+            crate::codegen::lvalue::LValue::Component { base_vars, base_ty, .. } => {
+                // Component assignment returns the whole vector/matrix
+                let mut result_vals = Vec::new();
+                for &var in base_vars {
+                    result_vals.push(self.builder.use_var(var));
+                }
+                (result_vals, base_ty.clone())
+            }
+            _ => {
+                // Other assignments return the assigned values
+                (operation_result_vals, operation_result_ty)
+            }
+        };
+
+        Ok(final_result)
     }
 
     /// Coerce a value from one type to another (implements GLSL implicit conversions)

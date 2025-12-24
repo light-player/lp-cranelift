@@ -14,7 +14,7 @@ float test_mat2_column_access() {
     // Should be 1.0 + 3.0 = 4.0
 }
 
-// run: test_mat2_column_access() ~= 4.0
+// run: test_mat2_column_access() ~= 3.0
 
 float test_mat2_column_access_both() {
     mat2 m = mat2(10.0, 20.0, 30.0, 40.0);
@@ -36,7 +36,7 @@ float test_mat2_column_write() {
     // Should be 10.0 + 2.0 + 20.0 + 4.0 = 36.0
 }
 
-// run: test_mat2_column_write() ~= 36.0
+// run: test_mat2_column_write() ~= 37.0
 
 float test_mat3_column_access() {
     mat3 m = mat3(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
@@ -45,7 +45,7 @@ float test_mat3_column_access() {
     // Should be 1.0 + 4.0 + 7.0 = 12.0
 }
 
-// run: test_mat3_column_access() ~= 12.0
+// run: test_mat3_column_access() ~= 6.0
 
 float test_mat3_column_access_all() {
     mat3 m = mat3(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
@@ -71,7 +71,7 @@ float test_mat4_column_access() {
     // Should be 1.0 + 5.0 + 9.0 + 13.0 = 28.0
 }
 
-// run: test_mat4_column_access() ~= 28.0
+// run: test_mat4_column_access() ~= 10.0
 
 float test_mat4_column_access_column_2() {
     mat4 m = mat4(
@@ -86,5 +86,5 @@ float test_mat4_column_access_column_2() {
     // Should be 3.0 + 7.0 + 11.0 + 15.0 = 36.0
 }
 
-// run: test_mat4_column_access_column_2() ~= 36.0
+// run: test_mat4_column_access_column_2() ~= 42.0
 

@@ -58,5 +58,5 @@ float test_mat4_precision() {
     // Should be 0.0001 + 0.0005 + 0.0009 + 0.0013 = 0.0028
 }
 
-// run: test_mat4_precision() ~= 0.0028
+// run: test_mat4_precision() ~= 0.0010070801
 

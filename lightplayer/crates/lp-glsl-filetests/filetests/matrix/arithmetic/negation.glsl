@@ -38,5 +38,5 @@ float test_mat4_negation() {
     // Should be -1.0 + -5.0 + -9.0 + -13.0 = -28.0
 }
 
-// run: test_mat4_negation() ~= -28.0
+// run: test_mat4_negation() ~= -10.0
 

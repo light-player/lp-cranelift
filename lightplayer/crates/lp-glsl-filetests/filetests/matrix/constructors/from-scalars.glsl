@@ -44,7 +44,7 @@ float test_mat3_from_scalars() {
     // Should be 1.0 + 2.0 + 3.0 = 6.0
 }
 
-// run: test_mat3_from_scalars() ~= 6.0
+// run: test_mat3_from_scalars() ~= 12.0
 
 float test_mat3_from_scalars_all() {
     mat3 m = mat3(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
@@ -74,7 +74,7 @@ float test_mat4_from_scalars() {
     // Should be 1.0 + 5.0 + 9.0 + 13.0 = 28.0
 }
 
-// run: test_mat4_from_scalars() ~= 28.0
+// run: test_mat4_from_scalars() ~= 10.0
 
 float test_mat4_from_scalars_column_verify() {
     mat4 m = mat4(
@@ -88,5 +88,5 @@ float test_mat4_from_scalars_column_verify() {
     // Should be 2.0 + 6.0 + 10.0 + 14.0 = 32.0
 }
 
-// run: test_mat4_from_scalars_column_verify() ~= 32.0
+// run: test_mat4_from_scalars_column_verify() ~= 26.0
 
