@@ -83,6 +83,7 @@ pub fn run_test_file_with_line_filter(
                     directive.line_number,
                     &directive.expression_str,
                     &relative_path,
+                    show_full_output,
                 )
             })?;
 
@@ -122,8 +123,12 @@ pub fn run_test_file_with_line_filter(
                 relative_path, directive.line_number
             );
             
-            // Format bootstrap code for display (like compile errors do)
-            let bootstrap_code_display = format_code_block(&bootstrap_result.source);
+            // Format bootstrap code for display (only when showing full output)
+            let bootstrap_code_display = if show_full_output {
+                format!("\n\nGenerated test code:\n{}", format_code_block(&bootstrap_result.source))
+            } else {
+                String::new()
+            };
             
             if is_trap {
                 // Format trap error with clear message and bootstrap code context
@@ -133,17 +138,14 @@ pub fn run_test_file_with_line_filter(
                          \n\
                          The test expected a value but execution trapped instead.\n\
                          This indicates the code under test encountered an error condition\n\
-                         (e.g., division by zero, overflow, etc.).\n\
-                         \n\
-                         Generated test code:\n\
-                         {}\n\
+                         (e.g., division by zero, overflow, etc.).{}{}\n\
                          \n\
                          Error details:\n\
-                         {}{}{}\n\
+                         {}{}\n\
                          \n\
                          To rerun just this test:\n\
                          {}",
-                        directive.line_number, bootstrap_code_display, error_str, clif_ir_section, state, rerun_cmd
+                        directive.line_number, bootstrap_code_display, clif_ir_section, error_str, state, rerun_cmd
                     )
                 } else {
                     format!(
@@ -151,17 +153,14 @@ pub fn run_test_file_with_line_filter(
                          \n\
                          The test expected a value but execution trapped instead.\n\
                          This indicates the code under test encountered an error condition\n\
-                         (e.g., division by zero, overflow, etc.).\n\
-                         \n\
-                         Generated test code:\n\
-                         {}\n\
+                         (e.g., division by zero, overflow, etc.).{}{}\n\
                          \n\
                          Error details:\n\
-                         {}{}\n\
+                         {}\n\
                          \n\
                          To rerun just this test:\n\
                          {}",
-                        directive.line_number, bootstrap_code_display, error_str, clif_ir_section, rerun_cmd
+                        directive.line_number, bootstrap_code_display, clif_ir_section, error_str, rerun_cmd
                     )
                 };
                 anyhow::anyhow!("{}", trap_msg)
@@ -262,51 +261,88 @@ fn format_compilation_error(
     directive_line: usize,
     expression: &str,
     relative_path: &str,
+    show_full_output: bool,
 ) -> anyhow::Error {
-    // Check if error message already contains "Compilation error:" to avoid duplication
-    let error_msg = error.to_string();
-    let has_prefix = error_msg.contains("Compilation error:");
-
-    // Extract notes if present (these contain detailed verifier errors)
-    let notes = if !error.notes.is_empty() {
-        format!("\n\n{}", error.notes.join("\n"))
-    } else {
-        String::new()
-    };
-
     // Generate rerun command using the script
     let rerun_cmd = format!(
         "scripts/glsl-filetests.sh {}:{}",
         relative_path, directive_line
     );
 
-    // Build the error message
-    let mut msg = format!(
-        "Compilation failed for test case at line {}:\n\
-         \n\
-         Test case: {}\n\
-         \n\
-         Generated bootstrap code:\n\
-         {}\n\
-         \n\
-         {}{}{}",
-        directive_line,
-        expression,
-        format_code_block(&bootstrap.source),
-        if has_prefix {
-            ""
-        } else {
-            "Compilation error:\n"
-        },
-        error_msg,
-        notes
-    );
+    // In compact mode, extract just the essential error (code + message) without notes
+    let error_msg = if show_full_output {
+        // Full mode: show everything including notes
+        let full_error = error.to_string();
+        let has_prefix = full_error.contains("Compilation error:");
+        (full_error, has_prefix)
+    } else {
+        // Compact mode: show only error code and message, strip notes
+        let basic_error = format!("error[{}]: {}", error.code, error.message);
+        let has_prefix = basic_error.contains("Compilation error:");
+        (basic_error, has_prefix)
+    };
 
-    // Add main function span info for reference
-    msg.push_str(&format!(
-        "\n\nNote: main() function spans lines {} to {}",
-        bootstrap.main_start_line, bootstrap.main_end_line
-    ));
+    // Extract notes if present (these contain detailed verifier errors) - only in full output mode
+    let notes = if show_full_output && !error.notes.is_empty() {
+        format!("\n\n{}", error.notes.join("\n"))
+    } else {
+        String::new()
+    };
+
+    // Format bootstrap code only when showing full output
+    let bootstrap_section = if show_full_output {
+        format!(
+            "\n\nGenerated bootstrap code:\n{}",
+            format_code_block(&bootstrap.source)
+        )
+    } else {
+        String::new()
+    };
+
+    // Build the error message - simplified format for compact mode
+    let mut msg = if show_full_output {
+        format!(
+            "Compilation failed for test case at line {}:\n\
+             \n\
+             Test case: {}{}\
+             \n\
+             {}{}{}",
+            directive_line,
+            expression,
+            bootstrap_section,
+            if error_msg.1 {
+                ""
+            } else {
+                "Compilation error:\n"
+            },
+            error_msg.0,
+            notes
+        )
+    } else {
+        // Compact mode: just show the essential error
+        format!(
+            "Compilation failed for test case at line {}:\n\
+             \n\
+             Test case: {}\n\
+             {}{}",
+            directive_line,
+            expression,
+            if error_msg.1 {
+                ""
+            } else {
+                "Compilation error:\n"
+            },
+            error_msg.0
+        )
+    };
+
+    // Add main function span info for reference (only when showing full output)
+    if show_full_output {
+        msg.push_str(&format!(
+            "\n\nNote: main() function spans lines {} to {}",
+            bootstrap.main_start_line, bootstrap.main_end_line
+        ));
+    }
 
     // Add rerun command
     msg.push_str(&format!("\n\nTo rerun just this test:\n{}", rerun_cmd));
