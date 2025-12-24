@@ -24,6 +24,9 @@ pub fn emit_binary_rvalue(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<RValue, GlslError> {
+    // Ensure we're in a block before evaluating
+    ctx.ensure_block()?;
+    
     let Expr::Binary(op, lhs, rhs, span) = expr else {
         unreachable!("emit_binary_rvalue called on non-binary expr");
     };

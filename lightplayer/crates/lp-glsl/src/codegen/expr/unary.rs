@@ -16,6 +16,9 @@ pub fn emit_unary_rvalue(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<RValue, GlslError> {
+    // Ensure we're in a block before evaluating
+    ctx.ensure_block()?;
+    
     let Expr::Unary(op, operand, span) = expr else {
         unreachable!("emit_unary_rvalue called on non-unary expr");
     };

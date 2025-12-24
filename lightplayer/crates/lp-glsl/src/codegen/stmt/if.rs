@@ -2,7 +2,6 @@ use glsl::syntax::SelectionStatement;
 
 use crate::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError};
-use cranelift_codegen::ir::InstBuilder;
 
 /// Emit if statement (selection statement)
 pub fn emit_if_stmt(
@@ -30,49 +29,44 @@ pub fn emit_if_stmt(
         GlslError::new(ErrorCode::E0400, "condition expression produced no value")
     })?;
 
+    // 1. Create blocks
     let then_block = ctx.builder.create_block();
     let merge_block = ctx.builder.create_block();
 
     match &selection.rest {
         SelectionRestStatement::Statement(then_stmt) => {
-            // No else: branch to then or merge
-            ctx.builder
-                .ins()
-                .brif(condition_value, then_block, &[], merge_block, &[]);
+            // No else: else_block is same as merge_block
+            let else_block = merge_block;
 
-            // Then branch
-            ctx.builder.switch_to_block(then_block);
-            ctx.builder.seal_block(then_block);
+            // 2. Evaluate condition in current block and branch
+            ctx.emit_cond_branch(condition_value, then_block, else_block)?;
+
+            // 3. Emit then block
+            ctx.emit_block(then_block);
             ctx.emit_statement(then_stmt)?;
-            ctx.builder.ins().jump(merge_block, &[]);
+            ctx.emit_branch(merge_block)?;
 
-            // Merge
-            ctx.builder.switch_to_block(merge_block);
-            ctx.builder.seal_block(merge_block);
+            // 4. Emit continuation block
+            ctx.emit_block(merge_block);
         }
         SelectionRestStatement::Else(then_stmt, else_stmt) => {
             let else_block = ctx.builder.create_block();
 
-            // Branch to then or else
-            ctx.builder
-                .ins()
-                .brif(condition_value, then_block, &[], else_block, &[]);
+            // 2. Evaluate condition in current block and branch
+            ctx.emit_cond_branch(condition_value, then_block, else_block)?;
 
-            // Then branch
-            ctx.builder.switch_to_block(then_block);
-            ctx.builder.seal_block(then_block);
+            // 3. Emit then block
+            ctx.emit_block(then_block);
             ctx.emit_statement(then_stmt)?;
-            ctx.builder.ins().jump(merge_block, &[]);
+            ctx.emit_branch(merge_block)?;
 
-            // Else branch
-            ctx.builder.switch_to_block(else_block);
-            ctx.builder.seal_block(else_block);
+            // 4. Emit else block
+            ctx.emit_block(else_block);
             ctx.emit_statement(else_stmt)?;
-            ctx.builder.ins().jump(merge_block, &[]);
+            ctx.emit_branch(merge_block)?;
 
-            // Merge
-            ctx.builder.switch_to_block(merge_block);
-            ctx.builder.seal_block(merge_block);
+            // 5. Emit continuation block
+            ctx.emit_block(merge_block);
         }
     }
 

@@ -19,6 +19,9 @@ pub fn emit_function_call_rvalue(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<RValue, GlslError> {
+    // Ensure we're in a block before evaluating
+    ctx.ensure_block()?;
+    
     let (vals, ty) = translate_function_call(ctx, expr)?;
     Ok(RValue::from_aggregate(vals, ty))
 }

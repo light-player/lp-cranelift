@@ -25,6 +25,9 @@ pub fn translate_component_access(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
+    // Ensure we're in a block before evaluating
+    ctx.ensure_block()?;
+    
     let Expr::Dot(base_expr, field, dot_span) = expr else {
         unreachable!("translate_component_access called on non-dot expr");
     };
@@ -65,6 +68,9 @@ pub fn translate_matrix_indexing(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
+    // Ensure we're in a block before evaluating
+    ctx.ensure_block()?;
+    
     let Expr::Bracket(array_expr, array_spec, span) = expr else {
         unreachable!("translate_matrix_indexing called on non-bracket expr");
     };

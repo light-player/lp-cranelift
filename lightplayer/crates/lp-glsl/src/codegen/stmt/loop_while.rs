@@ -3,7 +3,6 @@ use glsl::syntax::{Condition, Statement};
 use crate::codegen::context::CodegenContext;
 use crate::codegen::stmt::loops::translate_condition;
 use crate::error::GlslError;
-use cranelift_codegen::ir::InstBuilder;
 
 /// Emit while loop statement
 pub fn emit_loop_while_stmt(
@@ -22,25 +21,20 @@ pub fn emit_loop_while_stmt(
     });
 
     // Jump to header
-    ctx.builder.ins().jump(header_block, &[]);
+    ctx.emit_branch(header_block)?;
 
     // Header: evaluate condition
-    ctx.builder.switch_to_block(header_block);
+    ctx.emit_block(header_block);
     let condition_value = translate_condition(ctx, condition)?;
-    ctx.builder
-        .ins()
-        .brif(condition_value, body_block, &[], exit_block, &[]);
+    ctx.emit_cond_branch(condition_value, body_block, exit_block)?;
 
     // Body
-    ctx.builder.switch_to_block(body_block);
-    ctx.builder.seal_block(body_block);
+    ctx.emit_block(body_block);
     ctx.emit_statement(body)?;
-    ctx.builder.ins().jump(header_block, &[]); // Loop back
+    ctx.emit_branch(header_block)?; // Loop back
 
     // Exit
-    ctx.builder.switch_to_block(exit_block);
-    ctx.builder.seal_block(header_block);
-    ctx.builder.seal_block(exit_block);
+    ctx.emit_block(exit_block);
 
     // Pop loop context
     ctx.loop_stack.pop();

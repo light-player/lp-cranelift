@@ -18,6 +18,9 @@ pub fn translate_vector_constructor(
     args: &[Expr],
     span: glsl::syntax::SourceSpan,
 ) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {
+    // Ensure we're in a block before evaluating
+    ctx.ensure_block()?;
+    
     // Translate all arguments
     let mut arg_vals: Vec<Vec<cranelift_codegen::ir::Value>> = Vec::new();
     let mut arg_types: Vec<GlslType> = Vec::new();
@@ -85,6 +88,9 @@ pub fn translate_matrix_constructor(
     type_name: &str,
     args: &[Expr],
 ) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {
+    // Ensure we're in a block before evaluating
+    ctx.ensure_block()?;
+    
     // Translate all arguments
     let mut arg_vals: Vec<Vec<cranelift_codegen::ir::Value>> = Vec::new();
     let mut arg_types: Vec<GlslType> = Vec::new();

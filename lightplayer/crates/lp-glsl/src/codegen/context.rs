@@ -1,9 +1,10 @@
-use cranelift_codegen::ir::Block;
+use cranelift_codegen::ir::{Block, InstBuilder, Value};
 use cranelift_frontend::{FunctionBuilder, Variable};
 use cranelift_module::{FuncId, Module};
 use hashbrown::HashMap;
 
 use crate::codegen::sourceloc::SourceLocManager;
+use crate::error::{ErrorCode, GlslError};
 use crate::semantic::functions::FunctionRegistry;
 use crate::semantic::types::Type as GlslType;
 use crate::semantic::types::Type;
@@ -210,5 +211,61 @@ impl<'a> CodegenContext<'a> {
             result.push(self.builder.use_var(matrix_vars[index]));
         }
         result
+    }
+
+    // ============================================================================
+    // Block Management API (following Clang's pattern)
+    // ============================================================================
+
+    /// Get the current block (insertion point)
+    pub fn current_block(&self) -> Option<Block> {
+        self.builder.current_block()
+    }
+
+    /// Ensure we're in a block before evaluating expressions
+    /// Returns error if not in a block (for production code)
+    pub fn ensure_block(&self) -> Result<Block, GlslError> {
+        self.builder.current_block().ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0400,
+                "not in a block - cannot evaluate expressions",
+            )
+        })
+    }
+
+    /// Switch to block and seal it (following Clang's EmitBlock pattern)
+    /// This is the primary method for switching to a new block.
+    pub fn emit_block(&mut self, block: Block) {
+        self.builder.switch_to_block(block);
+        self.builder.seal_block(block);
+    }
+
+    /// Create a new block, switch to it, and seal it
+    /// Convenience method for common pattern.
+    pub fn create_and_emit_block(&mut self) -> Block {
+        let block = self.builder.create_block();
+        self.emit_block(block);
+        block
+    }
+
+    /// Branch to target block (following Clang's EmitBranch pattern)
+    /// Ensures we're in a block before branching.
+    pub fn emit_branch(&mut self, target: Block) -> Result<(), GlslError> {
+        self.ensure_block()?;
+        self.builder.ins().jump(target, &[]);
+        Ok(())
+    }
+
+    /// Conditional branch (following Clang's EmitBranchOnBoolExpr pattern)
+    /// Evaluates condition in current block, then branches.
+    pub fn emit_cond_branch(
+        &mut self,
+        cond: Value,
+        then_block: Block,
+        else_block: Block,
+    ) -> Result<(), GlslError> {
+        self.ensure_block()?;
+        self.builder.ins().brif(cond, then_block, &[], else_block, &[]);
+        Ok(())
     }
 }

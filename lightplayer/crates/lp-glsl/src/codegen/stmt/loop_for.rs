@@ -37,10 +37,10 @@ pub fn emit_loop_for_stmt(
         exit_block,
     });
 
-    ctx.builder.ins().jump(header_block, &[]);
+    ctx.emit_branch(header_block)?;
 
     // Header: evaluate condition
-    ctx.builder.switch_to_block(header_block);
+    ctx.emit_block(header_block);
     let condition_value = if let Some(condition) = &rest.condition {
         translate_condition(ctx, condition)?
     } else {
@@ -49,28 +49,22 @@ pub fn emit_loop_for_stmt(
             .ins()
             .iconst(cranelift_codegen::ir::types::I8, 1)
     };
-    ctx.builder
-        .ins()
-        .brif(condition_value, body_block, &[], exit_block, &[]);
+    ctx.emit_cond_branch(condition_value, body_block, exit_block)?;
 
     // Body
-    ctx.builder.switch_to_block(body_block);
-    ctx.builder.seal_block(body_block);
+    ctx.emit_block(body_block);
     ctx.emit_statement(body)?;
-    ctx.builder.ins().jump(update_block, &[]);
+    ctx.emit_branch(update_block)?;
 
     // Update block
-    ctx.builder.switch_to_block(update_block);
-    ctx.builder.seal_block(update_block);
+    ctx.emit_block(update_block);
     if let Some(update_expr) = &rest.post_expr {
         ctx.translate_expr(update_expr)?;
     }
-    ctx.builder.ins().jump(header_block, &[]);
+    ctx.emit_branch(header_block)?;
 
     // Exit
-    ctx.builder.switch_to_block(exit_block);
-    ctx.builder.seal_block(header_block);
-    ctx.builder.seal_block(exit_block);
+    ctx.emit_block(exit_block);
 
     ctx.loop_stack.pop();
 

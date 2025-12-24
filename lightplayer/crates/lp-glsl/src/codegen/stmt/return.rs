@@ -135,8 +135,7 @@ pub fn emit_return_stmt(ctx: &mut CodegenContext, expr: Option<&Expr>) -> Result
 
     // Create unreachable block for subsequent code
     let unreachable = ctx.builder.create_block();
-    ctx.builder.switch_to_block(unreachable);
-    ctx.builder.seal_block(unreachable);
+    ctx.emit_block(unreachable);
 
     Ok(())
 }

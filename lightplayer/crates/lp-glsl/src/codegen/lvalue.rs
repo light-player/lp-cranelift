@@ -376,6 +376,9 @@ pub fn read_lvalue(
     ctx: &mut CodegenContext,
     lvalue: &LValue,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
+    // Must be in block to read variables
+    ctx.ensure_block()?;
+    
     match lvalue {
         LValue::Variable { vars, ty } => {
             let vals: Vec<Value> = vars.iter()
@@ -419,6 +422,9 @@ pub fn write_lvalue(
     lvalue: &LValue,
     values: &[Value],
 ) -> Result<(), GlslError> {
+    // Must be in block to write variables
+    ctx.ensure_block()?;
+    
     match lvalue {
         LValue::Variable { vars, .. } => {
             if vars.len() != values.len() {

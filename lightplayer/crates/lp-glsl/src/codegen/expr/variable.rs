@@ -38,7 +38,7 @@ pub fn translate_variable(
     
     // Ensure we're in the correct block before reading variables
     // This is important when reading variables in merge blocks after control flow
-    let _current_block = ctx.builder.current_block().expect("must be in a block to read variables");
+    ctx.ensure_block()?;
     ctx.builder.ensure_inserted_block();
     
     // Read all component values fresh in the current block context

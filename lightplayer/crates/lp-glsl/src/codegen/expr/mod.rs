@@ -43,6 +43,9 @@ impl<'a> CodegenContext<'a> {
     /// This is the new primary entry point for expression evaluation,
     /// following Clang's pattern of separating LValue (locations) from RValue (values).
     pub fn emit_rvalue(&mut self, expr: &Expr) -> Result<RValue, GlslError> {
+        // Ensure we're in a block before evaluating expressions
+        self.ensure_block()?;
+        
         match expr {
             Expr::IntConst(..) | Expr::FloatConst(..) | Expr::BoolConst(..) => {
                 literal::emit_literal_rvalue(self, expr)
