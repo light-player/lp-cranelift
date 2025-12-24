@@ -6,6 +6,7 @@ use alloc::{format, string::String, vec::Vec};
 use core::fmt::Write;
 
 use super::{
+    abi_helper,
     decoder::decode_instruction,
     error::EmulatorError,
     executor::execute_instruction,
@@ -15,6 +16,7 @@ use super::{
 use crate::{Gpr, Inst};
 use cranelift_codegen::data_value::DataValue;
 use cranelift_codegen::ir::{Signature, TrapCode};
+use cranelift_codegen::settings::{self, Configurable, Flags};
 
 /// Default RAM start address (0x80000000, matching embive's RAM_OFFSET).
 pub const DEFAULT_RAM_START: u32 = 0x80000000;
@@ -515,7 +517,8 @@ impl Riscv32Emulator {
         // Leave some space for stack growth
         let ram_size = self.memory.ram().len();
         let stack_top = super::memory::DEFAULT_RAM_START + ram_size as u32;
-        self.regs[2] = (stack_top - 16) as i32; // 16-byte aligned, with some space
+        let entry_sp = (stack_top - 16) as i32; // 16-byte aligned, with some space
+        self.regs[2] = entry_sp;
 
         // Set up return address (x1/ra) to a special halt address
         // We'll use 0xFFFFFFFC as a sentinel value that triggers halt
@@ -557,96 +560,219 @@ impl Riscv32Emulator {
             }
         }
 
-        // Extract return values from registers according to signature
-        // a0-a7 (x10-x17) are used for return values
-        // i64 values use register pairs: (low, high)
+        // Compute return value locations using ABI helper
+        // Create flags with enable_multi_ret_implicit_sret enabled
+        let mut builder = settings::builder();
+        builder
+            .set("enable_multi_ret_implicit_sret", "true")
+            .map_err(|e| EmulatorError::InvalidInstruction {
+                pc: self.pc,
+                instruction: 0,
+                reason: format!("Failed to set flags: {:?}", e),
+                regs: self.regs,
+            })?;
+        let flags = Flags::new(builder);
+
+        let return_locations = abi_helper::compute_return_locations(signature, &flags)
+            .map_err(|e| EmulatorError::InvalidInstruction {
+                pc: self.pc,
+                instruction: 0,
+                reason: format!("Failed to compute return locations: {:?}", e),
+                regs: self.regs,
+            })?;
+
+        // Extract return values from registers or stack according to ABI
+        // Each return value may have multiple slots (e.g., i64 uses 2 slots)
         let mut results = Vec::new();
-        let mut reg_idx = 10; // Start at a0
+        use cranelift_codegen::ir::types;
 
-        for (i, param) in signature.returns.iter().enumerate() {
-            if reg_idx > 17 {
-                // Out of return registers - would need stack, not yet supported
-                return Err(EmulatorError::InvalidInstruction {
-                    pc: self.pc,
-                    instruction: 0,
-                    reason: format!("Out of return registers (return value {})", i),
-                    regs: self.regs,
-                });
-            }
-
-            // Convert register value to DataValue based on type
-            use cranelift_codegen::ir::types;
-            let result_value = match param.value_type {
-                types::I8 => {
-                    let value = DataValue::I8(self.regs[reg_idx] as i8);
-                    reg_idx += 1;
-                    value
-                }
-                types::I16 => {
-                    let value = DataValue::I16(self.regs[reg_idx] as i16);
-                    reg_idx += 1;
-                    value
-                }
-                types::I32 => {
-                    let value = DataValue::I32(self.regs[reg_idx]);
-                    reg_idx += 1;
-                    value
+        for (i, retval_location) in return_locations.iter().enumerate() {
+            let result_value = match retval_location.ty {
+                types::I8 | types::I16 | types::I32 => {
+                    // Single-slot return values
+                    if retval_location.slots.len() != 1 {
+                        return Err(EmulatorError::InvalidInstruction {
+                            pc: self.pc,
+                            instruction: 0,
+                            reason: format!(
+                                "Expected 1 slot for return value {} (type {:?}), got {}",
+                                i, retval_location.ty, retval_location.slots.len()
+                            ),
+                            regs: self.regs,
+                        });
+                    }
+                    let slot = &retval_location.slots[0];
+                    match slot {
+                        abi_helper::ReturnLocation::Reg(reg_enc, _) => {
+                            let reg_idx = *reg_enc as usize;
+                            if reg_idx >= 32 {
+                                return Err(EmulatorError::InvalidInstruction {
+                                    pc: self.pc,
+                                    instruction: 0,
+                                    reason: format!("Invalid register index: {}", reg_idx),
+                                    regs: self.regs,
+                                });
+                            }
+                            let reg_value = self.regs[reg_idx];
+                            match retval_location.ty {
+                                types::I8 => DataValue::I8(reg_value as i8),
+                                types::I16 => DataValue::I16(reg_value as i16),
+                                types::I32 => DataValue::I32(reg_value),
+                                _ => unreachable!(),
+                            }
+                        }
+                        abi_helper::ReturnLocation::Stack(offset, _) => {
+                            // Read from stack at SP + offset
+                            // For enable_multi_ret_implicit_sret, offsets are relative to the start
+                            // of the outgoing args area, which is at SP (entry SP after function returns)
+                            let sp_addr = entry_sp as u32;
+                            let stack_addr = sp_addr.wrapping_add(*offset as u32);
+                            
+                            let word_value = self
+                                .memory
+                                .read_word(stack_addr)
+                                .map_err(|e| EmulatorError::InvalidInstruction {
+                                    pc: self.pc,
+                                    instruction: 0,
+                                    reason: format!(
+                                        "Failed to read stack return value at 0x{:08x}: {}",
+                                        stack_addr, e
+                                    ),
+                                    regs: self.regs,
+                                })?;
+                            
+                            match retval_location.ty {
+                                types::I8 => DataValue::I8(word_value as i8),
+                                types::I16 => DataValue::I16(word_value as i16),
+                                types::I32 => DataValue::I32(word_value),
+                                _ => unreachable!(),
+                            }
+                        }
+                    }
                 }
                 types::I64 => {
-                    if reg_idx > 16 {
-                        // Need 2 registers, but only 1 available
+                    // i64 uses 2 slots (can be 2 registers, 2 stack slots, or mixed)
+                    if retval_location.slots.len() != 2 {
                         return Err(EmulatorError::InvalidInstruction {
                             pc: self.pc,
                             instruction: 0,
                             reason: format!(
-                                "Not enough registers for i64 return value (return value {})",
-                                i
+                                "Expected 2 slots for i64 return value {}, got {}",
+                                i, retval_location.slots.len()
                             ),
                             regs: self.regs,
                         });
                     }
-                    // i64 returned in register pair: (low, high)
-                    let low = self.regs[reg_idx] as u32 as u64;
-                    let high = self.regs[reg_idx + 1] as i64;
-                    // Sign-extend the high 32 bits and combine with low 32 bits
-                    let value = DataValue::I64((high << 32) | low as i64);
-                    reg_idx += 2; // Consumed 2 registers
-                    value
+                    
+                    // Read from each slot (can be register or stack)
+                    let mut low = 0u64;
+                    let mut high = 0i64;
+                    
+                    for (slot_idx, slot) in retval_location.slots.iter().enumerate() {
+                        let value = match slot {
+                            abi_helper::ReturnLocation::Reg(reg_enc, _) => {
+                                let reg_idx = *reg_enc as usize;
+                                if reg_idx >= 32 {
+                                    return Err(EmulatorError::InvalidInstruction {
+                                        pc: self.pc,
+                                        instruction: 0,
+                                        reason: format!("Invalid register index: {}", reg_idx),
+                                        regs: self.regs,
+                                    });
+                                }
+                                self.regs[reg_idx] as u32
+                            }
+                            abi_helper::ReturnLocation::Stack(offset, _) => {
+                                let sp_addr = entry_sp as u32;
+                                let stack_addr = sp_addr.wrapping_add(*offset as u32);
+                                self
+                                    .memory
+                                    .read_word(stack_addr)
+                                    .map_err(|e| EmulatorError::InvalidInstruction {
+                                        pc: self.pc,
+                                        instruction: 0,
+                                        reason: format!(
+                                            "Failed to read i64 slot {} at 0x{:08x}: {}",
+                                            slot_idx, stack_addr, e
+                                        ),
+                                        regs: self.regs,
+                                    })? as u32
+                            }
+                        };
+                        
+                        if slot_idx == 0 {
+                            low = value as u64;
+                        } else {
+                            high = value as i64;
+                        }
+                    }
+                    
+                    DataValue::I64((high << 32) | low as i64)
                 }
                 types::I128 => {
-                    if reg_idx > 14 {
-                        // Need 4 registers
+                    // i128 uses 4 slots
+                    if retval_location.slots.len() != 4 {
                         return Err(EmulatorError::InvalidInstruction {
                             pc: self.pc,
                             instruction: 0,
                             reason: format!(
-                                "Not enough registers for i128 return value (return value {})",
-                                i
+                                "Expected 4 slots for i128 return value {}, got {}",
+                                i, retval_location.slots.len()
                             ),
                             regs: self.regs,
                         });
                     }
-                    // i128 returned in 4 registers: (reg0, reg1, reg2, reg3)
-                    let reg0 = self.regs[reg_idx] as u32 as u128;
-                    let reg1 = self.regs[reg_idx + 1] as u32 as u128;
-                    let reg2 = self.regs[reg_idx + 2] as u32 as u128;
-                    let reg3 = self.regs[reg_idx + 3] as u32 as u128;
-                    let value = DataValue::I128(
-                        ((reg3 << 96) | (reg2 << 64) | (reg1 << 32) | reg0) as i128,
-                    );
-                    reg_idx += 4; // Consumed 4 registers
-                    value
+                    
+                    // Read from all 4 slots (can be mix of registers and stack)
+                    let mut reg_values = [0u32; 4];
+                    for (j, slot) in retval_location.slots.iter().enumerate() {
+                        match slot {
+                            abi_helper::ReturnLocation::Reg(reg_enc, _) => {
+                                let reg_idx = *reg_enc as usize;
+                                if reg_idx >= 32 {
+                                    return Err(EmulatorError::InvalidInstruction {
+                                        pc: self.pc,
+                                        instruction: 0,
+                                        reason: format!("Invalid register index: {}", reg_idx),
+                                        regs: self.regs,
+                                    });
+                                }
+                                reg_values[j] = self.regs[reg_idx] as u32;
+                            }
+                            abi_helper::ReturnLocation::Stack(offset, _) => {
+                                let sp_addr = entry_sp as u32;
+                                let stack_addr = sp_addr.wrapping_add(*offset as u32);
+                                reg_values[j] = self
+                                    .memory
+                                    .read_word(stack_addr)
+                                    .map_err(|e| EmulatorError::InvalidInstruction {
+                                        pc: self.pc,
+                                        instruction: 0,
+                                        reason: format!(
+                                            "Failed to read i128 word {} at 0x{:08x}: {}",
+                                            j, stack_addr, e
+                                        ),
+                                        regs: self.regs,
+                                    })? as u32;
+                            }
+                        }
+                    }
+                    
+                    let reg0 = reg_values[0] as u128;
+                    let reg1 = reg_values[1] as u128;
+                    let reg2 = reg_values[2] as u128;
+                    let reg3 = reg_values[3] as u128;
+                    DataValue::I128(((reg3 << 96) | (reg2 << 64) | (reg1 << 32) | reg0) as i128)
                 }
                 _ => {
                     return Err(EmulatorError::InvalidInstruction {
                         pc: self.pc,
                         instruction: 0,
-                        reason: format!("Unsupported return type: {:?}", param.value_type),
+                        reason: format!("Unsupported return type: {:?}", retval_location.ty),
                         regs: self.regs,
                     });
                 }
             };
-
             results.push(result_value);
         }
 

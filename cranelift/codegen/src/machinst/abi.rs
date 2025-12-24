@@ -315,7 +315,7 @@ pub struct ArgsAccumulator<'a> {
 }
 
 impl<'a> ArgsAccumulator<'a> {
-    fn new(sig_set_abi_args: &'a mut Vec<ABIArg>) -> Self {
+    pub(crate) fn new(sig_set_abi_args: &'a mut Vec<ABIArg>) -> Self {
         let start = sig_set_abi_args.len();
         ArgsAccumulator {
             sig_set_abi_args,

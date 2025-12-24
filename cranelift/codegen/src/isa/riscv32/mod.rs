@@ -18,7 +18,7 @@ use alloc::{boxed::Box, format, vec::Vec};
 use core::fmt;
 use cranelift_control::ControlPlane;
 use target_lexicon::{Architecture, Triple};
-mod abi;
+pub mod abi;
 pub(crate) mod inst;
 mod lower;
 mod settings;

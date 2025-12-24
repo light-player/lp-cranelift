@@ -1046,6 +1046,51 @@ fn create_reg_environment() -> MachineEnv {
     }
 }
 
+/// Helper function to compute return value locations for external use (e.g., emulator).
+/// This is a public wrapper around the internal ABI computation logic.
+pub fn compute_return_locations_for_emulator(
+    call_conv: isa::CallConv,
+    flags: &settings::Flags,
+    returns: &[ir::AbiParam],
+) -> CodegenResult<Vec<Vec<(Option<u8>, Option<i64>, ir::Type)>>> {
+    use crate::machinst::abi::{ArgsAccumulator, ArgsOrRets};
+    let mut abi_args = Vec::new();
+    let accumulator = ArgsAccumulator::new(&mut abi_args);
+    
+    let (_stack_space, _ret_area_ptr) = Riscv32MachineDeps::compute_arg_locs(
+        call_conv,
+        flags,
+        returns,
+        ArgsOrRets::Rets,
+        false,
+        accumulator,
+    )?;
+    
+    // Group slots by return value (each ABIArg::Slots corresponds to one return value)
+    let mut return_locations = Vec::new();
+    for abi_arg in abi_args {
+        match abi_arg {
+            crate::machinst::abi::ABIArg::Slots { slots, .. } => {
+                let mut slots_for_retval = Vec::new();
+                for slot in slots {
+                    match slot {
+                        crate::machinst::abi::ABIArgSlot::Reg { reg, ty, .. } => {
+                            slots_for_retval.push((Some(reg.hw_enc()), None, ty));
+                        }
+                        crate::machinst::abi::ABIArgSlot::Stack { offset, ty, .. } => {
+                            slots_for_retval.push((None, Some(offset), ty));
+                        }
+                    }
+                }
+                return_locations.push(slots_for_retval);
+            }
+            _ => {}
+        }
+    }
+    
+    Ok(return_locations)
+}
+
 impl Riscv32MachineDeps {
     fn gen_probestack_unroll(
         insts: &mut SmallInstVec<Inst>,

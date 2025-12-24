@@ -2127,8 +2127,9 @@
 (decl zext (Value) XReg)
 
 ;; In the most generic case, we shift left and then shift right.
+;; On RV32, use 32-bit shifts instead of 64-bit shifts.
 (rule 0 (zext val @ (value_type (fits_in_32 ty)))
-  (let ((shift Imm12 (imm_from_bits (u64_wrapping_sub 64 (ty_bits ty)))))
+  (let ((shift Imm12 (imm_from_bits (u64_wrapping_sub 32 (ty_bits ty)))))
     (rv_srli (rv_slli val shift) shift)))
 
 ;; For I32 on RV32, zero extension is a no-op since 32 bits is the native register width.
