@@ -266,3 +266,84 @@ pub fn check_condition(cond_ty: &Type) -> Result<(), GlslError> {
     }
     Ok(())
 }
+
+/// Infer result type of post-increment operation
+/// Implements GLSL spec: operators.adoc:856-869
+pub fn infer_postinc_result_type(
+    operand_ty: &Type,
+    span: SourceSpan,
+) -> Result<Type, GlslError> {
+    // Post-increment requires numeric operand (int, float, or vector/matrix of these)
+    if !operand_ty.is_numeric() {
+        return Err(GlslError::new(
+            ErrorCode::E0112,
+            "post-increment requires numeric operand (scalar, vector, or matrix)",
+        )
+        .with_location(source_span_to_location(&span))
+        .with_note(format!("operand has type `{:?}`", operand_ty)));
+    }
+
+    // Return same type as operand
+    Ok(operand_ty.clone())
+}
+
+/// Infer result type of pre-increment operation
+/// Implements GLSL spec: operators.adoc:856-869
+pub fn infer_preinc_result_type(
+    operand_ty: &Type,
+    span: SourceSpan,
+) -> Result<Type, GlslError> {
+    // Pre-increment requires numeric operand (int, float, or vector/matrix of these)
+    if !operand_ty.is_numeric() {
+        return Err(GlslError::new(
+            ErrorCode::E0112,
+            "pre-increment requires numeric operand (scalar, vector, or matrix)",
+        )
+        .with_location(source_span_to_location(&span))
+        .with_note(format!("operand has type `{:?}`", operand_ty)));
+    }
+
+    // Return same type as operand
+    Ok(operand_ty.clone())
+}
+
+/// Infer result type of pre-decrement operation
+/// Implements GLSL spec: operators.adoc:856-869
+pub fn infer_predec_result_type(
+    operand_ty: &Type,
+    span: SourceSpan,
+) -> Result<Type, GlslError> {
+    // Pre-decrement requires numeric operand (int, float, or vector/matrix of these)
+    if !operand_ty.is_numeric() {
+        return Err(GlslError::new(
+            ErrorCode::E0112,
+            "pre-decrement requires numeric operand (scalar, vector, or matrix)",
+        )
+        .with_location(source_span_to_location(&span))
+        .with_note(format!("operand has type `{:?}`", operand_ty)));
+    }
+
+    // Return same type as operand
+    Ok(operand_ty.clone())
+}
+
+
+/// Infer result type of post-decrement operation
+/// Implements GLSL spec: operators.adoc:856-869
+pub fn infer_postdec_result_type(
+    operand_ty: &Type,
+    span: SourceSpan,
+) -> Result<Type, GlslError> {
+    // Post-decrement requires numeric operand (int, float, or vector/matrix of these)
+    if !operand_ty.is_numeric() {
+        return Err(GlslError::new(
+            ErrorCode::E0112,
+            "post-decrement requires numeric operand (scalar, vector, or matrix)",
+        )
+        .with_location(source_span_to_location(&span))
+        .with_note(format!("operand has type `{:?}`", operand_ty)));
+    }
+
+    // Return same type as operand
+    Ok(operand_ty.clone())
+}

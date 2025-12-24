@@ -19,7 +19,7 @@ use super::constructors::{
     check_matrix_constructor, check_vector_constructor_with_span, is_matrix_type_name,
     is_vector_type_name,
 };
-use super::operators::{infer_binary_result_type, infer_unary_result_type};
+use super::operators::{infer_binary_result_type, infer_postdec_result_type, infer_postinc_result_type, infer_unary_result_type};
 use super::swizzle::parse_swizzle_length;
 
 /// Infer the result type of an expression
@@ -56,6 +56,16 @@ pub fn infer_expr_type_with_registry(
             let lhs_ty = infer_expr_type_with_registry(lhs, symbols, func_registry)?;
             let rhs_ty = infer_expr_type_with_registry(rhs, symbols, func_registry)?;
             infer_binary_result_type(op, &lhs_ty, &rhs_ty, span.clone())
+        }
+
+        Expr::PostInc(operand, span) => {
+            let operand_ty = infer_expr_type_with_registry(operand, symbols, func_registry)?;
+            infer_postinc_result_type(&operand_ty, span.clone())
+        }
+
+        Expr::PostDec(operand, span) => {
+            let operand_ty = infer_expr_type_with_registry(operand, symbols, func_registry)?;
+            infer_postdec_result_type(&operand_ty, span.clone())
         }
 
         Expr::Unary(op, expr, span) => {

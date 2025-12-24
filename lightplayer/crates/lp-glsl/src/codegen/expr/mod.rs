@@ -23,6 +23,7 @@ pub mod vector;
 pub mod matrix;
 pub mod component;
 pub mod coercion;
+pub mod incdec;
 
 use crate::codegen::context::CodegenContext;
 use crate::semantic::types::Type as GlslType;
@@ -48,8 +49,17 @@ impl<'a> CodegenContext<'a> {
             Expr::Binary(..) => {
                 binary::translate_binary(self, expr)
             }
-            Expr::Unary(..) => {
-                unary::translate_unary(self, expr)
+            Expr::Unary(op, operand, span) => {
+                // Handle pre-increment/decrement specially
+                match op {
+                    glsl::syntax::UnaryOp::Inc => {
+                        incdec::translate_preinc(self, operand, span.clone())
+                    }
+                    glsl::syntax::UnaryOp::Dec => {
+                        incdec::translate_predec(self, operand, span.clone())
+                    }
+                    _ => unary::translate_unary(self, expr),
+                }
             }
             Expr::FunCall(..) => {
                 function::translate_function_call(self, expr)
@@ -65,6 +75,12 @@ impl<'a> CodegenContext<'a> {
                 // Assignment is handled in stmt.rs, but expression result
                 // needs to be computed here
                 self.translate_assignment_typed(lhs, op, rhs)
+            }
+            Expr::PostInc(operand, span) => {
+                incdec::translate_postinc(self, operand, span.clone())
+            }
+            Expr::PostDec(operand, span) => {
+                incdec::translate_postdec(self, operand, span.clone())
             }
             _ => Err(GlslError::new(ErrorCode::E0400, format!("expression not supported yet: {:?}", expr))),
         }
