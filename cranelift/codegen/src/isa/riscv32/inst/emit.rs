@@ -2821,11 +2821,12 @@ fn return_call_emit_impl<T>(
         )
     };
 
-    let mut clobber_offset = sp_to_fp_offset - 8;
+    let word_bytes = i64::from(Riscv32MachineDeps::word_bytes());
+    let mut clobber_offset = sp_to_fp_offset - word_bytes;
     for reg in state.frame_layout().clobbered_callee_saves.clone() {
         let rreg = reg.to_reg();
         let ty = match rreg.class() {
-            RegClass::Int => I64,
+            RegClass::Int => I32,
             RegClass::Float => F64,
             RegClass::Vector => unimplemented!("Vector Clobber Restores"),
         };
@@ -2838,7 +2839,7 @@ fn return_call_emit_impl<T>(
         )
         .emit(sink, emit_info, state);
 
-        clobber_offset -= 8
+        clobber_offset -= word_bytes
     }
 
     // Restore the link register and frame pointer
@@ -2846,8 +2847,8 @@ fn return_call_emit_impl<T>(
     if setup_area_size > 0 {
         Inst::gen_load(
             writable_link_reg(),
-            AMode::SPOffset(sp_to_fp_offset + 8),
-            I64,
+            AMode::SPOffset(sp_to_fp_offset + word_bytes),
+            I32,
             MemFlags::trusted(),
         )
         .emit(sink, emit_info, state);
@@ -2855,7 +2856,7 @@ fn return_call_emit_impl<T>(
         Inst::gen_load(
             writable_fp_reg(),
             AMode::SPOffset(sp_to_fp_offset),
-            I64,
+            I32,
             MemFlags::trusted(),
         )
         .emit(sink, emit_info, state);

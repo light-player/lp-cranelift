@@ -1,0 +1,165 @@
+test interpret
+test run
+set enable_multi_ret_implicit_sret
+target riscv32 has_m
+
+
+; ===== TWO RETURNS (BOTH IN REGISTERS) =====
+
+function %two_i32(i32, i32) -> i32, i32 {
+block0(v0: i32, v1: i32):
+    return v0, v1
+}
+; run: %two_i32(1, 2) == [1, 2]
+
+function %two_i8(i8, i8) -> i8, i8 {
+block0(v0: i8, v1: i8):
+    return v0, v1
+}
+; run: %two_i8(1, 2) == [1, 2]
+
+function %two_i16(i16, i16) -> i16, i16 {
+block0(v0: i16, v1: i16):
+    return v0, v1
+}
+; run: %two_i16(1, 2) == [1, 2]
+
+function %two_i64(i64, i64) -> i64, i64 {
+block0(v0: i64, v1: i64):
+    return v0, v1
+}
+; run: %two_i64(100, 200) == [100, 200]
+
+
+; ===== THREE RETURNS (TWO REGISTERS, ONE STACK) =====
+
+function %three_i8(i8, i8, i8) -> i8, i8, i8 {
+block0(v0: i8, v1: i8, v2: i8):
+    return v0, v1, v2
+}
+; run: %three_i8(1, 2, 3) == [1, 2, 3]
+
+function %three_i16(i16, i16, i16) -> i16, i16, i16 {
+block0(v0: i16, v1: i16, v2: i16):
+    return v0, v1, v2
+}
+; run: %three_i16(1, 2, 3) == [1, 2, 3]
+
+function %three_i32(i32, i32, i32) -> i32, i32, i32 {
+block0(v0: i32, v1: i32, v2: i32):
+    return v0, v1, v2
+}
+; run: %three_i32(1, 2, 3) == [1, 2, 3]
+
+function %three_mixed_i8_i32(i8, i32, i8) -> i8, i32, i8 {
+block0(v0: i8, v1: i32, v2: i8):
+    return v0, v1, v2
+}
+; run: %three_mixed_i8_i32(1, 42, 3) == [1, 42, 3]
+
+
+; ===== FOUR RETURNS (TWO REGISTERS, TWO STACK) =====
+
+function %four_i8(i8, i8, i8, i8) -> i8, i8, i8, i8 {
+block0(v0: i8, v1: i8, v2: i8, v3: i8):
+    return v0, v1, v2, v3
+}
+; run: %four_i8(1, 2, 3, 4) == [1, 2, 3, 4]
+
+function %four_i16(i16, i16, i16, i16) -> i16, i16, i16, i16 {
+block0(v0: i16, v1: i16, v2: i16, v3: i16):
+    return v0, v1, v2, v3
+}
+; run: %four_i16(1, 2, 3, 4) == [1, 2, 3, 4]
+
+function %four_i32(i32, i32, i32, i32) -> i32, i32, i32, i32 {
+block0(v0: i32, v1: i32, v2: i32, v3: i32):
+    return v0, v1, v2, v3
+}
+; run: %four_i32(1, 2, 3, 4) == [1, 2, 3, 4]
+
+
+; ===== COMPUTED VALUES =====
+
+function %three_i8_computed(i8, i8, i8) -> i8, i8, i8 {
+block0(v0: i8, v1: i8, v2: i8):
+    v3 = iadd v0, v1  ; Should be 3 (1+2)
+    v4 = iadd v1, v2  ; Should be 5 (2+3)
+    v5 = iadd v0, v2  ; Should be 4 (1+3)
+    return v3, v4, v5
+}
+; run: %three_i8_computed(1, 2, 3) == [3, 5, 4]
+
+function %two_i32_computed(i32, i32) -> i32, i32 {
+block0(v0: i32, v1: i32):
+    v2 = imul v0, v1  ; Should be 10 (2*5)
+    v3 = iadd v0, v1  ; Should be 7 (2+5)
+    return v2, v3
+}
+; run: %two_i32_computed(2, 5) == [10, 7]
+
+
+; ===== CALLS WITH MULTI-RETURN VALUES =====
+
+function %call_three_i8(i8, i8, i8) -> i8, i8, i8 {
+    fn0 = %three_i8(i8, i8, i8) -> i8, i8, i8
+
+block0(v0: i8, v1: i8, v2: i8):
+    v3, v4, v5 = call fn0(v0, v1, v2)
+    return v3, v4, v5
+}
+; run: %call_three_i8(1, 2, 3) == [1, 2, 3]
+
+function %call_two_i32(i32, i32) -> i32, i32 {
+    fn0 = %two_i32(i32, i32) -> i32, i32
+
+block0(v0: i32, v1: i32):
+    v2, v3 = call fn0(v0, v1)
+    return v2, v3
+}
+; run: %call_two_i32(10, 20) == [10, 20]
+
+function %call_four_i8(i8, i8, i8, i8) -> i8, i8, i8, i8 {
+    fn0 = %four_i8(i8, i8, i8, i8) -> i8, i8, i8, i8
+
+block0(v0: i8, v1: i8, v2: i8, v3: i8):
+    v4, v5, v6, v7 = call fn0(v0, v1, v2, v3)
+    return v4, v5, v6, v7
+}
+; run: %call_four_i8(1, 2, 3, 4) == [1, 2, 3, 4]
+
+
+; ===== NESTED MULTI-RETURN CALLS =====
+
+function %nested_three_i8(i8) -> i8, i8, i8 {
+    fn0 = %three_i8_computed(i8, i8, i8) -> i8, i8, i8
+
+block0(v0: i8):
+    v1 = iconst.i8 1
+    v2 = iconst.i8 2
+    v3, v4, v5 = call fn0(v0, v1, v2)
+    ; v3 = 1+1=2, v4 = 1+2=3, v5 = 1+2=3
+    return v3, v4, v5
+}
+; run: %nested_three_i8(1) == [2, 3, 3]
+
+
+; ===== EDGE CASES =====
+
+function %zero_values() -> i8, i8, i8 {
+block0:
+    v0 = iconst.i8 0
+    v1 = iconst.i8 0
+    v2 = iconst.i8 0
+    return v0, v1, v2
+}
+; run: %zero_values() == [0, 0, 0]
+
+function %max_i8_values() -> i8, i8, i8 {
+block0:
+    v0 = iconst.i8 127  ; i8::MAX
+    v1 = iconst.i8 -128 ; i8::MIN
+    v2 = iconst.i8 42
+    return v0, v1, v2
+}
+; run: %max_i8_values() == [127, -128, 42]

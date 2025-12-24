@@ -1,0 +1,80 @@
+test compile precise-output
+set enable_multi_ret_implicit_sret
+set unwind_info=false
+target riscv32 has_m
+
+function %call_i32(i32) -> i32 {
+    fn0 = %g(i32) -> i32
+
+block0(v0: i32):
+    v1 = call fn0(v0)
+    return v1
+}
+
+; VCode:
+;   addi sp,sp,-8
+;   sw ra,4(sp)
+;   sw fp,0(sp)
+;   mv fp,sp
+; block0:
+;   load_ext_name_far a3,%g+0
+;   callind a3
+;   lw ra,4(sp)
+;   lw fp,0(sp)
+;   addi sp,sp,8
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   addi sp, sp, -8
+;   sw ra, 4(sp)
+;   sw s0, 0(sp)
+;   mv s0, sp
+; block1: ; offset 0x10
+;   auipc a3, 0
+;   lw a3, 0xc(a3)
+;   j 8
+;   .byte 0x00, 0x00, 0x00, 0x00 ; reloc_external Abs4 %g 0
+;   jalr a3
+;   lw ra, 4(sp)
+;   lw s0, 0(sp)
+;   addi sp, sp, 8
+;   ret
+
+function %call_multi_arg(i32, i32, i32) -> i32 {
+    fn0 = %add3(i32, i32, i32) -> i32
+
+block0(v0: i32, v1: i32, v2: i32):
+    v3 = call fn0(v0, v1, v2)
+    return v3
+}
+
+; VCode:
+;   addi sp,sp,-8
+;   sw ra,4(sp)
+;   sw fp,0(sp)
+;   mv fp,sp
+; block0:
+;   load_ext_name_far a5,%add3+0
+;   callind a5
+;   lw ra,4(sp)
+;   lw fp,0(sp)
+;   addi sp,sp,8
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   addi sp, sp, -8
+;   sw ra, 4(sp)
+;   sw s0, 0(sp)
+;   mv s0, sp
+; block1: ; offset 0x10
+;   auipc a5, 0
+;   lw a5, 0xc(a5)
+;   j 8
+;   .byte 0x00, 0x00, 0x00, 0x00 ; reloc_external Abs4 %add3 0
+;   jalr a5
+;   lw ra, 4(sp)
+;   lw s0, 0(sp)
+;   addi sp, sp, 8
+;   ret

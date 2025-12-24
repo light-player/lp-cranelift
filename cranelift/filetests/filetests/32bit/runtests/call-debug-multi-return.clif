@@ -1,0 +1,183 @@
+test interpret
+test run
+set enable_multi_ret_implicit_sret
+target riscv32 has_m
+
+
+; ===== MINIMAL DEBUGGING TESTS FOR INTEGER-MINMAX.CLIF ISSUE =====
+; The integer-minmax.clif test returns [0, 3, 0] instead of [1, 2, 3]
+; These tests isolate where the problem occurs
+
+; ===== TEST 1: MINIMAL THREE I8 RETURNS =====
+
+; Test with constants only
+function %minimal_three_i8() -> i8, i8, i8 {
+block0:
+    v0 = iconst.i8 1
+    v1 = iconst.i8 2
+    v2 = iconst.i8 3
+    return v0, v1, v2
+}
+; run: %minimal_three_i8() == [1, 2, 3]
+
+; Test with arguments only (pass-through)
+function %three_i8_from_args(i8, i8, i8) -> i8, i8, i8 {
+block0(v0: i8, v1: i8, v2: i8):
+    return v0, v1, v2
+}
+; run: %three_i8_from_args(1, 2, 3) == [1, 2, 3]
+
+; Test with computed values
+function %three_i8_computed(i8, i8, i8) -> i8, i8, i8 {
+block0(v0: i8, v1: i8, v2: i8):
+    v3 = iadd v0, v1  ; Should be 3 (1+2)
+    v4 = iadd v1, v2  ; Should be 5 (2+3)
+    v5 = iadd v0, v2  ; Should be 4 (1+3)
+    return v3, v4, v5
+}
+; run: %three_i8_computed(1, 2, 3) == [3, 5, 4]
+
+
+; ===== TEST 2: ISOLATE REGISTER RETURNS =====
+
+; Test first return value only (a0 register)
+function %first_return_only(i8) -> i8, i8, i8 {
+block0(v0: i8):
+    v1 = iconst.i8 0  ; Second return (a1) - should be ignored
+    v2 = iconst.i8 0  ; Third return (stack) - should be ignored
+    return v0, v1, v2
+}
+; run: %first_return_only(42) == [42, 0, 0]
+
+; Test second return value only (a1 register)
+function %second_return_only(i8) -> i8, i8, i8 {
+block0(v0: i8):
+    v1 = iconst.i8 0  ; First return (a0) - should be ignored
+    v2 = iconst.i8 0  ; Third return (stack) - should be ignored
+    return v1, v0, v2
+}
+; run: %second_return_only(42) == [0, 42, 0]
+
+; Test both register returns only
+function %two_register_returns_only(i8, i8) -> i8, i8, i8 {
+block0(v0: i8, v1: i8):
+    v2 = iconst.i8 0  ; Third return (stack) - should be ignored
+    return v0, v1, v2
+}
+; run: %two_register_returns_only(1, 2) == [1, 2, 0]
+
+
+; ===== TEST 3: ISOLATE STACK RETURN =====
+
+; Test stack return value only
+function %stack_return_only(i8) -> i8, i8, i8 {
+block0(v0: i8):
+    v1 = iconst.i8 0  ; First return (a0) - should be ignored
+    v2 = iconst.i8 0  ; Second return (a1) - should be ignored
+    return v1, v2, v0
+}
+; run: %stack_return_only(42) == [0, 0, 42]
+
+
+; ===== TEST 4: STEP-BY-STEP DEBUGGING =====
+
+; Step 1: Single return (should work)
+function %single_return(i8) -> i8 {
+block0(v0: i8):
+    return v0
+}
+; run: %single_return(42) == 42
+
+; Step 2: Two returns (both registers, should work)
+function %two_returns(i8, i8) -> i8, i8 {
+block0(v0: i8, v1: i8):
+    return v0, v1
+}
+; run: %two_returns(1, 2) == [1, 2]
+
+; Step 3: Three returns (two registers + stack, currently failing)
+function %three_returns(i8, i8, i8) -> i8, i8, i8 {
+block0(v0: i8, v1: i8, v2: i8):
+    return v0, v1, v2
+}
+; run: %three_returns(1, 2, 3) == [1, 2, 3]
+
+; Step 4: Test with same values as integer-minmax (1, 2, 3)
+; This should reproduce the [0, 3, 0] issue
+function %same_values_as_minmax() -> i8, i8, i8 {
+block0:
+    v0 = iconst.i8 1
+    v1 = iconst.i8 2
+    v2 = iconst.i8 3
+    return v0, v1, v2
+}
+; run: %same_values_as_minmax() == [1, 2, 3]
+
+
+; ===== TEST 5: PATTERN TESTING =====
+
+; Test different value patterns to see if there's a pattern in failures
+function %pattern_test_0_1_2() -> i8, i8, i8 {
+block0:
+    v0 = iconst.i8 0
+    v1 = iconst.i8 1
+    v2 = iconst.i8 2
+    return v0, v1, v2
+}
+; run: %pattern_test_0_1_2() == [0, 1, 2]
+
+function %pattern_test_3_2_1() -> i8, i8, i8 {
+block0:
+    v0 = iconst.i8 3
+    v1 = iconst.i8 2
+    v2 = iconst.i8 1
+    return v0, v1, v2
+}
+; run: %pattern_test_3_2_1() == [3, 2, 1]
+
+function %pattern_test_same_values() -> i8, i8, i8 {
+block0:
+    v0 = iconst.i8 5
+    v1 = iconst.i8 5
+    v2 = iconst.i8 5
+    return v0, v1, v2
+}
+; run: %pattern_test_same_values() == [5, 5, 5]
+
+
+; ===== TEST 6: CALL WITH MULTI-RETURN DEBUGGING =====
+
+; Test calling a function that returns three values
+function %call_three_returns(i8, i8, i8) -> i8, i8, i8 {
+    fn0 = %three_returns(i8, i8, i8) -> i8, i8, i8
+
+block0(v0: i8, v1: i8, v2: i8):
+    v3, v4, v5 = call fn0(v0, v1, v2)
+    return v3, v4, v5
+}
+; run: %call_three_returns(1, 2, 3) == [1, 2, 3]
+
+; Test calling the problematic integer-minmax function
+function %call_isort3(i8, i8, i8) -> i8, i8, i8 {
+    fn0 = %isort3(i8, i8, i8) -> i8, i8, i8
+
+block0(v0: i8, v1: i8, v2: i8):
+    v3, v4, v5 = call fn0(v0, v1, v2)
+    return v3, v4, v5
+}
+; run: %call_isort3(1, 2, 3) == [1, 2, 3]
+
+; Simplified version of isort3 for debugging
+function %isort3(i8, i8, i8) -> i8, i8, i8 {
+block0(v0: i8, v1: i8, v2: i8):
+    v3 = smin.i8 v0, v1
+    v4 = smin.i8 v1, v2
+    v5 = smin.i8 v2, v0
+    v6 = smin.i8 v3, v4 ; low
+    v7 = smax.i8 v0, v1
+    v8 = smax.i8 v1, v2
+    v9 = smax.i8 v7, v8 ; high
+    v10 = smax.i8 v3, v4
+    v11 = smax.i8 v10, v5 ; mid = max of min of all pairs
+    return v6, v11, v9
+}

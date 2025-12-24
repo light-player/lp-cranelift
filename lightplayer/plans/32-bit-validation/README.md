@@ -10,6 +10,7 @@ See [00-overview.md](00-overview.md) for the complete overview of the validation
 
 - **[00-overview.md](00-overview.md)** - Project overview, phases, and approach
 - **[01-infrastructure-setup.md](01-infrastructure-setup.md)** - Infrastructure setup and test directory creation
+- **[02-function-calls.md](02-function-calls.md)** - Function call and multi-return value tests
 
 ### Future Phases (to be created)
 

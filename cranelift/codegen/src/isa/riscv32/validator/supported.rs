@@ -158,6 +158,10 @@ fn opcode_base_extensions(opcode: Opcode) -> Option<Vec<RiscvExtension>> {
         | Opcode::Brif
         | Opcode::Return
         | Opcode::Call
+        | Opcode::CallIndirect
+        | Opcode::ReturnCall
+        | Opcode::ReturnCallIndirect
+        | Opcode::FuncAddr
         | Opcode::Load
         | Opcode::Store
         | Opcode::StackLoad
