@@ -181,3 +181,5 @@ block0(v0: i8, v1: i8, v2: i8):
     v11 = smax.i8 v10, v5 ; mid = max of min of all pairs
     return v6, v11, v9
 }
+
+

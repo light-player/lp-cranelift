@@ -17,7 +17,7 @@ version = "40.0.0"
 authors = ["The Wasmtime Project Developers"]
 edition = "2024"
 license = "Apache-2.0 WITH LLVM-exception"
-rust-version = "1.89.0"
+rust-version = "1.90.0"
 
 [workspace.lints.rust]
 unused_extern_crates = 'warn'
@@ -74,8 +74,8 @@ lto = true
 
 [profile.release.package.esp32-glsl-jit]
 # Size optimizations for embedded target (ESP32-C3)
-# Strip debug symbols - saves ~1-1.5 MB
-strip = true
+# Strip debuginfo but keep symbols (needed for defmt/probe-rs) - saves ~1-1.5 MB
+strip = "debuginfo"
 # Optimize for size instead of speed - saves ~200-500 KB
 opt-level = "z"
 # Single codegen unit for better dead code elimination - saves ~50-100 KB

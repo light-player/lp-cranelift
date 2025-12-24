@@ -368,11 +368,15 @@ impl GlslCompiler {
 
         let mut ctx = Context::new();
 
-        // Set up main signature (no parameters, just return type)
-        let triple = isa.triple();
-        let mut sig = SignatureBuilder::new_with_triple(triple);
+        // Build signature with parameters (same as regular functions)
         let pointer_type = isa.pointer_type();
-        SignatureBuilder::add_return_type(&mut sig, &main_func.return_type, pointer_type);
+        let triple = isa.triple();
+        let sig = SignatureBuilder::build_with_triple(
+            &main_func.return_type,
+            &main_func.parameters,
+            pointer_type,
+            triple,
+        );
         ctx.func.signature = sig.clone();
         use cranelift_codegen::ir::UserFuncName;
         ctx.func.name = UserFuncName::user(0, 0); // TODO: Use "main" as function name
@@ -393,6 +397,95 @@ impl GlslCompiler {
         codegen_ctx.set_entry_block(entry_block);
         // Replace the default SourceLocManager with the shared one
         codegen_ctx.source_loc_manager = source_loc_manager.clone();
+
+        // Declare parameters as variables in the function (same as compile_function_to_clif)
+        let block_params = codegen_ctx.builder.block_params(entry_block).to_vec();
+
+        // Check if function uses StructReturn
+        let uses_struct_return = codegen_ctx
+            .builder
+            .func
+            .signature
+            .uses_special_param(cranelift_codegen::ir::ArgumentPurpose::StructReturn);
+
+        // Validate parameter count
+        let expected_param_count: usize = main_func
+            .parameters
+            .iter()
+            .map(|p| SignatureBuilder::count_parameters(&p.ty))
+            .sum::<usize>()
+            + if uses_struct_return { 1 } else { 0 };
+
+        if block_params.len() < expected_param_count {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "main function parameter mismatch: expected {} block parameters, got {}",
+                    expected_param_count,
+                    block_params.len()
+                ),
+            ));
+        }
+
+        // Skip StructReturn parameter if present
+        let mut param_idx = if uses_struct_return { 1 } else { 0 };
+
+        for param in &main_func.parameters {
+            let param_vals: Vec<cranelift_codegen::ir::Value> = if param.ty.is_vector() {
+                let count = param.ty.component_count().unwrap();
+                let mut vals = Vec::new();
+                for _ in 0..count {
+                    if param_idx >= block_params.len() {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            format!(
+                                "not enough block parameters for main parameter `{}`",
+                                param.name
+                            ),
+                        ));
+                    }
+                    vals.push(block_params[param_idx]);
+                    param_idx += 1;
+                }
+                vals
+            } else if param.ty.is_matrix() {
+                let count = param.ty.matrix_element_count().unwrap();
+                let mut vals = Vec::new();
+                for _ in 0..count {
+                    if param_idx >= block_params.len() {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            format!(
+                                "not enough block parameters for main parameter `{}`",
+                                param.name
+                            ),
+                        ));
+                    }
+                    vals.push(block_params[param_idx]);
+                    param_idx += 1;
+                }
+                vals
+            } else {
+                // Scalar parameter
+                if param_idx >= block_params.len() {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!(
+                            "not enough block parameters for main parameter `{}`",
+                            param.name
+                        ),
+                    ));
+                }
+                vec![block_params[param_idx]]
+            };
+
+            // Declare parameter as variable and initialize
+            let vars = codegen_ctx.declare_variable(param.name.clone(), param.ty.clone())?;
+            for (var, val) in vars.iter().zip(param_vals.iter()) {
+                codegen_ctx.builder.def_var(*var, *val);
+            }
+            param_idx += param_vals.len();
+        }
 
         // Translate main function body
         for stmt in &main_func.body {
