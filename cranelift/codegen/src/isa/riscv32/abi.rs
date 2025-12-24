@@ -173,9 +173,15 @@ impl ABIMachineSpec for Riscv32MachineDeps {
                     // Align.
                     debug_assert!(size.is_power_of_two());
                     next_stack = align_to(next_stack, size);
+                    // For word-aligned stack slots, use I32 type to match actual storage size
+                    let stack_ty = if size == Self::word_bytes() && reg_ty.bits() < Self::word_bits() {
+                        I32
+                    } else {
+                        *reg_ty
+                    };
                     slots.push(ABIArgSlot::Stack {
                         offset: next_stack as i64,
-                        ty: *reg_ty,
+                        ty: stack_ty,
                         extension: param.extension,
                     });
                     next_stack += size;

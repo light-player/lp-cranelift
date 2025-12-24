@@ -6,8 +6,8 @@ use lp_riscv_tools::{Gpr, Inst, Riscv32Emulator, decode_instruction, encode};
 
 #[test]
 fn test_fence_i_decode_encode() {
-    // Test FENCE.I decoding
-    let inst = decode_instruction(0x0000100f).expect("Failed to decode FENCE.I");
+    // Test FENCE.I decoding (per RISC-V spec: imm[11:0]=0x001)
+    let inst = decode_instruction(0x0010100f).expect("Failed to decode FENCE.I");
     match inst {
         Inst::FenceI => {}
         _ => panic!("Expected FenceI, got {:?}", inst),
@@ -15,7 +15,7 @@ fn test_fence_i_decode_encode() {
 
     // Test FENCE.I encoding
     let encoded = encode::fence_i();
-    assert_eq!(encoded, 0x0000100f);
+    assert_eq!(encoded, 0x0010100f);
 
     // Round-trip test
     let decoded = decode_instruction(encoded).expect("Failed to decode encoded FENCE.I");
@@ -27,9 +27,9 @@ fn test_fence_i_decode_encode() {
 
 #[test]
 fn test_fence_i_execution() {
-    // Create a minimal emulator with FENCE.I instruction
+    // Create a minimal emulator with FENCE.I instruction (per RISC-V spec: imm[11:0]=0x001)
     let code: Vec<u8> = vec![
-        0x0f, 0x10, 0x00, 0x00, // fence.i (little-endian)
+        0x0f, 0x10, 0x10, 0x00, // fence.i (little-endian: 0x0010100f)
         0x73, 0x00, 0x10, 0x00, // ebreak (halt) (little-endian)
     ];
     let ram = vec![0u8; 1024];
@@ -62,7 +62,7 @@ fn test_fence_vs_fence_i() {
         _ => panic!("Expected Fence, got {:?}", fence),
     }
 
-    let fence_i = decode_instruction(0x0000100f).expect("Failed to decode FENCE.I");
+    let fence_i = decode_instruction(0x0010100f).expect("Failed to decode FENCE.I");
     match fence_i {
         Inst::FenceI => {}
         _ => panic!("Expected FenceI, got {:?}", fence_i),
@@ -75,8 +75,8 @@ fn test_fence_vs_fence_i() {
 #[test]
 fn test_atomic_instructions() {
     // Test that atomic instructions decode correctly
-    // LR.W: 0x1000202f (lr.w a0, (zero))
-    let lr_w = decode_instruction(0x1000202f).expect("Failed to decode LR.W");
+    // LR.W: 0x1000252f (lr.w a0, (zero))
+    let lr_w = decode_instruction(0x1000252f).expect("Failed to decode LR.W");
     match lr_w {
         Inst::LrW { rd, rs1 } => {
             assert_eq!(rd, Gpr::A0);
@@ -85,8 +85,8 @@ fn test_atomic_instructions() {
         _ => panic!("Expected LrW, got {:?}", lr_w),
     }
 
-    // SC.W: 0x1800202f (sc.w a0, zero, (zero))
-    let sc_w = decode_instruction(0x1800202f).expect("Failed to decode SC.W");
+    // SC.W: 0x1800252f (sc.w a0, zero, (zero))
+    let sc_w = decode_instruction(0x1800252f).expect("Failed to decode SC.W");
     match sc_w {
         Inst::ScW { rd, rs1, rs2 } => {
             assert_eq!(rd, Gpr::A0);
@@ -118,7 +118,7 @@ fn test_division_by_zero() {
         // li a1, 0
         0x93, 0x05, 0x00, 0x00, // addi a1, zero, 0 (little-endian)
         // div a2, a0, a1 (should return -1 per RISC-V spec)
-        0x33, 0x55, 0xb5, 0x02, // div a2, a0, a1 (little-endian)
+        0x33, 0x46, 0xb5, 0x02, // div a2, a0, a1 (little-endian: 0x02b54633, funct3=0x4)
         0x73, 0x00, 0x10, 0x00, // ebreak (little-endian)
     ];
     let ram = vec![0u8; 1024];

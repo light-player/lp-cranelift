@@ -63,13 +63,17 @@ regex = "1.9.1"
 object = { version = "0.37.3", default-features = false, features = ['read_core', 'elf'] }
 critical-section = { version = "1.2.0", default-features = false, features = ["restore-state-u32"] }
 
+# Note: ESP32-C3 supports atomic CAS, so portable-atomic's unsafe-assume-single-core
+# feature should not be enabled. If esp-hal enables it incorrectly, this may be
+# a bug in esp-hal v1.0.0-rc.0 that needs to be reported upstream.
+
 [profile.release]
 # Link-time optimization for all release builds - saves ~100-300 KB
 # This applies to all packages in the workspace
 lto = true
 
 [profile.release.package.esp32-glsl-jit]
-# Size optimizations for embedded target (ESP32-C6)
+# Size optimizations for embedded target (ESP32-C3)
 # Strip debug symbols - saves ~1-1.5 MB
 strip = true
 # Optimize for size instead of speed - saves ~200-500 KB

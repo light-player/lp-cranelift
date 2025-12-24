@@ -530,7 +530,7 @@ pub fn ebreak() -> u32 {
 /// FENCE.I: Instruction cache synchronization
 /// Encoding: opcode=0x0f, funct3=0x1, rs1=0, rd=0, imm[11:0]=0x001
 pub fn fence_i() -> u32 {
-    0x0000100f
+    0x0010100f
 }
 
 /// Encode CSRRW instruction: rd = CSR; CSR = rs1
@@ -724,8 +724,8 @@ mod tests {
     #[test]
     fn test_fence_i() {
         // FENCE.I encoding: opcode=0x0f, funct3=0x1, imm=0x001, rs1=0, rd=0
-        // Expected: 0x0000100f
+        // Expected: 0x0010100f (per RISC-V spec: imm[11:0]=0x001)
         let inst = fence_i();
-        assert_eq!(inst, 0x0000100f);
+        assert_eq!(inst, 0x0010100f);
     }
 }
