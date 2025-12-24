@@ -97,8 +97,10 @@ fn translate_scalar_binary(
 
     let (lhs_val, rhs_val, operand_ty) = if is_logical {
         // Logical operators: both operands must be Bool (validated above)
-        // Skip promotion - use Bool directly
-        (lhs_val, rhs_val, GlslType::Bool)
+        // Coerce both operands to Bool type
+        let lhs_bool = coercion::coerce_to_type(ctx, lhs_val, lhs_ty, &GlslType::Bool)?;
+        let rhs_bool = coercion::coerce_to_type(ctx, rhs_val, rhs_ty, &GlslType::Bool)?;
+        (lhs_bool, rhs_bool, GlslType::Bool)
     } else if is_comparison {
         // Comparison operators: handle boolean and numeric separately
         if matches!(op, Equal | NonEqual) && lhs_ty == &GlslType::Bool {
