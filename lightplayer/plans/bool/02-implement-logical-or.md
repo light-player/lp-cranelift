@@ -76,6 +76,7 @@ Xor => {
 ## Test Cases
 
 All logical OR tests should pass:
+
 - `bool/op-or.glsl` - All test cases
 - `bool/edge-short-circuit-or.glsl` - May require short-circuit evaluation (can be Phase 6)
 
@@ -112,4 +113,3 @@ git commit -m "lpc: implement logical OR operator"
 
 - **Short-circuit evaluation**: The current implementation evaluates both operands. True short-circuit evaluation would require control flow changes (evaluating right operand only if left is false). This can be added later if needed.
 - **Pattern**: Follows the same pattern as logical AND, but with OR logic (result is 1 if either operand is non-zero).
-

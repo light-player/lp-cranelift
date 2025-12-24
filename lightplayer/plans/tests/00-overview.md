@@ -15,11 +15,13 @@ These test suites are designed to:
 
 Test suites are planned for various GLSL types:
 
-- **Boolean vectors** (`bvec2`, `bvec3`, `bvec4`) - Currently planned
-- **Float types** (`float`, `vec2`, `vec3`, `vec4`) - Planned
+- **Boolean vectors** (`bvec2`, `bvec3`, `bvec4`) - Planned
+- **Float types** (`float`, `vec2`, `vec3`, `vec4`) - Planned (vec4 replaces existing tests)
 - **Integer types** (`int`, `ivec2`, `ivec3`, `ivec4`) - Planned
 - **Unsigned integer types** (`uint`, `uvec2`, `uvec3`, `uvec4`) - Planned
 - **Matrix types** (`mat2`, `mat3`, `mat4`) - Planned
+- **Arrays** - Planned
+- **Structures** - Planned
 - Other types as needed
 
 ## Test Structure
@@ -88,11 +90,30 @@ Three test suites are planned for boolean vectors, one for each vector size:
 
 Each suite follows the same organizational structure, adapted for the appropriate vector size (component count, swizzle patterns, constructor combinations).
 
+### Float Vectors (vec2, vec3, vec4)
+
+Three test suites are planned for float vectors, one for each vector size:
+
+1. **vec2** - 33 test files covering 2-component float vectors
+2. **vec3** - 34 test files covering 3-component float vectors
+3. **vec4** - 50 test files covering 4-component float vectors (replaces existing nested structure)
+
+### Arrays
+
+A comprehensive test suite for GLSL arrays:
+
+- **arrays** - 35 test files covering array declarations, constructors, indexing, assignment, and operations
+
+### Structures
+
+A comprehensive test suite for GLSL structures:
+
+- **structs** - 35 test files covering struct definitions, constructors, member access, assignment, and operations
+
 ### Future Test Suites
 
 Additional type-based test suites will follow the same flat, prefix-based naming structure:
 
-- Float types (`float`, `vec2`, `vec3`, `vec4`)
 - Integer types (`int`, `ivec2`, `ivec3`, `ivec4`)
 - Unsigned integer types (`uint`, `uvec2`, `uvec3`, `uvec4`)
 - Matrix types (`mat2`, `mat3`, `mat4`)
@@ -161,11 +182,42 @@ Boolean vectors have important differences from scalar `bool`:
 - `==` and `!=` operators return `bool` (aggregate comparison)
 - Use `equal()` and `notEqual()` built-ins for component-wise comparison returning `bvec*`
 
+### Float Vectors (vec2, vec3, vec4)
+
+Float vectors have specific considerations:
+
+- Floating-point precision and rounding behavior
+- NaN and Inf propagation through operations
+- Approximate equality testing (use `~=` operator)
+- Geometric functions (length, distance, dot, normalize, reflect, refract, faceforward)
+- Component-wise operations
+
+### Arrays
+
+Arrays have specific considerations:
+
+- Explicitly-sized, unsized, and runtime-sized arrays
+- Array constructors with explicit or inferred sizes
+- Multi-dimensional arrays (arrays of arrays)
+- Array length method
+- Whole array assignment requires same size and type
+- Arrays cannot contain opaque types for equality/assignment
+
+### Structures
+
+Structures have specific considerations:
+
+- Struct constructors require exactly one argument per member
+- Member initialization in declaration order
+- Nested structs and structs with array members
+- Struct equality compares all members recursively
+- Anonymous and embedded structs are not supported
+- Member types must be already defined (no forward references)
+
 ### Other Types
 
 Future test suites will document type-specific considerations for:
 
-- Float precision and rounding behavior
 - Integer overflow/underflow semantics
 - Matrix operations and transformations
 - Type conversion rules and edge cases
@@ -179,6 +231,20 @@ Detailed plans for each test suite:
 - [`bvec2.md`](./bvec2.md) - 2-component boolean vector tests
 - [`bvec3.md`](./bvec3.md) - 3-component boolean vector tests
 - [`bvec4.md`](./bvec4.md) - 4-component boolean vector tests
+
+### Float Vectors
+
+- [`vec2.md`](./vec2.md) - 2-component float vector tests
+- [`vec3.md`](./vec3.md) - 3-component float vector tests
+- [`vec4.md`](./vec4.md) - 4-component float vector tests (replaces existing nested structure)
+
+### Arrays
+
+- [`arrays.md`](./arrays.md) - Comprehensive array tests
+
+### Structures
+
+- [`structs.md`](./structs.md) - Comprehensive struct tests
 
 ### Future Plans
 

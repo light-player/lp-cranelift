@@ -17,6 +17,7 @@ match (from_ty, to_ty) {
 ```
 
 **Missing Conversions**:
+
 - `bool → int`: false → 0, true → 1
 - `bool → float`: false → 0.0, true → 1.0
 - `bool → uint`: false → 0u, true → 1u
@@ -25,6 +26,7 @@ match (from_ty, to_ty) {
 - `uint → bool`: 0 → false, non-zero → true
 
 **GLSL Spec**: All conversions via constructors are explicit conversions:
+
 - `bool(value)`: 0/0.0 → false, non-zero → true
 - `int(bool)`: false → 0, true → 1
 - `float(bool)`: false → 0.0, true → 1.0
@@ -119,6 +121,7 @@ use cranelift_codegen::ir::{types, Value, InstBuilder, IntCC, FloatCC};
 ## Test Cases
 
 All conversion tests should pass:
+
 - `bool/from-bool.glsl` - `bool(bool)` (no-op, but tests constructor)
 - `bool/from-int.glsl` - `bool(int)` constructor
 - `bool/from-float.glsl` - `bool(float)` constructor
@@ -131,6 +134,7 @@ All conversion tests should pass:
 ## Expected Behavior
 
 **Numeric to Boolean:**
+
 - `bool(0)` → `false`
 - `bool(5)` → `true`
 - `bool(-10)` → `true`
@@ -138,6 +142,7 @@ All conversion tests should pass:
 - `bool(3.14)` → `true`
 
 **Boolean to Numeric:**
+
 - `int(false)` → `0`
 - `int(true)` → `1`
 - `float(false)` → `0.0`
@@ -176,4 +181,3 @@ git commit -m "lpc: add boolean type conversions"
 - **UInt Representation**: UInt is represented as i32 in Cranelift
 - **Zero Comparison**: For numeric → bool, any non-zero value converts to true
 - **Explicit Conversions**: All conversions are explicit (via constructors), not implicit
-
