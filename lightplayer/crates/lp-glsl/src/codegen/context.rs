@@ -29,6 +29,9 @@ pub struct CodegenContext<'a> {
     pub module: &'a mut dyn Module,
     pub variables: HashMap<String, VarInfo>,
 
+    // Variable scope stack for proper shadowing and scope management
+    pub variable_scopes: Vec<HashMap<String, VarInfo>>,
+
     // Control flow tracking for break/continue
     pub loop_stack: Vec<LoopContext>,
 
@@ -64,6 +67,7 @@ impl<'a> CodegenContext<'a> {
             builder,
             module,
             variables: HashMap::new(),
+            variable_scopes: vec![HashMap::new()], // Start with global scope
             loop_stack: Vec::new(),
             function_ids: None,
             function_registry: None,
@@ -135,32 +139,64 @@ impl<'a> CodegenContext<'a> {
             vars.push(self.builder.declare_var(cranelift_ty));
         }
 
-        self.variables.insert(
-            name,
-            VarInfo {
-                cranelift_vars: vars.clone(),
-                glsl_type: glsl_ty,
-            },
-        );
+        let var_info = VarInfo {
+            cranelift_vars: vars.clone(),
+            glsl_type: glsl_ty,
+        };
+
+        // Declare in current scope (innermost scope)
+        if let Some(current_scope) = self.variable_scopes.last_mut() {
+            current_scope.insert(name, var_info);
+        } else {
+            // Fallback to global variables if no scopes (shouldn't happen)
+            self.variables.insert(name.clone(), var_info);
+        }
 
         Ok(vars)
     }
 
     pub fn lookup_variable(&self, name: &str) -> Option<Variable> {
         // Legacy method: returns first component (for scalars)
-        self.variables
-            .get(name)
-            .and_then(|info| info.cranelift_vars.first().copied())
+        // Search scopes from innermost to outermost
+        for scope in self.variable_scopes.iter().rev() {
+            if let Some(info) = scope.get(name) {
+                return info.cranelift_vars.first().copied();
+            }
+        }
+        None
     }
 
     pub fn lookup_variables(&self, name: &str) -> Option<&[Variable]> {
-        self.variables
-            .get(name)
-            .map(|info| info.cranelift_vars.as_slice())
+        // Search scopes from innermost to outermost
+        for scope in self.variable_scopes.iter().rev() {
+            if let Some(info) = scope.get(name) {
+                return Some(info.cranelift_vars.as_slice());
+            }
+        }
+        None
     }
 
     pub fn lookup_variable_type(&self, name: &str) -> Option<&GlslType> {
-        self.variables.get(name).map(|info| &info.glsl_type)
+        // Search scopes from innermost to outermost
+        for scope in self.variable_scopes.iter().rev() {
+            if let Some(info) = scope.get(name) {
+                return Some(&info.glsl_type);
+            }
+        }
+        None
+    }
+
+    /// Enter a new variable scope
+    pub fn enter_scope(&mut self) {
+        self.variable_scopes.push(HashMap::new());
+    }
+
+    /// Exit the current variable scope
+    pub fn exit_scope(&mut self) {
+        if self.variable_scopes.len() > 1 {
+            self.variable_scopes.pop();
+        }
+        // Don't pop the global scope
     }
 
     /// Store a value to a matrix element at m[col][row]

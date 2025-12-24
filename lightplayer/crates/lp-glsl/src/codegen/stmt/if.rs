@@ -43,7 +43,9 @@ pub fn emit_if_stmt(
 
             // 3. Emit then block
             ctx.emit_block(then_block);
+            ctx.enter_scope(); // Enter scope for then block
             ctx.emit_statement(then_stmt)?;
+            ctx.exit_scope(); // Exit scope for then block
             ctx.emit_branch(merge_block)?;
 
             // 4. Emit continuation block
@@ -57,12 +59,16 @@ pub fn emit_if_stmt(
 
             // 3. Emit then block
             ctx.emit_block(then_block);
+            ctx.enter_scope(); // Enter scope for then block
             ctx.emit_statement(then_stmt)?;
+            ctx.exit_scope(); // Exit scope for then block
             ctx.emit_branch(merge_block)?;
 
             // 4. Emit else block
             ctx.emit_block(else_block);
+            ctx.enter_scope(); // Enter scope for else block
             ctx.emit_statement(else_stmt)?;
+            ctx.exit_scope(); // Exit scope for else block
             ctx.emit_branch(merge_block)?;
 
             // 5. Emit continuation block

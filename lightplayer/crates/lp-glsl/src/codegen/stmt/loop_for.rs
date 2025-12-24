@@ -12,19 +12,6 @@ pub fn emit_loop_for_stmt(
     rest: &ForRestStatement,
     body: &Statement,
 ) -> Result<(), GlslError> {
-    // Translate init
-    match init {
-        glsl::syntax::ForInitStatement::Expression(Some(expr)) => {
-            ctx.translate_expr(expr)?;
-        }
-        glsl::syntax::ForInitStatement::Declaration(decl) => {
-            ctx.emit_declaration(decl)?;
-        }
-        glsl::syntax::ForInitStatement::Expression(None) => {
-            // Empty init
-        }
-    }
-
     // Create blocks: header, body, update (for continue), exit
     let header_block = ctx.builder.create_block();
     let body_block = ctx.builder.create_block();
@@ -36,6 +23,22 @@ pub fn emit_loop_for_stmt(
         continue_target: update_block,
         exit_block,
     });
+
+    // Enter scope for loop variables
+    ctx.enter_scope();
+
+    // Translate init (now inside loop scope)
+    match init {
+        glsl::syntax::ForInitStatement::Expression(Some(expr)) => {
+            ctx.translate_expr(expr)?;
+        }
+        glsl::syntax::ForInitStatement::Declaration(decl) => {
+            ctx.emit_declaration(decl)?;
+        }
+        glsl::syntax::ForInitStatement::Expression(None) => {
+            // Empty init
+        }
+    }
 
     ctx.emit_branch(header_block)?;
 
@@ -71,6 +74,9 @@ pub fn emit_loop_for_stmt(
     ctx.emit_block(exit_block);
 
     ctx.loop_stack.pop();
+
+    // Exit scope for loop variables
+    ctx.exit_scope();
 
     Ok(())
 }

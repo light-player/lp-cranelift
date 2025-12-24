@@ -31,7 +31,9 @@ pub fn emit_loop_while_stmt(
 
     // Body
     ctx.emit_block(body_block);
+    ctx.enter_scope(); // Enter scope for body variables
     ctx.emit_statement(body)?;
+    ctx.exit_scope(); // Exit scope for body variables
     ctx.emit_branch(header_block)?; // Loop back
 
     // Now seal header block - all predecessors (initial jump + back edge) are known

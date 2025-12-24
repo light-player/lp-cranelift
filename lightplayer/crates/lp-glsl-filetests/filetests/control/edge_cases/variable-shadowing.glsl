@@ -16,7 +16,7 @@ int test_variable_shadowing_if() {
     // Should be 10 (outer x unchanged)
 }
 
-// run: test_variable_shadowing_if() == 20
+// run: test_variable_shadowing_if() == 10
 
 int test_variable_shadowing_for() {
     int i = 100;
@@ -28,7 +28,7 @@ int test_variable_shadowing_for() {
     // Should be 100 (outer i unchanged)
 }
 
-// run: test_variable_shadowing_for() == 3
+// run: test_variable_shadowing_for() == 100
 
 int test_variable_shadowing_nested() {
     int x = 5;
