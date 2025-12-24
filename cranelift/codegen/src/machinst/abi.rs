@@ -102,7 +102,7 @@ use crate::CodegenError;
 use crate::FxHashMap;
 use crate::HashMap;
 use crate::entity::SecondaryMap;
-use crate::ir::{AbiParam, ArgumentExtension, ArgumentPurpose, ExceptionTag, Signature};
+use crate::ir::{ArgumentExtension, ArgumentPurpose, ExceptionTag, Signature};
 use crate::ir::{StackSlotKey, types::*};
 use crate::isa::TargetIsa;
 use crate::settings::ProbestackStrategy;
@@ -2194,7 +2194,7 @@ impl<M: ABIMachineSpec> Callee<M> {
     pub fn sized_stackslot_addr(
         &self,
         slot: StackSlot,
-        offset: u32,
+        _offset: u32,
         into_reg: Writable<Reg>,
     ) -> M::I {
         // Offset from beginning of stackslot area.

@@ -21,7 +21,7 @@ extern crate alloc;
 extern crate std;
 
 #[cfg(not(feature = "std"))]
-use hashbrown::{HashMap, HashSet, hash_map};
+use hashbrown::{HashMap, hash_map};
 #[cfg(feature = "std")]
 use std::collections::{HashMap, hash_map};
 

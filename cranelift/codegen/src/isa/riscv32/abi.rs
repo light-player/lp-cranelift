@@ -18,7 +18,6 @@ use crate::settings;
 use alloc::{boxed::Box, vec, vec::Vec};
 use regalloc2::{MachineEnv, PReg, PRegSet};
 
-use alloc::borrow::ToOwned;
 use smallvec::{SmallVec, smallvec};
 #[cfg(feature = "std")]
 use std::sync::OnceLock;

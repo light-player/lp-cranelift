@@ -7,7 +7,6 @@
 use crate::ir::Function;
 use crate::isa::riscv32::Riscv32Backend;
 use crate::CodegenResult;
-use super::settings as riscv_settings;
 
 pub mod error;
 pub mod instruction;

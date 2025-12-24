@@ -26,7 +26,7 @@ pub fn validate_instruction(
     backend: &super::super::Riscv32Backend,
 ) -> CodegenResult<()> {
     let opcode = func.dfg.insts[inst].opcode();
-    let data = &func.dfg.insts[inst];
+    let _data = &func.dfg.insts[inst];
 
     // Collect all types involved in this instruction
     let mut types = Vec::new();
@@ -202,7 +202,7 @@ fn validate_bitrev(func: &Function, inst: Inst, _data: &DataFlowGraph) -> Codege
     Ok(())
 }
 
-fn validate_bmask(func: &Function, inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
+fn validate_bmask(_func: &Function, inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
     // bmask instruction is not supported on riscv32 (not needed for GLSL)
     return Err(ValidationError::UnsupportedInstruction {
         inst,
@@ -216,7 +216,7 @@ fn validate_overflow_instruction(
     func: &Function,
     inst: Inst,
     opcode: Opcode,
-    data: &DataFlowGraph,
+    _data: &DataFlowGraph,
 ) -> CodegenResult<()> {
     // Get result type for overflow instructions
     if let Some(result) = func.dfg.inst_results(inst).first() {

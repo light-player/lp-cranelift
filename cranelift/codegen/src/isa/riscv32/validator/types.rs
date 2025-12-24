@@ -1,4 +1,4 @@
-use crate::ir::{Function, Type, Value};
+use crate::ir::{Function, Type};
 use crate::CodegenResult;
 use super::error::ValidationError;
 use super::supported;

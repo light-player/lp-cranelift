@@ -1,7 +1,9 @@
 //! This crate generates Rust sources for use by
 //! [`cranelift_codegen`](../cranelift_codegen/index.html).
 
-use cranelift_srcgen::{Formatter, Language, error};
+use cranelift_srcgen::error;
+#[cfg(feature = "x86")]
+use cranelift_srcgen::{Formatter, Language};
 use shared::Definitions;
 
 #[macro_use]

@@ -9,7 +9,7 @@ use crate::machinst::*;
 use crate::settings::RegallocAlgorithm;
 use crate::timing;
 use crate::trace;
-use alloc::{format, string::String, vec, vec::Vec};
+use alloc::{format, string::String, vec::Vec};
 
 use regalloc2::{Algorithm, RegallocOptions};
 
