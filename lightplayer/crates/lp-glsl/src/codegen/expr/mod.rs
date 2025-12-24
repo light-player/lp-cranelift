@@ -26,6 +26,7 @@ pub mod coercion;
 pub mod incdec;
 
 use crate::codegen::context::CodegenContext;
+use crate::codegen::rvalue::RValue;
 use crate::semantic::types::Type as GlslType;
 use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use glsl::syntax::Expr;
@@ -37,54 +38,97 @@ use alloc::vec::Vec;
 use std::vec::Vec;
 
 impl<'a> CodegenContext<'a> {
-    /// Main entry point for expression translation
-    pub fn translate_expr_typed(&mut self, expr: &Expr) -> Result<(Vec<Value>, GlslType), GlslError> {
+    /// Emit code to compute an RValue (right-hand value)
+    ///
+    /// This is the new primary entry point for expression evaluation,
+    /// following Clang's pattern of separating LValue (locations) from RValue (values).
+    pub fn emit_rvalue(&mut self, expr: &Expr) -> Result<RValue, GlslError> {
         match expr {
             Expr::IntConst(..) | Expr::FloatConst(..) | Expr::BoolConst(..) => {
-                literal::translate_literal(self, expr)
+                literal::emit_literal_rvalue(self, expr)
             }
             Expr::Variable(..) => {
-                variable::translate_variable(self, expr)
+                // Read variable as RValue: resolve LValue then load it
+                let lvalue = self.emit_lvalue(expr)?;
+                self.load_lvalue(lvalue)
             }
             Expr::Binary(..) => {
-                binary::translate_binary(self, expr)
+                binary::emit_binary_rvalue(self, expr)
             }
             Expr::Unary(op, operand, span) => {
                 // Handle pre-increment/decrement specially
                 use glsl::syntax::UnaryOp::*;
                 match op {
                     Inc => {
-                        incdec::translate_preinc(self, operand, span.clone())
+                        // Pre-increment returns RValue
+                        let (vals, ty) = incdec::translate_preinc(self, operand, span.clone())?;
+                        Ok(RValue::from_aggregate(vals, ty))
                     }
                     Dec => {
-                        incdec::translate_predec(self, operand, span.clone())
+                        // Pre-decrement returns RValue
+                        let (vals, ty) = incdec::translate_predec(self, operand, span.clone())?;
+                        Ok(RValue::from_aggregate(vals, ty))
                     }
-                    _ => unary::translate_unary(self, expr),
+                    _ => unary::emit_unary_rvalue(self, expr),
                 }
             }
             Expr::FunCall(..) => {
-                function::translate_function_call(self, expr)
+                function::emit_function_call_rvalue(self, expr)
             }
             Expr::Dot(..) => {
-                component::translate_component_access(self, expr)
+                // Component access: resolve as LValue then load
+                let lvalue = self.emit_lvalue(expr)?;
+                self.load_lvalue(lvalue)
             }
             Expr::Bracket(..) => {
-                // Matrix indexing - handled in component module
-                component::translate_matrix_indexing(self, expr)
+                // Matrix indexing: resolve as LValue then load
+                let lvalue = self.emit_lvalue(expr)?;
+                self.load_lvalue(lvalue)
             }
             Expr::Assignment(lhs, op, rhs, _span) => {
-                // Assignment is handled in stmt.rs, but expression result
-                // needs to be computed here
-                self.translate_assignment_typed(lhs, op, rhs)
+                // Assignment expression: evaluate and return RValue
+                let (vals, ty) = self.translate_assignment_typed(lhs, op, rhs)?;
+                Ok(RValue::from_aggregate(vals, ty))
             }
             Expr::PostInc(operand, span) => {
-                incdec::translate_postinc(self, operand, span.clone())
+                // Post-increment returns RValue (original value)
+                let (vals, ty) = incdec::translate_postinc(self, operand, span.clone())?;
+                Ok(RValue::from_aggregate(vals, ty))
             }
             Expr::PostDec(operand, span) => {
-                incdec::translate_postdec(self, operand, span.clone())
+                // Post-decrement returns RValue (original value)
+                let (vals, ty) = incdec::translate_postdec(self, operand, span.clone())?;
+                Ok(RValue::from_aggregate(vals, ty))
             }
             _ => Err(GlslError::new(ErrorCode::E0400, format!("expression not supported yet: {:?}", expr))),
         }
+    }
+
+    /// Emit code to compute an LValue (left-hand value - modifiable location)
+    ///
+    /// This resolves an expression to a modifiable location, following Clang's pattern.
+    pub fn emit_lvalue(&mut self, expr: &Expr) -> Result<crate::codegen::lvalue::LValue, GlslError> {
+        use crate::codegen::lvalue::resolve_lvalue;
+        resolve_lvalue(self, expr)
+    }
+
+    /// Load an LValue to get its RValue
+    ///
+    /// This reads the current value(s) from a modifiable location.
+    pub fn load_lvalue(&mut self, lvalue: crate::codegen::lvalue::LValue) -> Result<RValue, GlslError> {
+        use crate::codegen::lvalue::read_lvalue;
+        let (vals, ty) = read_lvalue(self, &lvalue)?;
+        Ok(RValue::from_aggregate(vals, ty))
+    }
+
+    /// Main entry point for expression translation (legacy - use emit_rvalue instead)
+    ///
+    /// This method is kept for backwards compatibility during the transition.
+    /// New code should use `emit_rvalue` instead.
+    pub fn translate_expr_typed(&mut self, expr: &Expr) -> Result<(Vec<Value>, GlslType), GlslError> {
+        let rvalue = self.emit_rvalue(expr)?;
+        let ty = rvalue.ty().clone();
+        Ok((rvalue.into_values(), ty))
     }
 
     /// Legacy wrapper for compatibility - returns just the first value (for scalars)
@@ -100,7 +144,7 @@ impl<'a> CodegenContext<'a> {
         op: &glsl::syntax::AssignmentOp,
         rhs: &Expr,
     ) -> Result<(Vec<Value>, GlslType), GlslError> {
-        use crate::codegen::lvalue::{resolve_lvalue, write_lvalue};
+        use crate::codegen::lvalue::write_lvalue;
         use crate::error::extract_span_from_expr;
         use crate::error::extract_span_from_identifier;
         use crate::semantic::type_check::check_assignment;
@@ -112,7 +156,7 @@ impl<'a> CodegenContext<'a> {
         }
 
         // Resolve LHS to an LValue
-        let lvalue = resolve_lvalue(self, lhs)?;
+        let lvalue = self.emit_lvalue(lhs)?;
         let lhs_ty = lvalue.ty();
 
         // Special handling for component assignment with swizzles (check for duplicates)
@@ -132,8 +176,10 @@ impl<'a> CodegenContext<'a> {
             }
         }
 
-        // Translate RHS
-        let (rhs_vals, rhs_ty) = self.translate_expr_typed(rhs)?;
+        // Translate RHS as RValue
+        let rhs_rvalue = self.emit_rvalue(rhs)?;
+        let rhs_ty = rhs_rvalue.ty().clone();
+        let rhs_vals = rhs_rvalue.into_values();
 
         // Validate assignment (check implicit conversion is allowed)
         let rhs_span = extract_span_from_expr(rhs);
@@ -218,7 +264,7 @@ impl<'a> CodegenContext<'a> {
         op: &glsl::syntax::AssignmentOp,
         rhs: &Expr,
     ) -> Result<(Vec<Value>, GlslType), GlslError> {
-        use crate::codegen::lvalue::{resolve_lvalue, write_lvalue, read_lvalue};
+        use crate::codegen::lvalue::{write_lvalue, read_lvalue};
         use crate::error::extract_span_from_expr;
         use crate::semantic::type_check::check_assignment;
         use matrix;
@@ -227,11 +273,13 @@ impl<'a> CodegenContext<'a> {
         use glsl::syntax::BinaryOp;
 
         // Resolve LHS to an LValue
-        let lvalue = resolve_lvalue(self, lhs)?;
+        let lvalue = self.emit_lvalue(lhs)?;
         let lhs_ty = lvalue.ty();
 
-        // Translate RHS
-        let (rhs_vals, rhs_ty) = self.translate_expr_typed(rhs)?;
+        // Translate RHS as RValue
+        let rhs_rvalue = self.emit_rvalue(rhs)?;
+        let rhs_ty = rhs_rvalue.ty().clone();
+        let rhs_vals = rhs_rvalue.into_values();
         let rhs_span = extract_span_from_expr(rhs);
 
         // Validate assignment types

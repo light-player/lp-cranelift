@@ -38,12 +38,6 @@ if [ ! -d "$WORKSPACE_ROOT/lightplayer" ]; then
     exit 1
 fi
 
-# Change to lightplayer directory
-cd "$WORKSPACE_ROOT/lightplayer" || {
-    echo "Error: Failed to change to lightplayer directory" >&2
-    exit 1
-}
-
 # Parse command line arguments
 SHOW_HELP=false
 SHOW_LIST=false
@@ -125,6 +119,12 @@ fi
 if [ "$SHOW_LIST" = true ]; then
     FILETESTS_DIR="$WORKSPACE_ROOT/lightplayer/crates/lp-glsl-filetests/filetests"
 
+    # Ensure lightplayer directory exists
+    if [ ! -d "$WORKSPACE_ROOT/lightplayer" ]; then
+        echo "Error: lightplayer directory not found at $WORKSPACE_ROOT/lightplayer" >&2
+        exit 1
+    fi
+
     echo "Available GLSL test files:"
     echo "=========================="
 
@@ -172,7 +172,20 @@ if [ "$SHOW_LIST" = true ]; then
     exit 0
 fi
 
-# Run the GLSL filetests using lp-test binary
+# Ensure lightplayer directory exists before running tests
+if [ ! -d "$WORKSPACE_ROOT/lightplayer" ]; then
+    echo "Error: lightplayer directory not found at $WORKSPACE_ROOT/lightplayer" >&2
+    exit 1
+fi
+
+# Change to lightplayer directory where lp-test workspace is located
+cd "$WORKSPACE_ROOT/lightplayer" || {
+    echo "Error: Failed to change to lightplayer directory" >&2
+    exit 1
+}
+
+# Run the GLSL filetests using lp-test binary with cargo run
+# This ensures cargo run picks up all compilation changes in the lightplayer workspace
 # Pass all remaining arguments directly to the test runner
 cargo run -p lp-test --bin lp-test -- test "${TEST_ARGS[@]}"
 

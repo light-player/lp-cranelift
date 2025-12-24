@@ -77,6 +77,23 @@ impl LValue {
     }
 }
 
+/// Compute matrix variable indices for column components
+///
+/// When accessing components of a matrix column (e.g., `m[0].x`), we need to map
+/// the component indices (0=x, 1=y, etc.) to the correct matrix variable indices.
+/// For a column `col` and component index `comp_idx`, the matrix variable index is `col * rows + comp_idx`.
+fn compute_column_variable_indices(
+    base_ty: &GlslType,
+    col: usize,
+    component_indices: &[usize],
+) -> Vec<usize> {
+    let (rows, _cols) = base_ty.matrix_dims().unwrap();
+    component_indices
+        .iter()
+        .map(|&comp_idx| col * rows + comp_idx)
+        .collect()
+}
+
 /// Resolve an expression to an LValue
 ///
 /// Recursively analyzes the expression to determine the modifiable location.
@@ -158,20 +175,38 @@ pub fn resolve_lvalue(
                     })?
             };
             
-            // Get the base variables from the base LValue
-            let base_vars = match base_lvalue {
-                LValue::Variable { vars, .. } => vars,
-                LValue::Component { base_vars, .. } => base_vars,
-                LValue::MatrixColumn { base_vars, .. } => base_vars,
+            // Get the base variables and compute indices based on the base LValue type
+            match base_lvalue {
+                LValue::Variable { vars, .. } => {
+                    Ok(LValue::Component {
+                        base_vars: vars,
+                        base_ty,
+                        indices,
+                        result_ty,
+                    })
+                }
+                LValue::Component { base_vars, .. } => {
+                    Ok(LValue::Component {
+                        base_vars,
+                        base_ty,
+                        indices,
+                        result_ty,
+                    })
+                }
+                LValue::MatrixColumn { base_vars, base_ty: matrix_ty, col, .. } => {
+                    // When accessing components of a matrix column, we need to map component indices
+                    // (0=x, 1=y, etc.) to the correct matrix variable indices.
+                    // For column `col` and component index `comp_idx`, the matrix variable index is `col * rows + comp_idx`.
+                    let matrix_indices = compute_column_variable_indices(&matrix_ty, col, &indices);
+                    Ok(LValue::Component {
+                        base_vars,
+                        base_ty: matrix_ty.clone(),
+                        indices: matrix_indices,
+                        result_ty,
+                    })
+                }
                 LValue::MatrixElement { .. } | LValue::VectorElement { .. } => unreachable!(), // Already handled above
-            };
-            
-            Ok(LValue::Component {
-                base_vars,
-                base_ty,
-                indices,
-                result_ty,
-            })
+            }
         }
         
         Expr::Bracket(array_expr, array_spec, span) => {

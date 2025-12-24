@@ -1,4 +1,5 @@
 use crate::codegen::context::CodegenContext;
+use crate::codegen::rvalue::RValue;
 use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use crate::semantic::type_check::{is_matrix_type_name, is_vector_type_name};
 use crate::semantic::types::Type as GlslType;
@@ -13,6 +14,16 @@ use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
+/// Emit code to compute a function call as an RValue
+pub fn emit_function_call_rvalue(
+    ctx: &mut CodegenContext,
+    expr: &Expr,
+) -> Result<RValue, GlslError> {
+    let (vals, ty) = translate_function_call(ctx, expr)?;
+    Ok(RValue::from_aggregate(vals, ty))
+}
+
+/// Legacy function for backwards compatibility
 pub fn translate_function_call(
     ctx: &mut CodegenContext,
     expr: &Expr,

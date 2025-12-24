@@ -1,4 +1,5 @@
 use crate::codegen::context::CodegenContext;
+use crate::codegen::rvalue::RValue;
 use crate::semantic::types::Type as GlslType;
 use crate::semantic::type_check::infer_unary_result_type;
 use crate::error::{ErrorCode, GlslError};
@@ -10,15 +11,18 @@ use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-pub fn translate_unary(
+/// Emit code to compute a unary expression as an RValue
+pub fn emit_unary_rvalue(
     ctx: &mut CodegenContext,
     expr: &Expr,
-) -> Result<(Vec<Value>, GlslType), GlslError> {
+) -> Result<RValue, GlslError> {
     let Expr::Unary(op, operand, span) = expr else {
-        unreachable!("translate_unary called on non-unary expr");
+        unreachable!("emit_unary_rvalue called on non-unary expr");
     };
     
-    let (vals, ty) = ctx.translate_expr_typed(operand)?;
+    let operand_rvalue = ctx.emit_rvalue(operand)?;
+    let ty = operand_rvalue.ty().clone();
+    let vals = operand_rvalue.into_values();
     
     let result_ty = infer_unary_result_type(op, &ty, span.clone())?;
     
@@ -27,7 +31,7 @@ pub fn translate_unary(
         // Scalar operation
         let val = vals[0];
         let result_val = translate_unary_op(ctx, op, val, &ty)?;
-        Ok((vec![result_val], result_ty))
+        Ok(RValue::from_scalar(result_val, result_ty))
     } else {
         // Vector or matrix operation - apply component-wise
         let mut result_vals = Vec::new();
@@ -35,8 +39,18 @@ pub fn translate_unary(
             let result_val = translate_unary_op(ctx, op, val, &ty)?;
             result_vals.push(result_val);
         }
-        Ok((result_vals, result_ty))
+        Ok(RValue::from_aggregate(result_vals, result_ty))
     }
+}
+
+/// Legacy function for backwards compatibility
+pub fn translate_unary(
+    ctx: &mut CodegenContext,
+    expr: &Expr,
+) -> Result<(Vec<Value>, GlslType), GlslError> {
+    let rvalue = emit_unary_rvalue(ctx, expr)?;
+    let ty = rvalue.ty().clone();
+    Ok((rvalue.into_values(), ty))
 }
 
 fn translate_unary_op(

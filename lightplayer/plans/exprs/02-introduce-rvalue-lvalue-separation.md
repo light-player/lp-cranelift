@@ -7,6 +7,7 @@ Separate LValue and RValue evaluation paths, following Clang's proven architectu
 ## Current Architecture
 
 **Problem**: Single `translate_expr_typed` method handles both LValues and RValues:
+
 - Returns `(Vec<Value>, Type)` for both cases
 - No clear distinction between "location" and "value"
 - Assignment handling mixed with expression evaluation
@@ -64,7 +65,7 @@ impl CodegenContext {
             // ... other cases
         }
     }
-    
+
     /// Emit code to compute an LValue (left-hand value - modifiable location)
     pub fn emit_lvalue(&mut self, expr: &Expr) -> Result<LValue, GlslError> {
         match expr {
@@ -79,7 +80,7 @@ impl CodegenContext {
             // ... other cases
         }
     }
-    
+
     /// Load an LValue to get its RValue
     pub fn load_lvalue(&mut self, lvalue: LValue) -> Result<RValue, GlslError> {
         lvalue::read_lvalue(self, &lvalue)
@@ -92,6 +93,7 @@ impl CodegenContext {
 ### Step 1: Create RValue Type
 
 1. Create `lightplayer/crates/lp-glsl/src/codegen/rvalue.rs`:
+
    - Define `RValue` enum (Scalar, Complex, Aggregate)
    - Implement conversion methods
    - Implement helper methods
@@ -102,11 +104,13 @@ impl CodegenContext {
 ### Step 2: Refactor Expression Evaluation
 
 1. Create `emit_rvalue` method:
+
    - Replace `translate_expr_typed` calls with `emit_rvalue`
    - Handle scalar/complex/aggregate cases
    - Return `RValue` instead of `(Vec<Value>, Type)`
 
 2. Update expression handlers:
+
    - `binary::translate_binary` → `binary::emit_binary_rvalue`
    - `unary::translate_unary` → `unary::emit_unary_rvalue`
    - `literal::translate_literal` → `literal::emit_literal_rvalue`
@@ -119,6 +123,7 @@ impl CodegenContext {
 ### Step 3: Integrate with LValue
 
 1. Update `lvalue.rs`:
+
    - Ensure `read_lvalue` returns `RValue`
    - Ensure `write_lvalue` takes `RValue`
 
@@ -130,6 +135,7 @@ impl CodegenContext {
 ### Step 4: Update Call Sites
 
 1. Update statement translation:
+
    - `translate_selection` uses `emit_rvalue` for conditions
    - `translate_return` uses `emit_rvalue` for return values
 
@@ -174,9 +180,10 @@ impl CodegenContext {
 
 ## Verification
 
-Run all tests:
+Run all matrix tests:
+
 ```bash
-scripts/glsl-filetests.sh vec4/
+scripts/glsl-filetests.sh matrix/
 ```
 
 Expected result: All tests pass, code is cleaner and more maintainable.
@@ -189,4 +196,3 @@ Once all tests pass:
 git add -A
 git commit -m "lpc: introduce RValue/LValue separation following Clang patterns"
 ```
-

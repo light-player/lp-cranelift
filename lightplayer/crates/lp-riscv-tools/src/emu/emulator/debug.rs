@@ -240,7 +240,7 @@ impl Riscv32Emulator {
 
         // Show logs in chronological order (oldest first, matching execution order)
         if !self.log_buffer.is_empty() {
-            result.push_str("\nExecution logs:\n");
+            result.push_str("\nExecution history:\n");
             // Show the last log_count entries in chronological order (oldest first)
             let start = self.log_buffer.len().saturating_sub(log_count);
             let logs_to_show = &self.log_buffer[start..];

@@ -5,10 +5,12 @@
 Vector array indexing in conditional expressions causes verifier errors: "uses value from non-dominating inst". This happens when comparing vector components accessed via array indexing inside `if` statements.
 
 **Current behavior:**
+
 - Verifier error: "uses value v13 from non-dominating inst13"
 - Compilation fails with verifier errors
 
 **Affected tests:**
+
 - `vec4/indexing/array-indexing.glsl:43` - `test_vec4_array_indexing_equals_component()` fails
 - `vec4/indexing/component-access.glsl:58` - `test_vec4_component_access_verify_synonyms()` fails
 
@@ -21,6 +23,7 @@ The verifier error shows that values computed in one branch of an `if` statement
 3. The SSA form is invalid because the value doesn't dominate its use
 
 Looking at the error:
+
 ```
 block2(v11: i32):
     v14 = iconst.i32 1
@@ -34,10 +37,12 @@ block2(v11: i32):
 ## Investigation Steps
 
 1. **Check codegen for conditional expressions** (`codegen/expr/mod.rs`):
+
    - Look at how `if` statements are translated
    - Verify phi nodes are created correctly for values modified in branches
 
 2. **Check vector indexing codegen** (`codegen/expr/component.rs`):
+
    - Verify array indexing doesn't create values that escape their scope incorrectly
 
 3. **Check SSA construction**:
@@ -47,11 +52,13 @@ block2(v11: i32):
 ## Fix Strategy
 
 The issue is likely in how conditional expressions handle values that are:
+
 1. Read from vectors (via indexing)
 2. Used in comparisons
 3. Modified in branches
 
 The fix should ensure:
+
 1. Values read from vectors are properly available in all branches
 2. Values modified in branches are properly phi'd at merge points
 3. The SSA form is valid
@@ -59,14 +66,17 @@ The fix should ensure:
 ## Implementation Steps
 
 1. **Trace through the failing test** to understand the exact codegen flow:
+
    - `test_vec4_array_indexing_equals_component()` compares `v[0] == v.x`
    - This happens inside an `if` statement that modifies `sum`
 
 2. **Check conditional expression translation**:
+
    - Verify that values read before the `if` are available in all branches
    - Verify that values modified in branches are phi'd correctly
 
 3. **Fix the codegen**:
+
    - Ensure vector component reads happen before branching
    - Ensure all modified values are properly phi'd at merge points
 
@@ -97,6 +107,7 @@ The fix should ensure:
 ## Verification
 
 Run the failing tests:
+
 ```bash
 scripts/glsl-filetests.sh vec4/indexing/array-indexing.glsl:43
 scripts/glsl-filetests.sh vec4/indexing/component-access.glsl:58
@@ -112,4 +123,3 @@ Once all tests pass:
 git add -A
 git commit -m "lpc: fix verifier errors in vector indexing conditionals"
 ```
-

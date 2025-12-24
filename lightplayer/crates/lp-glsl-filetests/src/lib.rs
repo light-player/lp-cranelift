@@ -346,17 +346,32 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
             relative_path_str
         };
 
-        let result = run_filetest_with_line_filter(&spec.path, spec.line_number, show_full_output);
+        // Catch panics in single-test mode too
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            run_filetest_with_line_filter(&spec.path, spec.line_number, show_full_output)
+        }))
+        .unwrap_or_else(|e| {
+            // Convert panic to error
+            let panic_msg = if let Some(msg) = e.downcast_ref::<String>() {
+                msg.clone()
+            } else if let Some(msg) = e.downcast_ref::<&'static str>() {
+                msg.to_string()
+            } else {
+                format!("{:?}", e)
+            };
+            anyhow::bail!("panicked: {}", panic_msg)
+        });
+
         let (passed, failed) = match result {
             Ok(()) => {
                 // Single test passed - show success with color
                 println!("{}", colorize(&format!("✓ {}", display_path), colors::GREEN));
                 (1, 0)
             }
-            Err(_e) => {
-                // Single test failed - error details are already shown by run_filetest_with_line_filter
-                // Just show the failure marker
+            Err(e) => {
+                // Single test failed - show failure marker and full error details
                 println!("{}", colorize(&format!("✗ {}", display_path), colors::RED));
+                println!("\n{:#}", e);
                 (0, 1)
             }
         };

@@ -1,4 +1,5 @@
 use crate::codegen::context::CodegenContext;
+use crate::codegen::rvalue::RValue;
 use crate::error::{ErrorCode, GlslError};
 use crate::semantic::type_check::{infer_binary_result_type, promote_numeric};
 use crate::semantic::types::Type as GlslType;
@@ -18,22 +19,28 @@ use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-pub fn translate_binary(
+/// Emit code to compute a binary expression as an RValue
+pub fn emit_binary_rvalue(
     ctx: &mut CodegenContext,
     expr: &Expr,
-) -> Result<(Vec<Value>, GlslType), GlslError> {
+) -> Result<RValue, GlslError> {
     let Expr::Binary(op, lhs, rhs, span) = expr else {
-        unreachable!("translate_binary called on non-binary expr");
+        unreachable!("emit_binary_rvalue called on non-binary expr");
     };
 
-    let (lhs_vals, lhs_ty) = ctx.translate_expr_typed(lhs)?;
-    let (rhs_vals, rhs_ty) = ctx.translate_expr_typed(rhs)?;
+    let lhs_rvalue = ctx.emit_rvalue(lhs)?;
+    let rhs_rvalue = ctx.emit_rvalue(rhs)?;
+    let lhs_ty = lhs_rvalue.ty().clone();
+    let rhs_ty = rhs_rvalue.ty().clone();
+    let lhs_vals = lhs_rvalue.into_values();
+    let rhs_vals = rhs_rvalue.into_values();
 
     // Delegate to matrix/vector/scalar handlers
     if lhs_ty.is_matrix() || rhs_ty.is_matrix() {
-        matrix::translate_matrix_binary(ctx, op, lhs_vals, &lhs_ty, rhs_vals, &rhs_ty, span.clone())
+        let (vals, ty) = matrix::translate_matrix_binary(ctx, op, lhs_vals, &lhs_ty, rhs_vals, &rhs_ty, span.clone())?;
+        Ok(RValue::from_aggregate(vals, ty))
     } else if lhs_ty.is_vector() || rhs_ty.is_vector() {
-        vector::translate_vector_binary(
+        let (vals, ty) = vector::translate_vector_binary(
             ctx,
             op,
             lhs_vals,
@@ -41,9 +48,10 @@ pub fn translate_binary(
             rhs_vals,
             &rhs_ty,
             Some(span.clone()),
-        )
+        )?;
+        Ok(RValue::from_aggregate(vals, ty))
     } else {
-        translate_scalar_binary(
+        let (vals, ty) = translate_scalar_binary(
             ctx,
             op,
             lhs_vals[0],
@@ -51,8 +59,19 @@ pub fn translate_binary(
             rhs_vals[0],
             &rhs_ty,
             span.clone(),
-        )
+        )?;
+        Ok(RValue::from_aggregate(vals, ty))
     }
+}
+
+/// Legacy function for backwards compatibility
+pub fn translate_binary(
+    ctx: &mut CodegenContext,
+    expr: &Expr,
+) -> Result<(Vec<Value>, GlslType), GlslError> {
+    let rvalue = emit_binary_rvalue(ctx, expr)?;
+    let ty = rvalue.ty().clone();
+    Ok((rvalue.into_values(), ty))
 }
 
 fn translate_scalar_binary(

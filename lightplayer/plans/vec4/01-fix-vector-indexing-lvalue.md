@@ -5,10 +5,12 @@
 Vector array indexing `v[0] = float` is not supported as an LValue. The error message says "vector indexing not supported as LValue (use component access like .x)".
 
 **Current behavior:**
+
 - `v[0] = 100.0` fails with compilation error
 - `v.x = 100.0` works correctly
 
 **Affected tests:**
+
 - `vec4/assignment/element-assignment.glsl:58` - `test_vec4_element_assignment_array_index()` fails
 
 ## Root Cause
@@ -30,14 +32,17 @@ However, GLSL spec allows `v[0]` to be used as an LValue, equivalent to `v.x`.
 ## Fix Strategy
 
 1. **Add VectorElement LValue variant** similar to `MatrixElement`:
+
    - Store base variables, base type, and component index
    - Support single-element access like `v[0]`
 
 2. **Update resolve_lvalue** to create `VectorElement` LValue:
+
    - When indexing a vector, create `VectorElement` instead of erroring
    - Map index to component: `[0]` → x, `[1]` → y, `[2]` → z, `[3]` → w
 
 3. **Implement write_lvalue** for `VectorElement`:
+
    - Write single value to the appropriate component variable
    - Similar to how `Component` LValue works but for single index
 
@@ -47,6 +52,7 @@ However, GLSL spec allows `v[0]` to be used as an LValue, equivalent to `v.x`.
 ## Implementation Steps
 
 1. **Add VectorElement variant** to `LValue` enum in `lvalue.rs`:
+
    ```rust
    VectorElement {
        base_vars: Vec<Variable>,
@@ -56,13 +62,16 @@ However, GLSL spec allows `v[0]` to be used as an LValue, equivalent to `v.x`.
    ```
 
 2. **Update resolve_lvalue** in `lvalue.rs`:
+
    - When `current_ty.is_vector()` and we have a single index, create `VectorElement`
    - Remove the error case for vector indexing
 
 3. **Implement read_lvalue** for `VectorElement`:
+
    - Return the value from `base_vars[index]`
 
 4. **Implement write_lvalue** for `VectorElement`:
+
    - Write single value to `base_vars[index]`
 
 5. **Update any code** that pattern matches on `LValue` to handle `VectorElement`
@@ -88,6 +97,7 @@ However, GLSL spec allows `v[0]` to be used as an LValue, equivalent to `v.x`.
 ## Verification
 
 Run the test:
+
 ```bash
 scripts/glsl-filetests.sh vec4/assignment/element-assignment.glsl:58
 ```
@@ -102,4 +112,3 @@ Once all tests pass:
 git add -A
 git commit -m "lpc: implement vector indexing as LValue"
 ```
-
