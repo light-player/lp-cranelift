@@ -16,10 +16,6 @@ enum Commands {
 /// Run GLSL filetests
 #[derive(Parser)]
 struct TestOptions {
-    /// Be more verbose
-    #[arg(short, long)]
-    verbose: bool,
-
     /// Specify input files or directories to test (default: all tests)
     files: Vec<String>,
 }
@@ -37,7 +33,7 @@ fn main() -> anyhow::Result<()> {
             } else {
                 t.files
             };
-            lp_glsl_filetests::run(t.verbose, &files)?;
+            lp_glsl_filetests::run(&files)?;
         }
     }
 

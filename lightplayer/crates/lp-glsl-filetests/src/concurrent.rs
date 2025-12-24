@@ -118,6 +118,12 @@ fn worker_thread(
     thread::Builder::new()
         .name(format!("lp-test-worker-{}", thread_num))
         .spawn(move || {
+            // Set a custom panic hook for this worker thread that suppresses default output
+            // since we catch panics with catch_unwind and convert them to test failures
+            std::panic::set_hook(Box::new(|_panic_info| {
+                // Suppress default panic output - we handle panics via catch_unwind
+            }));
+
             loop {
                 // Lock the mutex only long enough to extract a request.
                 let Request {
@@ -130,19 +136,30 @@ fn worker_thread(
                     Ok(req) => req,
                 };
 
-                let result = catch_unwind(|| {
+                // Use AssertUnwindSafe to allow catching panics from code that isn't unwind-safe
+                let result = catch_unwind(std::panic::AssertUnwindSafe(|| {
                     run_filetest_with_line_filter(path.as_path(), line_filter, show_full_output)
-                })
+                }))
                 .unwrap_or_else(|e| {
                     // The test panicked, leaving us a `Box<Any>`.
-                    // Panics are usually strings.
-                    if let Some(msg) = e.downcast_ref::<String>() {
-                        anyhow::bail!("panicked in worker #{}: {}", thread_num, msg)
+                    // Panics are usually strings or &str.
+                    let panic_msg = if let Some(msg) = e.downcast_ref::<String>() {
+                        msg.clone()
                     } else if let Some(msg) = e.downcast_ref::<&'static str>() {
-                        anyhow::bail!("panicked in worker #{}: {}", thread_num, msg)
+                        msg.to_string()
                     } else {
-                        anyhow::bail!("panicked in worker #{}", thread_num)
-                    }
+                        // Try to format the panic payload as debug string
+                        format!("{:?}", e)
+                    };
+                    
+                    // Extract just the essential panic message (first line usually)
+                    let short_msg = panic_msg
+                        .lines()
+                        .next()
+                        .unwrap_or("panic")
+                        .to_string();
+                    
+                    anyhow::bail!("panicked: {}", short_msg)
                 });
 
                 replies.send(Reply::Done { jobid, result }).unwrap();
