@@ -13,21 +13,20 @@ use std::{format, vec::Vec};
 /// ## Matrix Storage Format
 ///
 /// Matrices are stored in **column-major order** per GLSL specification.
-/// The internal representation uses `m[row][col]` indexing, which provides
-/// a row-major view of column-major storage.
+/// The internal representation uses `m[col][row]` indexing, matching GLSL semantics.
 ///
 /// Example: `mat2(vec2(1.0, 2.0), vec2(3.0, 4.0))`
 /// - Column 0: [1.0, 2.0]
 /// - Column 1: [3.0, 4.0]
 /// - Storage (column-major): [1.0, 2.0, 3.0, 4.0]
-/// - Internal representation: `[[1.0, 3.0], [2.0, 4.0]]` (m[row][col])
-///   - m[0][0] = 1.0 (row 0, col 0)
-///   - m[1][0] = 2.0 (row 1, col 0)
-///   - m[0][1] = 3.0 (row 0, col 1)
-///   - m[1][1] = 4.0 (row 1, col 1)
+/// - Internal representation: `[[1.0, 2.0], [3.0, 4.0]]` (m[col][row])
+///   - m[0][0] = 1.0 (col 0, row 0)
+///   - m[0][1] = 2.0 (col 0, row 1)
+///   - m[1][0] = 3.0 (col 1, row 0)
+///   - m[1][1] = 4.0 (col 1, row 1)
 ///
-/// To access column `col`, use `m[row][col]` for `row` in 0..rows.
-/// To access row `row`, use `m[row][col]` for `col` in 0..cols.
+/// To access column `col`, use `m[col][row]` for `row` in 0..rows.
+/// To access row `row`, use `m[col][row]` for `col` in 0..cols.
 #[derive(Debug, Clone)]
 pub enum GlslValue {
     I32(i32),
@@ -36,9 +35,9 @@ pub enum GlslValue {
     Vec2([f32; 2]),
     Vec3([f32; 3]),
     Vec4([f32; 4]),
-    Mat2x2([[f32; 2]; 2]),
-    Mat3x3([[f32; 3]; 3]),
-    Mat4x4([[f32; 4]; 4]),
+    Mat2x2([[f32; 2]; 2]),  // [[col0_row0, col0_row1], [col1_row0, col1_row1]]
+    Mat3x3([[f32; 3]; 3]),  // [[col0_row0, col0_row1, col0_row2], [col1_row0, ...], ...]
+    Mat4x4([[f32; 4]; 4]),  // [[col0_row0, col0_row1, col0_row2, col0_row3], [col1_row0, ...], ...]
 }
 
 impl GlslValue {
@@ -390,9 +389,9 @@ fn parse_matrix_constructor(args: &[Expr], dim: usize) -> Result<[[f32; 4]; 4], 
 
                         let vec_components = parse_vector_constructor(args, vec_dim)?;
                         // Store column vector components in the matrix (column-major order)
-                        // matrix[row][col] = component from column vector at row position
+                        // matrix[col][row] = component from column vector at row position
                         for row_idx in 0..dim {
-                            matrix[row_idx][col_idx] = vec_components[row_idx];
+                            matrix[col_idx][row_idx] = vec_components[row_idx];
                         }
                     } else {
                         return Err(GlslError::new(

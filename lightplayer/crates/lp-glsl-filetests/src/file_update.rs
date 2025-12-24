@@ -252,37 +252,37 @@ pub fn format_glsl_value(value: &GlslValue) -> String {
         GlslValue::Vec4(v) => format!("[{}, {}, {}, {}]", v[0], v[1], v[2], v[3]),
         GlslValue::Mat2x2(m) => {
             // Display in GLSL constructor format: mat2(vec2(col0), vec2(col1))
-            // m[row][col] format, so column 0 is [m[0][0], m[1][0]], column 1 is [m[0][1], m[1][1]]
+            // m[col][row] format, so column 0 is [m[0][0], m[0][1]], column 1 is [m[1][0], m[1][1]]
             format!(
                 "mat2(vec2({}, {}), vec2({}, {}))",
-                format_float(m[0][0]), format_float(m[1][0]),
-                format_float(m[0][1]), format_float(m[1][1])
+                format_float(m[0][0]), format_float(m[0][1]),
+                format_float(m[1][0]), format_float(m[1][1])
             )
         }
         GlslValue::Mat3x3(m) => {
             // Display in GLSL constructor format: mat3(vec3(col0), vec3(col1), vec3(col2))
-            // Column 0: [m[0][0], m[1][0], m[2][0]]
-            // Column 1: [m[0][1], m[1][1], m[2][1]]
-            // Column 2: [m[0][2], m[1][2], m[2][2]]
+            // m[col][row] format, so column 0 is [m[0][0], m[0][1], m[0][2]]
+            // Column 1: [m[1][0], m[1][1], m[1][2]]
+            // Column 2: [m[2][0], m[2][1], m[2][2]]
             format!(
                 "mat3(vec3({}, {}, {}), vec3({}, {}, {}), vec3({}, {}, {}))",
-                format_float(m[0][0]), format_float(m[1][0]), format_float(m[2][0]),  // column 0
-                format_float(m[0][1]), format_float(m[1][1]), format_float(m[2][1]),  // column 1
-                format_float(m[0][2]), format_float(m[1][2]), format_float(m[2][2])   // column 2
+                format_float(m[0][0]), format_float(m[0][1]), format_float(m[0][2]),  // column 0
+                format_float(m[1][0]), format_float(m[1][1]), format_float(m[1][2]),  // column 1
+                format_float(m[2][0]), format_float(m[2][1]), format_float(m[2][2])   // column 2
             )
         }
         GlslValue::Mat4x4(m) => {
             // Display in GLSL constructor format: mat4(vec4(col0), vec4(col1), vec4(col2), vec4(col3))
-            // Column 0: [m[0][0], m[1][0], m[2][0], m[3][0]]
-            // Column 1: [m[0][1], m[1][1], m[2][1], m[3][1]]
-            // Column 2: [m[0][2], m[1][2], m[2][2], m[3][2]]
-            // Column 3: [m[0][3], m[1][3], m[2][3], m[3][3]]
+            // m[col][row] format, so column 0 is [m[0][0], m[0][1], m[0][2], m[0][3]]
+            // Column 1: [m[1][0], m[1][1], m[1][2], m[1][3]]
+            // Column 2: [m[2][0], m[2][1], m[2][2], m[2][3]]
+            // Column 3: [m[3][0], m[3][1], m[3][2], m[3][3]]
             format!(
                 "mat4(vec4({}, {}, {}, {}), vec4({}, {}, {}, {}), vec4({}, {}, {}, {}), vec4({}, {}, {}, {}))",
-                format_float(m[0][0]), format_float(m[1][0]), format_float(m[2][0]), format_float(m[3][0]),  // column 0
-                format_float(m[0][1]), format_float(m[1][1]), format_float(m[2][1]), format_float(m[3][1]),  // column 1
-                format_float(m[0][2]), format_float(m[1][2]), format_float(m[2][2]), format_float(m[3][2]),  // column 2
-                format_float(m[0][3]), format_float(m[1][3]), format_float(m[2][3]), format_float(m[3][3])   // column 3
+                format_float(m[0][0]), format_float(m[0][1]), format_float(m[0][2]), format_float(m[0][3]),  // column 0
+                format_float(m[1][0]), format_float(m[1][1]), format_float(m[1][2]), format_float(m[1][3]),  // column 1
+                format_float(m[2][0]), format_float(m[2][1]), format_float(m[2][2]), format_float(m[2][3]),  // column 2
+                format_float(m[3][0]), format_float(m[3][1]), format_float(m[3][2]), format_float(m[3][3])   // column 3
             )
         }
     }

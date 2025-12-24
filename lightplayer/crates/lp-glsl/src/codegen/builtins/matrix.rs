@@ -104,19 +104,19 @@ impl<'a> CodegenContext<'a> {
 
         let (rows, cols) = m_ty.matrix_dims().unwrap();
 
-        // Transpose: result[row][col] = m[col][row]
-        // Input is column-major: m_vals[col * rows + row] = m[row][col]
-        // Output should be column-major: result_vals[col * rows + row] = result[row][col] = m[col][row]
-        // m[col][row] = m_vals[row * cols + col] (since m is stored column-major)
-        // So: result_vals[result_col * rows + result_row] = m_vals[result_row * cols + result_col]
+        // Transpose: result[col][row] = m[row][col]
+        // Input is column-major: m_vals[col * rows + row] = m[col][row]
+        // Output should be column-major: result_vals[col * rows + row] = result[col][row] = m[row][col]
+        // m[row][col] = m_vals[row * rows + col] (since row becomes column index)
+        // So: result_vals[result_col * rows + result_row] = m_vals[result_row * rows + result_col]
         let mut result_vals = Vec::new();
         for result_col in 0..rows {
             // Transposed matrix has rows columns
             for result_row in 0..cols {
                 // Transposed matrix has cols rows
-                // result[result_row][result_col] = m[result_col][result_row]
-                // m[result_col][result_row] = m_vals[result_row * cols + result_col]
-                let old_idx = result_row * cols + result_col;
+                // result[result_col][result_row] = m[result_row][result_col]
+                // m[result_row][result_col] is at: result_row * rows + result_col
+                let old_idx = result_row * rows + result_col;
                 result_vals.push(m_vals[old_idx]);
             }
         }
