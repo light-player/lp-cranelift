@@ -121,3 +121,4 @@ But wait, the current code uses `result_row * cols + result_col`. That's the bug
 - `matrix/builtins/transpose.glsl` - all tests should pass
 - Verify transpose works for mat2, mat3, mat4
 
+

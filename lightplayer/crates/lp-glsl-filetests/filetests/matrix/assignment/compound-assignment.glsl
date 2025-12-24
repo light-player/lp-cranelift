@@ -76,3 +76,4 @@ float test_mat4_mul_assign_scalar() {
 
 // run: test_mat4_mul_assign_scalar() ~= 52.0
 
+

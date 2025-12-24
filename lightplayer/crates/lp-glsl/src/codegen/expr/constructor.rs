@@ -132,14 +132,14 @@ pub fn translate_matrix_constructor(
     }
     // Case 3: Mixed scalars - column-major order
     else {
-        let mut scalar_index = 0;
-        for col in 0..cols {
-            for row in 0..rows {
+        for row in 0..rows {
+            for col in 0..cols {
+                let scalar_index = row * cols + col;
                 let scalar = arg_vals[scalar_index][0];
                 let scalar_ty = &arg_types[scalar_index];
                 let float_val = coercion::coerce_to_type(ctx, scalar, scalar_ty, &GlslType::Float)?;
-                ctx.builder.def_var(matrix_vars[col * rows + row], float_val);
-                scalar_index += 1;
+                let var_idx = col * rows + row;
+                ctx.builder.def_var(matrix_vars[var_idx], float_val);
             }
         }
     }

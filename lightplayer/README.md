@@ -117,3 +117,4 @@ Lightplayer compiles GLSL to an intermediate representation, then generates opti
 - **JIT compilation** for dynamic code generation
 
 For more details, see the individual crate READMEs and the `plans/` directory.
+

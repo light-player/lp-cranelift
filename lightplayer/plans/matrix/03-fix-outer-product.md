@@ -66,3 +66,4 @@ for col in 0..vec1_size {  // Columns come from vec1
 - `matrix/builtins/outer-product.glsl` - all tests should pass
 - Verify outerProduct works for vec2×vec2, vec3×vec3, vec4×vec4
 
+

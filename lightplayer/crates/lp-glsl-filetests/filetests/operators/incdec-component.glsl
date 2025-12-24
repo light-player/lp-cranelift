@@ -184,3 +184,4 @@ int test_postdec_component_int() {
 // Note: Multi-component swizzles like v.xy++ may not be valid LValues in GLSL.
 // If they are supported, tests would go here. For now, we focus on single components.
 
+

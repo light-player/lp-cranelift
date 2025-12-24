@@ -49,3 +49,4 @@ However, the issue may be in:
 - `matrix/indexing/column-access.glsl` - all tests should pass
 - Verify `m[col][row]` still works correctly after fix
 
+

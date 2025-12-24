@@ -36,15 +36,15 @@ float test_mat2_from_scalars_verify_order() {
 float test_mat3_from_scalars() {
     mat3 m = mat3(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);
     // Column-major order:
-    // Column 0: [1.0, 2.0, 3.0] → m[0][0]=1.0, m[0][1]=2.0, m[0][2]=3.0
-    // Column 1: [4.0, 5.0, 6.0] → m[1][0]=4.0, m[1][1]=5.0, m[1][2]=6.0
-    // Column 2: [7.0, 8.0, 9.0] → m[2][0]=7.0, m[2][1]=8.0, m[2][2]=9.0
+    // Column 0: [1.0, 4.0, 7.0] → m[0][0]=1.0, m[0][1]=4.0, m[0][2]=7.0
+    // Column 1: [2.0, 5.0, 8.0] → m[1][0]=2.0, m[1][1]=5.0, m[1][2]=8.0
+    // Column 2: [3.0, 6.0, 9.0] → m[2][0]=3.0, m[2][1]=6.0, m[2][2]=9.0
     // Verify first element of each column (row 0)
     return m[0][0] + m[1][0] + m[2][0];
-    // Should be 1.0 + 4.0 + 7.0 = 12.0
+    // Should be 1.0 + 2.0 + 3.0 = 6.0
 }
 
-// run: test_mat3_from_scalars() ~= 12.0
+// run: test_mat3_from_scalars() ~= 6.0
 
 float test_mat3_from_scalars_all() {
     mat3 m = mat3(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0);

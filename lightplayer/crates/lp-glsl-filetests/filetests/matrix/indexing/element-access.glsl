@@ -10,11 +10,11 @@
 
 float test_mat2_element_read() {
     mat2 m = mat2(1.0, 2.0, 3.0, 4.0);
-    // Column-major: Column 0: [1.0, 2.0], Column 1: [3.0, 4.0]
-    // m[0][0]=1.0 (col 0, row 0), m[0][1]=2.0 (col 0, row 1)
-    // m[1][0]=3.0 (col 1, row 0), m[1][1]=4.0 (col 1, row 1)
+    // Column-major: Column 0: [1.0, 3.0], Column 1: [2.0, 4.0]
+    // m[0][0]=1.0 (col 0, row 0), m[0][1]=3.0 (col 0, row 1)
+    // m[1][0]=2.0 (col 1, row 0), m[1][1]=4.0 (col 1, row 1)
     return m[0][0] + m[1][0] + m[0][1] + m[1][1];
-    // Should be 1.0 + 3.0 + 2.0 + 4.0 = 10.0
+    // Should be 1.0 + 2.0 + 3.0 + 4.0 = 10.0
 }
 
 // run: test_mat2_element_read() ~= 10.0
@@ -22,12 +22,12 @@ float test_mat2_element_read() {
 float test_mat2_element_write() {
     mat2 m = mat2(1.0, 2.0, 3.0, 4.0);
     m[0][1] = 10.0;  // Write to element at col 0, row 1
-    // After write: m[0][0]=1.0, m[0][1]=10.0, m[1][0]=3.0, m[1][1]=4.0
+    // After write: m[0][0]=1.0, m[0][1]=10.0, m[1][0]=2.0, m[1][1]=4.0
     return m[0][0] + m[1][0] + m[0][1] + m[1][1];
-    // Should be 1.0 + 3.0 + 10.0 + 4.0 = 18.0
+    // Should be 1.0 + 2.0 + 10.0 + 4.0 = 17.0
 }
 
-// run: test_mat2_element_write() ~= 18.0
+// run: test_mat2_element_write() ~= 17.0
 
 float test_mat2_all_elements() {
     mat2 m = mat2(10.0, 20.0, 30.0, 40.0);
