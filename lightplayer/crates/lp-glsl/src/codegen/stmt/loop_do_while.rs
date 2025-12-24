@@ -24,7 +24,9 @@ pub fn emit_loop_do_while_stmt(
 
     // Body: switch to but don't seal yet - will receive back edge from condition block
     ctx.switch_to_block(body_block);
+    ctx.enter_scope(); // Enter scope for body variables
     ctx.emit_statement(body)?;
+    ctx.exit_scope(); // Exit scope for body variables
     ctx.emit_branch(cond_block)?;
 
     // Condition: switch to but don't seal yet - will receive back edge from body

@@ -14,6 +14,7 @@ Compound statements are not creating scopes during code generation, even though 
 - Variables leaking from inner scopes to outer scopes incorrectly
 
 **Current Code** (missing scopes):
+
 ```rust
 pub fn emit_compound_stmt(
     ctx: &mut CodegenContext,
@@ -27,6 +28,7 @@ pub fn emit_compound_stmt(
 ```
 
 **Semantic Analysis** (correct):
+
 ```rust
 Statement::Compound(compound) => {
     symbols.push_scope();  // ✅ Creates scope
@@ -40,11 +42,13 @@ Statement::Compound(compound) => {
 ## Root Cause
 
 In C/GLSL, every `{ }` block creates a new scope. Variables declared inside `{ }` should:
+
 - Shadow outer variables with the same name
 - Go out of scope when the block ends
 - Not be accessible after the block closes
 
 Currently, we only create scopes for:
+
 - If statement bodies (manually added in Phase 2)
 - Loop bodies (manually added in Phase 2)
 - But NOT for standalone `{ }` blocks
@@ -85,11 +89,13 @@ Without this fix, shadowing won't work correctly in arbitrary blocks, not just c
 ## Implementation Steps
 
 1. **Update `emit_compound_stmt` in `compound.rs`**:
+
    - Add `ctx.enter_scope()` before processing statements
    - Add `ctx.exit_scope()` after processing statements
    - Ensure scope is properly managed even if statements fail
 
 2. **Test with compound statement tests**:
+
    ```bash
    scripts/glsl-filetests.sh control/edge_cases/compound-statements.glsl
    ```
@@ -148,4 +154,3 @@ git commit -m "lpc: add scope management to compound statements"
 - None - this is a foundational fix
 - Should be done before Phase 1 (block sealing) as it affects all scoping
 - Other phases may depend on this being correct
-

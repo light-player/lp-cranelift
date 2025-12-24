@@ -155,13 +155,14 @@ block1: if (cond1) {
 - Fix fundamental scoping issue affecting all `{ }` blocks
 - Should be done first as it's foundational
 
-### Phase 1: Fix Block Sealing in Do-While Loops
+### Phase 1: Fix Do-While Loop Block Sealing and SSA Issues
 
-**Goal**: Fix block sealing order so do-while loops don't panic
+**Goal**: Fix block sealing order and SSA value handling to prevent "index out of bounds" errors
 
-- Fix `emit_loop_do_while_stmt` to not seal body_block prematurely
-- Ensure header block declares successors before any blocks are sealed
-- Test with all do-while loop tests
+- Fix block sealing order in do-while loops
+- Ensure variables used in condition block are properly resolved
+- Prevent SSA from creating invalid value references
+- See `01-fix-do-while-block-sealing.md` for detailed analysis and implementation
 
 ### Phase 2: Fix SSA Dominance Violations ✅ COMPLETE
 

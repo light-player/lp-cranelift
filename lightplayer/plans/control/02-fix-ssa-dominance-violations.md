@@ -9,6 +9,7 @@ Fix SSA dominance violations where variables modified in different control flow 
 When variables are modified in different control flow paths (e.g., nested if statements), reading the variable after the merge point tries to use a value from a non-dominating block.
 
 **Example Error**:
+
 ```
 block1:
     v4 = iconst.i32 10
@@ -27,6 +28,7 @@ block1:
 When a variable is modified in an inner scope (e.g., nested if statement), and then read in an outer scope, the codegen tries to use a value that doesn't dominate the use point.
 
 **Example**:
+
 ```glsl
 int test_variable_shadowing_nested() {
     int x = 5;
@@ -55,6 +57,7 @@ When control flow merges (e.g., after an if statement), variables modified in di
 Ensure variables are read in the merge block after all control flow paths converge. Cranelift's `use_var` automatically creates phi nodes when called in a block with multiple predecessors.
 
 **Pattern**:
+
 ```rust
 // WRONG: Read variable before branching
 let x_value = ctx.builder.use_var(x_var);  // In block1
@@ -160,4 +163,3 @@ git commit -m "lpc: fix SSA dominance violations in control flow"
 - The key is ensuring variables are read in the correct block context
 - Variable scope tracking is needed for proper shadowing behavior
 - This fix depends on Phase 1 (block sealing) being correct
-

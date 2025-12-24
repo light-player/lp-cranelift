@@ -9,6 +9,7 @@ Ensure do-while loop conditions are properly converted to boolean (i8) type befo
 Do-while loops use `translate_expr()` directly, which may return `i32` instead of `i8` (bool). The condition needs to be properly validated and converted to boolean type before use in `emit_cond_branch()`.
 
 **Current code**:
+
 ```rust
 let condition_value = ctx.translate_expr(condition)?;  // Might return i32!
 ctx.emit_cond_branch(condition_value, body_block, exit_block)?;
@@ -25,6 +26,7 @@ Use the same `translate_condition()` helper that while loops use, or ensure prop
 3. Use that value for branching
 
 **Pattern** (matching while loop approach):
+
 ```rust
 let (cond_vals, cond_ty) = ctx.translate_expr_typed(condition)?;
 // Validate that condition is bool type (GLSL spec requirement)
@@ -41,6 +43,7 @@ ctx.emit_cond_branch(condition_value, body_block, exit_block)?;
 ## Implementation Steps
 
 1. **Update `emit_loop_do_while_stmt` in `loop_do_while.rs`**:
+
    - Replace `ctx.translate_expr(condition)?` with `ctx.translate_expr_typed(condition)?`
    - Add type validation to ensure condition is `Type::Bool`
    - Extract the first (and only) value from the condition values
@@ -94,4 +97,3 @@ git commit -m "lpc: fix do-while condition type handling"
 - This should be done after Phase 2a (scope management)
 - Matches the pattern used in while loops for consistency
 - Ensures GLSL spec compliance (conditions must be bool type)
-

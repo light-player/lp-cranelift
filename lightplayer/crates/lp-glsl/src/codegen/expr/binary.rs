@@ -100,12 +100,17 @@ fn translate_scalar_binary(
         // Skip promotion - use Bool directly
         (lhs_val, rhs_val, GlslType::Bool)
     } else if is_comparison {
-        // Comparison operators: operands are numeric, may need promotion
-        // if different types (Int vs Float)
-        let common_ty = promote_numeric(lhs_ty, rhs_ty);
-        let lhs_val = coercion::coerce_to_type(ctx, lhs_val, lhs_ty, &common_ty)?;
-        let rhs_val = coercion::coerce_to_type(ctx, rhs_val, rhs_ty, &common_ty)?;
-        (lhs_val, rhs_val, common_ty)
+        // Comparison operators: handle boolean and numeric separately
+        if matches!(op, Equal | NonEqual) && lhs_ty == &GlslType::Bool {
+            // Boolean equality: no promotion needed
+            (lhs_val, rhs_val, GlslType::Bool)
+        } else {
+            // Numeric comparison: may need promotion
+            let common_ty = promote_numeric(lhs_ty, rhs_ty);
+            let lhs_val = coercion::coerce_to_type(ctx, lhs_val, lhs_ty, &common_ty)?;
+            let rhs_val = coercion::coerce_to_type(ctx, rhs_val, rhs_ty, &common_ty)?;
+            (lhs_val, rhs_val, common_ty)
+        }
     } else {
         // Arithmetic operators: promote to common type
         let common_ty = promote_numeric(lhs_ty, rhs_ty);
@@ -210,6 +215,10 @@ fn translate_scalar_binary_op(
         // icmp/fcmp return I1, but GLSL bool is I8, so convert
         Equal => {
             let cmp_result = match operand_ty {
+                GlslType::Bool => {
+                    // Boolean equality: compare directly as i8
+                    ctx.builder.ins().icmp(IntCC::Equal, lhs, rhs)
+                }
                 GlslType::Int => ctx.builder.ins().icmp(IntCC::Equal, lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fcmp(FloatCC::Equal, lhs, rhs),
                 _ => {
@@ -226,6 +235,10 @@ fn translate_scalar_binary_op(
         }
         NonEqual => {
             let cmp_result = match operand_ty {
+                GlslType::Bool => {
+                    // Boolean inequality: compare directly as i8
+                    ctx.builder.ins().icmp(IntCC::NotEqual, lhs, rhs)
+                }
                 GlslType::Int => ctx.builder.ins().icmp(IntCC::NotEqual, lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fcmp(FloatCC::NotEqual, lhs, rhs),
                 _ => {

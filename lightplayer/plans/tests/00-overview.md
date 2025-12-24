@@ -1,0 +1,193 @@
+# Type-Based Test Suites - Overview
+
+This directory contains plans for creating comprehensive test suites for GLSL types. These test suites serve as executable specifications for the compiler implementation, validating compliance with the GLSL specification.
+
+## Purpose
+
+These test suites are designed to:
+
+1. **Fully validate the compiler** - Provide comprehensive coverage of all type operations, constructors, conversions, and edge cases
+2. **Serve as executable specifications** - Each test encodes expected behavior from the GLSL specification
+3. **Guide implementation** - Tests are expected to fail initially, providing clear targets for implementation work
+4. **Ensure correctness** - Once passing, these tests ensure the compiler correctly implements type semantics
+
+## Test Types
+
+Test suites are planned for various GLSL types:
+
+- **Boolean vectors** (`bvec2`, `bvec3`, `bvec4`) - Currently planned
+- **Float types** (`float`, `vec2`, `vec3`, `vec4`) - Planned
+- **Integer types** (`int`, `ivec2`, `ivec3`, `ivec4`) - Planned
+- **Unsigned integer types** (`uint`, `uvec2`, `uvec3`, `uvec4`) - Planned
+- **Matrix types** (`mat2`, `mat3`, `mat4`) - Planned
+- Other types as needed
+
+## Test Structure
+
+Unlike the existing `vec4/` and `matrix/` test suites which use nested subdirectories (e.g., `vec4/relational/`, `vec4/assignment/`), these type-based test suites use a **flat, concise structure** with prefix-based naming. This provides a cleaner, more maintainable organization:
+
+```
+bvec4/
+├── op-equal.glsl              (operators)
+├── op-not-equal.glsl
+├── op-not.glsl
+├── fn-any.glsl                (built-in functions)
+├── fn-all.glsl
+├── fn-mix.glsl
+├── from-scalar.glsl           (constructors)
+├── from-scalars.glsl
+├── from-vectors.glsl
+├── from-bvec.glsl
+├── from-mixed.glsl
+├── to-bool.glsl               (conversions)
+├── to-int.glsl
+├── to-uint.glsl
+├── to-float.glsl
+├── to-ivec.glsl
+├── to-uvec.glsl
+├── to-vec.glsl
+├── assign-simple.glsl         (assignments)
+├── assign-element.glsl
+├── assign-swizzle.glsl
+├── access-array.glsl          (component access)
+├── access-component.glsl
+├── access-swizzle.glsl
+├── ctrl-if.glsl               (control flow)
+├── ctrl-while.glsl
+├── ctrl-for.glsl
+├── ctrl-do-while.glsl
+├── ctrl-ternary.glsl
+├── edge-nested.glsl           (edge cases)
+├── edge-mixed-components.glsl
+├── edge-all-true.glsl
+└── edge-all-false.glsl
+```
+
+## Naming Conventions
+
+Files use prefix-based naming to organize by category:
+
+- `op-*` - Operators (comparison, logical)
+- `fn-*` - Built-in functions (`any()`, `all()`, `not()`, `equal()`, `notEqual()`, `mix()`)
+- `from-*` - Constructors (scalar broadcast, multiple scalars, vectors, shortening, identity, mixed types)
+- `to-*` - Conversions (to scalar types, to vector types)
+- `assign-*` - Assignment operations (simple, element, swizzle)
+- `access-*` - Component access (array indexing, component names, swizzling)
+- `ctrl-*` - Control flow (if, while, for, do-while, ternary)
+- `edge-*` - Edge cases (nested operations, mixed components, all-true, all-false)
+
+## Current Test Suites
+
+### Boolean Vectors (bvec2, bvec3, bvec4)
+
+Three test suites are planned for boolean vectors, one for each vector size:
+
+1. **bvec2** - 32 test files covering 2-component boolean vectors
+2. **bvec3** - 33 test files covering 3-component boolean vectors
+3. **bvec4** - 33 test files covering 4-component boolean vectors
+
+Each suite follows the same organizational structure, adapted for the appropriate vector size (component count, swizzle patterns, constructor combinations).
+
+### Future Test Suites
+
+Additional type-based test suites will follow the same flat, prefix-based naming structure:
+
+- Float types (`float`, `vec2`, `vec3`, `vec4`)
+- Integer types (`int`, `ivec2`, `ivec3`, `ivec4`)
+- Unsigned integer types (`uint`, `uvec2`, `uvec3`, `uvec4`)
+- Matrix types (`mat2`, `mat3`, `mat4`)
+- Other types as needed
+
+## Expected Test Status
+
+**These tests are NOT expected to pass initially.** They serve as:
+
+- **Specification tests** - Define expected behavior from the GLSL spec
+- **Implementation targets** - Provide clear goals for compiler development
+- **Validation suite** - Once implemented, ensure correctness
+
+Expected initial failures include:
+
+- `not()`, `any()`, `all()` built-in functions
+- `mix()` with `bvec` arguments
+- Some constructor forms (shortening, mixed types)
+- Some conversion forms
+- Swizzle assignment
+- Component-wise operations
+
+## GLSL Specification Reference
+
+These test suites are based on the GLSL specification located at:
+
+**`/Users/yona/dev/photomancer/glsl-spec/chapters`**
+
+Key specification sections:
+
+- **operators.adoc**: Constructors (lines 171-229), Vector components (lines 427-579), Equality operators (lines 885-907)
+- **builtinfunctions.adoc**: Relational functions (lines 1228-1312), `any()`, `all()`, `not()`, `equal()`, `notEqual()`, `mix()` with `bvec`
+
+## Test File Format
+
+Each test file follows the standard GLSL filetest format:
+
+```glsl
+// test run
+// target riscv32.fixed32
+
+// ============================================================================
+// Description of what is being tested
+// ============================================================================
+
+bvec4 test_operation_name() {
+    // Test implementation
+    return result;
+    // Should be bvec4(true, false, true, false)
+}
+
+// run: test_operation_name() == bvec4(true, false, true, false)
+```
+
+## Type-Specific Considerations
+
+Each type has specific semantics and requirements:
+
+### Boolean Vectors (bvec2, bvec3, bvec4)
+
+Boolean vectors have important differences from scalar `bool`:
+
+- Logical operators (`&&`, `||`, `^^`, `!`) work on scalar `bool` only, NOT on `bvec*`
+- Use `not(bvec*)` built-in instead of `!bvec*`
+- Use `any(bvec*)` or `all(bvec*)` to convert `bvec*` to `bool` for control flow
+- `==` and `!=` operators return `bool` (aggregate comparison)
+- Use `equal()` and `notEqual()` built-ins for component-wise comparison returning `bvec*`
+
+### Other Types
+
+Future test suites will document type-specific considerations for:
+
+- Float precision and rounding behavior
+- Integer overflow/underflow semantics
+- Matrix operations and transformations
+- Type conversion rules and edge cases
+
+## Implementation Plans
+
+Detailed plans for each test suite:
+
+### Boolean Vectors
+
+- [`bvec2.md`](./bvec2.md) - 2-component boolean vector tests
+- [`bvec3.md`](./bvec3.md) - 3-component boolean vector tests
+- [`bvec4.md`](./bvec4.md) - 4-component boolean vector tests
+
+### Future Plans
+
+Additional type-based test suite plans will be added as they are developed.
+
+Each plan includes:
+
+- Complete file listing with descriptions
+- Test categories and expected coverage
+- Implementation notes
+- Reference file patterns
+- GLSL spec references

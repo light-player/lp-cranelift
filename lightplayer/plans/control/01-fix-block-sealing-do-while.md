@@ -17,6 +17,7 @@ In `emit_loop_do_while_stmt`, the body block is sealed too early:
 ## Root Cause
 
 The issue is that `emit_block()` seals the block immediately, but in do-while loops:
+
 - The body_block needs to receive a back edge from the header_block
 - The header_block declares body_block as a successor via `emit_cond_branch`
 - But body_block was already sealed before the header could declare it as a successor
@@ -112,6 +113,7 @@ EmitBlock(ExitBlock);
 ### Step 2: Verify Break/Continue Handling
 
 Ensure break/continue statements work correctly:
+
 - Break should branch to `exit_block` (already handled)
 - Continue should branch to `header_block` (already handled)
 - Both should create unreachable blocks after branching (already handled)
@@ -174,4 +176,3 @@ git commit -m "lpc: fix block sealing order in do-while loops"
 - This fix follows the same pattern as while loops (which already work correctly)
 - The key insight is that blocks receiving back edges must not be sealed until after the back edge is declared
 - Cranelift's SSA builder enforces this with assertions to ensure correct SSA form
-

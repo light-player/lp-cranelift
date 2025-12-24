@@ -7,6 +7,7 @@ Add proper scope management to do-while loops so variables declared in loop bodi
 ## Problem
 
 Do-while loops are missing `enter_scope()` and `exit_scope()` calls that are present in for and while loops. This causes:
+
 - Variables declared in do-while bodies not being properly scoped
 - Variable shadowing not working correctly in do-while loops
 - Potential variable leakage to outer scopes
@@ -36,6 +37,7 @@ ctx.emit_branch(cond_block)?;
 ## Implementation Steps
 
 1. **Update `emit_loop_do_while_stmt` in `loop_do_while.rs`**:
+
    - Add `ctx.enter_scope()` before emitting the body statement
    - Add `ctx.exit_scope()` after emitting the body statement
    - Ensure scope is exited before branching to condition block
@@ -86,4 +88,3 @@ git commit -m "lpc: add scope management to do-while loops"
 - This is a simple fix that matches the pattern already used in while loops
 - Should be done before Phase 2b (condition type handling) as it's a prerequisite
 - This fix is independent of block sealing issues (Phase 1)
-

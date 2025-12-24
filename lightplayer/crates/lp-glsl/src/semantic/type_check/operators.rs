@@ -175,7 +175,23 @@ pub fn infer_binary_result_type(
         }
 
         // Comparison operators: operands must be compatible, result is bool
-        Equal | NonEqual | LT | GT | LTE | GTE => {
+        Equal | NonEqual => {
+            // Equality operators work on all types (including bool)
+            if lhs_ty != rhs_ty {
+                return Err(GlslError::new(
+                    ErrorCode::E0106,
+                    format!("equality operator {:?} requires matching types", op),
+                )
+                .with_location(source_span_to_location(&span))
+                .with_note(format!(
+                    "left operand has type `{:?}`, right operand has type `{:?}`",
+                    lhs_ty, rhs_ty
+                )));
+            }
+            Ok(Type::Bool)
+        }
+        LT | GT | LTE | GTE => {
+            // Relational operators require numeric operands
             if !lhs_ty.is_numeric() || !rhs_ty.is_numeric() {
                 return Err(GlslError::new(
                     ErrorCode::E0106,
