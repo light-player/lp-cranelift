@@ -4,6 +4,9 @@ use super::Context;
 use crate::machinst::CompiledCode;
 use alloc::vec::Vec;
 
+#[cfg(feature = "unwind")]
+use crate::isa::TargetIsa;
+
 impl Context {
     /// Returns the compilation result for this function, available after any `compile` function
     /// has been called.

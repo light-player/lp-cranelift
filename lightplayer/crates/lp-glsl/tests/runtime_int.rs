@@ -111,3 +111,21 @@ fn test_int_assignment_chain() {
     ); // (5 + 10) * 2 = 30
 }
 
+#[test]
+fn test_do_while_loop() {
+    assert_int_result!(
+        r#"
+        int main() {
+            int i = 0;
+            int sum = 0;
+            do {
+                sum = sum + i;
+                i = i + 1;
+            } while (i < 5);
+            return sum;
+        }
+    "#,
+        10
+    ); // sum of 0+1+2+3+4 = 10
+}
+

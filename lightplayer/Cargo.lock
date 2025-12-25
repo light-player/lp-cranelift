@@ -314,6 +314,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cranelift-interpreter"
+version = "0.127.0"
+dependencies = [
+ "cranelift-codegen",
+ "cranelift-entity",
+ "libm",
+ "log",
+ "smallvec",
+ "thiserror",
+]
+
+[[package]]
 name = "cranelift-isle"
 version = "0.127.0"
 
@@ -1427,6 +1439,7 @@ dependencies = [
  "cranelift-codegen",
  "cranelift-control",
  "cranelift-frontend",
+ "cranelift-interpreter",
  "cranelift-jit",
  "cranelift-module",
  "cranelift-native",
