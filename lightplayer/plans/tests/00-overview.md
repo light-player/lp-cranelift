@@ -110,6 +110,24 @@ A comprehensive test suite for GLSL structures:
 
 - **structs** - 35 test files covering struct definitions, constructors, member access, assignment, and operations
 
+### Functions
+
+A comprehensive test suite for GLSL user-defined functions:
+
+- **functions** - 50 test files covering function declarations, definitions, calls, parameter qualifiers (in, out, inout), return types, overloading, and edge cases
+
+### Globals
+
+A comprehensive test suite for GLSL global variables:
+
+- **globals** - 50 test files covering global declarations, storage qualifiers (const, uniform, in, out, buffer, shared), initialization, scope, access from functions, and edge cases
+
+### Built-ins
+
+A comprehensive test suite for GLSL built-in functions not covered by type tests:
+
+- **builtins** - 65 test files covering math functions (trigonometry, exponential, common), matrix functions, integer/bit manipulation functions, and floating-point pack/unpack functions
+
 ### Future Test Suites
 
 Additional type-based test suites will follow the same flat, prefix-based naming structure:
@@ -214,6 +232,46 @@ Structures have specific considerations:
 - Anonymous and embedded structs are not supported
 - Member types must be already defined (no forward references)
 
+### Functions
+
+Functions have specific considerations:
+
+- Parameter qualifiers: `in` (default, copy in), `out` (copy out only), `inout` (copy in and out)
+- `out` parameters start uninitialized and must be assigned before return
+- `const` qualifier can only be used with `in` parameters
+- Function overloading based on parameter types (not return type)
+- Arguments evaluated left to right, exactly once
+- Output parameters copied back in undefined order
+- Static recursion is not allowed (compile-time error)
+- `main()` function must return `void` and take no parameters
+
+### Globals
+
+Global variables have specific considerations:
+
+- Storage qualifiers: `const` (read-only), `uniform` (application linkage), `in` (previous stage), `out` (next stage), `buffer` (shader storage), `shared` (compute shader)
+- Default storage qualifier (no qualifier) means local memory with no linkage
+- `const` globals must be initialized with constant expressions
+- Uninitialized globals (without qualifier) have undefined values at start of main()
+- Globals have global scope - visible from all functions
+- Local variables can shadow globals (hide them in nested scopes)
+- Shared globals (uniforms) must have same type across shaders
+- Read-only restrictions: `const`, `uniform`, `in` cannot be written to
+- Write-only restrictions: `out` may have read restrictions depending on stage
+
+### Built-ins
+
+Built-in functions have specific considerations:
+
+- Math functions: trigonometry (sin, cos, tan, asin, acos, atan, hyperbolic variants), exponential (pow, exp, log, sqrt, inversesqrt), common (sign, floor, ceil, round, fract, mod)
+- Matrix functions: component-wise multiply, outer product, transpose, determinant, inverse
+- Integer/bit functions: add/subtract with carry/borrow, multiply extended, bitfield operations, bit counting, find LSB/MSB
+- Pack/unpack functions: pack/unpack normalized values, half precision, double precision
+- Component-wise operations: most functions operate component-wise on vectors
+- Domain restrictions: many functions have undefined behavior for certain input ranges
+- NaN and Inf handling: propagation through operations, detection functions (isnan, isinf)
+- Precision: operations have effective precision qualification based on input precision
+
 ### Other Types
 
 Future test suites will document type-specific considerations for:
@@ -245,6 +303,53 @@ Detailed plans for each test suite:
 ### Structures
 
 - [`structs.md`](./structs.md) - Comprehensive struct tests
+
+### Functions
+
+- [`functions-2.md`](./functions-2.md) - Document existing function tests (42 test files)
+
+### Globals
+
+- [`globals-2.md`](./globals-2.md) - Document existing global variable tests (45 test files)
+
+### Built-ins
+
+- [`builtins-2.md`](./builtins-2.md) - Document existing built-in function tests (50+ test files)
+- [`builtins-integer.md`](./builtins-integer.md) - Integer/bit function tests (25 test files)
+- [`builtins-images.md`](./builtins-images.md) - Image function tests (30 test files)
+- [`builtins-atomics.md`](./builtins-atomics.md) - Atomic function tests (30 test files)
+- [`builtins-geometry.md`](./builtins-geometry.md) - Geometry shader function tests (15 test files)
+- [`builtins-fragment.md`](./builtins-fragment.md) - Fragment processing function tests (18 test files)
+- [`builtins-noise.md`](./builtins-noise.md) - Noise function tests (15 test files)
+- [`builtins-barriers.md`](./builtins-barriers.md) - Barrier function tests (18 test files)
+- [`builtins-subpass.md`](./builtins-subpass.md) - Subpass input function tests (10 test files)
+
+### Control Flow
+
+- [`control-flow-2.md`](./control-flow-2.md) - Document existing control flow tests (if/else/loops/break/continue/return)
+- [`control-flow-switch.md`](./control-flow-switch.md) - Switch statement tests (28 test files)
+- [`control-flow-discard.md`](./control-flow-discard.md) - Discard statement tests (15 test files)
+
+### Operators
+
+- [`operators-2.md`](./operators-2.md) - Document existing operator tests (increment/decrement)
+
+### Qualifiers
+
+- [`qualifiers-layout.md`](./qualifiers-layout.md) - Layout qualifier tests (50 test files)
+- [`qualifiers-interpolation.md`](./qualifiers-interpolation.md) - Interpolation qualifier tests (28 test files)
+- [`qualifiers-memory.md`](./qualifiers-memory.md) - Memory qualifier tests (30 test files)
+- [`qualifiers-invariant.md`](./qualifiers-invariant.md) - Invariant qualifier tests (25 test files)
+- [`qualifiers-precise.md`](./qualifiers-precise.md) - Precise qualifier tests (22 test files)
+- [`qualifiers-precision.md`](./qualifiers-precision.md) - Precision qualifier tests (27 test files)
+
+### Interface Blocks
+
+- [`interface-blocks.md`](./interface-blocks.md) - Interface block tests (30 test files)
+
+### Textures
+
+- [`textures.md`](./textures.md) - Texture function tests (70+ test files)
 
 ### Future Plans
 

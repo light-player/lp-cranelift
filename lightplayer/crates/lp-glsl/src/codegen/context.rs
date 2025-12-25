@@ -1,4 +1,4 @@
-use cranelift_codegen::ir::{Block, InstBuilder, Value};
+use cranelift_codegen::ir::{Block, Inst, InstBuilder, Value};
 use cranelift_frontend::{FunctionBuilder, Variable};
 use cranelift_module::{FuncId, Module};
 use hashbrown::HashMap;
@@ -318,10 +318,11 @@ impl<'a> CodegenContext<'a> {
 
     /// Branch to target block (following Clang's EmitBranch pattern)
     /// Ensures we're in a block before branching.
-    pub fn emit_branch(&mut self, target: Block) -> Result<(), GlslError> {
+    /// Returns the jump instruction so the caller can explicitly declare predecessors if needed.
+    pub fn emit_branch(&mut self, target: Block) -> Result<Inst, GlslError> {
         self.ensure_block()?;
-        self.builder.ins().jump(target, &[]);
-        Ok(())
+        let jump_inst = self.builder.ins().jump(target, &[]);
+        Ok(jump_inst)
     }
 
     /// Conditional branch (following Clang's EmitBranchOnBoolExpr pattern)

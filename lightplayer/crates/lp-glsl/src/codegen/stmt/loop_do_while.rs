@@ -27,7 +27,11 @@ pub fn emit_loop_do_while_stmt(
     ctx.enter_scope(); // Enter scope for body variables
     ctx.emit_statement(body)?;
     ctx.exit_scope(); // Exit scope for body variables
-    ctx.emit_branch(cond_block)?;
+    
+    // Create jump to cond_block. The jump instruction internally declares the predecessor
+    // via FunctionBuilder's declare_successor method, matching the test case pattern.
+    // We capture the instruction to ensure it's created before switching blocks.
+    let _jump_to_cond = ctx.emit_branch(cond_block)?;
 
     // Condition: switch to but don't seal yet - will receive back edge from body_block
     ctx.switch_to_block(cond_block);
