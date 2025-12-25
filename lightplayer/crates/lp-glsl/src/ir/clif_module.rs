@@ -1,6 +1,7 @@
 //! Immutable CLIF module representation holding all functions before linking/compilation.
 
 use crate::codegen::sourceloc::SourceLocManager;
+use crate::compiler::link::rebuild_function_for_module;
 use crate::error::{ErrorCode, GlslError};
 use crate::semantic::functions::FunctionRegistry;
 use cranelift_codegen::CodegenError;
@@ -402,56 +403,18 @@ impl ClifModule {
         // Define all user functions, remapping FuncRefs
         for (name, old_func) in &self.user_functions {
             let new_func_id = name_to_id[name];
+            
+            // Rebuild function with proper block params and function name preservation
+            let rebuilt_func = rebuild_function_for_module(
+                old_func,
+                module,
+                &self.func_id_to_name,
+                &name_to_id,
+                new_func_id,
+            )?;
+
             let mut ctx = module.make_context();
-            let mut func_clone = old_func.clone();
-
-            // Update function name
-            use cranelift_codegen::ir::UserFuncName;
-            func_clone.name = UserFuncName::user(0, new_func_id.as_u32());
-
-            // Remap FuncRefs to point to new module's FuncIds
-            remap_func_refs(&mut func_clone, module, &self.func_id_to_name, &name_to_id)?;
-
-            // Verify stack slots exist before defining (they should be cloned from original)
-            // If the original function had 0 stack slots but instructions reference stack slots,
-            // this means the stack slots weren't persisted when the function was stored.
-            // We need to recreate them by finding the maximum slot ID referenced and creating slots up to that ID.
-            let blocks: Vec<_> = func_clone.layout.blocks().collect();
-            let mut max_slot_id = 0u32;
-
-            for block in &blocks {
-                for inst in func_clone.layout.block_insts(*block) {
-                    let inst_data = &func_clone.dfg.insts[inst];
-                    if let Some(stack_slot) = inst_data.stack_slot() {
-                        max_slot_id = max_slot_id.max(stack_slot.as_u32());
-                    }
-                }
-            }
-
-            // Create missing stack slots up to the maximum referenced ID
-            // Use a conservative size that can handle common cases like mat4 (64 bytes)
-            while func_clone.sized_stack_slots.len() <= max_slot_id as usize {
-                let slot =
-                    func_clone.create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
-                        cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
-                        64, // 64 bytes to handle mat4 (16 f32s) and other large structs
-                        2,  // 2^2 = 4 byte alignment (F32_ALIGN_SHIFT)
-                    ));
-                // Verify we got the expected slot ID
-                if slot.as_u32() != func_clone.sized_stack_slots.len() as u32 - 1 {
-                    return Err(GlslError::new(
-                        ErrorCode::E0301,
-                        format!(
-                            "Unexpected stack slot ID mismatch for function '{}': expected {}, got {}",
-                            name,
-                            func_clone.sized_stack_slots.len() as u32 - 1,
-                            slot.as_u32()
-                        ),
-                    ));
-                }
-            }
-
-            ctx.func = func_clone;
+            ctx.func = rebuilt_func;
             module.define_function(new_func_id, &mut ctx).map_err(|e| {
                 extract_and_format_module_error(&e, &ctx.func, &format!("function '{}'", name))
             })?;
@@ -486,59 +449,17 @@ impl ClifModule {
         }
 
         // Define main function, remapping FuncRefs
-        let mut ctx = module.make_context();
-        let mut main_func_clone = self.main_function.clone();
-        use cranelift_codegen::ir::UserFuncName;
-        main_func_clone.name = UserFuncName::user(0, main_id.as_u32());
-
-        // Remap FuncRefs
-        remap_func_refs(
-            &mut main_func_clone,
+        // Rebuild function with proper block params and function name preservation
+        let rebuilt_main_func = rebuild_function_for_module(
+            &self.main_function,
             module,
             &self.func_id_to_name,
             &name_to_id,
+            main_id,
         )?;
 
-        // Verify stack slots exist before defining (they should be cloned from original)
-        // If the original function had 0 stack slots but instructions reference stack slots,
-        // this means the stack slots weren't persisted when the function was stored.
-        // We need to recreate them by finding the maximum slot ID referenced and creating slots up to that ID.
-        let blocks: Vec<_> = main_func_clone.layout.blocks().collect();
-        let mut max_slot_id = 0u32;
-
-        for block in &blocks {
-            for inst in main_func_clone.layout.block_insts(*block) {
-                let inst_data = &main_func_clone.dfg.insts[inst];
-                if let Some(stack_slot) = inst_data.stack_slot() {
-                    max_slot_id = max_slot_id.max(stack_slot.as_u32());
-                }
-            }
-        }
-
-        // Create missing stack slots up to the maximum referenced ID
-        // Use a conservative size that can handle common cases like mat4 (64 bytes)
-        // TODO: Could be improved to infer exact sizes from instruction context
-        while main_func_clone.sized_stack_slots.len() <= max_slot_id as usize {
-            let slot =
-                main_func_clone.create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
-                    cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
-                    64, // 64 bytes to handle mat4 (16 f32s) and other large structs
-                    2,  // 2^2 = 4 byte alignment (F32_ALIGN_SHIFT)
-                ));
-            // Verify we got the expected slot ID
-            if slot.as_u32() != main_func_clone.sized_stack_slots.len() as u32 - 1 {
-                return Err(GlslError::new(
-                    ErrorCode::E0301,
-                    format!(
-                        "Unexpected stack slot ID mismatch: expected {}, got {}",
-                        main_func_clone.sized_stack_slots.len() as u32 - 1,
-                        slot.as_u32()
-                    ),
-                ));
-            }
-        }
-
-        ctx.func = main_func_clone;
+        let mut ctx = module.make_context();
+        ctx.func = rebuilt_main_func;
         module
             .define_function(main_id, &mut ctx)
             .map_err(|e| extract_and_format_module_error(&e, &ctx.func, "main function"))?;

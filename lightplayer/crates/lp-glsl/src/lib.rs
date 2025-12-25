@@ -28,6 +28,7 @@ mod ir;
 mod ir_utils;
 #[cfg(feature = "std")]
 mod test_utils;
+mod util;
 
 // Re-exports
 #[cfg(feature = "emulator")]
@@ -35,8 +36,8 @@ pub use backend::GlslEmulatorModule;
 pub use backend::GlslJitModule;
 pub use backend::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode};
 pub use compiler::{
-    Backend, CompilationPipeline, CompiledShader, GlslCompiler, ParseResult, SemanticResult,
-    TransformationPass, parse_program_with_registry,
+    parse_program_with_registry, Backend, CompilationPipeline, CompiledShader, GlslCompiler, ParseResult,
+    SemanticResult, TransformationPass,
 };
 
 /// Type alias for convenience

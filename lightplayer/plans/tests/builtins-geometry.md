@@ -38,4 +38,3 @@ builtins/geometry/
 
 - **builtinfunctions.adoc**: Geometry Shader Functions (lines 2976-3086)
 - Key sections: EmitVertex, EndPrimitive, EmitStreamVertex, EndStreamPrimitive
-

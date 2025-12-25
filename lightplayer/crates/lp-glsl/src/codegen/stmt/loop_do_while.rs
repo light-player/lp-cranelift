@@ -31,18 +31,24 @@ pub fn emit_loop_do_while_stmt(
     // Create jump to cond_block. The jump instruction internally declares the predecessor
     // via FunctionBuilder's declare_successor method, matching the test case pattern.
     // We capture the instruction to ensure it's created before switching blocks.
+    // Note: This declares the normal-flow predecessor. Continue statements processed
+    // in the body above may have already declared additional predecessors to cond_block.
     let _jump_to_cond = ctx.emit_branch(cond_block)?;
 
-    // Condition: switch to cond_block and seal it immediately.
-    // Sealing before using variables allows Cranelift to optimize SSA construction
-    // for single-predecessor blocks by using values directly instead of creating
-    // block parameters.
+    // Condition: switch to cond_block and seal it AFTER all predecessors are declared.
+    // The body statement above may have contained continue statements that branch to
+    // cond_block, so all predecessors should now be declared.
+    // Sealing before using variables is critical for correct SSA construction.
+    // - For single-predecessor blocks, Cranelift can optimize by using values directly
+    // - For multiple-predecessor blocks (e.g., with continue statements), Cranelift
+    //   will create block parameters to merge values from all predecessors
     ctx.switch_to_block(cond_block);
     ctx.seal_block(cond_block);
     
-    // Now translate the condition expression, which may use variables from body_block.
-    // Since cond_block is sealed and has a single predecessor (body_block), Cranelift
-    // will use the values directly without creating block parameters.
+    // Now translate the condition expression, which may use variables from body_block
+    // or from continue statements. Since cond_block is sealed with all predecessors
+    // declared, Cranelift will correctly handle SSA construction whether there's
+    // one or multiple predecessors.
     let condition_value = ctx.translate_expr(condition)?;
     // This brif creates the back edge to body_block
     ctx.emit_cond_branch(condition_value, body_block, exit_block)?;

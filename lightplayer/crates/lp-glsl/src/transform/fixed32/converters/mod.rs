@@ -10,11 +10,7 @@ pub mod constants;
 pub mod control;
 pub mod conversions;
 pub mod helpers;
-pub mod instruction_copy;
 pub mod math;
 pub mod memory;
-
-// Re-export instruction_copy for use in link.rs
-pub use instruction_copy::{copy_instruction_as_is, copy_instruction_as_is_with_stack_slot_map};
 
 pub(crate) use helpers::*;

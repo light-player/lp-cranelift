@@ -322,6 +322,7 @@ impl<'a> CodegenContext<'a> {
     pub fn emit_branch(&mut self, target: Block) -> Result<Inst, GlslError> {
         self.ensure_block()?;
         let jump_inst = self.builder.ins().jump(target, &[]);
+        
         Ok(jump_inst)
     }
 

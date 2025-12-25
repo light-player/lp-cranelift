@@ -10,14 +10,11 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, vec::Vec, string::String};
-
 pub mod call;
 pub mod wrapper;
 pub mod error;
 
 pub use call::call_structreturn;
-pub use wrapper::{StructReturnWrapper, wrap_structreturn_function};
 pub use error::JitCallError;
+pub use wrapper::{wrap_structreturn_function, StructReturnWrapper};
 

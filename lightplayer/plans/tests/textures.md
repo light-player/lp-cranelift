@@ -81,7 +81,8 @@ textures/
 
 ### 1. Sampler Types
 
-**sampler-types-*.glsl**: Test all sampler types
+**sampler-types-\*.glsl**: Test all sampler types
+
 - sampler2D, sampler3D, samplerCube
 - sampler2DArray, samplerCubeArray
 - sampler2DShadow, samplerCubeShadow
@@ -91,7 +92,8 @@ textures/
 
 ### 2. Basic Texture Lookup
 
-**texture-basic-*.glsl**: Test basic texture() function
+**texture-basic-\*.glsl**: Test basic texture() function
+
 - texture() for 2D, 3D, cube, array samplers
 - Basic coordinate lookup
 - Return type (vec4, ivec4, uvec4 based on sampler)
@@ -99,33 +101,39 @@ textures/
 ### 3. Texture Lookup Variants
 
 **texture-lod.glsl**: Test textureLod()
+
 - Explicit level-of-detail
 - No implicit LOD computation
 - Available in all stages
 
 **texture-bias.glsl**: Test texture() with bias
+
 - Bias parameter (fragment shader only)
 - Added to implicit LOD
 - Not available in other stages
 
 **texture-offset.glsl**: Test textureOffset()
+
 - Offset texture coordinates
 - Integer offset
 - Various offset values
 
 **texture-proj.glsl**: Test textureProj()
+
 - Projective texture lookup
 - Divides by last component
 - Projective coordinates
 
 **texture-grad.glsl**: Test textureGrad()
+
 - Explicit gradient
 - dPdx and dPdy parameters
 - No implicit derivatives
 
 ### 4. Combined Variants
 
-**texture-*-offset.glsl**: Test combined variants with offset
+**texture-\*-offset.glsl**: Test combined variants with offset
+
 - textureOffset() with bias
 - textureLodOffset()
 - textureProjOffset()
@@ -135,24 +143,28 @@ textures/
 
 ### 5. Texture Query Functions
 
-**texture-size-*.glsl**: Test textureSize()
+**texture-size-\*.glsl**: Test textureSize()
+
 - Query texture dimensions
 - Returns ivec2, ivec3, or int
 - Array size in last component for arrays
 
 **texture-query-lod.glsl**: Test textureQueryLod() (fragment only)
+
 - Query computed LOD
 - Returns vec2 (LOD, mipmap array)
 - Fragment shader only
 
 **texture-query-levels.glsl**: Test textureQueryLevels()
+
 - Query number of mipmap levels
 - Returns int
 - Available in all stages
 
 ### 6. Texture Gather Functions
 
-**texture-gather-*.glsl**: Test textureGather() variants
+**texture-gather-\*.glsl**: Test textureGather() variants
+
 - Gather four texels
 - textureGather() basic
 - textureGatherOffset()
@@ -161,7 +173,8 @@ textures/
 
 ### 7. Shadow Samplers
 
-**texture-shadow-*.glsl**: Test shadow sampler functions
+**texture-shadow-\*.glsl**: Test shadow sampler functions
+
 - texture() for sampler2DShadow, samplerCubeShadow
 - Depth comparison
 - Returns float (0.0 or 1.0)
@@ -170,14 +183,16 @@ textures/
 
 ### 8. Integer Samplers
 
-**texture-integer-*.glsl**: Test integer sampler functions
+**texture-integer-\*.glsl**: Test integer sampler functions
+
 - texture() for isampler*/usampler*
 - Returns ivec4 or uvec4
 - textureLod(), textureOffset(), textureGather() for integers
 
 ### 9. Texture Coordinate Handling
 
-**texture-coordinates-*.glsl**: Test coordinate handling
+**texture-coordinates-\*.glsl**: Test coordinate handling
+
 - Normalized coordinates [0,1]
 - Unnormalized coordinates (for rect textures)
 - Coordinate wrapping/clamping
@@ -186,7 +201,8 @@ textures/
 
 ### 10. LOD and Mipmaps
 
-**texture-lod-*.glsl**: Test LOD handling
+**texture-lod-\*.glsl**: Test LOD handling
+
 - Implicit LOD computation (fragment shader)
 - Explicit LOD (textureLod)
 - LOD bias
@@ -195,7 +211,8 @@ textures/
 
 ### 11. Derivatives
 
-**texture-derivatives-*.glsl**: Test derivative handling
+**texture-derivatives-\*.glsl**: Test derivative handling
+
 - Implicit derivatives (fragment shader, uniform control flow)
 - Derivatives undefined in non-uniform control flow
 - Derivatives undefined in non-fragment shaders
@@ -204,20 +221,24 @@ textures/
 ### 12. Texture Properties
 
 **texture-filtering.glsl**: Test texture filtering
+
 - Minification/magnification filters
 - Filter behavior
 
 **texture-wrap-modes.glsl**: Test wrap modes
+
 - Repeat, clamp, mirror, etc.
 - Coordinate wrapping
 
 **texture-border-color.glsl**: Test border color
+
 - Border color for clamp-to-border
 - Border handling
 
 ### 13. Texture Formats
 
-**texture-format-*.glsl**: Test format handling
+**texture-format-\*.glsl**: Test format handling
+
 - Floating-point formats
 - Normalized integer formats
 - Signed/unsigned integer formats
@@ -226,10 +247,12 @@ textures/
 ### 14. Edge Cases
 
 **texture-format-mismatch-error.glsl**: Test format/sampler mismatch
+
 - Undefined behavior if mismatch
 - Format validation
 
 **edge-texture-setup.glsl**: Test texture setup infrastructure
+
 - Note: Tests will need texture setup infrastructure
 - Texture binding, format setup, etc.
 - Infrastructure requirements
@@ -237,6 +260,7 @@ textures/
 ## Implementation Notes
 
 1. **Test Format**: Follow the exact format from other test suites with:
+
    - Header comments describing what's tested
    - Multiple test functions per file
    - `// run:` directives with expected results
@@ -244,6 +268,7 @@ textures/
    - Note about texture setup infrastructure
 
 2. **Coverage**: Ensure tests cover:
+
    - All sampler types
    - All texture lookup variants
    - Texture query functions
@@ -258,6 +283,7 @@ textures/
    - Error cases
 
 3. **Key Characteristics**:
+
    - Texture functions available in all stages
    - Implicit LOD only in fragment shaders
    - Bias parameter only in fragment shaders
@@ -266,6 +292,7 @@ textures/
    - Format must match sampler type
 
 4. **Expected Failures**: These tests are expected to fail initially, especially:
+
    - Texture function parsing
    - Sampler type handling
    - Texture lookup implementation
@@ -309,4 +336,3 @@ Create 70+ test files in the `textures/` directory structure above, with each fi
   - LOD computation
   - Derivative handling
   - Format requirements
-

@@ -17,26 +17,7 @@ use std::vec::Vec;
 // Use hashbrown::HashMap for consistency across no_std and std builds
 use hashbrown::HashMap;
 
-/// Copy a non-F32 instruction as-is (for instructions that don't need conversion).
-///
-/// This handles instructions that don't involve F32 types and can be copied
-/// directly, mapping all values through value_map.
-///
-/// Note: This is a simplified implementation. For complex instructions,
-/// explicit converters should be created.
-pub fn copy_instruction_as_is(
-    old_func: &Function,
-    old_inst: Inst,
-    builder: &mut FunctionBuilder,
-    value_map: &mut HashMap<Value, Value>,
-    check_f32: bool, // If true, verify no F32 types (for fixed-point conversion)
-) -> Result<(), GlslError> {
-    copy_instruction_as_is_with_stack_slot_map(
-        old_func, old_inst, builder, value_map, check_f32, None,
-    )
-}
-
-pub fn copy_instruction_as_is_with_stack_slot_map(
+pub fn copy_instruction(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,

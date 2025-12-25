@@ -4,8 +4,8 @@
 //! into Cranelift IR, including parsing, semantic analysis, code generation, and linking.
 
 pub(crate) mod glsl_compiler;
-pub(crate) mod link;
 pub(crate) mod pipeline;
+pub(crate) mod link;
 
 // Re-exports used by crate root; suppress unused warnings within this module.
 #[allow(unused_imports)]
@@ -14,8 +14,8 @@ pub use glsl_compiler::GlslCompiler;
 pub use link::rebuild_function_for_module;
 #[allow(unused_imports)]
 pub use pipeline::{
-    Backend, CompilationPipeline, CompiledShader, ParseResult, SemanticResult, TransformationPass,
-    parse_program_with_registry,
+    parse_program_with_registry, Backend, CompilationPipeline, CompiledShader, ParseResult, SemanticResult,
+    TransformationPass,
 };
 
 // Re-export create_minimal_module_for_declarations for internal use
@@ -29,7 +29,7 @@ pub(crate) use glsl_compiler::create_minimal_module_for_declarations;
 use crate::backend::executable::{GlslExecutable, GlslOptions, RunMode};
 use crate::error::GlslError;
 use crate::ir::ClifModule;
-use crate::transform::fixed32::{FixedPointFormat, transform_module};
+use crate::transform::fixed32::{transform_module, FixedPointFormat};
 use cranelift_codegen::isa::OwnedTargetIsa;
 
 #[cfg(feature = "std")]

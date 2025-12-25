@@ -2,6 +2,7 @@
 
 use crate::error::{ErrorCode, GlslError};
 use crate::transform::fixed32::types::FixedPointFormat;
+use crate::util::clif_copy::ensure_block_params;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -9,7 +10,6 @@ use alloc::vec::Vec;
 use std::vec::Vec;
 
 use crate::ir_utils::value_map::map_value;
-use crate::transform::fixed32::blocks::ensure_block_params;
 
 use cranelift_codegen::ir::{
     Block, BlockArg, Function, Inst, InstBuilder, InstructionData, JumpTableData, Value, types,
@@ -45,8 +45,14 @@ pub(crate) fn convert_jump(
             new_dest_block,
             builder,
             value_map,
-            format,
-            &old_args,
+            |ty| {
+                // Convert F32 to fixed-point type, preserve other types
+                if ty == cranelift_codegen::ir::types::F32 {
+                    format.cranelift_type()
+                } else {
+                    ty
+                }
+            },
         )?;
 
         let new_args: Vec<BlockArg> = old_args
@@ -113,8 +119,14 @@ pub(crate) fn convert_brif(
             new_then_block,
             builder,
             value_map,
-            format,
-            &old_then_args,
+            |ty| {
+                // Convert F32 to fixed-point type, preserve other types
+                if ty == cranelift_codegen::ir::types::F32 {
+                    format.cranelift_type()
+                } else {
+                    ty
+                }
+            },
         )?;
         ensure_block_params(
             old_func,
@@ -122,8 +134,14 @@ pub(crate) fn convert_brif(
             new_else_block,
             builder,
             value_map,
-            format,
-            &old_else_args,
+            |ty| {
+                // Convert F32 to fixed-point type, preserve other types
+                if ty == cranelift_codegen::ir::types::F32 {
+                    format.cranelift_type()
+                } else {
+                    ty
+                }
+            },
         )?;
 
         // Get the actual parameters the blocks have (may be more than what this brif passes)

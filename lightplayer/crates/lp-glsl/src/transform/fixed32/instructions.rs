@@ -11,7 +11,7 @@ use std::vec::Vec;
 use cranelift_codegen::ir::{Block, FuncRef, Function, Inst, Opcode, SigRef, Value};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
-
+use crate::util::instruction_copy::copy_instruction;
 use super::converters;
 
 /// Traverse all instructions and convert them.
@@ -208,28 +208,10 @@ fn convert_instruction(
         }
         _ => {
             // For non-F32 instructions, copy as-is
-            copy_instruction_as_is(old_func, old_inst, builder, value_map, format, block_map)?;
+            // check_f32 = true to verify no F32 types remain
+            copy_instruction(old_func, old_inst, builder, value_map, true, None)?;
         }
     }
 
     Ok(())
 }
-
-/// Copy a non-F32 instruction as-is (for instructions that don't need conversion).
-///
-/// Delegates to the shared implementation in converters::instruction_copy.
-fn copy_instruction_as_is(
-    old_func: &Function,
-    old_inst: Inst,
-    builder: &mut FunctionBuilder,
-    value_map: &mut HashMap<Value, Value>,
-    _format: FixedPointFormat,
-    _block_map: &HashMap<Block, Block>,
-) -> Result<(), GlslError> {
-    // Use shared implementation with F32 checking enabled
-    converters::copy_instruction_as_is(
-        old_func, old_inst, builder, value_map,
-        true, // check_f32 = true for fixed-point conversion
-    )
-}
-
