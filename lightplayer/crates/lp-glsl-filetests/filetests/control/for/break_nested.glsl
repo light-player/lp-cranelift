@@ -2,7 +2,7 @@
 // target riscv32.fixed32
 
 // ============================================================================
-// Break in nested loops (breaks inner loop)
+// Break in nested for loops (breaks inner loop)
 // ============================================================================
 
 int test_break_nested_for_inner() {
@@ -19,42 +19,6 @@ int test_break_nested_for_inner() {
 }
 
 // run: test_break_nested_for_inner() == 6
-
-int test_break_nested_while_inner() {
-    int sum = 0;
-    int i = 0;
-    while (i < 3) {
-        int j = 0;
-        while (j < 5) {
-            if (j >= 2) {
-                break;
-            }
-            sum = sum + 1;
-            j = j + 1;
-        }
-        i = i + 1;
-    }
-    return sum;
-}
-
-// run: test_break_nested_while_inner() == 6
-
-int test_break_nested_mixed() {
-    int sum = 0;
-    for (int i = 0; i < 2; i++) {
-        int j = 0;
-        while (j < 4) {
-            if (j >= 2) {
-                break;
-            }
-            sum = sum + 1;
-            j = j + 1;
-        }
-    }
-    return sum;
-}
-
-// run: test_break_nested_mixed() == 4
 
 int test_break_nested_triple() {
     int count = 0;
@@ -73,3 +37,19 @@ int test_break_nested_triple() {
 
 // run: test_break_nested_triple() == 12
 
+int test_break_nested_mixed() {
+    int sum = 0;
+    for (int i = 0; i < 2; i++) {
+        int j = 0;
+        while (j < 4) {
+            if (j >= 2) {
+                break;
+            }
+            sum = sum + 1;
+            j = j + 1;
+        }
+    }
+    return sum;
+}
+
+// run: test_break_nested_mixed() == 4

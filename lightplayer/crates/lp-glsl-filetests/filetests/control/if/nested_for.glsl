@@ -2,7 +2,7 @@
 // target riscv32.fixed32
 
 // ============================================================================
-// Loops inside if statements
+// For loops inside if statements
 // ============================================================================
 
 int test_for_loop_in_if() {
@@ -33,20 +33,6 @@ int test_for_loop_in_if_else() {
 
 // run: test_for_loop_in_if_else() == 3
 
-int test_while_loop_in_if() {
-    int sum = 0;
-    if (true) {
-        int i = 0;
-        while (i < 3) {
-            sum = sum + i;
-            i = i + 1;
-        }
-    }
-    return sum;
-}
-
-// run: test_while_loop_in_if() == 3
-
 int test_nested_loop_in_if() {
     int sum = 0;
     if (true) {
@@ -60,4 +46,3 @@ int test_nested_loop_in_if() {
 }
 
 // run: test_nested_loop_in_if() == 4
-

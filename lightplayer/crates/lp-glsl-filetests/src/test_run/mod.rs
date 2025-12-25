@@ -216,6 +216,13 @@ pub fn run_test_file_with_line_filter(
                         String::new()
                     };
 
+                    // Format bootstrap code for display (only when showing full output)
+                    let bootstrap_code_display = if show_full_output {
+                        format!("\n\nGenerated bootstrap code:\n{}", format_code_block(&bootstrap_result.source))
+                    } else {
+                        String::new()
+                    };
+
                     // Generate rerun command using the script
                     let rerun_cmd = format!(
                         "scripts/glsl-filetests.sh {}:{}",
@@ -224,6 +231,17 @@ pub fn run_test_file_with_line_filter(
 
                     let error_msg = if let Some(state) = emulator_state {
                         format!(
+                            "run test failed at line {}: {}{}{}{}\n\
+                             \n\
+                             This test assertion can be automatically updated by setting the\n\
+                             CRANELIFT_TEST_BLESS=1 environment variable when running this test.\n\
+                             \n\
+                             To rerun just this test:\n\
+                             {}",
+                            directive.line_number, err_msg, bootstrap_code_display, clif_ir_section, state, rerun_cmd
+                        )
+                    } else {
+                        format!(
                             "run test failed at line {}: {}{}{}\n\
                              \n\
                              This test assertion can be automatically updated by setting the\n\
@@ -231,18 +249,7 @@ pub fn run_test_file_with_line_filter(
                              \n\
                              To rerun just this test:\n\
                              {}",
-                            directive.line_number, err_msg, clif_ir_section, state, rerun_cmd
-                        )
-                    } else {
-                        format!(
-                            "run test failed at line {}: {}{}\n\
-                             \n\
-                             This test assertion can be automatically updated by setting the\n\
-                             CRANELIFT_TEST_BLESS=1 environment variable when running this test.\n\
-                             \n\
-                             To rerun just this test:\n\
-                             {}",
-                            directive.line_number, err_msg, clif_ir_section, rerun_cmd
+                            directive.line_number, err_msg, bootstrap_code_display, clif_ir_section, rerun_cmd
                         )
                     };
                     anyhow::bail!("{}", error_msg);

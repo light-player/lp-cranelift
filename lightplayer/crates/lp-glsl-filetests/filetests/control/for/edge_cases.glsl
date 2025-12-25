@@ -2,9 +2,7 @@
 // target riscv32.fixed32
 
 // ============================================================================
-// Break and continue edge cases
-// Spec: Break exits innermost loop/switch
-//       Continue skips to loop-expression (for) or condition (while/do-while)
+// Break and continue edge cases for for loops
 // ============================================================================
 
 int test_break_in_if_in_loop() {
@@ -94,56 +92,6 @@ int test_continue_after_break_impossible() {
 
 // run: test_continue_after_break_impossible() == 0
 
-int test_break_in_while_with_continue() {
-    int sum = 0;
-    int i = 0;
-    while (i < 10) {
-        if (i % 2 == 0) {
-            i = i + 1;
-            continue;
-        }
-        if (i >= 7) {
-            break;
-        }
-        sum = sum + i;
-        i = i + 1;
-    }
-    return sum;
-}
-
-// run: test_break_in_while_with_continue() == 9
-
-int test_continue_in_do_while() {
-    int sum = 0;
-    int i = 0;
-    do {
-        if (i == 1) {
-            i = i + 1;
-            continue;
-        }
-        sum = sum + i;
-        i = i + 1;
-    } while (i < 4);
-    return sum;
-}
-
-// run: test_continue_in_do_while() == 5
-
-int test_break_in_do_while() {
-    int sum = 0;
-    int i = 0;
-    do {
-        if (i >= 3) {
-            break;
-        }
-        sum = sum + i;
-        i = i + 1;
-    } while (i < 10);
-    return sum;
-}
-
-// run: test_break_in_do_while() == 3
-
 int test_multiple_continues() {
     int sum = 0;
     for (int i = 0; i < 10; i++) {
@@ -159,4 +107,3 @@ int test_multiple_continues() {
 }
 
 // run: test_multiple_continues() == 13
-

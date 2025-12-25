@@ -2,60 +2,51 @@
 // target riscv32.fixed32
 
 // ============================================================================
-// If statements inside loops
+// If statements inside do-while loops
 // ============================================================================
 
-int test_if_in_for_loop() {
-    int sum = 0;
-    for (int i = 0; i < 5; i++) {
-        if (i % 2 == 0) {
-            sum = sum + i;
-        }
-    }
-    return sum;
-}
-
-// run: test_if_in_for_loop() == 6
-
-int test_if_in_while_loop() {
+int test_if_in_do_while_loop() {
     int sum = 0;
     int i = 0;
-    while (i < 5) {
+    do {
         if (i % 2 == 0) {
             sum = sum + i;
         }
         i = i + 1;
-    }
+    } while (i < 5);
     return sum;
 }
 
-// run: test_if_in_while_loop() == 6
+// run: test_if_in_do_while_loop() == 6
 
-int test_if_else_in_for_loop() {
+int test_if_else_in_do_while_loop() {
     int sum = 0;
-    for (int i = 0; i < 5; i++) {
+    int i = 0;
+    do {
         if (i % 2 == 0) {
             sum = sum + i;
         } else {
             sum = sum + i * 2;
         }
-    }
+        i = i + 1;
+    } while (i < 5);
     return sum;
 }
 
-// run: test_if_else_in_for_loop() == 14
+// run: test_if_else_in_do_while_loop() == 14
 
-int test_nested_if_in_loop() {
+int test_nested_if_in_do_while_loop() {
     int sum = 0;
-    for (int i = 0; i < 5; i++) {
+    int i = 0;
+    do {
         if (i > 1) {
             if (i < 4) {
                 sum = sum + i;
             }
         }
-    }
+        i = i + 1;
+    } while (i < 5);
     return sum;
 }
 
-// run: test_nested_if_in_loop() == 5
-
+// run: test_nested_if_in_do_while_loop() == 5

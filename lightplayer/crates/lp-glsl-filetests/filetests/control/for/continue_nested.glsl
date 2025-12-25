@@ -2,7 +2,7 @@
 // target riscv32.fixed32
 
 // ============================================================================
-// Continue in nested loops
+// Continue in nested for loops
 // ============================================================================
 
 int test_continue_nested_for_inner() {
@@ -19,44 +19,6 @@ int test_continue_nested_for_inner() {
 }
 
 // run: test_continue_nested_for_inner() == 12
-
-int test_continue_nested_while_inner() {
-    int sum = 0;
-    int i = 0;
-    while (i < 3) {
-        int j = 0;
-        while (j < 5) {
-            if (j == 2) {
-                j = j + 1;
-                continue;
-            }
-            sum = sum + 1;
-            j = j + 1;
-        }
-        i = i + 1;
-    }
-    return sum;
-}
-
-// run: test_continue_nested_while_inner() == 12
-
-int test_continue_nested_mixed() {
-    int sum = 0;
-    for (int i = 0; i < 2; i++) {
-        int j = 0;
-        while (j < 4) {
-            if (j == 1) {
-                j = j + 1;
-                continue;
-            }
-            sum = sum + 1;
-            j = j + 1;
-        }
-    }
-    return sum;
-}
-
-// run: test_continue_nested_mixed() == 6
 
 int test_continue_nested_triple() {
     int count = 0;
@@ -75,3 +37,20 @@ int test_continue_nested_triple() {
 
 // run: test_continue_nested_triple() == 18
 
+int test_continue_nested_mixed() {
+    int sum = 0;
+    for (int i = 0; i < 2; i++) {
+        int j = 0;
+        while (j < 4) {
+            if (j == 1) {
+                j = j + 1;
+                continue;
+            }
+            sum = sum + 1;
+            j = j + 1;
+        }
+    }
+    return sum;
+}
+
+// run: test_continue_nested_mixed() == 6
