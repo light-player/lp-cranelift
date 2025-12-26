@@ -6,10 +6,7 @@ use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::Function;
 use cranelift_codegen::isa::TargetIsa;
 
-#[cfg(not(feature = "std"))]
 use alloc::{string::String, vec::Vec};
-#[cfg(feature = "std")]
-use std::{string::String, vec::Vec};
 
 use hashbrown::HashMap;
 

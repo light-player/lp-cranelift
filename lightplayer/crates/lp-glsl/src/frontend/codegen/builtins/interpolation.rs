@@ -5,10 +5,7 @@ use crate::error::GlslError;
 use crate::semantic::types::Type;
 use cranelift_codegen::ir::{InstBuilder, Value};
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 impl<'a> CodegenContext<'a> {
     /// mix(x, y, a) = x * (1-a) + y * a (linear interpolation)

@@ -4,9 +4,6 @@ use crate::error::GlslError;
 use crate::frontend::semantic::{TypedFunction, MAIN_FUNCTION_NAME};
 use super::{SemanticPass, function_signature};
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 

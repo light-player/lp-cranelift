@@ -3,16 +3,13 @@
 //! This module provides a comprehensive system for managing source locations
 //! that supports multiple files, intrinsics, and synthetic sources.
 
-#[cfg(not(feature = "std"))]
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
-#[cfg(feature = "std")]
-use std::{collections::HashMap, string::String, vec::Vec};
 
 #[cfg(feature = "std")]
 use std::path::PathBuf;
 
 /// Unique identifier for a source file
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GlFileId(pub u32);
 
 /// Origin of a source file
@@ -168,9 +165,6 @@ impl GlSourceSpan {
 #[derive(Clone, Debug)]
 pub struct GlSourceMap {
     /// Mapping from file ID to file information
-    #[cfg(feature = "std")]
-    files: HashMap<GlFileId, GlSourceFile>,
-    #[cfg(not(feature = "std"))]
     files: BTreeMap<GlFileId, GlSourceFile>,
     /// Next ID to assign to a new file
     next_file_id: u32,
@@ -300,11 +294,7 @@ impl Default for GlSourceMap {
 mod tests {
     use super::*;
 
-    #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
-    #[cfg(feature = "std")]
-    use std::vec::Vec;
-
     // Mock SourceSpan for testing (since we can't import glsl-parser in tests easily)
     struct MockSourceSpan {
         pub line: usize,

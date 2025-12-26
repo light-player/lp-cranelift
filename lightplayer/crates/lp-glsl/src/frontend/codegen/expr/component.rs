@@ -6,14 +6,8 @@ use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::Value;
 use glsl::syntax::Expr;
 
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "std"))]
 use hashbrown::HashSet;
-#[cfg(feature = "std")]
-use std::collections::HashSet;
-#[cfg(feature = "std")]
-use std::vec::Vec;
 
 /// Component naming sets for vector swizzles
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

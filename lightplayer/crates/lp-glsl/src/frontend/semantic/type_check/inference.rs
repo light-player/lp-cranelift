@@ -10,10 +10,7 @@ use crate::frontend::semantic::scope::SymbolTable;
 use crate::frontend::semantic::types::Type;
 use glsl::syntax::Expr;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 use super::constructors::{
     check_matrix_constructor, check_scalar_constructor_with_span, check_vector_constructor_with_span, is_matrix_type_name,

@@ -7,10 +7,7 @@ use cranelift_codegen::ir::InstBuilder;
 
 use super::coercion;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 pub fn translate_vector_constructor(
     ctx: &mut CodegenContext,

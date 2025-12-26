@@ -7,10 +7,7 @@ use crate::exec::glsl_value::GlslValue;
 use crate::error::GlslError;
 use crate::frontend::semantic::functions::FunctionSignature;
 
-#[cfg(not(feature = "std"))]
 use alloc::{format, string::String, vec::Vec};
-#[cfg(feature = "std")]
-use std::{format, string::String, vec::Vec};
 
 /// Trait for executing GLSL functions with various return types
 /// Abstracts away JIT vs Emulator implementations

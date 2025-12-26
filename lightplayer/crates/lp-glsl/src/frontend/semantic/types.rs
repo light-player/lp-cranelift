@@ -1,8 +1,4 @@
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
-#[cfg(feature = "std")]
-use std::boxed::Box;
-
 /// GLSL type system
 /// Phase 1: Only Int and Bool are fully supported
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

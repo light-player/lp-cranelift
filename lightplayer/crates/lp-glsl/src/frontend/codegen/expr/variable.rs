@@ -6,10 +6,7 @@ use crate::error::{GlslError, extract_span_from_identifier, source_span_to_locat
 use glsl::syntax::Expr;
 use cranelift_codegen::ir::Value;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 pub fn translate_variable(
     ctx: &mut CodegenContext,

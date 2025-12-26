@@ -14,10 +14,7 @@ use cranelift_codegen::ir::Function;
 use cranelift_module::{FuncId, Module};
 use hashbrown::HashMap;
 
-#[cfg(not(feature = "std"))]
 use alloc::{string::String, vec::Vec};
-#[cfg(feature = "std")]
-use std::{string::String, vec::Vec};
 
 /// Rebuild a function for a new module, remapping FuncRefs to point to new FuncIds
 ///
@@ -187,11 +184,7 @@ pub fn rebuild_function_for_module<M: Module>(
 
 use crate::backend::ir::ClifModule;
 
-#[cfg(not(feature = "std"))]
 use alloc::format as alloc_format;
-#[cfg(feature = "std")]
-use std::format as alloc_format;
-
 /// Options for emulator execution
 #[cfg(feature = "emulator")]
 pub(crate) struct EmulatorOptions {

@@ -10,15 +10,8 @@ use crate::semantic::functions::FunctionRegistry;
 use crate::semantic::types::Type as GlslType;
 use crate::semantic::types::Type;
 
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
-#[cfg(feature = "std")]
-use std::string::String;
-
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 pub struct VarInfo {
     pub cranelift_vars: Vec<Variable>, // Changed from single Variable to support vectors

@@ -7,10 +7,7 @@
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::Value;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 /// Represents an RValue (right-hand value) - a computed value
 ///

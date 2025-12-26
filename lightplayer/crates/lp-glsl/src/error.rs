@@ -5,10 +5,7 @@
 
 #![allow(dead_code)] // Allow during development
 
-#[cfg(not(feature = "std"))]
 use alloc::{format, string::String, vec::Vec};
-#[cfg(feature = "std")]
-use std::{format, string::String, vec::Vec};
 
 use core::fmt;
 

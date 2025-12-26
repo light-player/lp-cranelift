@@ -8,10 +8,7 @@ use cranelift_codegen::ir::{types, Value, condcodes::IntCC, InstBuilder};
 
 use super::incdec;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 /// Emit unary expression as RValue
 ///

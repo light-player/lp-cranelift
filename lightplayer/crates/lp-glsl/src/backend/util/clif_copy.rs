@@ -7,10 +7,7 @@ use cranelift_codegen::ir::{Block, Function, StackSlot, Value};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 /// Copy all stack slots from old function to new function.
 ///

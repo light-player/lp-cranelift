@@ -7,10 +7,7 @@ use crate::error::{ErrorCode, GlslError, extract_source_line, source_span_to_loc
 use crate::frontend::semantic::TypedShader;
 use crate::frontend::semantic::functions::FunctionRegistry;
 
-#[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, format};
-#[cfg(feature = "std")]
-use std::{boxed::Box, format};
 
 /// Result of parsing GLSL source
 pub struct ParseResult<'a> {
@@ -27,10 +24,7 @@ pub struct SemanticResult<'a> {
 /// Result of compilation, ready for backend
 pub struct CompiledShader {
     pub typed_shader: TypedShader,
-    #[cfg(not(feature = "std"))]
     pub source: alloc::string::String,
-    #[cfg(feature = "std")]
-    pub source: std::string::String,
 }
 
 impl<'a> From<SemanticResult<'a>> for CompiledShader {

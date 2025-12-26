@@ -4,10 +4,7 @@ use crate::error::{ErrorCode, GlslError};
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::backend::util::clif_copy::ensure_block_params;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 use crate::backend::ir_utils::value_map::map_value;
 

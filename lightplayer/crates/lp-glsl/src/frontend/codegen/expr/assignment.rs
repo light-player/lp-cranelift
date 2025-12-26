@@ -8,10 +8,7 @@ use crate::semantic::types::Type as GlslType;
 use glsl::syntax::Expr;
 use cranelift_codegen::ir::Value;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 /// Emit assignment expression as RValue
 ///

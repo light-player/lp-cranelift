@@ -13,18 +13,8 @@ use cranelift_codegen::ir::{FuncRef, Function, Signature};
 use cranelift_module::{Linkage, Module};
 use hashbrown::HashMap;
 
-#[cfg(not(feature = "std"))]
 use alloc::format;
-#[cfg(feature = "std")]
-use std::format;
-
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
-#[cfg(feature = "std")]
-use std::string::String;
-
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
 
 /// Transform a ClifModule from float to fixed-point representation
 ///

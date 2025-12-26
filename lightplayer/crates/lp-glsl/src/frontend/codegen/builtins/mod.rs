@@ -12,16 +12,12 @@ use crate::semantic::types::Type;
 use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::Value;
 
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
 
 #[cfg(not(feature = "std"))]
 use alloc::format;
 #[cfg(feature = "std")]
 use std::format;
-
 impl<'a> CodegenContext<'a> {
     pub fn translate_builtin_call(
         &mut self,

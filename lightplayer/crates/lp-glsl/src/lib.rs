@@ -8,7 +8,7 @@
 #[macro_use]
 extern crate std;
 
-#[cfg(not(feature = "std"))]
+// Always declare alloc so we can use alloc::string::String etc. in both std and no_std modes
 #[macro_use]
 extern crate alloc;
 

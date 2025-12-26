@@ -2,16 +2,9 @@ use crate::error::GlslError;
 use glsl::syntax::TranslationUnit;
 use passes::SemanticPass;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
-#[cfg(feature = "std")]
-use std::string::String;
-
 pub mod builtins;
 pub mod functions;
 pub mod passes;

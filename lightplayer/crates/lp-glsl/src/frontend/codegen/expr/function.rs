@@ -9,10 +9,7 @@ use glsl::syntax::Expr;
 use super::coercion;
 use super::constructor;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 /// Emit code to compute a function call as an RValue
 pub fn emit_function_call_rvalue(

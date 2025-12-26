@@ -13,21 +13,11 @@ use cranelift_codegen::write_function;
 use cranelift_module::{FuncId, Linkage, Module, ModuleError};
 use hashbrown::HashMap;
 
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
-#[cfg(feature = "std")]
-use std::string::String;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
-#[cfg(not(feature = "std"))]
 use alloc::format as alloc_format;
-#[cfg(feature = "std")]
-use std::format as alloc_format;
-
 /// Information about a trap site in compiled code.
 #[derive(Clone, Debug)]
 pub struct TrapInfo {

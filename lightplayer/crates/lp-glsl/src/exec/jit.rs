@@ -10,10 +10,7 @@ use cranelift_codegen::ir::types;
 use hashbrown::HashMap;
 use lp_jit_util::call_structreturn;
 
-#[cfg(not(feature = "std"))]
 use alloc::{format, string::String, vec::Vec};
-#[cfg(feature = "std")]
-use std::{format, string::String, vec::Vec};
 
 /// JIT-compiled GLSL module (executes on host or embedded)
 /// Works in both std and no_std (JITModule supports no_std)

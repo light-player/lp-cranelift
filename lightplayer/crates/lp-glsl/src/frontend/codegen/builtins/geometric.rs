@@ -5,10 +5,7 @@ use crate::semantic::types::Type;
 use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::{InstBuilder, Value};
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 impl<'a> CodegenContext<'a> {
     /// Dot product: x·y = x₀y₀ + x₁y₁ + x₂y₂ + ...

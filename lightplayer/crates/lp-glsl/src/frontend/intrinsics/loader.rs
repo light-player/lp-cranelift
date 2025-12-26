@@ -8,11 +8,7 @@ use cranelift_codegen::{
 };
 use cranelift_module::{FuncOrDataId, Linkage};
 
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
-#[cfg(feature = "std")]
-use std::string::String;
-
 use hashbrown::HashMap;
 
 use super::compiler::compile_intrinsic_functions;

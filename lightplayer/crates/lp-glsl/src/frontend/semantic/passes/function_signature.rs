@@ -4,14 +4,8 @@ use crate::error::GlslError;
 use crate::frontend::semantic::functions::{FunctionSignature, Parameter, ParamQualifier};
 use crate::frontend::semantic::type_resolver;
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-#[cfg(feature = "std")]
-use std::string::String;
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
 
 /// Extract a function signature from a function prototype

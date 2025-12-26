@@ -1,10 +1,6 @@
 use glsl::syntax::{SimpleStatement, Statement};
 
-#[cfg(not(feature = "std"))]
 use alloc::format;
-#[cfg(feature = "std")]
-use std::format;
-
 use crate::frontend::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError};
 

@@ -1,9 +1,11 @@
 //! Value mapping utilities for instruction conversion.
 
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+
+#[cfg(not(feature = "std"))]
+use alloc::format;
 #[cfg(feature = "std")]
-use std::vec::Vec;
+use std::format;
 
 use cranelift_codegen::ir::Value;
 use hashbrown::HashMap;

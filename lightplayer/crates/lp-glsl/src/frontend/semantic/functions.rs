@@ -5,21 +5,12 @@ use crate::frontend::semantic::type_check::can_implicitly_convert;
 use crate::frontend::semantic::types::Type;
 use hashbrown::HashMap;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
-
-#[cfg(not(feature = "std"))]
-use alloc::string::String;
-#[cfg(feature = "std")]
-use std::string::String;
+use alloc::{string::String, vec::Vec};
 
 #[cfg(not(feature = "std"))]
 use alloc::format;
 #[cfg(feature = "std")]
 use std::format;
-
 #[derive(Clone)]
 pub struct FunctionRegistry {
     functions: HashMap<String, Vec<FunctionSignature>>,

@@ -14,10 +14,7 @@ use super::coercion;
 use super::matrix;
 use super::vector;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 /// Emit code to compute a binary expression as an RValue
 pub fn emit_binary_rvalue(

@@ -13,10 +13,7 @@ use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use glsl::syntax::Expr;
 use cranelift_codegen::ir::{types, Value, InstBuilder};
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 /// Translate pre-increment expression (++i)
 pub fn translate_preinc(

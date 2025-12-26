@@ -28,10 +28,7 @@ pub fn emit_literal_rvalue(
 }
 
 /// Legacy function for backwards compatibility
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 pub fn translate_literal(
     ctx: &mut CodegenContext,

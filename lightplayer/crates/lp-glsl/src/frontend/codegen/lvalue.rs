@@ -14,10 +14,7 @@ use glsl::syntax::Expr;
 
 use super::expr::component;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 /// Represents a modifiable location (LValue) in GLSL
 ///

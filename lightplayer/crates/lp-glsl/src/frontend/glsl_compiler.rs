@@ -1,27 +1,19 @@
 //! GLSL compiler that compiles GLSL source to ClifModule
 
+use crate::backend::ir::ClifModule;
+use crate::error::GlslError;
 use crate::frontend::pipeline::CompilationPipeline;
 use crate::frontend::src_loc::GlSourceMap;
-use crate::error::GlslError;
-use crate::backend::ir::ClifModule;
 use cranelift_codegen::ir::Function;
 use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_module::{FuncId, Linkage, Module, ModuleDeclarations, ModuleError, ModuleResult};
 use hashbrown::HashMap;
 
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
-#[cfg(feature = "std")]
-use std::string::String;
+use alloc::{boxed::Box, vec::Vec};
 
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec::Vec};
-#[cfg(feature = "std")]
-use std::format;
-#[cfg(feature = "std")]
-use std::{boxed::Box, vec::Vec};
-
+use alloc::format;
 /// GLSL compiler that compiles GLSL source to ClifModule
 pub struct GlslCompiler {
     #[allow(dead_code)]
@@ -42,8 +34,8 @@ impl GlslCompiler {
         source: &str,
         isa: OwnedTargetIsa,
     ) -> Result<ClifModule, GlslError> {
-        use crate::frontend::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};
+        use crate::frontend::codegen::signature::SignatureBuilder;
 
         // 1. Parse and analyze GLSL
         let semantic_result = CompilationPipeline::parse_and_analyze(source)?;
@@ -177,10 +169,7 @@ impl GlslCompiler {
             let isa_builder = cranelift_codegen::isa::Builder::from_target_isa(isa);
             let flags = isa.flags().clone();
             isa_builder.finish(flags).map_err(|e| {
-                GlslError::new(
-                    ErrorCode::E0400,
-                    format!("failed to recreate ISA: {:?}", e),
-                )
+                GlslError::new(ErrorCode::E0400, format!("failed to recreate ISA: {:?}", e))
             })?
         };
         let module = self.compile_to_clif_module(source, isa_owned)?;
@@ -214,8 +203,8 @@ impl GlslCompiler {
         source_map: &crate::frontend::src_loc::GlSourceMap,
         file_id: crate::frontend::src_loc::GlFileId,
     ) -> Result<Function, GlslError> {
-        use crate::frontend::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};
+        use crate::frontend::codegen::signature::SignatureBuilder;
         use cranelift_codegen::Context;
 
         let mut ctx = Context::new();
@@ -241,7 +230,12 @@ impl GlslCompiler {
         let entry_block = Self::setup_function_builder(&mut builder);
 
         // Create codegen context with function IDs
-        let mut codegen_ctx = crate::frontend::codegen::context::CodegenContext::new(builder, temp_module, source_map, file_id);
+        let mut codegen_ctx = crate::frontend::codegen::context::CodegenContext::new(
+            builder,
+            temp_module,
+            source_map,
+            file_id,
+        );
         codegen_ctx.set_function_ids(func_ids);
         codegen_ctx.set_function_registry(func_registry);
         codegen_ctx.set_return_type(func.return_type.clone());
@@ -344,7 +338,10 @@ impl GlslCompiler {
         }
 
         // Generate default return if needed
-        crate::frontend::codegen::helpers::generate_default_return(&mut codegen_ctx, &func.return_type)?;
+        crate::frontend::codegen::helpers::generate_default_return(
+            &mut codegen_ctx,
+            &func.return_type,
+        )?;
 
         // Seal all blocks before finalizing (safety net for any blocks not explicitly sealed)
         codegen_ctx.builder.seal_all_blocks();
@@ -381,8 +378,8 @@ impl GlslCompiler {
         source_map: &crate::frontend::src_loc::GlSourceMap,
         file_id: crate::frontend::src_loc::GlFileId,
     ) -> Result<Function, GlslError> {
-        use crate::frontend::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};
+        use crate::frontend::codegen::signature::SignatureBuilder;
         use cranelift_codegen::Context;
 
         let mut ctx = Context::new();
@@ -408,7 +405,12 @@ impl GlslCompiler {
         let entry_block = Self::setup_function_builder(&mut builder);
 
         // Create codegen context
-        let mut codegen_ctx = crate::frontend::codegen::context::CodegenContext::new(builder, temp_module, source_map, file_id);
+        let mut codegen_ctx = crate::frontend::codegen::context::CodegenContext::new(
+            builder,
+            temp_module,
+            source_map,
+            file_id,
+        );
         codegen_ctx.set_function_ids(func_ids);
         codegen_ctx.set_function_registry(func_registry);
         codegen_ctx.set_source_text(source_text);
@@ -512,7 +514,10 @@ impl GlslCompiler {
         }
 
         // Generate default return if needed
-        crate::frontend::codegen::helpers::generate_default_return(&mut codegen_ctx, &main_func.return_type)?;
+        crate::frontend::codegen::helpers::generate_default_return(
+            &mut codegen_ctx,
+            &main_func.return_type,
+        )?;
 
         // Seal all blocks before finalizing (safety net for any blocks not explicitly sealed)
         codegen_ctx.builder.seal_all_blocks();
@@ -559,9 +564,9 @@ pub fn create_minimal_module_for_declarations(
     isa: &dyn cranelift_codegen::isa::TargetIsa,
 ) -> Result<Box<dyn Module>, GlslError> {
     use crate::error::{ErrorCode, GlslError};
+    use core::cell::RefCell;
     use cranelift_codegen::entity::PrimaryMap;
     use cranelift_codegen::isa;
-    use core::cell::RefCell;
 
     // Recreate OwnedTargetIsa from the reference
     let isa_builder = isa::Builder::from_target_isa(isa);

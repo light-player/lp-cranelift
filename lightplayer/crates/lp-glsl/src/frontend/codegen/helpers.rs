@@ -5,10 +5,7 @@ use crate::error::{ErrorCode, GlslError};
 use crate::semantic::types::Type;
 use cranelift_codegen::ir::{ArgumentPurpose, InstBuilder, MemFlags, types};
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 /// Generate default return statement for a function
 /// Used when function doesn't have explicit return

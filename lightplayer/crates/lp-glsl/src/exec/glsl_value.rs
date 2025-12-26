@@ -3,10 +3,7 @@
 use crate::error::{ErrorCode, GlslError};
 use glsl::syntax::{Expr, JumpStatement, SimpleStatement, Statement};
 
-#[cfg(not(feature = "std"))]
 use alloc::{format, vec::Vec};
-#[cfg(feature = "std")]
-use std::{format, vec::Vec};
 
 /// GLSL value types for function arguments
 ///

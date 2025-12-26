@@ -3,10 +3,7 @@
 use crate::error::GlslError;
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 use cranelift_codegen::ir::{Block, FuncRef, Function, Inst, Opcode, SigRef, Value};
 use cranelift_frontend::FunctionBuilder;

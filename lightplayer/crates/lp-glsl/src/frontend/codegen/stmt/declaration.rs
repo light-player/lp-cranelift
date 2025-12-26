@@ -1,9 +1,6 @@
 use glsl::syntax::Declaration;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 use crate::frontend::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError};

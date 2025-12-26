@@ -5,16 +5,12 @@ use crate::error::{ErrorCode, GlslError};
 use crate::semantic::types::Type;
 use cranelift_codegen::ir::{InstBuilder, Value};
 
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
 
 #[cfg(not(feature = "std"))]
 use alloc::format;
 #[cfg(feature = "std")]
 use std::format;
-
 #[allow(non_snake_case)]
 impl<'a> CodegenContext<'a> {
     /// Component-wise matrix multiply: result[i][j] = x[i][j] * y[i][j]

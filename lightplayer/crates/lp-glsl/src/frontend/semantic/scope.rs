@@ -2,14 +2,7 @@ use crate::frontend::semantic::types::Type;
 use crate::error::{ErrorCode, GlslError};
 use hashbrown::HashMap;
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-
-#[cfg(feature = "std")]
-use std::string::String;
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
 
 pub struct SymbolTable {

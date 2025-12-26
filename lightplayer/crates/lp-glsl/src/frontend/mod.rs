@@ -41,19 +41,9 @@ use cranelift_codegen::isa::OwnedTargetIsa;
 #[cfg(feature = "std")]
 use cranelift_native;
 
-#[cfg(not(feature = "std"))]
 use alloc::format as alloc_format;
-#[cfg(feature = "std")]
-use std::format as alloc_format;
-
-#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
-#[cfg(not(feature = "std"))]
 use alloc::string::String;
-#[cfg(feature = "std")]
-use std::boxed::Box;
-#[cfg(feature = "std")]
-use std::string::String;
 use crate::backend::link;
 
 /// Compile GLSL to CLIF module (internal, reusable)

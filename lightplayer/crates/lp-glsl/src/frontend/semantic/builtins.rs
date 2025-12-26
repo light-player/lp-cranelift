@@ -2,19 +2,10 @@
 
 use crate::frontend::semantic::types::Type;
 
-#[cfg(feature = "std")]
-use std::vec::Vec;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-#[cfg(feature = "std")]
-use std::string::{String, ToString};
-#[cfg(not(feature = "std"))]
 use alloc::string::{String, ToString};
 
-#[cfg(feature = "std")]
-use std::format;
-#[cfg(not(feature = "std"))]
 use alloc::format;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

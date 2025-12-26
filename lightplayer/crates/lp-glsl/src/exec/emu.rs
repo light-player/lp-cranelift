@@ -11,10 +11,7 @@ use crate::frontend::src_loc::GlSourceMap;
 use hashbrown::HashMap;
 use lp_riscv_tools::emu::error::{EmulatorError, trap_code_to_string};
 
-#[cfg(not(feature = "std"))]
 use alloc::{format, string::String, vec::Vec};
-#[cfg(feature = "std")]
-use std::{format, string::String, vec::Vec};
 
 /// Emulator-based GLSL module (executes in RISC-V emulator)
 /// Requires `emulator` feature flag to be enabled
@@ -143,11 +140,7 @@ impl GlslEmulatorModule {
         base_message: &str,
         function_name: &str,
     ) -> GlslError {
-        #[cfg(not(feature = "std"))]
         use alloc::string::ToString;
-        #[cfg(feature = "std")]
-        use std::string::ToString;
-
         // Include function name in error message for better context
         let full_message = if function_name.is_empty() {
             base_message.to_string()

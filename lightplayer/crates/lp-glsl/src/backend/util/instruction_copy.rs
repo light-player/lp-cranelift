@@ -9,10 +9,7 @@ use crate::backend::ir_utils::value_map::map_value;
 use cranelift_codegen::ir::{Function, Inst, InstructionData, StackSlot, Value, types};
 use cranelift_frontend::FunctionBuilder;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-#[cfg(feature = "std")]
-use std::vec::Vec;
+use alloc::{format, vec::Vec};
 
 // Use hashbrown::HashMap for consistency across no_std and std builds
 use hashbrown::HashMap;

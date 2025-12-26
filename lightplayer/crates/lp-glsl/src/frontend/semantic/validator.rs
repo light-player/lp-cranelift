@@ -23,9 +23,6 @@ fn add_span_text_to_error(
     error
 }
 
-#[cfg(feature = "std")]
-use std::format;
-#[cfg(not(feature = "std"))]
 use alloc::format;
 
 /// Validate a function body, checking all statements and expressions.
