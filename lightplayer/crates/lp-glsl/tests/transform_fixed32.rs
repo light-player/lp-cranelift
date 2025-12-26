@@ -125,7 +125,7 @@ block7:
     // Create a minimal ClifModule with the parsed function
     let isa = create_test_isa().expect("Failed to create ISA");
     let module = ClifModule::builder()
-        .set_function_registry(lp_glsl::semantic::functions::FunctionRegistry::new())
+        .set_function_registry(lp_glsl::frontend::semantic::functions::FunctionRegistry::new())
         .set_source_text(String::from("test"))
         .set_isa(isa)
         .set_main_function(original_func)
@@ -291,7 +291,7 @@ block7:
     // Create a minimal ClifModule with the parsed function
     let isa = create_test_isa().expect("Failed to create ISA");
     let module = ClifModule::builder()
-        .set_function_registry(lp_glsl::semantic::functions::FunctionRegistry::new())
+        .set_function_registry(lp_glsl::frontend::semantic::functions::FunctionRegistry::new())
         .set_source_text(String::from("test"))
         .set_isa(isa)
         .set_main_function(original_func)

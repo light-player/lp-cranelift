@@ -41,7 +41,7 @@ validator/
    ```rust
    use crate::validator::supported::RiscvExtension;
    use crate::ir::{Inst, Opcode, Type};
-   use crate::CodegenError;
+   use crate::frontend::codegenError;
 
    #[derive(Debug)]
    pub enum ValidationError {

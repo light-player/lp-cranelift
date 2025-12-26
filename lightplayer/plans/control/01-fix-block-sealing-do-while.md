@@ -72,7 +72,7 @@ EmitBlock(ExitBlock);
        let header_block = ctx.builder.create_block();
        let exit_block = ctx.builder.create_block();
 
-       ctx.loop_stack.push(crate::codegen::context::LoopContext {
+       ctx.loop_stack.push(crate::frontend::codegen::context::LoopContext {
            continue_target: header_block,
            exit_block,
        });
