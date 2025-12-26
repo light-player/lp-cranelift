@@ -25,7 +25,7 @@ lp-riscv-tools = { path = "../lp-riscv-tools", optional = true, features = ["std
 anyhow = { workspace = true, optional = true }
 
 [features]
-default = ["std", "intrinsic-math"]
+default = ["std", "intrinsic-math", "emulator"]
 intrinsic-math = []  # Enable intrinsic math function implementations
 emulator = ["lp-riscv-tools", "cranelift-object", "object", "cranelift-codegen/disas"]  # Enable RISC-V 32-bit emulator support and disassembly
 std = [
