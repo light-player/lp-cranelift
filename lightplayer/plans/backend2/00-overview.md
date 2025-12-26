@@ -11,8 +11,8 @@ backend2/
 ├── mod.rs
 ├── target/              # Target architecture and codegen options
 │   ├── mod.rs
-│   ├── spec.rs          # TargetSpec: triple, flags, module kind
-│   └── isa.rs           # create_isa_from_spec, create_module_builder
+│   ├── target.rs        # Target enum: Rv32Emu, HostJit (semantic targets)
+│   └── builder.rs       # create_module_builder, create_isa (internal details)
 ├── module/              # GLSL Module (wraps Cranelift Module)
 │   ├── mod.rs
 │   ├── gl_module.rs     # GlModule<M: Module>
@@ -30,7 +30,7 @@ backend2/
 
 ## Terminology
 
-- **TargetSpec**: Target architecture + codegen options (like LLVM's TargetMachine)
+- **Target**: Semantic target enum (Rv32Emu, HostJit) - hides implementation details
 - **GlModule**: GLSL compilation unit (one shader source compiled to a Module)
 - **codegen/**: Code generation layer (Module → Executable)
 
@@ -55,16 +55,42 @@ Replace the current `ClifModule` + linking approach with a new `GlModule` archit
 ### Core Structures
 
 ```rust
-// Target specification - encodes target architecture and codegen options
-pub struct TargetSpec {
-    pub kind: ModuleKind,
-    pub triple: target_lexicon::Triple,
-    pub flags: Flags, // ISA flags
+// Semantic target enum - caller doesn't need to know implementation details
+pub enum Target {
+    /// RISC-V 32-bit emulator target
+    Rv32Emu {
+        flags: Flags,
+    },
+    /// Host JIT target (runs on current machine)
+    HostJit {
+        /// Optional architecture override (if None, detect from host)
+        arch: Option<Architecture>,
+        flags: Flags,
+    },
 }
 
-pub enum ModuleKind {
-    Jit,
-    Object { name: String },
+impl Target {
+    /// Create RISC-V 32 emulator target with default flags
+    pub fn riscv32_emulator() -> Self {
+        Self::Rv32Emu {
+            flags: default_riscv32_flags(),
+        }
+    }
+
+    /// Create host JIT target (auto-detect architecture)
+    #[cfg(feature = "std")]
+    pub fn host_jit() -> Self {
+        Self::HostJit {
+            arch: None,  // Auto-detect
+            flags: default_host_flags(),
+        }
+    }
+
+    /// Create the appropriate Module builder for this target
+    /// (Internal: knows whether to create JITModule or ObjectModule)
+    pub fn create_module_builder(&self) -> Result<ModuleBuilder, GlslError> {
+        // Implementation details hidden - caller doesn't care about ModuleKind
+    }
 }
 
 // Function metadata (doesn't store Function IR, just metadata)
@@ -77,7 +103,7 @@ pub struct GlFunc {
 
 // Main module structure - owns the actual Cranelift Module
 pub struct GlModule<M: Module> {
-    pub target: TargetSpec,
+    pub target: Target,  // Semantic target, not technical spec
     pub source_map: GlSourceMap,
     pub fns: HashMap<String, GlFunc>,
     pub module: M, // Owned Module - functions are already defined here
@@ -94,35 +120,45 @@ pub struct GlModule<M: Module> {
 ### Compilation Flow
 
 **Current**:
+
 ```
 GLSL → ClifModule → (optional transform) → link → JIT/Object
 ```
 
 **Proposed**:
+
 ```
-GLSL + TargetSpec → GlModule → (optional transform) → Done
+GLSL + Target → GlModule → (optional transform) → Done
 ```
 
-### TargetSpec to Module Builder
+### Target to Module Builder
 
 ```rust
-fn create_module_builder(spec: &TargetSpec) -> Result<ModuleBuilder, GlslError> {
-    match spec.kind {
-        ModuleKind::Jit => {
-            let isa = create_isa_from_spec(spec)?;
-            Ok(JITBuilder::with_isa(isa, default_libcall_names()))
-        }
-        ModuleKind::Object { name } => {
-            let isa = create_isa_from_spec(spec)?;
-            Ok(ObjectBuilder::new(isa, name, default_libcall_names())?)
+impl Target {
+    /// Create the appropriate Module builder for this target
+    /// Internal implementation details are hidden
+    pub fn create_module_builder(&self) -> Result<ModuleBuilder, GlslError> {
+        match self {
+            Target::Rv32Emu { flags } => {
+                // Internally knows: ObjectModule, riscv32 triple, etc.
+                let triple = riscv32_triple();
+                let isa = create_isa(triple, flags)?;
+                Ok(ObjectBuilder::new(isa, b"module", default_libcall_names())?)
+            }
+            Target::HostJit { arch, flags } => {
+                // Internally knows: JITModule, host triple, etc.
+                let triple = arch.map(|a| triple_for_arch(a))
+                    .unwrap_or_else(|| detect_host_triple());
+                let isa = create_isa(triple, flags)?;
+                Ok(JITBuilder::with_isa(isa, default_libcall_names()))
+            }
         }
     }
-}
 
-fn create_isa_from_spec(spec: &TargetSpec) -> Result<OwnedTargetIsa, GlslError> {
-    // Build ISA from triple and flags
-    let builder = isa::lookup_by_triple(spec.triple)?;
-    builder.finish(spec.flags.clone())
+    /// Create ISA for this target (internal helper)
+    fn create_isa(&self) -> Result<OwnedTargetIsa, GlslError> {
+        // Implementation details hidden
+    }
 }
 ```
 
@@ -132,10 +168,10 @@ fn create_isa_from_spec(spec: &TargetSpec) -> Result<OwnedTargetIsa, GlslError> 
 // Compile GLSL source into a GlModule
 pub fn compile_glsl_to_module<M: Module>(
     source: &str,
-    target: TargetSpec,
+    target: Target,
 ) -> Result<GlModule<M>, GlslError> {
     // 1. Parse and analyze GLSL
-    // 2. Create Module from target spec
+    // 2. Create Module from target (target knows how to create the right Module type)
     // 3. Build functions directly in Module (no temp Module needed!)
     // 4. Return GlModule
 }
@@ -145,7 +181,7 @@ pub fn transform_fixed32<M: Module>(
     module: &GlModule<M>,
     format: FixedPointFormat,
 ) -> Result<GlModule<M>, GlslError> {
-    // 1. Create new GlModule with same target spec
+    // 1. Create new GlModule with same target
     // 2. Rebuild functions with type conversion
     // 3. This rebuild is unavoidable (type changes)
     // 4. But FuncRefs are already correct (same Module type)
@@ -163,7 +199,7 @@ pub fn transform_fixed32<M: Module>(
 ### Trade-offs
 
 1. **Less flexibility**: Can't compile once and use multiple backends (probably fine for GLSL)
-2. **TargetSpec upfront**: Caller must know target upfront (usually true anyway)
+2. **Target upfront**: Caller must know target upfront (usually true anyway)
 3. **Transform still rebuilds**: Fixed32 transform still needs to rebuild functions (necessary due to type changes)
 
 ### Implementation Notes
@@ -175,11 +211,10 @@ pub fn transform_fixed32<M: Module>(
 
 ### Migration Path
 
-1. Implement `TargetSpec` and `create_module_builder` in `target/`
+1. Implement `Target` enum and `create_module_builder` in `target/`
 2. Implement `GlModule` structure in `module/`
 3. Implement `compile_glsl_to_module` (replaces `compile_to_clif_module`)
 4. Implement `transform_fixed32` for GlModule in `transform/` (replaces current transform)
 5. Implement codegen functions in `codegen/` (build executables from GlModule)
 6. Update callers to use new API
 7. Remove old `ClifModule` + linking code
-

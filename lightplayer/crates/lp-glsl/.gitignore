@@ -1,0 +1,2 @@
+# Unignore target directories in the src
+!src/**/target
