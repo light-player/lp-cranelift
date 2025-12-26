@@ -14,7 +14,8 @@ use alloc::vec::Vec;
 pub struct EmulatorOptions {
     /// Maximum memory size in bytes (RAM)
     pub max_memory: usize,
-    /// Stack size in bytes
+    /// Stack size in bytes (stored for future use)
+    #[allow(unused)]
     pub stack_size: usize,
     /// Maximum instruction count before timeout
     pub max_instructions: u64,

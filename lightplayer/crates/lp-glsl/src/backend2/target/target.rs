@@ -1,6 +1,6 @@
 //! Semantic target enum - hides implementation details
 
-use cranelift_codegen::isa::{self, OwnedTargetIsa};
+use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_codegen::settings::{self, Configurable, Flags};
 use cranelift_codegen::ir::types;
 use cranelift_codegen::ir::Type;
@@ -19,6 +19,7 @@ pub enum Target {
     /// Host JIT target (runs on current machine)
     HostJit {
         /// Optional architecture override (if None, detect from host)
+        #[allow(unused)]
         arch: Option<Architecture>,
         flags: Flags,
         /// Cached ISA (created lazily)
@@ -46,6 +47,7 @@ impl Target {
     }
 
     /// Create host JIT with specific architecture
+    #[allow(unused)]
     pub fn host_jit_with_arch(arch: Architecture) -> Result<Self, GlslError> {
         Ok(Self::HostJit {
             arch: Some(arch),
@@ -119,7 +121,7 @@ fn default_riscv32_flags() -> Result<Flags, GlslError> {
     flag_builder.set("enable_multi_ret_implicit_sret", "true").map_err(|e| {
         GlslError::new(ErrorCode::E0400, format!("failed to set enable_multi_ret_implicit_sret: {}", e))
     })?;
-    
+
     Ok(settings::Flags::new(flag_builder))
 }
 
@@ -136,14 +138,14 @@ fn default_host_flags() -> Result<Flags, GlslError> {
     flag_builder.set("enable_multi_ret_implicit_sret", "true").map_err(|e| {
         GlslError::new(ErrorCode::E0400, format!("failed to set enable_multi_ret_implicit_sret: {}", e))
     })?;
-    
+
     Ok(settings::Flags::new(flag_builder))
 }
 
 /// Helper: Get RISC-V 32-bit triple
 fn riscv32_triple() -> target_lexicon::Triple {
     use target_lexicon::{Architecture, BinaryFormat, Environment, OperatingSystem, Riscv32Architecture, Triple, Vendor};
-    
+
     Triple {
         architecture: Architecture::Riscv32(Riscv32Architecture::Riscv32imac),
         vendor: Vendor::Unknown,
@@ -154,9 +156,10 @@ fn riscv32_triple() -> target_lexicon::Triple {
 }
 
 /// Helper: Convert Architecture to Triple
+#[allow(unused)]
 fn triple_for_arch(arch: Architecture) -> target_lexicon::Triple {
     use target_lexicon::{BinaryFormat, Environment, OperatingSystem, Triple, Vendor};
-    
+
     Triple {
         architecture: arch,
         vendor: Vendor::Unknown,
@@ -168,6 +171,7 @@ fn triple_for_arch(arch: Architecture) -> target_lexicon::Triple {
 
 /// Helper: Detect host triple
 #[cfg(feature = "std")]
+#[allow(unused)]
 fn detect_host_triple() -> target_lexicon::Triple {
     target_lexicon::Triple::host()
 }

@@ -25,7 +25,6 @@ mod tests {
         sig.returns.push(AbiParam::new(types::I32));
         
         // Note: FuncId creation requires a Module, so this is a minimal test
-        // Note: FuncId creation requires a Module, so we can't create a real one in unit tests
         // This test just verifies the structure can be created with valid data
         let _func = GlFunc {
             name: String::from("test"),

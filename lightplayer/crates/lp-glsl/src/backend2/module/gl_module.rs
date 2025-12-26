@@ -76,6 +76,7 @@ impl<M: Module> GlModule<M> {
 impl GlModule<JITModule> {
     /// Build executable from JIT module
     /// Returns a boxed GlslExecutable trait object for generic code
+    #[allow(unused)]
     pub fn build_executable(self) -> Result<alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>, GlslError> {
         crate::backend2::codegen::jit::build_jit_executable(self).map(|jit| alloc::boxed::Box::new(jit) as alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>)
     }
@@ -84,6 +85,7 @@ impl GlModule<JITModule> {
 impl GlModule<ObjectModule> {
     /// Build executable from Object module (for emulator)
     /// Returns a boxed GlslExecutable trait object for generic code
+    #[allow(unused)]
     pub fn build_executable(self, options: &crate::backend2::codegen::emu::EmulatorOptions) -> Result<alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>, GlslError> {
         crate::backend2::codegen::emu::build_emu_executable(self, options).map(|emu| alloc::boxed::Box::new(emu) as alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>)
     }

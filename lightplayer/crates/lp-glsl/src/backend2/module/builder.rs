@@ -3,7 +3,7 @@
 use crate::backend2::module::gl_module::GlModule;
 use crate::backend2::module::gl_func::GlFunc;
 use crate::error::{ErrorCode, GlslError};
-use cranelift_codegen::ir::{Function, Signature, Value, InstBuilder};
+use cranelift_codegen::ir::{Signature, Value, InstBuilder};
 use cranelift_frontend::FunctionBuilder;
 use cranelift_frontend::FunctionBuilderContext;
 use cranelift_module::{Module, FuncId, Linkage};
