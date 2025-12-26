@@ -1,6 +1,7 @@
 //! GLSL compiler that compiles GLSL source to ClifModule
 
 use crate::frontend::pipeline::CompilationPipeline;
+use crate::frontend::src_loc::GlSourceMap;
 use crate::error::GlslError;
 use crate::backend::ir::ClifModule;
 use cranelift_codegen::ir::Function;
@@ -52,6 +53,13 @@ impl GlslCompiler {
         use crate::frontend::src_loc_manager::SourceLocManager;
         let mut source_loc_manager = SourceLocManager::new();
 
+        // 2b. Create a source map and add the main source file
+        let mut source_map = GlSourceMap::new();
+        let main_file_id = source_map.add_file(
+            crate::frontend::src_loc::GlFileSource::Synthetic(String::from("main.glsl")),
+            String::from(source),
+        );
+
         // 3. Create a temporary minimal module for function declarations
         //    This is needed to get FuncIds for cross-function calls
         let mut temp_module = create_minimal_module_for_declarations(isa.as_ref())?;
@@ -93,6 +101,8 @@ impl GlslCompiler {
                 &mut temp_module,
                 isa.as_ref(),
                 &mut source_loc_manager,
+                &source_map,
+                main_file_id,
             )?;
             user_functions.insert(user_func.name.clone(), func);
 
@@ -119,6 +129,8 @@ impl GlslCompiler {
             isa.as_ref(),
             semantic_result.source,
             &mut source_loc_manager,
+            &source_map,
+            main_file_id,
         )?;
 
         // Store main function's GLSL signature
@@ -145,6 +157,7 @@ impl GlslCompiler {
             .add_glsl_signatures(glsl_signatures)
             .add_func_id_mappings(func_id_to_name)
             .set_source_loc_manager(source_loc_manager)
+            .set_source_map(source_map)
             .build()?)
     }
 
@@ -198,6 +211,8 @@ impl GlslCompiler {
         temp_module: &mut dyn Module,
         isa: &dyn cranelift_codegen::isa::TargetIsa,
         source_loc_manager: &mut crate::frontend::src_loc_manager::SourceLocManager,
+        source_map: &crate::frontend::src_loc::GlSourceMap,
+        file_id: crate::frontend::src_loc::GlFileId,
     ) -> Result<Function, GlslError> {
         use crate::frontend::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};
@@ -226,7 +241,7 @@ impl GlslCompiler {
         let entry_block = Self::setup_function_builder(&mut builder);
 
         // Create codegen context with function IDs
-        let mut codegen_ctx = crate::frontend::codegen::context::CodegenContext::new(builder, temp_module);
+        let mut codegen_ctx = crate::frontend::codegen::context::CodegenContext::new(builder, temp_module, source_map, file_id);
         codegen_ctx.set_function_ids(func_ids);
         codegen_ctx.set_function_registry(func_registry);
         codegen_ctx.set_return_type(func.return_type.clone());
@@ -363,6 +378,8 @@ impl GlslCompiler {
         isa: &dyn cranelift_codegen::isa::TargetIsa,
         source_text: &str,
         source_loc_manager: &mut crate::frontend::src_loc_manager::SourceLocManager,
+        source_map: &crate::frontend::src_loc::GlSourceMap,
+        file_id: crate::frontend::src_loc::GlFileId,
     ) -> Result<Function, GlslError> {
         use crate::frontend::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};
@@ -391,7 +408,7 @@ impl GlslCompiler {
         let entry_block = Self::setup_function_builder(&mut builder);
 
         // Create codegen context
-        let mut codegen_ctx = crate::frontend::codegen::context::CodegenContext::new(builder, temp_module);
+        let mut codegen_ctx = crate::frontend::codegen::context::CodegenContext::new(builder, temp_module, source_map, file_id);
         codegen_ctx.set_function_ids(func_ids);
         codegen_ctx.set_function_registry(func_registry);
         codegen_ctx.set_source_text(source_text);

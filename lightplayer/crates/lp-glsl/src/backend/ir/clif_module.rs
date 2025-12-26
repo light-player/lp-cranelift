@@ -1,6 +1,7 @@
 //! Immutable CLIF module representation holding all functions before linking/compilation.
 
 use crate::frontend::src_loc_manager::SourceLocManager;
+use crate::frontend::src_loc::GlSourceMap;
 use crate::backend::link::rebuild_function_for_module;
 use crate::error::{ErrorCode, GlslError};
 use crate::frontend::semantic::functions::FunctionRegistry;
@@ -56,6 +57,8 @@ pub struct ClifModule {
     func_id_to_name: HashMap<u32, String>,
     // Source location manager for mapping SourceLoc to GLSL source positions
     source_loc_manager: SourceLocManager,
+    // Source map for managing file locations
+    source_map: GlSourceMap,
 }
 
 impl ClifModule {
@@ -120,6 +123,11 @@ impl ClifModule {
     /// Get the source location manager
     pub fn source_loc_manager(&self) -> &SourceLocManager {
         &self.source_loc_manager
+    }
+
+    /// Get the source map
+    pub fn source_map(&self) -> &GlSourceMap {
+        &self.source_map
     }
 
     /// Link all functions from this module into a Cranelift Module (JITModule, ObjectModule, etc.)
@@ -596,6 +604,7 @@ pub struct ClifModuleBuilder {
     glsl_signatures: HashMap<String, crate::frontend::semantic::functions::FunctionSignature>,
     func_id_to_name: HashMap<u32, String>,
     source_loc_manager: Option<SourceLocManager>,
+    source_map: Option<GlSourceMap>,
 }
 
 impl ClifModuleBuilder {
@@ -609,12 +618,19 @@ impl ClifModuleBuilder {
             glsl_signatures: HashMap::new(),
             func_id_to_name: HashMap::new(),
             source_loc_manager: None,
+            source_map: None,
         }
     }
 
     /// Set the source location manager
     pub fn set_source_loc_manager(mut self, manager: SourceLocManager) -> Self {
         self.source_loc_manager = Some(manager);
+        self
+    }
+
+    /// Set the source map
+    pub fn set_source_map(mut self, source_map: GlSourceMap) -> Self {
+        self.source_map = Some(source_map);
         self
     }
 
@@ -705,6 +721,10 @@ impl ClifModuleBuilder {
             .isa
             .ok_or_else(|| GlslError::new(ErrorCode::E0400, "ISA not set"))?;
 
+        let source_map = self
+            .source_map
+            .ok_or_else(|| GlslError::new(ErrorCode::E0400, "source map not set"))?;
+
         Ok(ClifModule {
             user_functions: self.user_functions,
             main_function,
@@ -714,6 +734,7 @@ impl ClifModuleBuilder {
             glsl_signatures: self.glsl_signatures,
             func_id_to_name: self.func_id_to_name,
             source_loc_manager: self.source_loc_manager.unwrap_or_else(SourceLocManager::new),
+            source_map,
         })
     }
 }

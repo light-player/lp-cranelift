@@ -1,0 +1,26 @@
+test interpret
+test run
+target riscv32
+
+function %do_loop_debug() -> i32 system_v {
+block0:
+    v0 = iconst.i32 0
+    v1 = iconst.i32 0
+    jump block1(v0, v1)  ; v0 = 0, v1 = 0
+
+block1(v2: i32, v3: i32):
+    v4 = iadd v3, v2
+    v5 = iadd_imm v2, 1
+    jump block2
+
+block2(v6: i32, v9: i32):
+    v7 = iconst.i32 5
+    v8 = icmp slt v6, v7  ; v7 = 5
+    brif v8, block1(v6, v9), block3
+
+block3:
+    return v9
+}
+
+; run: %do_loop_debug() == 10
+

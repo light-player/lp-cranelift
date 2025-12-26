@@ -7,6 +7,7 @@ use crate::exec::executable::GlslExecutable;
 use crate::exec::glsl_value::GlslValue;
 use crate::error::GlslError;
 use crate::frontend::semantic::functions::FunctionSignature;
+use crate::frontend::src_loc::GlSourceMap;
 use hashbrown::HashMap;
 use lp_riscv_tools::emu::error::{EmulatorError, trap_code_to_string};
 
@@ -47,6 +48,8 @@ pub struct GlslEmulatorModule {
     pub(crate) source_file_path: Option<String>,
     // Source location manager for mapping SourceLoc to GLSL source positions
     pub(crate) source_loc_manager: crate::frontend::src_loc_manager::SourceLocManager,
+    // Source map for managing file locations
+    pub(crate) source_map: GlSourceMap,
     // Track next buffer allocation address (allocated from start of RAM, growing upward)
     #[allow(dead_code)] // Reserved for future use when manual buffer allocation is needed
     pub(crate) next_buffer_addr: u32,
@@ -267,12 +270,9 @@ impl GlslEmulatorModule {
 
         if let Some((trap_line, trap_column)) = self.source_loc_manager.lookup_srcloc(srcloc) {
             // Found exact match
-            let filename = self.source_file_path.as_ref().cloned();
-            let trap_location = if let Some(ref file_path) = filename {
-                crate::frontend::src_loc::SourceLocation::with_file(trap_line, trap_column, file_path.clone())
-            } else {
-                crate::frontend::src_loc::SourceLocation::new(trap_line, trap_column)
-            };
+            // Use the first file in the source map (should be the main source file)
+            let file_id = crate::frontend::src_loc::GlFileId(1); // Main file is typically ID 1
+            let trap_location = crate::frontend::src_loc::GlSourceLoc::new(file_id, trap_line, trap_column);
             found_location = Some(trap_location);
 
             // Extract source lines
@@ -291,16 +291,9 @@ impl GlslEmulatorModule {
                     if let Some((trap_line, trap_column)) =
                         self.source_loc_manager.lookup_srcloc(*closest_srcloc)
                     {
-                        let filename = self.source_file_path.as_ref().cloned();
-                        let trap_location = if let Some(ref file_path) = filename {
-                            crate::frontend::src_loc::SourceLocation::with_file(
-                                trap_line,
-                                trap_column,
-                                file_path.clone(),
-                            )
-                        } else {
-                            crate::frontend::src_loc::SourceLocation::new(trap_line, trap_column)
-                        };
+                        // Use the first file in the source map (should be the main source file)
+                        let file_id = crate::frontend::src_loc::GlFileId(1); // Main file is typically ID 1
+                        let trap_location = crate::frontend::src_loc::GlSourceLoc::new(file_id, trap_line, trap_column);
                         found_location = Some(trap_location);
 
                         // Extract source lines
@@ -527,7 +520,7 @@ impl GlslEmulatorModule {
     fn find_function_source_location(
         &self,
         func_name: &str,
-    ) -> Option<crate::frontend::src_loc::SourceLocation> {
+    ) -> Option<crate::frontend::src_loc::GlSourceLoc> {
         let source_text = self.source_text.as_ref()?;
 
         // Search for function definition: "type func_name(" or "func_name("
@@ -542,11 +535,8 @@ impl GlslEmulatorModule {
         for (line_idx, line) in source_text.lines().enumerate() {
             if line.contains(&pattern) {
                 // Found the function - return 1-indexed line number
-                return Some(crate::frontend::src_loc::SourceLocation::with_file(
-                    line_idx + 1,
-                    1,
-                    self.source_file_path.as_ref()?.clone(),
-                ));
+                let file_id = crate::frontend::src_loc::GlFileId(1); // Main file is typically ID 1
+                return Some(crate::frontend::src_loc::GlSourceLoc::new(file_id, line_idx + 1, 1));
             }
         }
 

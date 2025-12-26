@@ -10,7 +10,6 @@ pub mod codegen;
 #[cfg(feature = "intrinsic-math")]
 pub mod intrinsics;
 pub mod semantic;
-pub mod source_map;
 pub mod src_loc;
 pub mod src_loc_manager;
 

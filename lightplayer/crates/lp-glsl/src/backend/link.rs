@@ -629,8 +629,9 @@ pub fn link_glsl_for_emulator(
     // Generate VCode and disassembly for debugging
     let (vcode, disassembly) = generate_vcode_and_disassembly(&transformed_module)?;
 
-    // Extract source location manager from transformed module
+    // Extract source location manager and source map from transformed module
     let source_loc_manager = transformed_module.source_loc_manager().clone();
+    let source_map = transformed_module.source_map().clone();
 
     // DEFAULT_RAM_START is 0x80000000 (from lp-riscv-tools/src/emu/memory.rs)
     const DEFAULT_RAM_START: u32 = 0x80000000;
@@ -649,6 +650,7 @@ pub fn link_glsl_for_emulator(
         source_text,
         source_file_path,
         source_loc_manager,
+        source_map,
         next_buffer_addr: DEFAULT_RAM_START,
     })
 }

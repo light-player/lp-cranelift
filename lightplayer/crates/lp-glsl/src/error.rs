@@ -154,7 +154,7 @@ pub struct GlslError {
     /// Primary error message
     pub message: String,
     /// Source location where error occurred
-    pub location: Option<SourceLocation>,
+    pub location: Option<GlSourceLoc>,
     /// The actual source line (if available)
     pub span_text: Option<String>,
     /// Additional notes/hints
@@ -177,7 +177,7 @@ impl GlslError {
     }
 
     /// Add a source location to this error.
-    pub fn with_location(mut self, location: SourceLocation) -> Self {
+    pub fn with_location(mut self, location: GlSourceLoc) -> Self {
         self.location = Some(location);
         self
     }
@@ -304,13 +304,13 @@ impl GlslError {
 // Span extraction helpers
 
 /// Convert glsl::syntax::SourceSpan to our SourceLocation
-pub fn source_span_to_location(span: &glsl::syntax::SourceSpan) -> SourceLocation {
-    SourceLocation::new(span.line, span.column)
+pub fn source_span_to_location(span: &glsl::syntax::SourceSpan) -> GlSourceLoc {
+    GlSourceLoc::new(crate::frontend::src_loc::GlFileId(0), span.line, span.column)
 }
 
 // Re-export SourceSpan for convenience
 pub use glsl::syntax::SourceSpan;
-use crate::frontend::src_loc::SourceLocation;
+use crate::frontend::src_loc::GlSourceLoc;
 
 /// Extract span from an expression
 pub fn extract_span_from_expr(expr: &glsl::syntax::Expr) -> glsl::syntax::SourceSpan {
@@ -369,13 +369,11 @@ mod tests {
 
     #[test]
     fn test_source_location_display() {
-        let loc = SourceLocation::new(5, 10);
+        let file_id = crate::frontend::src_loc::GlFileId(1);
+        let loc = GlSourceLoc::new(file_id, 5, 10);
         assert_eq!(loc.to_string(), "5:10");
 
-        let loc = SourceLocation::with_file(5, 10, "shader.glsl".into());
-        assert_eq!(loc.to_string(), "shader.glsl:5:10");
-
-        let loc = SourceLocation::unknown();
+        let loc = GlSourceLoc::unknown(file_id);
         assert_eq!(loc.to_string(), "<unknown>");
     }
 
@@ -394,8 +392,9 @@ mod tests {
 
     #[test]
     fn test_glsl_error_with_location() {
+        let file_id = crate::frontend::src_loc::GlFileId(1);
         let err = GlslError::undefined_variable("foo")
-            .with_location(SourceLocation::new(5, 10));
+            .with_location(GlSourceLoc::new(file_id, 5, 10));
         
         let display = err.to_string();
         assert!(display.contains("E0100"));

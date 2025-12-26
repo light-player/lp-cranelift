@@ -48,4 +48,4 @@ pub use frontend::{glsl_emu_riscv32, glsl_emu_riscv32_with_metadata};
 
 #[cfg(feature = "std")]
 pub use exec::execute_main::execute_main;
-pub use frontend::src_loc::SourceLocation;
+pub use frontend::src_loc::GlSourceLoc;

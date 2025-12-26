@@ -1,6 +1,7 @@
 //! Compiler for intrinsic GLSL functions.
 
 use crate::frontend::pipeline::CompilationPipeline;
+use crate::frontend::src_loc::GlSourceMap;
 use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::Function;
 use cranelift_codegen::isa::TargetIsa;
@@ -31,6 +32,13 @@ pub fn compile_intrinsic_functions(
     // 1. Parse and analyze GLSL
     let semantic_result = CompilationPipeline::parse_and_analyze(glsl_source)?;
     let typed_ast = semantic_result.typed_ast;
+
+    // 1b. Create a source map for intrinsic functions
+    let mut source_map = GlSourceMap::new();
+    let intrinsic_file_id = source_map.add_file(
+        crate::frontend::src_loc::GlFileSource::Synthetic(String::from("intrinsics.glsl")),
+        String::from(glsl_source),
+    );
 
     // 2. Create a minimal module stub for function declarations
     struct MinimalModule<'a> {
@@ -221,7 +229,7 @@ pub fn compile_intrinsic_functions(
         builder.seal_block(entry_block);
 
         {
-            let mut codegen_ctx = CodegenContext::new(builder, &mut module);
+            let mut codegen_ctx = CodegenContext::new(builder, &mut module, &source_map, intrinsic_file_id);
             codegen_ctx.set_function_ids(&func_ids);
             codegen_ctx.set_function_registry(&typed_ast.function_registry);
             codegen_ctx.set_return_type(user_func.return_type.clone());

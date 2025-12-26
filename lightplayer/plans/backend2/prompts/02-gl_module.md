@@ -15,7 +15,7 @@ and have something like arch
 
 Have GlModule that is similar to ClifModule, but has three things:
 - spec (ModuleSpec)
-- sourceMap: GlSourceMap (defined elsewhere)
+- sourceMap: GlSourceMap
 - fns: Map<String, GlFunc>
 - module: actual cranelift module
 
@@ -30,4 +30,7 @@ with the needed info.
 Then we would have code for creating a ModuleBuilder from a ModuleSpec.
 We would build the GlModule directly, avoiding the need for linking at all.
 
-Then, the fixed32 t
+Then, the fixed32 transform, if required, would use the ModuleSpec to create a new
+GlModule that it would copy everything into.
+
+What do you think of the general approach? critique it.
