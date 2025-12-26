@@ -2,8 +2,37 @@
 
 A rewrite of the glsl compiler backend structured around a new `GlModule` architecture.
 
-It will go into lightplayer/crates/lp-glsl/src/backend2
+It will go into `lightplayer/crates/lp-glsl/src/backend2` and completely replace `lightplayer/crates/lp-glsl/src/backend`.
 
+## Directory Structure
+
+```
+backend2/
+├── mod.rs
+├── target/              # Target architecture and codegen options
+│   ├── mod.rs
+│   ├── spec.rs          # TargetSpec: triple, flags, module kind
+│   └── isa.rs           # create_isa_from_spec, create_module_builder
+├── module/              # GLSL Module (wraps Cranelift Module)
+│   ├── mod.rs
+│   ├── gl_module.rs     # GlModule<M: Module>
+│   └── gl_func.rs       # GlFunc metadata
+├── transform/           # Transform pipeline
+│   ├── mod.rs
+│   ├── pipeline.rs      # Transform trait, pipeline
+│   ├── utils/           # Shared transform utilities
+│   └── fixed32/         # Fixed32 implementation
+└── codegen/             # Code generation (Module → Executable)
+    ├── mod.rs
+    ├── jit.rs           # build_jit_executable(GlModule<JITModule>)
+    └── emu.rs           # build_emu_executable(GlModule<ObjectModule>)
+```
+
+## Terminology
+
+- **TargetSpec**: Target architecture + codegen options (like LLVM's TargetMachine)
+- **GlModule**: GLSL compilation unit (one shader source compiled to a Module)
+- **codegen/**: Code generation layer (Module → Executable)
 
 # GlModule Architecture
 
@@ -26,8 +55,8 @@ Replace the current `ClifModule` + linking approach with a new `GlModule` archit
 ### Core Structures
 
 ```rust
-// Module specification - encodes what Module to build
-pub struct ModuleSpec {
+// Target specification - encodes target architecture and codegen options
+pub struct TargetSpec {
     pub kind: ModuleKind,
     pub triple: target_lexicon::Triple,
     pub flags: Flags, // ISA flags
@@ -48,7 +77,7 @@ pub struct GlFunc {
 
 // Main module structure - owns the actual Cranelift Module
 pub struct GlModule<M: Module> {
-    pub spec: ModuleSpec,
+    pub target: TargetSpec,
     pub source_map: GlSourceMap,
     pub fns: HashMap<String, GlFunc>,
     pub module: M, // Owned Module - functions are already defined here
@@ -71,13 +100,13 @@ GLSL → ClifModule → (optional transform) → link → JIT/Object
 
 **Proposed**:
 ```
-GLSL + ModuleSpec → GlModule → (optional transform) → Done
+GLSL + TargetSpec → GlModule → (optional transform) → Done
 ```
 
-### ModuleSpec to Module Builder
+### TargetSpec to Module Builder
 
 ```rust
-fn create_module_builder(spec: &ModuleSpec) -> Result<ModuleBuilder, GlslError> {
+fn create_module_builder(spec: &TargetSpec) -> Result<ModuleBuilder, GlslError> {
     match spec.kind {
         ModuleKind::Jit => {
             let isa = create_isa_from_spec(spec)?;
@@ -90,7 +119,7 @@ fn create_module_builder(spec: &ModuleSpec) -> Result<ModuleBuilder, GlslError> 
     }
 }
 
-fn create_isa_from_spec(spec: &ModuleSpec) -> Result<OwnedTargetIsa, GlslError> {
+fn create_isa_from_spec(spec: &TargetSpec) -> Result<OwnedTargetIsa, GlslError> {
     // Build ISA from triple and flags
     let builder = isa::lookup_by_triple(spec.triple)?;
     builder.finish(spec.flags.clone())
@@ -103,10 +132,10 @@ fn create_isa_from_spec(spec: &ModuleSpec) -> Result<OwnedTargetIsa, GlslError> 
 // Compile GLSL source into a GlModule
 pub fn compile_glsl_to_module<M: Module>(
     source: &str,
-    spec: ModuleSpec,
+    target: TargetSpec,
 ) -> Result<GlModule<M>, GlslError> {
     // 1. Parse and analyze GLSL
-    // 2. Create Module from spec
+    // 2. Create Module from target spec
     // 3. Build functions directly in Module (no temp Module needed!)
     // 4. Return GlModule
 }
@@ -116,7 +145,7 @@ pub fn transform_fixed32<M: Module>(
     module: &GlModule<M>,
     format: FixedPointFormat,
 ) -> Result<GlModule<M>, GlslError> {
-    // 1. Create new GlModule with same spec
+    // 1. Create new GlModule with same target spec
     // 2. Rebuild functions with type conversion
     // 3. This rebuild is unavoidable (type changes)
     // 4. But FuncRefs are already correct (same Module type)
@@ -134,7 +163,7 @@ pub fn transform_fixed32<M: Module>(
 ### Trade-offs
 
 1. **Less flexibility**: Can't compile once and use multiple backends (probably fine for GLSL)
-2. **ModuleSpec upfront**: Caller must know target upfront (usually true anyway)
+2. **TargetSpec upfront**: Caller must know target upfront (usually true anyway)
 3. **Transform still rebuilds**: Fixed32 transform still needs to rebuild functions (necessary due to type changes)
 
 ### Implementation Notes
@@ -146,10 +175,11 @@ pub fn transform_fixed32<M: Module>(
 
 ### Migration Path
 
-1. Implement `ModuleSpec` and `create_module_builder`
-2. Implement `GlModule` structure
+1. Implement `TargetSpec` and `create_module_builder` in `target/`
+2. Implement `GlModule` structure in `module/`
 3. Implement `compile_glsl_to_module` (replaces `compile_to_clif_module`)
-4. Implement `transform_fixed32` for GlModule (replaces current transform)
-5. Update callers to use new API
-6. Remove old `ClifModule` + linking code
+4. Implement `transform_fixed32` for GlModule in `transform/` (replaces current transform)
+5. Implement codegen functions in `codegen/` (build executables from GlModule)
+6. Update callers to use new API
+7. Remove old `ClifModule` + linking code
 

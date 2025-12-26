@@ -3,14 +3,18 @@
 //! Tests that verify the fixed32 transform produces EXACTLY the same CLIF output
 //! for i32-only functions, including block order and value aliases.
 
-use cranelift_reader::parse_functions;
-use lp_glsl::{ClifModule, FixedPointFormat, transform_module, error::{ErrorCode, GlslError}};
+use cranelift_codegen::data_value::DataValue;
 use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_codegen::settings::{self, Configurable};
-use cranelift_interpreter::interpreter::{Interpreter, InterpreterState};
 use cranelift_interpreter::environment::FunctionStore;
+use cranelift_interpreter::interpreter::{Interpreter, InterpreterState};
 use cranelift_interpreter::step::ControlFlow;
-use cranelift_codegen::data_value::DataValue;
+use cranelift_reader::parse_functions;
+use lp_glsl::{
+    ClifModule, FixedPointFormat,
+    error::{ErrorCode, GlslError},
+    transform_module,
+};
 
 #[cfg(not(feature = "std"))]
 use alloc::collections::HashMap;
@@ -20,16 +24,21 @@ use std::collections::HashMap;
 #[cfg(feature = "std")]
 fn create_test_isa() -> Result<OwnedTargetIsa, GlslError> {
     use cranelift_native;
-    
+
     let mut flag_builder = settings::builder();
-    flag_builder.set("opt_level", "none").map_err(|e| {
-        GlslError::new(ErrorCode::E0400, format!("failed to set opt_level: {}", e))
-    })?;
+    flag_builder
+        .set("opt_level", "none")
+        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("failed to set opt_level: {}", e)))?;
     let flags = settings::Flags::new(flag_builder);
-    
+
     // Use host ISA - this works for transform tests since we're not actually compiling
     cranelift_native::builder()
-        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("failed to create native builder: {}", e)))?
+        .map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("failed to create native builder: {}", e),
+            )
+        })?
         .finish(flags)
         .map_err(|e| {
             GlslError::new(
@@ -78,11 +87,10 @@ fn parse_and_transform(clif_input: &str) -> (String, String, String) {
     // Print the actual given CLIF input
     eprintln!("\n=== CLIF IR (INPUT) ===");
     eprintln!("{}", clif_input);
-    
+
     // Parse the CLIF IR
-    let functions = parse_functions(clif_input)
-        .expect("Failed to parse CLIF IR");
-    
+    let functions = parse_functions(clif_input).expect("Failed to parse CLIF IR");
+
     assert_eq!(functions.len(), 1, "Expected exactly one function");
     let original_func = functions.into_iter().next().unwrap();
     let original_func_clone = original_func.clone();
@@ -91,7 +99,7 @@ fn parse_and_transform(clif_input: &str) -> (String, String, String) {
     use cranelift_codegen::write_function;
     let mut parsed_buf = String::new();
     write_function(&mut parsed_buf, &original_func_clone).unwrap();
-    
+
     // Print the parsed CLIF pre-transform
     eprintln!("\n=== CLIF IR (BEFORE transformation) ===");
     eprintln!("{}", parsed_buf);
@@ -99,10 +107,11 @@ fn parse_and_transform(clif_input: &str) -> (String, String, String) {
     // Create a minimal ClifModule with the parsed function
     let isa = create_test_isa().expect("Failed to create ISA");
     let module = ClifModule::builder()
-        .set_function_registry(lp_glsl::frontend::semantic::functions::FunctionRegistry::new())
+        .set_function_registry(lp_glsl::semantic::functions::FunctionRegistry::new())
         .set_source_text(String::from("test"))
         .set_isa(isa.clone())
         .set_main_function(original_func)
+        .set_source_map(lp_glsl::frontend::src_loc::GlSourceMap::default())
         .build()
         .expect("Failed to create ClifModule");
 
@@ -116,7 +125,7 @@ fn parse_and_transform(clif_input: &str) -> (String, String, String) {
     // Format the transformed function (before linking)
     let mut transformed_buf = String::new();
     write_function(&mut transformed_buf, transformed_func).unwrap();
-    
+
     // Print the CLIF post-transform (before linking)
     eprintln!("\n=== CLIF IR (AFTER transformation, BEFORE linking) ===");
     eprintln!("{}", transformed_buf);
@@ -125,11 +134,12 @@ fn parse_and_transform(clif_input: &str) -> (String, String, String) {
     // Use build_object_module which calls link_into internally
     #[cfg(feature = "emulator")]
     let linked_buf = {
-        let (_elf_bytes, linked_clif, _traps) = transformed_module.build_object_module()
+        let (_elf_bytes, linked_clif, _traps) = transformed_module
+            .build_object_module()
             .expect("Failed to build object module");
         linked_clif
     };
-    
+
     #[cfg(not(feature = "emulator"))]
     let linked_buf = {
         // If emulator feature is not available, we can't link
@@ -138,7 +148,7 @@ fn parse_and_transform(clif_input: &str) -> (String, String, String) {
         eprintln!("Using transformed output as linked output (linking issues won't be visible)");
         transformed_buf.clone()
     };
-    
+
     // Print the CLIF post-linking
     eprintln!("\n=== CLIF IR (AFTER linking) ===");
     eprintln!("{}", linked_buf);
@@ -158,7 +168,9 @@ fn extract_function_names(clif: &str) -> Vec<String> {
                 // Format: "function %name(...)" or "function u0:0(...)"
                 let after_function = trimmed.strip_prefix("function ")?;
                 // Find the opening parenthesis or space before signature
-                let name_end = after_function.find('(').or_else(|| after_function.find(' '))?;
+                let name_end = after_function
+                    .find('(')
+                    .or_else(|| after_function.find(' '))?;
                 Some(after_function[..name_end].trim().to_string())
             } else {
                 None
@@ -172,7 +184,7 @@ fn extract_function_names(clif: &str) -> Vec<String> {
 /// Example: {"block1" => ["v2: i32", "v3: i32"]}
 fn extract_block_params(clif: &str) -> HashMap<String, Vec<String>> {
     let mut result = HashMap::new();
-    
+
     for line in clif.lines() {
         let trimmed = line.trim();
         // Look for block definitions: "block0:" or "block1(v2: i32, v3: i32):"
@@ -198,8 +210,9 @@ fn extract_block_params(clif: &str) -> HashMap<String, Vec<String>> {
             } else {
                 // No parameters - just split at first colon
                 trimmed.split(':').next().unwrap_or("")
-            }.trim();
-            
+            }
+            .trim();
+
             // Check if there are parameters in parentheses
             if let Some(params_start) = block_part.find('(') {
                 let block_name = block_part[..params_start].trim().to_string();
@@ -226,7 +239,7 @@ fn extract_block_params(clif: &str) -> HashMap<String, Vec<String>> {
             }
         }
     }
-    
+
     result
 }
 
@@ -281,9 +294,8 @@ block0(v1: i32):
 "#;
 
     // Parse the CLIF IR
-    let functions = parse_functions(clif_input)
-        .expect("Failed to parse CLIF IR");
-    
+    let functions = parse_functions(clif_input).expect("Failed to parse CLIF IR");
+
     assert_eq!(functions.len(), 1, "Expected exactly one function");
     let original_func = functions.into_iter().next().unwrap();
     let original_func_clone = original_func.clone();
@@ -291,10 +303,11 @@ block0(v1: i32):
     // Create a minimal ClifModule with the parsed function
     let isa = create_test_isa().expect("Failed to create ISA");
     let module = ClifModule::builder()
-        .set_function_registry(lp_glsl::frontend::semantic::functions::FunctionRegistry::new())
+        .set_function_registry(lp_glsl::semantic::functions::FunctionRegistry::new())
         .set_source_text(String::from("test"))
         .set_isa(isa)
         .set_main_function(original_func)
+        .set_source_map(lp_glsl::frontend::src_loc::GlSourceMap::default())
         .build()
         .expect("Failed to create ClifModule");
 
@@ -309,7 +322,7 @@ block0(v1: i32):
     use cranelift_codegen::write_function;
     let mut before_buf = String::new();
     write_function(&mut before_buf, &original_func_clone).unwrap();
-    
+
     let mut after_buf = String::new();
     write_function(&mut after_buf, transformed_func).unwrap();
 
@@ -331,10 +344,10 @@ block0(v1: i32):
             })
             .collect()
     }
-    
+
     let before_blocks = extract_block_order(&normalized_before);
     let after_blocks = extract_block_order(&normalized_after);
-    
+
     // Verify block order matches exactly
     assert_eq!(
         before_blocks, after_blocks,
@@ -365,9 +378,8 @@ block0:
 "#;
 
     // Parse the CLIF IR
-    let functions = parse_functions(clif_input)
-        .expect("Failed to parse CLIF IR");
-    
+    let functions = parse_functions(clif_input).expect("Failed to parse CLIF IR");
+
     assert_eq!(functions.len(), 1, "Expected exactly one function");
     let original_func = functions.into_iter().next().unwrap();
     let original_func_clone = original_func.clone();
@@ -375,10 +387,11 @@ block0:
     // Create a minimal ClifModule with the parsed function
     let isa = create_test_isa().expect("Failed to create ISA");
     let module = ClifModule::builder()
-        .set_function_registry(lp_glsl::frontend::semantic::functions::FunctionRegistry::new())
+        .set_function_registry(lp_glsl::semantic::functions::FunctionRegistry::new())
         .set_source_text(String::from("test"))
         .set_isa(isa)
         .set_main_function(original_func)
+        .set_source_map(lp_glsl::frontend::src_loc::GlSourceMap::default())
         .build()
         .expect("Failed to create ClifModule");
 
@@ -393,14 +406,14 @@ block0:
     use cranelift_codegen::write_function;
     let mut before_buf = String::new();
     write_function(&mut before_buf, &original_func_clone).unwrap();
-    
+
     let mut after_buf = String::new();
     write_function(&mut after_buf, transformed_func).unwrap();
 
     // Check that value aliases are present in both
     let before_has_aliases = before_buf.contains("->");
     let after_has_aliases = after_buf.contains("->");
-    
+
     assert_eq!(
         before_has_aliases, after_has_aliases,
         "Value aliases not preserved!\n\
@@ -410,28 +423,32 @@ block0:
          AFTER:\n{}",
         before_has_aliases, after_has_aliases, before_buf, after_buf
     );
-    
+
     if before_has_aliases {
         // Extract alias lines (only lines that look like value aliases, e.g., "v0 -> v1")
-        let before_aliases: Vec<_> = before_buf.lines()
+        let before_aliases: Vec<_> = before_buf
+            .lines()
             .filter(|l| {
                 let trimmed = l.trim();
                 trimmed.starts_with('v') && trimmed.contains("->")
             })
             .collect();
-        let after_aliases: Vec<_> = after_buf.lines()
+        let after_aliases: Vec<_> = after_buf
+            .lines()
             .filter(|l| {
                 let trimmed = l.trim();
                 trimmed.starts_with('v') && trimmed.contains("->")
             })
             .collect();
-        
+
         assert_eq!(
-            before_aliases.len(), after_aliases.len(),
+            before_aliases.len(),
+            after_aliases.len(),
             "Number of aliases changed!\n\
              BEFORE aliases: {:?}\n\
              AFTER aliases: {:?}",
-            before_aliases, after_aliases
+            before_aliases,
+            after_aliases
         );
     }
 }
@@ -453,19 +470,19 @@ block0:
 "#;
 
     // Parse the CLIF IR
-    let functions = parse_functions(clif_input)
-        .expect("Failed to parse CLIF IR");
-    
+    let functions = parse_functions(clif_input).expect("Failed to parse CLIF IR");
+
     assert_eq!(functions.len(), 1, "Expected exactly one function");
     let original_func = functions.into_iter().next().unwrap();
 
     // Create a minimal ClifModule with the parsed function
     let isa = create_test_isa().expect("Failed to create ISA");
     let module = ClifModule::builder()
-        .set_function_registry(lp_glsl::frontend::semantic::functions::FunctionRegistry::new())
+        .set_function_registry(lp_glsl::semantic::functions::FunctionRegistry::new())
         .set_source_text(String::from("test"))
         .set_isa(isa)
         .set_main_function(original_func.clone())
+        .set_source_map(lp_glsl::frontend::src_loc::GlSourceMap::default())
         .build()
         .expect("Failed to create ClifModule");
 
@@ -478,10 +495,10 @@ block0:
     use cranelift_codegen::write_function;
     let mut before_buf = String::new();
     write_function(&mut before_buf, &original_func).unwrap();
-    
+
     let mut after_buf = String::new();
     write_function(&mut after_buf, transformed_func).unwrap();
-    
+
     eprintln!("\n=== BEFORE TRANSFORM (with alias) ===");
     eprintln!("{}", before_buf);
     eprintln!("\n=== AFTER TRANSFORM (alias may be missing) ===");
@@ -493,11 +510,11 @@ block0:
     original_store.add("test_alias_runtime".to_string(), &original_func);
     let original_state = InterpreterState::default().with_function_store(original_store);
     let mut original_interpreter = Interpreter::new(original_state);
-    
+
     let original_result = original_interpreter
         .call_by_name("test_alias_runtime", &[])
         .expect("Failed to execute original function");
-    
+
     let original_return_value = match original_result {
         ControlFlow::Return(values) => {
             assert_eq!(values.len(), 1, "Expected one return value");
@@ -516,11 +533,11 @@ block0:
     transformed_store.add("test_alias_runtime".to_string(), transformed_func);
     let transformed_state = InterpreterState::default().with_function_store(transformed_store);
     let mut transformed_interpreter = Interpreter::new(transformed_state);
-    
+
     let transformed_result = transformed_interpreter
         .call_by_name("test_alias_runtime", &[])
         .expect("Failed to execute transformed function");
-    
+
     let transformed_return_value = match transformed_result {
         ControlFlow::Return(values) => {
             assert_eq!(values.len(), 1, "Expected one return value");
@@ -572,19 +589,19 @@ block0:
 "#;
 
     // Parse the CLIF IR
-    let functions = parse_functions(clif_input)
-        .expect("Failed to parse CLIF IR");
-    
+    let functions = parse_functions(clif_input).expect("Failed to parse CLIF IR");
+
     assert_eq!(functions.len(), 1, "Expected exactly one function");
     let original_func = functions.into_iter().next().unwrap();
 
     // Create a minimal ClifModule with the parsed function
     let isa = create_test_isa().expect("Failed to create ISA");
     let module = ClifModule::builder()
-        .set_function_registry(lp_glsl::frontend::semantic::functions::FunctionRegistry::new())
+        .set_function_registry(lp_glsl::semantic::functions::FunctionRegistry::new())
         .set_source_text(String::from("test"))
         .set_isa(isa)
         .set_main_function(original_func.clone())
+        .set_source_map(lp_glsl::frontend::src_loc::GlSourceMap::default())
         .build()
         .expect("Failed to create ClifModule");
 
@@ -597,10 +614,10 @@ block0:
     use cranelift_codegen::write_function;
     let mut before_buf = String::new();
     write_function(&mut before_buf, &original_func).unwrap();
-    
+
     let mut after_buf = String::new();
     write_function(&mut after_buf, transformed_func).unwrap();
-    
+
     eprintln!("\n=== BEFORE TRANSFORM (with alias in arithmetic) ===");
     eprintln!("{}", before_buf);
     eprintln!("\n=== AFTER TRANSFORM (alias may be missing) ===");
@@ -612,11 +629,11 @@ block0:
     original_store.add("test_alias_arithmetic".to_string(), &original_func);
     let original_state = InterpreterState::default().with_function_store(original_store);
     let mut original_interpreter = Interpreter::new(original_state);
-    
+
     let original_result = original_interpreter
         .call_by_name("test_alias_arithmetic", &[])
         .expect("Failed to execute original function");
-    
+
     let original_return_value = match original_result {
         ControlFlow::Return(values) => {
             assert_eq!(values.len(), 1, "Expected one return value");
@@ -635,11 +652,11 @@ block0:
     transformed_store.add("test_alias_arithmetic".to_string(), transformed_func);
     let transformed_state = InterpreterState::default().with_function_store(transformed_store);
     let mut transformed_interpreter = Interpreter::new(transformed_state);
-    
+
     let transformed_result = transformed_interpreter
         .call_by_name("test_alias_arithmetic", &[])
         .expect("Failed to execute transformed function");
-    
+
     let transformed_return_value = match transformed_result {
         ControlFlow::Return(values) => {
             assert_eq!(values.len(), 1, "Expected one return value");
@@ -688,9 +705,8 @@ block1(v1: i32):
 "#;
 
     // Parse the CLIF IR
-    let functions = parse_functions(clif_input)
-        .expect("Failed to parse CLIF IR");
-    
+    let functions = parse_functions(clif_input).expect("Failed to parse CLIF IR");
+
     assert_eq!(functions.len(), 1, "Expected exactly one function");
     let original_func = functions.into_iter().next().unwrap();
     let original_func_clone = original_func.clone();
@@ -698,10 +714,11 @@ block1(v1: i32):
     // Create a minimal ClifModule with the parsed function
     let isa = create_test_isa().expect("Failed to create ISA");
     let module = ClifModule::builder()
-        .set_function_registry(lp_glsl::frontend::semantic::functions::FunctionRegistry::new())
+        .set_function_registry(lp_glsl::semantic::functions::FunctionRegistry::new())
         .set_source_text(String::from("test"))
         .set_isa(isa)
         .set_main_function(original_func)
+        .set_source_map(lp_glsl::frontend::src_loc::GlSourceMap::default())
         .build()
         .expect("Failed to create ClifModule");
 
@@ -716,7 +733,7 @@ block1(v1: i32):
     use cranelift_codegen::write_function;
     let mut before_buf = String::new();
     write_function(&mut before_buf, &original_func_clone).unwrap();
-    
+
     let mut after_buf = String::new();
     write_function(&mut after_buf, transformed_func).unwrap();
 
@@ -749,9 +766,8 @@ block0:
 "#;
 
     // Parse the CLIF IR
-    let functions = parse_functions(clif_input)
-        .expect("Failed to parse CLIF IR");
-    
+    let functions = parse_functions(clif_input).expect("Failed to parse CLIF IR");
+
     assert_eq!(functions.len(), 1, "Expected exactly one function");
     let original_func = functions.into_iter().next().unwrap();
     let original_func_clone = original_func.clone();
@@ -759,10 +775,11 @@ block0:
     // Create a minimal ClifModule with the parsed function
     let isa = create_test_isa().expect("Failed to create ISA");
     let module = ClifModule::builder()
-        .set_function_registry(lp_glsl::frontend::semantic::functions::FunctionRegistry::new())
+        .set_function_registry(lp_glsl::semantic::functions::FunctionRegistry::new())
         .set_source_text(String::from("test"))
         .set_isa(isa)
         .set_main_function(original_func)
+        .set_source_map(lp_glsl::frontend::src_loc::GlSourceMap::default())
         .build()
         .expect("Failed to create ClifModule");
 
@@ -777,7 +794,7 @@ block0:
     use cranelift_codegen::write_function;
     let mut before_buf = String::new();
     write_function(&mut before_buf, &original_func_clone).unwrap();
-    
+
     let mut after_buf = String::new();
     write_function(&mut after_buf, transformed_func).unwrap();
 
@@ -839,11 +856,11 @@ block3:
 "#;
 
     let (parsed_buf, transformed_buf, linked_buf) = parse_and_transform(clif_input);
-    
+
     let parsed_names = extract_function_names(&parsed_buf);
     let transformed_names = extract_function_names(&transformed_buf);
     let linked_names = extract_function_names(&linked_buf);
-    
+
     // Check parsed vs transformed (should match - transform shouldn't change names)
     assert_eq!(
         parsed_names, transformed_names,
@@ -854,7 +871,7 @@ block3:
          TRANSFORMED:\n{}",
         parsed_names, transformed_names, parsed_buf, transformed_buf
     );
-    
+
     // Check parsed vs linked (this is where names might be lost - during linking)
     assert_eq!(
         parsed_names, linked_names,
@@ -865,23 +882,27 @@ block3:
          LINKED:\n{}",
         parsed_names, linked_names, parsed_buf, linked_buf
     );
-    
+
     // Also verify the specific name is preserved (not converted to u0:0)
     assert!(
-        linked_names.iter().any(|n| n == "%test_continue_do_while_loop_after_first"),
+        linked_names
+            .iter()
+            .any(|n| n == "%test_continue_do_while_loop_after_first"),
         "Function name '%test_continue_do_while_loop_after_first' not found in linked output!\n\
          Got names: {:?}\n\n\
          LINKED:\n{}",
-        linked_names, linked_buf
+        linked_names,
+        linked_buf
     );
-    
+
     // Verify it's NOT a numeric ID like u0:0
     assert!(
         !linked_names.iter().any(|n| n.starts_with("u0:")),
         "Function name was converted to numeric ID instead of being preserved!\n\
          Got names: {:?}\n\n\
          LINKED:\n{}",
-        linked_names, linked_buf
+        linked_names,
+        linked_buf
     );
 }
 
@@ -929,11 +950,11 @@ block3:
 "#;
 
     let (parsed_buf, transformed_buf, linked_buf) = parse_and_transform(clif_input);
-    
+
     let parsed_params = extract_block_params(&parsed_buf);
     let transformed_params = extract_block_params(&transformed_buf);
     let linked_params = extract_block_params(&linked_buf);
-    
+
     // Check parsed vs transformed - parameter counts should match (value numbers may differ)
     for (block_name, parsed_block_params) in &parsed_params {
         let transformed_block_params = transformed_params.get(block_name);
@@ -946,12 +967,14 @@ block3:
              Transformed param count: {}\n\n\
              PARSED:\n{}\n\n\
              TRANSFORMED:\n{}",
-            block_name, parsed_block_params.len(),
+            block_name,
+            parsed_block_params.len(),
             transformed_block_params.map(|p| p.len()).unwrap_or(0),
-            parsed_buf, transformed_buf
+            parsed_buf,
+            transformed_buf
         );
     }
-    
+
     // Check parsed vs linked - parameter counts should match exactly (this is where block params might be lost)
     for (block_name, parsed_block_params) in &parsed_params {
         let linked_block_params = linked_params.get(block_name);
@@ -966,13 +989,16 @@ block3:
              Linked params: {:?}\n\n\
              PARSED:\n{}\n\n\
              LINKED:\n{}",
-            block_name, parsed_block_params.len(),
+            block_name,
+            parsed_block_params.len(),
             linked_block_params.map(|p| p.len()).unwrap_or(0),
-            parsed_params, linked_params,
-            parsed_buf, linked_buf
+            parsed_params,
+            linked_params,
+            parsed_buf,
+            linked_buf
         );
     }
-    
+
     // Specifically verify block1 has the expected parameters (v2: i32, v3: i32)
     if let Some(parsed_block1_params) = parsed_params.get("block1") {
         if let Some(linked_block1_params) = linked_params.get("block1") {
@@ -993,7 +1019,7 @@ block3:
             );
         }
     }
-    
+
     // Also verify block2 and block5 have their parameters
     for block_name in &["block2", "block5"] {
         if let Some(parsed_block_params) = parsed_params.get(*block_name) {
@@ -1036,11 +1062,11 @@ block0:
 "#;
 
     let (parsed_buf, transformed_buf, linked_buf) = parse_and_transform(clif_input);
-    
+
     let parsed_slots = extract_stack_slots(&parsed_buf);
     let transformed_slots = extract_stack_slots(&transformed_buf);
     let linked_slots = extract_stack_slots(&linked_buf);
-    
+
     // Check parsed vs transformed (should match - transform shouldn't change stack slots)
     assert_eq!(
         parsed_slots, transformed_slots,
@@ -1051,7 +1077,7 @@ block0:
          TRANSFORMED:\n{}",
         parsed_slots, transformed_slots, parsed_buf, transformed_buf
     );
-    
+
     // Check parsed vs linked (this is where stack slots might be lost - during linking)
     assert_eq!(
         parsed_slots, linked_slots,
@@ -1062,7 +1088,7 @@ block0:
          LINKED:\n{}",
         parsed_slots, linked_slots, parsed_buf, linked_buf
     );
-    
+
     // If the original has stack slots, verify they're present in the linked output
     if !parsed_slots.is_empty() {
         assert!(
@@ -1070,16 +1096,20 @@ block0:
             "Stack slots were present in parsed but missing in linked output!\n\
              Parsed slots: {:?}\n\n\
              LINKED:\n{}",
-            parsed_slots, linked_buf
+            parsed_slots,
+            linked_buf
         );
-        
+
         // Verify the specific stack slot declaration is preserved
         assert!(
-            linked_slots.iter().any(|s| s.contains("ss0") && s.contains("explicit_slot")),
+            linked_slots
+                .iter()
+                .any(|s| s.contains("ss0") && s.contains("explicit_slot")),
             "Stack slot 'ss0 = explicit_slot 64, align = 4' not found in linked output!\n\
              Got slots: {:?}\n\n\
              LINKED:\n{}",
-            linked_slots, linked_buf
+            linked_slots,
+            linked_buf
         );
     }
 }
@@ -1109,23 +1139,26 @@ block0:
 "#;
 
     // Parse multiple functions
-    let functions = parse_functions(clif_input)
-        .expect("Failed to parse CLIF IR");
-    
+    let functions = parse_functions(clif_input).expect("Failed to parse CLIF IR");
+
     assert!(functions.len() >= 2, "Expected at least two functions");
-    
+
     // Create a module with the first function as a user function, and main as main
     let mut func_iter = functions.into_iter();
     let test_func = func_iter.next().unwrap();
     let main_func = func_iter.next().unwrap();
-    
+
     let isa = create_test_isa().expect("Failed to create ISA");
     let module = ClifModule::builder()
-        .set_function_registry(lp_glsl::frontend::semantic::functions::FunctionRegistry::new())
+        .set_function_registry(lp_glsl::semantic::functions::FunctionRegistry::new())
         .set_source_text(String::from("test"))
         .set_isa(isa)
-        .add_user_function("test_continue_do_while_loop_after_first".to_string(), test_func.clone())
+        .add_user_function(
+            "test_continue_do_while_loop_after_first".to_string(),
+            test_func.clone(),
+        )
         .set_main_function(main_func.clone())
+        .set_source_map(lp_glsl::frontend::src_loc::GlSourceMap::default())
         .build()
         .expect("Failed to create ClifModule");
 
@@ -1145,10 +1178,10 @@ block0:
         write_function(&mut after_buf, func).unwrap();
     }
     write_function(&mut after_buf, transformed_module.main_function()).unwrap();
-    
+
     let before_sigs = extract_function_signatures(&before_buf);
     let after_sigs = extract_function_signatures(&after_buf);
-    
+
     // Check that we don't have duplicate signatures
     // The issue from the terminal output shows sig0 and sig1 both pointing to the same function
     let mut sig_counts: HashMap<&str, usize> = HashMap::new();
@@ -1159,7 +1192,7 @@ block0:
             *sig_counts.entry(sig_part).or_insert(0) += 1;
         }
     }
-    
+
     // Verify no duplicates - each unique signature should appear only once
     for (sig, count) in &sig_counts {
         assert_eq!(
@@ -1171,7 +1204,7 @@ block0:
             sig, count, after_sigs, after_buf
         );
     }
-    
+
     // Verify we don't have more signatures than expected
     // The original has 1 signature (sig0), so transformed should have at most 1-2
     // If we have more, it indicates duplication
@@ -1182,7 +1215,10 @@ block0:
          Before signatures: {:?}\n\
          After signatures: {:?}\n\n\
          AFTER:\n{}",
-        before_sigs.len() + 1, after_sigs.len(), before_sigs, after_sigs, after_buf
+        before_sigs.len() + 1,
+        after_sigs.len(),
+        before_sigs,
+        after_sigs,
+        after_buf
     );
 }
-

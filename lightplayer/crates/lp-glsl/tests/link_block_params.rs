@@ -176,10 +176,11 @@ block3:
     // Create a ClifModule with this function
     let isa = create_test_isa().expect("Failed to create ISA");
     let module = ClifModule::builder()
-        .set_function_registry(lp_glsl::frontend::semantic::functions::FunctionRegistry::new())
+        .set_function_registry(lp_glsl::semantic::functions::FunctionRegistry::new())
         .set_source_text(String::from("test"))
         .set_isa(isa)
         .set_main_function(old_func.clone())
+        .set_source_map(lp_glsl::frontend::src_loc::GlSourceMap::default())
         .build()
         .expect("Failed to create ClifModule");
 
