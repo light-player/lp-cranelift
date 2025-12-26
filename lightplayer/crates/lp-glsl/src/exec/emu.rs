@@ -269,9 +269,9 @@ impl GlslEmulatorModule {
             // Found exact match
             let filename = self.source_file_path.as_ref().cloned();
             let trap_location = if let Some(ref file_path) = filename {
-                crate::src_loc::SourceLocation::with_file(trap_line, trap_column, file_path.clone())
+                crate::frontend::src_loc::SourceLocation::with_file(trap_line, trap_column, file_path.clone())
             } else {
-                crate::src_loc::SourceLocation::new(trap_line, trap_column)
+                crate::frontend::src_loc::SourceLocation::new(trap_line, trap_column)
             };
             found_location = Some(trap_location);
 
@@ -293,13 +293,13 @@ impl GlslEmulatorModule {
                     {
                         let filename = self.source_file_path.as_ref().cloned();
                         let trap_location = if let Some(ref file_path) = filename {
-                            crate::src_loc::SourceLocation::with_file(
+                            crate::frontend::src_loc::SourceLocation::with_file(
                                 trap_line,
                                 trap_column,
                                 file_path.clone(),
                             )
                         } else {
-                            crate::src_loc::SourceLocation::new(trap_line, trap_column)
+                            crate::frontend::src_loc::SourceLocation::new(trap_line, trap_column)
                         };
                         found_location = Some(trap_location);
 
@@ -527,7 +527,7 @@ impl GlslEmulatorModule {
     fn find_function_source_location(
         &self,
         func_name: &str,
-    ) -> Option<crate::src_loc::SourceLocation> {
+    ) -> Option<crate::frontend::src_loc::SourceLocation> {
         let source_text = self.source_text.as_ref()?;
 
         // Search for function definition: "type func_name(" or "func_name("
@@ -542,7 +542,7 @@ impl GlslEmulatorModule {
         for (line_idx, line) in source_text.lines().enumerate() {
             if line.contains(&pattern) {
                 // Found the function - return 1-indexed line number
-                return Some(crate::src_loc::SourceLocation::with_file(
+                return Some(crate::frontend::src_loc::SourceLocation::with_file(
                     line_idx + 1,
                     1,
                     self.source_file_path.as_ref()?.clone(),

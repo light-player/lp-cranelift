@@ -310,7 +310,7 @@ pub fn source_span_to_location(span: &glsl::syntax::SourceSpan) -> SourceLocatio
 
 // Re-export SourceSpan for convenience
 pub use glsl::syntax::SourceSpan;
-use crate::src_loc::SourceLocation;
+use crate::frontend::src_loc::SourceLocation;
 
 /// Extract span from an expression
 pub fn extract_span_from_expr(expr: &glsl::syntax::Expr) -> glsl::syntax::SourceSpan {

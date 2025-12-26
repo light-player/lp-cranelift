@@ -10,6 +10,7 @@ pub mod codegen;
 #[cfg(feature = "intrinsic-math")]
 pub mod intrinsics;
 pub mod semantic;
+pub mod src_loc;
 
 // Re-exports used by crate root; suppress unused warnings within this module.
 #[allow(unused_imports)]
