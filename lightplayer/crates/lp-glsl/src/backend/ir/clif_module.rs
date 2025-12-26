@@ -1,6 +1,6 @@
 //! Immutable CLIF module representation holding all functions before linking/compilation.
 
-use crate::frontend::codegen::sourceloc::SourceLocManager;
+use crate::frontend::src_loc_manager::SourceLocManager;
 use crate::backend::link::rebuild_function_for_module;
 use crate::error::{ErrorCode, GlslError};
 use crate::frontend::semantic::functions::FunctionRegistry;

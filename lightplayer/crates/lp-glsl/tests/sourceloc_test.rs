@@ -1,7 +1,7 @@
 //! Unit tests for SourceLoc mapping functionality.
 
 use cranelift_codegen::isa::OwnedTargetIsa;
-use lp_glsl::codegen::sourceloc::SourceLocManager;
+use lp_glsl::frontend::src_loc_manager::SourceLocManager;
 use lp_glsl::{GlslCompiler, GlslError, GlslOptions, RunMode};
 #[cfg(feature = "emulator")]
 use lp_glsl::glsl_emu_riscv32_with_metadata;

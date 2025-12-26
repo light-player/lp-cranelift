@@ -49,7 +49,7 @@ impl GlslCompiler {
         let typed_ast = semantic_result.typed_ast;
 
         // 2. Create a shared source location manager for all functions
-        use crate::frontend::codegen::sourceloc::SourceLocManager;
+        use crate::frontend::src_loc_manager::SourceLocManager;
         let mut source_loc_manager = SourceLocManager::new();
 
         // 3. Create a temporary minimal module for function declarations
@@ -197,7 +197,7 @@ impl GlslCompiler {
         func_registry: &crate::frontend::semantic::functions::FunctionRegistry,
         temp_module: &mut dyn Module,
         isa: &dyn cranelift_codegen::isa::TargetIsa,
-        source_loc_manager: &mut crate::frontend::codegen::sourceloc::SourceLocManager,
+        source_loc_manager: &mut crate::frontend::src_loc_manager::SourceLocManager,
     ) -> Result<Function, GlslError> {
         use crate::frontend::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};
@@ -362,7 +362,7 @@ impl GlslCompiler {
         temp_module: &mut dyn Module,
         isa: &dyn cranelift_codegen::isa::TargetIsa,
         source_text: &str,
-        source_loc_manager: &mut crate::frontend::codegen::sourceloc::SourceLocManager,
+        source_loc_manager: &mut crate::frontend::src_loc_manager::SourceLocManager,
     ) -> Result<Function, GlslError> {
         use crate::frontend::codegen::signature::SignatureBuilder;
         use crate::error::{ErrorCode, GlslError};

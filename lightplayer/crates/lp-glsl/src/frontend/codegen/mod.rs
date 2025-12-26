@@ -8,5 +8,4 @@ pub mod helpers;
 pub mod lvalue;
 pub mod rvalue;
 pub mod signature;
-pub mod sourceloc;
 pub mod stmt;

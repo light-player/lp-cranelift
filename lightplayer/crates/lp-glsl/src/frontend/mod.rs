@@ -11,6 +11,7 @@ pub mod codegen;
 pub mod intrinsics;
 pub mod semantic;
 pub mod src_loc;
+pub mod src_loc_manager;
 
 // Re-exports used by crate root; suppress unused warnings within this module.
 #[allow(unused_imports)]

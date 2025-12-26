@@ -3,7 +3,7 @@ use cranelift_frontend::{FunctionBuilder, Variable};
 use cranelift_module::{FuncId, Module};
 use hashbrown::HashMap;
 
-use crate::frontend::codegen::sourceloc::SourceLocManager;
+use crate::frontend::src_loc_manager::SourceLocManager;
 use crate::error::{ErrorCode, GlslError};
 use crate::semantic::functions::FunctionRegistry;
 use crate::semantic::types::Type as GlslType;

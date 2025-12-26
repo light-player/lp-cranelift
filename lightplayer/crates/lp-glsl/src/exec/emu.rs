@@ -46,7 +46,7 @@ pub struct GlslEmulatorModule {
     // Store source file path for error reporting
     pub(crate) source_file_path: Option<String>,
     // Source location manager for mapping SourceLoc to GLSL source positions
-    pub(crate) source_loc_manager: crate::frontend::codegen::sourceloc::SourceLocManager,
+    pub(crate) source_loc_manager: crate::frontend::src_loc_manager::SourceLocManager,
     // Track next buffer allocation address (allocated from start of RAM, growing upward)
     #[allow(dead_code)] // Reserved for future use when manual buffer allocation is needed
     pub(crate) next_buffer_addr: u32,
