@@ -44,7 +44,7 @@ pub fn build_emu_executable(
     use lp_riscv_tools::elf_loader::{find_symbol_address, load_elf};
     use lp_riscv_tools::emu::LogLevel;
     use lp_riscv_tools::emu::emulator::Riscv32Emulator;
-    use object::{Object, ObjectSection};
+    use object::{Object, ObjectSection, ObjectSymbol};
 
     // 1. Define all functions (compile them)
     // Collect function data first to avoid borrowing conflicts
@@ -63,6 +63,14 @@ pub fn build_emu_executable(
     let mut all_vcode_parts: Vec<String> = Vec::new();
     #[cfg(feature = "std")]
     let mut all_disasm_parts: Vec<String> = Vec::new();
+
+    // Collect trap information: (function_name, trap_offset, trap_code, srcloc)
+    let mut trap_info: Vec<(
+        String,
+        u32,
+        cranelift_codegen::ir::TrapCode,
+        cranelift_codegen::ir::SourceLoc,
+    )> = Vec::new();
 
     for (name, func, func_id) in funcs {
         // Create context using immutable borrow
@@ -151,11 +159,20 @@ pub fn build_emu_executable(
             })?;
 
         // Capture V-Code and disassembly if available (only in std builds)
+        // Also collect trap information
         #[cfg(feature = "std")]
         {
             if let Some(compiled_code) = ctx.compiled_code() {
                 // Get VCode (intermediate representation)
                 let vcode = compiled_code.vcode.as_ref().map(|s| s.clone());
+
+                // Collect trap information from this function
+                // Traps are stored with offsets relative to the start of the function
+                for trap in compiled_code.buffer.traps() {
+                    // Get source location if available
+                    let srcloc = ctx.func.params.base_srcloc();
+                    trap_info.push((name.clone(), trap.offset, trap.code, srcloc));
+                }
 
                 // Try to generate actual RISC-V disassembly using Capstone first (preferred)
                 // This gives us real assembly instructions, not VCode pseudo-instructions
@@ -193,6 +210,16 @@ pub fn build_emu_executable(
                 // Store VCode separately (intermediate representation)
                 if let Some(ref vcode_str) = vcode {
                     all_vcode_parts.push(format!("// function {}:\n{}", name, vcode_str));
+                }
+            }
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            // Even without std, we need to collect trap information
+            if let Some(compiled_code) = ctx.compiled_code() {
+                for trap in compiled_code.buffer.traps() {
+                    let srcloc = ctx.func.params.base_srcloc();
+                    trap_info.push((name.clone(), trap.offset, trap.code, srcloc));
                 }
             }
         }
@@ -263,17 +290,53 @@ pub fn build_emu_executable(
         )
     })?;
 
-    // 5. Create emulator
-    let binary = load_info.code;
-    let mut emulator = Riscv32Emulator::new(binary.clone(), vec![0; options.max_memory])
-        .with_max_instructions(options.max_instructions)
-        .with_log_level(LogLevel::Instructions);
+    // 5. Collect trap information: convert function-relative offsets to absolute addresses
+    // Build a map of function names to their addresses in the binary (relative to text section base)
+    let mut func_addresses: HashMap<String, u32> = HashMap::new();
+    for symbol in obj.symbols() {
+        if let Ok(name) = symbol.name() {
+            if symbol.kind() == object::SymbolKind::Text {
+                let address = symbol.address();
+                if address >= text_section_base {
+                    // Address relative to text section base (matches find_symbol_address logic)
+                    let offset = (address - text_section_base) as u32;
+                    func_addresses.insert(String::from(name), offset);
+                }
+            }
+        }
+    }
 
-    // 6. Set up stack and PC
+    // Convert trap offsets to absolute addresses (relative to code buffer start, which is 0)
+    let mut traps: Vec<(u32, cranelift_codegen::ir::TrapCode)> = Vec::new();
+    let mut trap_source_info: Vec<(
+        u32,
+        cranelift_codegen::ir::TrapCode,
+        cranelift_codegen::ir::SourceLoc,
+        String,
+    )> = Vec::new();
+
+    for (func_name, trap_offset, trap_code, srcloc) in trap_info {
+        if let Some(&func_addr) = func_addresses.get(&func_name) {
+            // Trap offset is relative to function start, so add it to function address
+            // Both are offsets from the start of the code buffer (which starts at address 0)
+            let absolute_addr = func_addr + trap_offset;
+            traps.push((absolute_addr, trap_code));
+            trap_source_info.push((absolute_addr, trap_code, srcloc, func_name));
+        }
+    }
+
+    // 6. Create emulator with trap information
+    let binary = load_info.code;
+    let mut emulator =
+        Riscv32Emulator::with_traps(binary.clone(), vec![0; options.max_memory], &traps)
+            .with_max_instructions(options.max_instructions)
+            .with_log_level(LogLevel::Instructions);
+
+    // 7. Set up stack and PC
     emulator.set_register(Gpr::Sp, options.max_memory as i32);
     emulator.set_pc(0);
 
-    // 7. Create GlslEmulatorModule
+    // 8. Create GlslEmulatorModule
     // Preserve metadata from GlModule
     Ok(GlslEmulatorModule {
         emulator,
@@ -285,7 +348,7 @@ pub fn build_emu_executable(
         original_clif,
         vcode,
         disassembly,
-        trap_source_info: Vec::new(), // Phase 1: empty
+        trap_source_info,
         source_loc_manager,
         source_map,
         next_buffer_addr: 0x80000000, // Default RAM start

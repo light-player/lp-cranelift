@@ -72,7 +72,15 @@ pub fn trap_code_to_string(code: TrapCode) -> &'static str {
         TrapCode::HEAP_OUT_OF_BOUNDS => "heap out of bounds",
         TrapCode::INTEGER_DIVISION_BY_ZERO => "integer division by zero",
         TrapCode::BAD_CONVERSION_TO_INTEGER => "bad conversion to integer",
-        _ => "unknown trap",
+        _ => {
+            // Check for user-defined trap codes
+            let raw = code.as_raw().get();
+            if raw == 1 {
+                "vector/matrix index out of bounds"
+            } else {
+                "unknown trap"
+            }
+        }
     }
 }
 

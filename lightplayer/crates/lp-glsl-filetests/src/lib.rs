@@ -153,15 +153,12 @@ fn contains_glob_pattern(s: &str) -> bool {
     s.contains('*') || s.contains('?') || s.contains('[')
 }
 
-/// Expand glob patterns and return matching file paths
+/// Expand glob patterns and return matching paths (files or directories)
 fn expand_glob_patterns(pattern: &str, filetests_dir: &Path) -> Result<Vec<PathBuf>> {
-    let full_pattern = if pattern.contains('/') {
-        // Pattern contains path separators, use as-is (e.g., "math/*" -> "filetests/math/*")
-        filetests_dir.join(pattern)
-    } else {
-        // Pattern is just a filename pattern, search recursively (e.g., "*add*" -> "filetests/**/*.glsl" with name filtering)
-        filetests_dir.join("**").join("*.glsl")
-    };
+    // Build the glob pattern - append pattern to filetests_dir
+    // If pattern doesn't contain '/', it will match files/directories at the top level
+    // If pattern contains '/', it will match at that specific path level
+    let full_pattern = filetests_dir.join(pattern);
 
     // Convert to string for glob crate
     let pattern_str = full_pattern.to_string_lossy();
@@ -176,33 +173,16 @@ fn expand_glob_patterns(pattern: &str, filetests_dir: &Path) -> Result<Vec<PathB
     for entry in glob_with(&pattern_str, options)? {
         match entry {
             Ok(path) => {
-                // Only include .glsl files
-                if path.extension().and_then(|s| s.to_str()) == Some("glsl") {
-                    // For filename-only patterns, also check if the filename matches the pattern
-                    let should_include = if pattern.contains('/') {
-                        // Path pattern - already matched by glob
-                        true
-                    } else {
-                        // Filename pattern - check if filename matches the pattern
-                        path.file_name()
-                            .and_then(|n| n.to_str())
-                            .map(|name| {
-                                if contains_glob_pattern(pattern) {
-                                    // Has glob characters - do glob-style matching
-                                    // For now, simple substring match (could use regex for full glob support)
-                                    let pattern_no_stars = pattern.trim_matches('*');
-                                    name.contains(pattern_no_stars)
-                                } else {
-                                    // Exact filename match
-                                    name == pattern
-                                }
-                            })
-                            .unwrap_or(false)
-                    };
-
-                    if should_include {
+                // Include both files and directories - directories will be handled later
+                // to recursively find all .glsl files
+                if path.is_file() {
+                    // Only include .glsl files
+                    if path.extension().and_then(|s| s.to_str()) == Some("glsl") {
                         matches.push(path);
                     }
+                } else if path.is_dir() {
+                    // Include directories - they'll be expanded to find all .glsl files
+                    matches.push(path);
                 }
             }
             Err(e) => {
@@ -235,21 +215,12 @@ fn parse_file_spec_with_glob(file_str: &str, filetests_dir: &Path) -> Result<Vec
         (file_str, None)
     };
 
-    // Check if pattern contains glob characters or is a filename (no path separators)
-    let paths = if contains_glob_pattern(pattern) || !pattern.contains('/') {
-        let mut paths = expand_glob_patterns(pattern, filetests_dir)?;
-
-        // If no files matched and pattern doesn't contain glob characters, check if it's a directory
-        if paths.is_empty() && !contains_glob_pattern(pattern) {
-            let full_path = filetests_dir.join(pattern);
-            if full_path.is_dir() {
-                paths.push(full_path);
-            }
-        }
-
-        paths
+    // Check if pattern contains glob characters
+    let paths = if contains_glob_pattern(pattern) {
+        // Use glob to expand the pattern - this will match files and directories
+        expand_glob_patterns(pattern, filetests_dir)?
     } else {
-        // Pattern contains path separators and no glob characters, treat as literal path
+        // No glob characters - treat as literal path
         let full_path = filetests_dir.join(pattern);
         if full_path.exists() {
             vec![full_path]

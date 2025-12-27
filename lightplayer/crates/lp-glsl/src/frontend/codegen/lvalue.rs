@@ -260,16 +260,17 @@ pub fn resolve_lvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<LValue, G
                 }
 
                 // Extract compile-time constant index
-                // TODO: Support runtime indices
+                // For LValues (writes), we only support constant indices
+                // Variable-indexed reads are handled via translate_matrix_indexing()
                 let index = if let Expr::IntConst(n, _) = index_expr.as_ref() {
                     *n as usize
                 } else {
                     return Err(GlslError::new(
                         ErrorCode::E0400,
-                        "indexing with variable index not yet implemented",
+                        "variable-indexed writes not yet implemented",
                     )
                     .with_location(source_span_to_location(span))
-                    .with_note("only compile-time constant indices are supported"));
+                    .with_note("only compile-time constant indices are supported for writes"));
                 };
 
                 if current_ty.is_matrix() {

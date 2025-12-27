@@ -3,8 +3,8 @@ use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::lvalue::emit_lvalue_as_rvalue;
 use crate::frontend::codegen::rvalue::RValue;
 use crate::semantic::types::Type as GlslType;
-use cranelift_codegen::ir::Value;
-use glsl::syntax::Expr;
+use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, TrapCode, Value};
+use glsl::syntax::{Expr, SourceSpan};
 
 use alloc::vec::Vec;
 use hashbrown::HashSet;
@@ -108,24 +108,18 @@ pub fn translate_matrix_indexing(
         };
 
         // Evaluate index (must be int)
-        let (_, index_ty) = ctx.translate_expr_typed(index_expr)?;
+        let (index_vals, index_ty) = ctx.translate_expr_typed(index_expr)?;
         if index_ty != GlslType::Int {
             return Err(GlslError::new(ErrorCode::E0106, "index must be int")
                 .with_location(source_span_to_location(span)));
         }
 
-        // Extract compile-time constant index
-        // TODO: Support runtime indices
-        let index = if let Expr::IntConst(n, _) = index_expr.as_ref() {
-            let n = *n as usize;
-            n
+        // Check if index is compile-time constant or variable
+        let index_val = index_vals[0];
+        let is_constant = if let Expr::IntConst(n, _) = index_expr.as_ref() {
+            Some(*n as usize)
         } else {
-            return Err(GlslError::new(
-                ErrorCode::E0400,
-                "indexing with variable index not yet implemented",
-            )
-            .with_location(source_span_to_location(span))
-            .with_note("only compile-time constant indices are supported"));
+            None
         };
 
         if current_ty.is_matrix() {
@@ -133,50 +127,106 @@ pub fn translate_matrix_indexing(
             let (rows, cols) = current_ty.matrix_dims().unwrap();
             let column_type = current_ty.matrix_column_type().unwrap();
 
-            if index >= cols {
-                return Err(GlslError::new(
-                    ErrorCode::E0400,
-                    format!(
-                        "matrix column index {} out of bounds (max {})",
-                        index,
-                        cols - 1
-                    ),
-                )
-                .with_location(source_span_to_location(span)));
-            }
+            if let Some(index) = is_constant {
+                // Compile-time constant index
+                if index >= cols {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!(
+                            "matrix column index {} out of bounds (max {})",
+                            index,
+                            cols - 1
+                        ),
+                    )
+                    .with_location(source_span_to_location(span)));
+                }
 
-            // Extract column elements
-            // Matrix is stored column-major: [col0_row0, col0_row1, ..., col1_row0, ...]
-            let mut column_vals = Vec::new();
-            for row in 0..rows {
-                let idx = index * rows + row;
-                column_vals.push(current_vals[idx]);
-            }
+                // Extract column elements
+                // Matrix is stored column-major: [col0_row0, col0_row1, ..., col1_row0, ...]
+                let mut column_vals = Vec::new();
+                for row in 0..rows {
+                    let idx = index * rows + row;
+                    column_vals.push(current_vals[idx]);
+                }
 
-            current_vals = column_vals;
-            current_ty = column_type;
+                current_vals = column_vals;
+                current_ty = column_type;
+            } else {
+                // Variable index - need dynamic column extraction
+                // Bounds check
+                emit_bounds_check(ctx, index_val, cols, span)?;
+
+                // Build select chain to choose column
+                // For each possible column, extract all rows and build a select chain
+                let mut column_candidates: Vec<Vec<Value>> = Vec::new();
+                for col in 0..cols {
+                    let mut column_vals = Vec::new();
+                    for row in 0..rows {
+                        let idx = col * rows + row;
+                        column_vals.push(current_vals[idx]);
+                    }
+                    column_candidates.push(column_vals);
+                }
+
+                // Build select chain for each row component
+                let mut result_column = Vec::new();
+                for row_idx in 0..rows {
+                    // Start with last column as default
+                    let mut result = column_candidates[cols - 1][row_idx];
+                    // Work backwards through columns
+                    for col in (0..cols - 1).rev() {
+                        let col_const = ctx.builder.ins().iconst(types::I32, col as i64);
+                        let is_match = ctx.builder.ins().icmp(IntCC::Equal, index_val, col_const);
+                        result = ctx.builder.ins().select(is_match, column_candidates[col][row_idx], result);
+                    }
+                    result_column.push(result);
+                }
+
+                current_vals = result_column;
+                current_ty = column_type;
+            }
         } else if current_ty.is_vector() {
             // Vector indexing: vec[index] returns scalar component
             let component_count = current_ty.component_count().unwrap();
-            crate::debug!("vector indexing: current_ty={:?}, index={}, component_count={}", current_ty, index, component_count);
+            
+            if let Some(index) = is_constant {
+                // Compile-time constant index
+                crate::debug!("vector indexing: current_ty={:?}, index={}, component_count={}", current_ty, index, component_count);
 
-            if index >= component_count {
-                return Err(GlslError::new(
-                    ErrorCode::E0400,
-                    format!(
-                        "vector component index {} out of bounds (max {})",
-                        index,
-                        component_count - 1
-                    ),
-                )
-                .with_location(source_span_to_location(span)));
+                if index >= component_count {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!(
+                            "vector component index {} out of bounds (max {})",
+                            index,
+                            component_count - 1
+                        ),
+                    )
+                    .with_location(source_span_to_location(span)));
+                }
+
+                let base_type = current_ty.vector_base_type().unwrap();
+                crate::debug!("  extracted component: base_type={:?}, val index={}", base_type, index);
+                current_vals = vec![current_vals[index]];
+                current_ty = base_type;
+                crate::debug!("  after extraction: current_ty={:?}, current_vals.len()={}", current_ty, current_vals.len());
+            } else {
+                // Variable index - use dynamic selection
+                // Bounds check
+                emit_bounds_check(ctx, index_val, component_count, span)?;
+
+                // Build select chain: result = (index == 0) ? vals[0] : ((index == 1) ? vals[1] : ...)
+                let base_type = current_ty.vector_base_type().unwrap();
+                let mut result = current_vals[component_count - 1]; // Default to last component
+                for i in (0..component_count - 1).rev() {
+                    let i_const = ctx.builder.ins().iconst(types::I32, i as i64);
+                    let is_match = ctx.builder.ins().icmp(IntCC::Equal, index_val, i_const);
+                    result = ctx.builder.ins().select(is_match, current_vals[i], result);
+                }
+
+                current_vals = vec![result];
+                current_ty = base_type;
             }
-
-            let base_type = current_ty.vector_base_type().unwrap();
-            crate::debug!("  extracted component: base_type={:?}, val index={}", base_type, index);
-            current_vals = vec![current_vals[index]];
-            current_ty = base_type;
-            crate::debug!("  after extraction: current_ty={:?}, current_vals.len()={}", current_ty, current_vals.len());
         } else {
             return Err(GlslError::new(
                 ErrorCode::E0400,
@@ -336,6 +386,52 @@ pub fn has_duplicates(indices: &[usize]) -> bool {
     false
 }
 
+/// Emit bounds checking code with trap for out-of-bounds indices
+///
+/// Checks that `index_val` is in range [0, bound) and traps if not.
+/// Uses `TrapCode::user(1)` for "vector/matrix index out of bounds".
+///
+/// Uses `trapnz` to trap when the out-of-bounds condition is non-zero (true).
+/// NOTE: The trap instruction is being generated correctly in the CLIF IR,
+/// but it's not triggering at runtime in the emulator. This needs further
+/// investigation - the trap instruction is emitted, but execution doesn't
+/// seem to trigger it or the emulator isn't handling it correctly. The test
+/// file `bvec2/index-variable-bounds.glsl` contains tests that expect traps
+/// but currently fail because traps aren't being triggered.
+///
+/// TODO: Investigate why traps aren't triggering at runtime. Possible causes:
+/// - The emulator might not be handling trap instructions correctly
+/// - The trapnz lowering might not be implemented correctly for the target ISA
+/// - There might be an issue with how trap instructions are executed
+fn emit_bounds_check(
+    ctx: &mut CodegenContext,
+    index_val: Value,
+    bound: usize,
+    span: &SourceSpan,
+) -> Result<(), GlslError> {
+    // Ensure we're in a block
+    ctx.ensure_block()?;
+    
+    // Set source location for trap instruction
+    let srcloc = ctx.source_loc_manager().create_srcloc(span);
+    ctx.builder.set_srcloc(srcloc);
+
+    // Check: index < 0 || index >= bound
+    let zero = ctx.builder.ins().iconst(types::I32, 0);
+    let bound_val = ctx.builder.ins().iconst(types::I32, bound as i64);
+    let index_lt_zero = ctx.builder.ins().icmp(IntCC::SignedLessThan, index_val, zero);
+    let index_ge_bound = ctx.builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, index_val, bound_val);
+    let out_of_bounds = ctx.builder.ins().bor(index_lt_zero, index_ge_bound);
+    
+    // Use trapnz to trap when out_of_bounds is non-zero (true)
+    // NOTE: trapnz may not be available in the lowering code yet, but we use it here
+    // and will fix the lowering code later if needed.
+    let trap_code = TrapCode::user(1).unwrap();
+    ctx.builder.ins().trapnz(out_of_bounds, trap_code);
+    
+    Ok(())
+}
+
 /// Emit component access expression as RValue
 ///
 /// Handles dot notation (e.g., `vec.x`, `vec.xy`) for both LValues and RValues.
@@ -360,10 +456,34 @@ pub fn emit_component_access_rvalue(
 
 /// Emit matrix/vector indexing expression as RValue
 ///
-/// Handles bracket notation (e.g., `vec[0]`, `mat[0][1]`) by resolving as LValue then loading.
+/// Handles bracket notation (e.g., `vec[0]`, `mat[0][1]`).
+/// For constant indices, uses LValue path for efficiency.
+/// For variable indices, uses translate_matrix_indexing directly.
 pub fn emit_matrix_indexing_rvalue(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<RValue, GlslError> {
-    emit_lvalue_as_rvalue(ctx, expr)
+    // Check if this is a variable index - if so, use translate_matrix_indexing directly
+    let Expr::Bracket(_, array_spec, _) = expr else {
+        unreachable!("emit_matrix_indexing_rvalue called on non-bracket expr");
+    };
+    
+    use glsl::syntax::ArraySpecifierDimension;
+    let has_variable_index = array_spec.dimensions.0.iter().any(|dim| {
+        match dim {
+            ArraySpecifierDimension::ExplicitlySized(index_expr) => {
+                !matches!(index_expr.as_ref(), Expr::IntConst(_, _))
+            }
+            ArraySpecifierDimension::Unsized => false,
+        }
+    });
+    
+    if has_variable_index {
+        // Variable index - use translate_matrix_indexing directly
+        let (vals, ty) = translate_matrix_indexing(ctx, expr)?;
+        Ok(RValue::from_aggregate(vals, ty))
+    } else {
+        // Constant index - use LValue path for efficiency
+        emit_lvalue_as_rvalue(ctx, expr)
+    }
 }

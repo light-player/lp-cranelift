@@ -5,6 +5,8 @@ pub mod execution;
 pub mod target;
 pub mod value_ops;
 
+use crate::file_update::format_glsl_value;
+
 use crate::file_update::FileUpdate;
 use crate::filetest::TestFile;
 use anyhow::{Context, Result};
@@ -91,76 +93,60 @@ pub fn run_test_file_with_line_filter(
             )
         })?;
 
+        // Check if this test expects a trap
+        // Trap expectations can be on the same line or the immediately following line
+        let trap_expectation = test_file
+            .trap_expectations
+            .iter()
+            .find(|exp| exp.line_number == directive.line_number || exp.line_number == directive.line_number + 1);
+
         // Execute main() and get result
         // Note: execute_main already includes emulator state in the error, so we don't add it again
-        let actual_value = execution::execute_main(&mut *executable).map_err(|e| {
-            // Format error - emulator state is already included by execute_main
-            let error_str = format!("{:#}", e);
-            
-            // Generate rerun command using the script
-            let rerun_cmd = format!(
-                "scripts/glsl-filetests.sh {}:{}",
-                relative_path, directive.line_number
-            );
-
-            // Format bootstrap code for display (only when showing full output)
-            let bootstrap_code_display = if show_full_output {
-                format!(
-                    "\n\nGenerated test code:\n{}",
-                    format_code_block(&bootstrap_result.source)
-                )
-            } else {
-                String::new()
-            };
-
-            // Check if this is a trap error
-            let is_trap = error_str.contains("Trap:")
-                || error_str.contains("trap")
-                || error_str.contains("execution trapped");
-
-            if is_trap {
-                // Format trap error with clear message and bootstrap code context
-                anyhow::anyhow!(
-                    "run test failed at line {}: execution trapped\n\
+        let execution_result = execution::execute_main(&mut *executable);
+        
+        match (execution_result, trap_expectation) {
+            (Ok(actual_value), Some(exp)) => {
+                // Expected a trap but got a value
+                let bootstrap_code_display = if show_full_output {
+                    format!(
+                        "\n\n=== Bootstrapped GLSL Test ===\n{}",
+                        format_code_block(&bootstrap_result.source)
+                    )
+                } else {
+                    String::new()
+                };
+                anyhow::bail!(
+                    "run test failed at line {}: expected trap but execution succeeded\n\
                      \n\
-                     The test expected a value but execution trapped instead.\n\
-                     This indicates the code under test encountered an error condition\n\
-                     (e.g., division by zero, overflow, etc.).{}\n\
-                     \n\
-                     Error details:\n\
-                     {}\n\
+                     Expected: trap{}\n\
+                     Actual: value {}\n\
+                     {}\
                      \n\
                      To rerun just this test:\n\
-                     {}",
+                     scripts/glsl-filetests.sh {}:{}",
                     directive.line_number,
+                    if let Some(code) = exp.trap_code {
+                        format!(" (code {})", code)
+                    } else if let Some(ref msg) = exp.trap_message {
+                        format!(" (message containing '{}')", msg)
+                    } else {
+                        String::new()
+                    },
+                    format_glsl_value(&actual_value),
                     bootstrap_code_display,
-                    error_str,
-                    rerun_cmd
-                )
-            } else {
-                // Regular execution error
-                anyhow::anyhow!("{}\n\nTo rerun just this test:\n{}", error_str, rerun_cmd)
+                    relative_path,
+                    directive.line_number
+                );
             }
-        })?;
-
-        // Parse expected value
-        let expected_value = value_ops::parse_glsl_value(&directive.expected_str)?;
-
-        // Compare results
-        match value_ops::compare_results(&actual_value, &expected_value, directive.comparison) {
-            Ok(()) => {
-                // Test passed
-            }
-            Err(err_msg) => {
-                if bless_enabled {
-                    // Update expectation in-place
-                    file_update.update_run_expectation(
-                        directive.line_number,
-                        &actual_value,
-                        directive.comparison,
-                    )?;
-                } else {
-                    // Format bootstrap code for display (only when showing full output)
+            (Err(e), None) => {
+                // Got an error but didn't expect one - check if it's a trap
+                let error_str = format!("{:#}", e);
+                let is_trap = error_str.contains("Trap:")
+                    || error_str.contains("trap")
+                    || error_str.contains("execution trapped");
+                
+                if is_trap {
+                    // Unexpected trap
                     let bootstrap_code_display = if show_full_output {
                         format!(
                             "\n\n=== Bootstrapped GLSL Test ===\n{}",
@@ -169,38 +155,158 @@ pub fn run_test_file_with_line_filter(
                     } else {
                         String::new()
                     };
-
-                    // Format debug information (CLIF IR, VCode, disassembly, emulator state)
-                    // when showing full output
-                    let debug_info_display = if show_full_output {
-                        format_debug_info(&*executable)
-                    } else {
-                        String::new()
-                    };
-
-                    // Generate rerun command using the script
-                    let rerun_cmd = format!(
-                        "scripts/glsl-filetests.sh {}:{}",
-                        relative_path, directive.line_number
-                    );
-
-                    // Format error message
-                    // Note: For comparison errors, execution succeeded so emulator state isn't needed
-                    let error_msg = format!(
-                        "run test failed at line {}: {}{}{}\n\
+                    anyhow::bail!(
+                        "run test failed at line {}: unexpected trap\n\
                          \n\
-                         This test assertion can be automatically updated by setting the\n\
-                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.\n\
+                         Expected: value\n\
+                         Actual: trap\n\
+                         {}\
+                         \n\
+                         Error details:\n\
+                         {}\n\
                          \n\
                          To rerun just this test:\n\
-                         {}",
+                         scripts/glsl-filetests.sh {}:{}",
                         directive.line_number,
-                        err_msg,
                         bootstrap_code_display,
-                        debug_info_display,
-                        rerun_cmd
+                        error_str,
+                        relative_path,
+                        directive.line_number
                     );
-                    anyhow::bail!("{}", error_msg);
+                } else {
+                    // Other error - pass through
+                    return Err(e);
+                }
+            }
+            (Err(e), Some(exp)) => {
+                // Expected a trap and got one - verify it matches
+                let error_str = format!("{:#}", e);
+                
+                // Check trap code if specified
+                if let Some(expected_code) = exp.trap_code {
+                    if !error_str.contains(&format!("user{}", expected_code)) {
+                        let bootstrap_code_display = if show_full_output {
+                            format!(
+                                "\n\n=== Bootstrapped GLSL Test ===\n{}",
+                                format_code_block(&bootstrap_result.source)
+                            )
+                        } else {
+                            String::new()
+                        };
+                        anyhow::bail!(
+                            "run test failed at line {}: trap code mismatch\n\
+                             \n\
+                             Expected: trap code {}\n\
+                             Actual trap: {}\n\
+                             {}\
+                             \n\
+                             To rerun just this test:\n\
+                             scripts/glsl-filetests.sh {}:{}",
+                            directive.line_number,
+                            expected_code,
+                            error_str,
+                            bootstrap_code_display,
+                            relative_path,
+                            directive.line_number
+                        );
+                    }
+                }
+                
+                // Check trap message if specified
+                if let Some(ref expected_msg) = exp.trap_message {
+                    if !error_str.contains(expected_msg) {
+                        let bootstrap_code_display = if show_full_output {
+                            format!(
+                                "\n\n=== Bootstrapped GLSL Test ===\n{}",
+                                format_code_block(&bootstrap_result.source)
+                            )
+                        } else {
+                            String::new()
+                        };
+                        anyhow::bail!(
+                            "run test failed at line {}: trap message mismatch\n\
+                             \n\
+                             Expected: trap message containing '{}'\n\
+                             Actual trap: {}\n\
+                             {}\
+                             \n\
+                             To rerun just this test:\n\
+                             scripts/glsl-filetests.sh {}:{}",
+                            directive.line_number,
+                            expected_msg,
+                            error_str,
+                            bootstrap_code_display,
+                            relative_path,
+                            directive.line_number
+                        );
+                    }
+                }
+                
+                // Trap matches expectation - test passes
+                continue;
+            }
+            (Ok(actual_value), None) => {
+                // Normal case: expected value, got value - continue with comparison
+                // Parse expected value
+                let expected_value = value_ops::parse_glsl_value(&directive.expected_str)?;
+
+                // Compare results
+                match value_ops::compare_results(&actual_value, &expected_value, directive.comparison) {
+                    Ok(()) => {
+                        // Test passed
+                    }
+                    Err(err_msg) => {
+                        if bless_enabled {
+                            // Update expectation in-place
+                            file_update.update_run_expectation(
+                                directive.line_number,
+                                &actual_value,
+                                directive.comparison,
+                            )?;
+                        } else {
+                            // Format bootstrap code for display (only when showing full output)
+                            let bootstrap_code_display = if show_full_output {
+                                format!(
+                                    "\n\n=== Bootstrapped GLSL Test ===\n{}",
+                                    format_code_block(&bootstrap_result.source)
+                                )
+                            } else {
+                                String::new()
+                            };
+
+                            // Format debug information (CLIF IR, VCode, disassembly, emulator state)
+                            // when showing full output
+                            let debug_info_display = if show_full_output {
+                                format_debug_info(&*executable)
+                            } else {
+                                String::new()
+                            };
+
+                            // Generate rerun command using the script
+                            let rerun_cmd = format!(
+                                "scripts/glsl-filetests.sh {}:{}",
+                                relative_path, directive.line_number
+                            );
+
+                            // Format error message
+                            // Note: For comparison errors, execution succeeded so emulator state isn't needed
+                            let error_msg = format!(
+                                "run test failed at line {}: {}{}{}\n\
+                                 \n\
+                                 This test assertion can be automatically updated by setting the\n\
+                                 CRANELIFT_TEST_BLESS=1 environment variable when running this test.\n\
+                                 \n\
+                                 To rerun just this test:\n\
+                                 {}",
+                                directive.line_number,
+                                err_msg,
+                                bootstrap_code_display,
+                                debug_info_display,
+                                rerun_cmd
+                            );
+                            anyhow::bail!("{}", error_msg);
+                        }
+                    }
                 }
             }
         }

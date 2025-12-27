@@ -12,6 +12,8 @@ pub struct TestFile {
     pub glsl_source: String,
     /// All run directives found in the file.
     pub run_directives: Vec<RunDirective>,
+    /// All trap expectations found in the file.
+    pub trap_expectations: Vec<TrapExpectation>,
     /// Target specification (e.g., "riscv32.fixed32").
     pub target: Option<String>,
     /// Whether this is a "test run" file.
@@ -64,6 +66,17 @@ pub enum ComparisonOp {
     Approx,
 }
 
+/// A trap expectation parsed from a `// EXPECT_TRAP:` or `// EXPECT_TRAP_CODE:` line.
+#[derive(Debug, Clone)]
+pub struct TrapExpectation {
+    /// Expected trap code (TrapCode::user(n) value), if specified.
+    pub trap_code: Option<u8>,
+    /// Expected trap message substring, if specified.
+    pub trap_message: Option<String>,
+    /// Line number for this expectation.
+    pub line_number: usize,
+}
+
 /// Parse a test file and extract all directives and source code.
 pub fn parse_test_file(path: &Path) -> Result<TestFile> {
     let contents = std::fs::read_to_string(path)
@@ -72,6 +85,7 @@ pub fn parse_test_file(path: &Path) -> Result<TestFile> {
     let lines: Vec<String> = contents.lines().map(|s| s.to_string()).collect();
     let mut test_types = Vec::new();
     let mut run_directives = Vec::new();
+    let mut trap_expectations = Vec::new();
     let mut target = None;
     let mut is_test_run = false;
 
@@ -95,6 +109,11 @@ pub fn parse_test_file(path: &Path) -> Result<TestFile> {
             run_directives.push(directive);
             continue;
         }
+
+        if let Some(trap_exp) = directives::parse_trap_expectation(line, line_num + 1)? {
+            trap_expectations.push(trap_exp);
+            continue;
+        }
     }
 
     // Second pass: extract GLSL source and CLIF expectations
@@ -104,6 +123,7 @@ pub fn parse_test_file(path: &Path) -> Result<TestFile> {
     Ok(TestFile {
         glsl_source,
         run_directives,
+        trap_expectations,
         target,
         is_test_run,
         test_types,

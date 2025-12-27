@@ -187,6 +187,9 @@ fn opcode_base_extensions(opcode: Opcode) -> Option<Vec<RiscvExtension>> {
         // Overflow trap
         Opcode::UaddOverflowTrap => Some(vec![]),
 
+        // Trap instructions
+        Opcode::Trap | Opcode::Trapnz | Opcode::Trapz => Some(vec![]),
+
         // Overflow with carry in - not yet implemented
         // Opcode::UaddOverflowCin | Opcode::SaddOverflowCin => Some(vec![]),
 

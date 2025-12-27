@@ -243,6 +243,26 @@ pub fn copy_instruction(
             builder.ins().br_table(condition, new_table);
             return Ok(());
         }
+        InstructionData::CondTrap { code, arg, .. } => {
+            // Trap instructions (trapnz, trapz): map the condition value and emit trap
+            let condition = map_value(old_func, value_map, *arg);
+            if opcode == cranelift_codegen::ir::Opcode::Trapnz {
+                builder.ins().trapnz(condition, *code);
+            } else if opcode == cranelift_codegen::ir::Opcode::Trapz {
+                builder.ins().trapz(condition, *code);
+            } else {
+                panic!(
+                    "CondTrap instruction with unexpected opcode {:?} in copy_instruction. This is an internal error - CondTrap should only be used with Trapnz or Trapz opcodes.",
+                    opcode
+                );
+            }
+            return Ok(());
+        }
+        InstructionData::Trap { code, .. } => {
+            // Unconditional trap: emit trap directly
+            builder.ins().trap(*code);
+            return Ok(());
+        }
         InstructionData::MultiAry { opcode, args, .. } => {
             // Check if this is a Return instruction
             if opcode.is_return() {
@@ -375,25 +395,28 @@ pub fn copy_instruction(
         _ => {}
     }
 
-    // If no results, this is typically a terminator or side-effect only instruction
-    // These should have been handled above, but if they fall through, we can safely skip them
+    // All instructions that don't produce results (terminators, traps, stores, etc.) should have
+    // been handled above and returned early. If we reach here with no results, it's an error.
     let old_results: Vec<Value> = old_func.dfg.inst_results(old_inst).to_vec();
     if old_results.is_empty() {
-        // Most terminators are handled explicitly above, but some side-effect instructions
-        // might fall through. For now, we'll allow this.
-        return Ok(());
+        panic!(
+            "Instruction {:?} with format {:?} has no results but was not handled in copy_instruction. This is an internal error - all side-effect-only instructions must be explicitly handled.",
+            opcode, inst_data
+        );
     }
 
     // For instructions with results, we need to reconstruct them
-    // Determine the controlling type
+    // Determine the controlling type (apply type mapping if provided)
     let ctrl_type = if opcode.constraints().requires_typevar_operand() {
         // Get type from first operand
         let first_arg = old_func.dfg.inst_args(old_inst)[0];
         let mapped_first_arg = map_value(old_func, value_map, first_arg);
-        builder.func.dfg.value_type(mapped_first_arg)
+        let operand_type = builder.func.dfg.value_type(mapped_first_arg);
+        map_param_type(operand_type)
     } else {
-        // Get type from first result
-        old_func.dfg.value_type(old_results[0])
+        // Get type from first result and apply type mapping
+        let old_result_type = old_func.dfg.value_type(old_results[0]);
+        map_param_type(old_result_type)
     };
 
     // Get old arguments using DFG
