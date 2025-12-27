@@ -5,6 +5,8 @@ use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit expression statement (expression followed by semicolon)
 pub fn emit_expr_stmt(ctx: &mut CodegenContext, expr: &Expr) -> Result<(), GlslError> {
-    ctx.translate_expr(expr)?;
+    // Use emit_rvalue instead of translate_expr to properly handle void function calls
+    // which produce zero values but are valid as statements
+    let _rvalue = ctx.emit_rvalue(expr)?;
     Ok(())
 }

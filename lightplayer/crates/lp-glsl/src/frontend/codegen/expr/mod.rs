@@ -115,13 +115,11 @@ impl<'a> CodegenContext<'a> {
     pub fn translate_expr(&mut self, expr: &Expr) -> Result<Value, GlslError> {
         let (vals, _ty) = self.translate_expr_typed(expr)?;
         let expr_span = crate::error::extract_span_from_expr(expr);
-        vals.into_iter()
-            .next()
-            .ok_or_else(|| {
-                let error = GlslError::new(ErrorCode::E0400, "expression produced no values")
-                    .with_location(crate::error::source_span_to_location(&expr_span));
-                self.add_span_to_error(error, &expr_span)
-            })
+        vals.into_iter().next().ok_or_else(|| {
+            let error = GlslError::new(ErrorCode::E0400, "expression produced no values")
+                .with_location(crate::error::source_span_to_location(&expr_span));
+            self.add_span_to_error(error, &expr_span)
+        })
     }
 
     /// Coerce a value from one type to another (implements GLSL implicit conversions)

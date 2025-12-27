@@ -3,7 +3,9 @@
 //! This module provides a unified compilation pipeline that can be used
 //! by different backends (JIT, code generation, CLIF output).
 
-use crate::error::{ErrorCode, GlslError, source_span_to_location, format_source_lines_around_span};
+use crate::error::{
+    ErrorCode, GlslError, format_source_lines_around_span, source_span_to_location,
+};
 use crate::frontend::semantic::TypedShader;
 use crate::frontend::semantic::functions::FunctionRegistry;
 
@@ -62,13 +64,14 @@ impl CompilationPipeline {
             // The info field contains a formatted message like:
             // "0: at line 8:\n    float add_in(...) {\n    ^\nexpected '}', found f\n\n"
             // We want to extract just "expected '}', found f"
-            let clean_message = e.info
+            let clean_message = e
+                .info
                 .lines()
                 .find(|line| {
                     let trimmed = line.trim();
                     // Look for the actual error message (contains "expected" or "found")
-                    (trimmed.starts_with("expected") || trimmed.contains("expected")) 
-                    && (trimmed.contains("found") || trimmed.contains("unexpected"))
+                    (trimmed.starts_with("expected") || trimmed.contains("expected"))
+                        && (trimmed.contains("found") || trimmed.contains("unexpected"))
                 })
                 .map(|line| line.trim().to_string())
                 .unwrap_or_else(|| {
@@ -82,7 +85,7 @@ impl CompilationPipeline {
                         .map(|line| line.trim().to_string())
                         .unwrap_or_else(|| "parse error".to_string())
                 });
-            
+
             let mut error = GlslError::new(ErrorCode::E0001, clean_message);
             // Try to extract span from parse error if available
             if let Some(ref span) = e.span {
