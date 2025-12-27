@@ -35,7 +35,16 @@ pub fn translate_condition(
         glsl::syntax::Condition::Expr(expr) => {
             let (vals, ty) = ctx.translate_expr_typed(expr)?;
             // Validate that condition is bool type (GLSL spec requirement)
-            crate::frontend::semantic::type_check::check_condition(&ty)?;
+            let cond_span = crate::error::extract_span_from_expr(expr);
+            match crate::frontend::semantic::type_check::check_condition(&ty) {
+                Ok(()) => {}
+                Err(mut error) => {
+                    if error.location.is_none() {
+                        error = error.with_location(crate::error::source_span_to_location(&cond_span));
+                    }
+                    return Err(ctx.add_span_to_error(error, &cond_span));
+                }
+            }
             // Condition must be scalar, so we take the first (and only) value
             Ok(vals.into_iter().next().ok_or_else(|| {
                 GlslError::new(ErrorCode::E0400, "condition expression produced no value")
@@ -111,7 +120,20 @@ pub fn translate_condition(
             
             // Read the variable's value to use as the condition
             // Validate that the variable type is bool (GLSL spec requirement for conditions)
-            crate::frontend::semantic::type_check::check_condition(&var_ty)?;
+            // Use the initializer span for error reporting - it covers the expression being assigned
+            // The error is about the whole condition expression, so we'll use init_span which covers
+            // the right-hand side, and the formatting will extend the caret to cover the whole assignment
+            match crate::frontend::semantic::type_check::check_condition(&var_ty) {
+                Ok(()) => {}
+                Err(mut error) => {
+                    if error.location.is_none() {
+                        error = error.with_location(crate::error::source_span_to_location(&init_span));
+                    }
+                    // Use init_span but we need to create a span that covers the whole assignment
+                    // For now, use init_span - the formatting function will need to handle extending it
+                    return Err(ctx.add_span_to_error(error, &init_span));
+                }
+            }
             
             // Return the first (and only) component value
             Ok(ctx.builder.use_var(vars[0]))

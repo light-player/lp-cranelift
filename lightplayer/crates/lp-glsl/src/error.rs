@@ -222,8 +222,8 @@ impl fmt::Display for GlslError {
         // Add source line if available
         if let Some(ref text) = self.span_text {
             // span_text already contains formatted lines with line numbers and carets
-            // so we just display it as-is
-            writeln!(f, "\n{}", text)?;
+            // Add one blank line after the code snippet
+            write!(f, "\n{}\n", text)?;
         } else if let Some(ref loc) = self.location {
             // If we have location but no span_text, show just the location
             if !loc.is_unknown() {
@@ -360,6 +360,13 @@ fn calculate_line_number_width(line_num: usize) -> usize {
 
 /// Format source line with error span for error display (Rust-style formatting).
 /// Shows only the error line with blank line before and caret pointing to the error.
+/// Matches Rust's exact format:
+/// ```
+///     |
+/// 102 |     while (int i = (sum < 3) ? 1 : 0) {
+///     |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+///     |            condition has type `Int`, expected `Bool`
+/// ```
 fn format_source_lines_around_span(
     source: &str,
     span: &glsl::syntax::SourceSpan,
@@ -391,31 +398,59 @@ fn format_source_lines_around_span(
     ));
 
     // Calculate caret position and length to span the expression
-    let col_pos = span.column.saturating_sub(1).min(error_line.len());
+    // Try to extend backwards to cover the whole assignment/expression if it's part of a declaration
+    let mut col_pos = span.column.saturating_sub(1).min(error_line.len());
+
+    // If the span points to something that looks like it's part of an assignment (has '=' before it),
+    // try to extend backwards to cover the whole assignment expression
+    // Look for '=' before the span position
+    if col_pos > 0 {
+        let before_span = &error_line[..col_pos];
+        if let Some(equals_pos) = before_span.rfind('=') {
+            // Found an '=', check if there's a type keyword before it (int, bool, float, etc.)
+            let before_equals = &error_line[..equals_pos];
+            let type_keywords = [
+                "int ", "bool ", "float ", "vec", "mat", "ivec", "uvec", "bvec",
+            ];
+            for keyword in &type_keywords {
+                if let Some(keyword_start) = before_equals.rfind(keyword) {
+                    // Found a type keyword, extend the caret to start from there
+                    col_pos = keyword_start;
+                    break;
+                }
+            }
+        }
+    }
+
+    col_pos = col_pos.min(error_line.len());
+
     // Find the end of the expression by looking for common delimiters
     // This helps the caret span the entire problematic expression, not just one character
     let remaining = &error_line[col_pos..];
     let expr_end = remaining
         .find(|c: char| c == ';' || c == ')' || c == ']' || c == '}' || c == ',')
-        .unwrap_or_else(|| remaining.len().min(20)); // Limit to 20 chars or end of line
+        .unwrap_or_else(|| remaining.len().min(30)); // Limit to 30 chars or end of line
     let caret_len = expr_end.max(1).min(remaining.len());
     let caret = "^".repeat(caret_len);
+
+    // Caret line (no message on this line)
+    source_display.push_str(&format!(
+        "{} | {}{}\n",
+        " ".repeat(line_num_width),
+        " ".repeat(col_pos),
+        caret
+    ));
+
+    // Message line (if provided) - indented to align with caret start
     if let Some(msg) = error_message {
-        source_display.push_str(&format!(
-            "{} | {}{} {}\n",
-            " ".repeat(line_num_width),
-            " ".repeat(col_pos),
-            caret,
-            msg
-        ));
-    } else {
         source_display.push_str(&format!(
             "{} | {}{}\n",
             " ".repeat(line_num_width),
             " ".repeat(col_pos),
-            caret
+            msg
         ));
     }
+
     Some(String::from(source_display.trim_end()))
 }
 

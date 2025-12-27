@@ -10,8 +10,8 @@ use crate::file_update::format_glsl_value;
 use crate::file_update::FileUpdate;
 use crate::filetest::TestFile;
 use anyhow::{Context, Result};
-use lp_glsl::glsl_emu_riscv32_with_metadata;
 use lp_glsl::GlslOptions;
+use lp_glsl::glsl_emu_riscv32_with_metadata;
 use std::env;
 use std::path::Path;
 
@@ -95,15 +95,14 @@ pub fn run_test_file_with_line_filter(
 
         // Check if this test expects a trap
         // Trap expectations can be on the same line or the immediately following line
-        let trap_expectation = test_file
-            .trap_expectations
-            .iter()
-            .find(|exp| exp.line_number == directive.line_number || exp.line_number == directive.line_number + 1);
+        let trap_expectation = test_file.trap_expectations.iter().find(|exp| {
+            exp.line_number == directive.line_number || exp.line_number == directive.line_number + 1
+        });
 
         // Execute main() and get result
         // Note: execute_main already includes emulator state in the error, so we don't add it again
         let execution_result = execution::execute_main(&mut *executable);
-        
+
         match (execution_result, trap_expectation) {
             (Ok(actual_value), Some(exp)) => {
                 // Expected a trap but got a value
@@ -144,7 +143,7 @@ pub fn run_test_file_with_line_filter(
                 let is_trap = error_str.contains("Trap:")
                     || error_str.contains("trap")
                     || error_str.contains("execution trapped");
-                
+
                 if is_trap {
                     // Unexpected trap
                     let bootstrap_code_display = if show_full_output {
@@ -181,7 +180,7 @@ pub fn run_test_file_with_line_filter(
             (Err(e), Some(exp)) => {
                 // Expected a trap and got one - verify it matches
                 let error_str = format!("{:#}", e);
-                
+
                 // Check trap code if specified
                 if let Some(expected_code) = exp.trap_code {
                     if !error_str.contains(&format!("user{}", expected_code)) {
@@ -211,7 +210,7 @@ pub fn run_test_file_with_line_filter(
                         );
                     }
                 }
-                
+
                 // Check trap message if specified
                 if let Some(ref expected_msg) = exp.trap_message {
                     if !error_str.contains(expected_msg) {
@@ -241,7 +240,7 @@ pub fn run_test_file_with_line_filter(
                         );
                     }
                 }
-                
+
                 // Trap matches expectation - test passes
                 continue;
             }
@@ -251,7 +250,11 @@ pub fn run_test_file_with_line_filter(
                 let expected_value = value_ops::parse_glsl_value(&directive.expected_str)?;
 
                 // Compare results
-                match value_ops::compare_results(&actual_value, &expected_value, directive.comparison) {
+                match value_ops::compare_results(
+                    &actual_value,
+                    &expected_value,
+                    directive.comparison,
+                ) {
                     Ok(()) => {
                         // Test passed
                     }
@@ -315,7 +318,9 @@ pub fn run_test_file_with_line_filter(
     Ok(())
 }
 
-/// Format a compilation error with bootstrap code context
+/// Format a compilation error with bootstrap code context.
+/// This is a thin wrapper that only adds test-specific context.
+/// All error formatting is delegated to GlslError::Display.
 fn format_compilation_error(
     error: &lp_glsl::error::GlslError,
     bootstrap: &bootstrap::BootstrapResult,
@@ -330,83 +335,32 @@ fn format_compilation_error(
         relative_path, directive_line
     );
 
-    // In compact mode, extract just the essential error (code + message) without notes
-    let error_msg = if show_full_output {
-        // Full mode: show everything including notes
-        let full_error = error.to_string();
-        let has_prefix = full_error.contains("Compilation error:");
-        (full_error, has_prefix)
-    } else {
-        // Compact mode: show only error code and message, strip notes
-        let basic_error = format!("error[{}]: {}", error.code, error.message);
-        let has_prefix = basic_error.contains("Compilation error:");
-        (basic_error, has_prefix)
-    };
-
-    // Extract notes if present (these contain detailed verifier errors) - only in full output mode
-    let notes = if show_full_output && !error.notes.is_empty() {
-        format!("\n\n{}", error.notes.join("\n"))
-    } else {
-        String::new()
-    };
+    // Get the fully formatted error from GlslError::Display (single source of truth)
+    let formatted_error = error.to_string();
 
     // Format bootstrap code only when showing full output
     let bootstrap_section = if show_full_output {
         format!(
-            "\n\n=== Bootstrapped GLSL Test ===\n{}",
+            "\n\n=== Bootstrapped GLSL Test ===\n{}\n",
             format_code_block(&bootstrap.source)
         )
     } else {
         String::new()
     };
 
-    // Build the error message - simplified format for compact mode
-    let mut msg = if show_full_output {
-        format!(
-            "Compilation failed for test case at line {}:\n\
-             \n\
-             Test case: {}{}\
-             \n\
-             {}{}{}",
-            directive_line,
-            expression,
-            bootstrap_section,
-            if error_msg.1 {
-                ""
-            } else {
-                "Compilation error:\n"
-            },
-            error_msg.0,
-            notes
-        )
-    } else {
-        // Compact mode: just show the essential error
-        format!(
-            "Compilation failed for test case at line {}:\n\
-             \n\
-             Test case: {}\n\
-             {}{}",
-            directive_line,
-            expression,
-            if error_msg.1 {
-                ""
-            } else {
-                "Compilation error:\n"
-            },
-            error_msg.0
-        )
-    };
+    // Build the error message with test-specific context
+    // Add a blank line between bootstrap code and error message
+    let mut msg = format!(
+        "Compilation failed for test case at line {}:\n\
+         \n\
+         Test case: {}{}\
+         \n\
+         {}",
+        directive_line, expression, bootstrap_section, formatted_error
+    );
 
-    // Add main function span info for reference (only when showing full output)
-    if show_full_output {
-        msg.push_str(&format!(
-            "\n\nNote: main() function spans lines {} to {}",
-            bootstrap.main_start_line, bootstrap.main_end_line
-        ));
-    }
-
-    // Add rerun command
-    msg.push_str(&format!("\n\nTo rerun just this test:\n{}", rerun_cmd));
+    // Add rerun command (formatted_error already ends with \n, so \n here creates one blank line)
+    msg.push_str(&format!("\nTo rerun just this test:\n{}", rerun_cmd));
 
     anyhow::anyhow!("{}", msg)
 }
@@ -417,13 +371,19 @@ fn format_debug_info(executable: &dyn lp_glsl::GlslExecutable) -> String {
 
     // Get CLIF IR (before and after transformation)
     let (original_clif, transformed_clif) = executable.format_clif_ir();
-    
+
     // Only show before/after if they're different
     match (&original_clif, &transformed_clif) {
         (Some(original), Some(transformed)) if original != transformed => {
             // They're different, show both
-            parts.push(format!("=== CLIF IR (BEFORE transformation) ===\n{}", original));
-            parts.push(format!("=== CLIF IR (AFTER transformation) ===\n{}", transformed));
+            parts.push(format!(
+                "=== CLIF IR (BEFORE transformation) ===\n{}",
+                original
+            ));
+            parts.push(format!(
+                "=== CLIF IR (AFTER transformation) ===\n{}",
+                transformed
+            ));
         }
         (Some(original), Some(_)) => {
             // They're the same, just show one

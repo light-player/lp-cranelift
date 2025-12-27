@@ -137,37 +137,9 @@ fn filetests() -> Result<()> {
             }
             Ok(Err(e)) => {
                 println_colored("FAILED", colors::RED);
-                // Format error output with better readability
-                let error_str = format!("{:#}", e);
-
-                // Process the error message line by line
-                let mut in_code_block = false;
-                for line in error_str.lines() {
-                    // Detect code block sections (lines with "|")
-                    if line.contains(" | ") {
-                        if !in_code_block {
-                            in_code_block = true;
-                            // Add a blank line before code block
-                            println!();
-                        }
-                        println!("  {}", line);
-                    } else {
-                        if in_code_block {
-                            in_code_block = false;
-                            // Add a blank line after code block
-                            println!();
-                        }
-                        // Regular error text - indent appropriately
-                        if line.trim().is_empty() {
-                            println!();
-                        } else if line.starts_with("  ") {
-                            // Already indented (from anyhow formatting)
-                            println!("{}", line);
-                        } else {
-                            println!("  {}", line);
-                        }
-                    }
-                }
+                // Error is already fully formatted by GlslError::Display and format_compilation_error
+                // Just display it directly - no reformatting needed
+                println!("\n{:#}", e);
                 failed += 1;
             }
             Err(panic_payload) => {
