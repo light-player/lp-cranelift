@@ -174,9 +174,9 @@ pub fn infer_binary_result_type(
             Ok(Type::Int)
         }
 
-        // Comparison operators: operands must be compatible
-        // For vectors: result is boolean vector (component-wise comparison)
-        // For scalars/matrices: result is bool (aggregate comparison)
+        // Comparison operators: operands must be compatible, result is bool
+        // Note: The == operator does aggregate comparison (all components must match)
+        // For component-wise comparison, use the equal() builtin function
         Equal | NonEqual => {
             // Equality operators work on all types (including bool)
             if lhs_ty != rhs_ty {
@@ -190,22 +190,7 @@ pub fn infer_binary_result_type(
                     lhs_ty, rhs_ty
                 )));
             }
-            // For vectors, return boolean vector; for scalars/matrices, return scalar bool
-            if lhs_ty.is_vector() {
-                let component_count = lhs_ty.component_count().unwrap();
-                match component_count {
-                    2 => Ok(Type::BVec2),
-                    3 => Ok(Type::BVec3),
-                    4 => Ok(Type::BVec4),
-                    _ => Err(GlslError::new(
-                        ErrorCode::E0400,
-                        format!("unsupported vector dimension: {}", component_count),
-                    )
-                    .with_location(source_span_to_location(&span))),
-                }
-            } else {
-                Ok(Type::Bool)
-            }
+            Ok(Type::Bool)
         }
         LT | GT | LTE | GTE => {
             // Relational operators require numeric operands

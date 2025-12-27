@@ -45,7 +45,8 @@ bvec2 test_bvec2_not_double_negation() {
 bvec2 test_bvec2_not_in_expression() {
     bvec2 a = bvec2(true, false);
     bvec2 b = bvec2(false, true);
-    return not(a) == b;
+    // Use equal() function for component-wise comparison (== operator does aggregate comparison)
+    return equal(not(a), b);
 }
 
 // run: test_bvec2_not_in_expression() == bvec2(true, true)
