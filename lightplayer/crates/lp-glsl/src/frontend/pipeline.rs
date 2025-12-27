@@ -3,11 +3,11 @@
 //! This module provides a unified compilation pipeline that can be used
 //! by different backends (JIT, code generation, CLIF output).
 
-use crate::error::{ErrorCode, GlslError, add_span_text_to_error, source_span_to_location};
+use crate::error::{ErrorCode, GlslError, source_span_to_location, format_source_lines_around_span};
 use crate::frontend::semantic::TypedShader;
 use crate::frontend::semantic::functions::FunctionRegistry;
 
-use alloc::{boxed::Box, format};
+use alloc::{boxed::Box, string::ToString};
 
 /// Result of parsing GLSL source
 pub struct ParseResult<'a> {
@@ -58,11 +58,40 @@ impl CompilationPipeline {
     /// Parse GLSL source into an AST
     pub fn parse<'a>(source: &'a str) -> Result<ParseResult<'a>, GlslError> {
         let shader = glsl::parser::Parse::parse(source).map_err(|e| {
-            let mut error = GlslError::new(ErrorCode::E0001, format!("parse error: {:?}", e));
+            // Extract clean error message from ParseError.info field
+            // The info field contains a formatted message like:
+            // "0: at line 8:\n    float add_in(...) {\n    ^\nexpected '}', found f\n\n"
+            // We want to extract just "expected '}', found f"
+            let clean_message = e.info
+                .lines()
+                .find(|line| {
+                    let trimmed = line.trim();
+                    // Look for the actual error message (contains "expected" or "found")
+                    (trimmed.starts_with("expected") || trimmed.contains("expected")) 
+                    && (trimmed.contains("found") || trimmed.contains("unexpected"))
+                })
+                .map(|line| line.trim().to_string())
+                .unwrap_or_else(|| {
+                    // Fallback: try to find any line with "expected" or "found"
+                    e.info
+                        .lines()
+                        .find(|line| {
+                            let trimmed = line.trim();
+                            trimmed.contains("expected") || trimmed.contains("found")
+                        })
+                        .map(|line| line.trim().to_string())
+                        .unwrap_or_else(|| "parse error".to_string())
+                });
+            
+            let mut error = GlslError::new(ErrorCode::E0001, clean_message);
             // Try to extract span from parse error if available
             if let Some(ref span) = e.span {
                 error = error.with_location(source_span_to_location(span));
-                error = add_span_text_to_error(error, Some(source), span);
+                // For parse errors, add span_text but don't duplicate the message on the caret line
+                // The main message is already shown, so we'll pass None to avoid duplication
+                if let Some(span_text) = format_source_lines_around_span(source, span, None) {
+                    error = error.with_span_text(span_text);
+                }
             }
             error
         })?;

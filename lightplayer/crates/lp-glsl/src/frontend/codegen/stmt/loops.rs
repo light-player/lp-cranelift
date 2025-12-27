@@ -48,7 +48,9 @@ pub fn translate_condition(
             }
             // Condition must be scalar, so we take the first (and only) value
             Ok(vals.into_iter().next().ok_or_else(|| {
-                GlslError::new(ErrorCode::E0400, "condition expression produced no value")
+                let error = GlslError::new(ErrorCode::E0400, "condition expression produced no value")
+                    .with_location(crate::error::source_span_to_location(&cond_span));
+                ctx.add_span_to_error(error, &cond_span)
             })?)
         }
         glsl::syntax::Condition::Assignment(type_spec, identifier, initializer) => {

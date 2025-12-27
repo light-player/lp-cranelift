@@ -13,20 +13,22 @@ pub fn emit_if_stmt(
 
     // Translate condition and validate type
     let (cond_vals, cond_ty) = ctx.translate_expr_typed(&selection.cond)?;
+    let cond_span = extract_span_from_expr(&selection.cond);
     // Validate that condition is bool type (GLSL spec requirement)
     if cond_ty != crate::frontend::semantic::types::Type::Bool {
-        let span = extract_span_from_expr(&selection.cond);
         let error = GlslError::new(ErrorCode::E0107, "condition must be bool type")
-            .with_location(source_span_to_location(&span))
+            .with_location(source_span_to_location(&cond_span))
             .with_note(format!(
                 "condition has type `{:?}`, expected `Bool`",
                 cond_ty
             ));
-        return Err(ctx.add_span_to_error(error, &span));
+        return Err(ctx.add_span_to_error(error, &cond_span));
     }
     // Condition must be scalar, so we take the first (and only) value
     let condition_value = cond_vals.into_iter().next().ok_or_else(|| {
-        GlslError::new(ErrorCode::E0400, "condition expression produced no value")
+        let error = GlslError::new(ErrorCode::E0400, "condition expression produced no value")
+            .with_location(source_span_to_location(&cond_span));
+        ctx.add_span_to_error(error, &cond_span)
     })?;
 
     // 1. Create blocks

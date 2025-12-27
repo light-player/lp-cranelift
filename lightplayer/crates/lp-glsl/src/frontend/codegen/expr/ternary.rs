@@ -39,8 +39,11 @@ pub fn emit_ternary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
     }
 
     // Condition must be scalar, so take the first (and only) value
+    let cond_span = extract_span_from_expr(cond);
     let cond_val = cond_vals.into_iter().next().ok_or_else(|| {
-        GlslError::new(ErrorCode::E0400, "condition expression produced no value")
+        let error = GlslError::new(ErrorCode::E0400, "condition expression produced no value")
+            .with_location(source_span_to_location(&cond_span));
+        ctx.add_span_to_error(error, &cond_span)
     })?;
 
     // Emit both branches

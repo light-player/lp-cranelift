@@ -367,7 +367,7 @@ fn calculate_line_number_width(line_num: usize) -> usize {
 ///     |            ^^^^^^^^^^^^^^^^^^^^^^^^^
 ///     |            condition has type `Int`, expected `Bool`
 /// ```
-fn format_source_lines_around_span(
+pub fn format_source_lines_around_span(
     source: &str,
     span: &glsl::syntax::SourceSpan,
     error_message: Option<&str>,
