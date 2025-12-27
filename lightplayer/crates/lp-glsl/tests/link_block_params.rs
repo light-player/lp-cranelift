@@ -1,4 +1,7 @@
 //! Test to verify that block parameters are preserved during function linking
+//!
+//! NOTE: This test uses the old ClifModule backend, not backend2.
+//! Any failures here are unrelated to backend2 changes.
 
 use cranelift_reader::parse_functions;
 use lp_glsl::{ClifModule, error::{ErrorCode, GlslError}};

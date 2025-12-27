@@ -1,14 +1,15 @@
 //! Function metadata structure
 
-use cranelift_codegen::ir::Signature;
+use cranelift_codegen::ir::{Function, Signature};
 use cranelift_module::FuncId;
 use alloc::string::String;
 
-/// Function metadata (doesn't store Function IR, just metadata)
+/// Function metadata and IR
 pub struct GlFunc {
     pub name: String,
     pub clif_sig: Signature,
     pub func_id: FuncId,
+    pub function: Function,  // Function IR stored here
     // Note: GLSL signature not needed for Phase 1
 }
 
@@ -26,13 +27,17 @@ mod tests {
         
         // Note: FuncId creation requires a Module, so this is a minimal test
         // This test just verifies the structure can be created with valid data
-        let _func = GlFunc {
+        let mut func = Function::new();
+        func.signature = sig.clone();
+        
+        let _gl_func = GlFunc {
             name: String::from("test"),
             clif_sig: sig,
             func_id: FuncId::from_u32(0), // Dummy ID for test
+            function: func,
         };
         
-        assert_eq!(_func.name, "test");
-        assert_eq!(_func.clif_sig.params.len(), 1);
+        assert_eq!(_gl_func.name, "test");
+        assert_eq!(_gl_func.clif_sig.params.len(), 1);
     }
 }

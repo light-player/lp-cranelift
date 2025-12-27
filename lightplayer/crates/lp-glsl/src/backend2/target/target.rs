@@ -1,14 +1,15 @@
 //! Semantic target enum - hides implementation details
 
+use crate::error::{ErrorCode, GlslError};
+use cranelift_codegen::ir::Type;
+use cranelift_codegen::ir::types;
+use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_codegen::settings::{self, Configurable, Flags};
-use cranelift_codegen::ir::types;
-use cranelift_codegen::ir::Type;
-use cranelift_codegen::isa::CallConv;
 use target_lexicon::Architecture;
-use crate::error::{ErrorCode, GlslError};
 
 /// Semantic target enum - caller doesn't need to know implementation details
+#[derive(Clone)]
 pub enum Target {
     /// RISC-V 32-bit emulator target
     Rv32Emu {
@@ -40,7 +41,7 @@ impl Target {
     #[cfg(feature = "std")]
     pub fn host_jit() -> Result<Self, GlslError> {
         Ok(Self::HostJit {
-            arch: None,  // Auto-detect
+            arch: None, // Auto-detect
             flags: default_host_flags()?,
             isa: None,
         })
@@ -65,30 +66,45 @@ impl Target {
                     #[cfg(feature = "emulator")]
                     {
                         use cranelift_codegen::isa::riscv32::isa_builder;
-                        *isa = Some(isa_builder(triple).finish(flags.clone())
-                            .map_err(|e| GlslError::new(ErrorCode::E0400, format!("ISA creation failed: {}", e)))?);
+                        *isa = Some(isa_builder(triple).finish(flags.clone()).map_err(|e| {
+                            GlslError::new(ErrorCode::E0400, format!("ISA creation failed: {}", e))
+                        })?);
                     }
                     #[cfg(not(feature = "emulator"))]
                     {
-                        return Err(GlslError::new(ErrorCode::E0400, "Emulator feature not enabled"));
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "Emulator feature not enabled",
+                        ));
                     }
                 }
                 Ok(isa.as_ref().unwrap())
             }
-            Target::HostJit { arch: _, flags, isa } => {
+            Target::HostJit {
+                arch: _,
+                flags,
+                isa,
+            } => {
                 if isa.is_none() {
                     #[cfg(feature = "std")]
                     {
                         use cranelift_native;
                         let isa_builder = cranelift_native::builder().map_err(|e| {
-                            GlslError::new(ErrorCode::E0400, format!("host machine is not supported: {}", e))
+                            GlslError::new(
+                                ErrorCode::E0400,
+                                format!("host machine is not supported: {}", e),
+                            )
                         })?;
-                        *isa = Some(isa_builder.finish(flags.clone())
-                            .map_err(|e| GlslError::new(ErrorCode::E0400, format!("ISA creation failed: {}", e)))?);
+                        *isa = Some(isa_builder.finish(flags.clone()).map_err(|e| {
+                            GlslError::new(ErrorCode::E0400, format!("ISA creation failed: {}", e))
+                        })?);
                     }
                     #[cfg(not(feature = "std"))]
                     {
-                        return Err(GlslError::new(ErrorCode::E0400, "std feature required for host JIT"));
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "std feature required for host JIT",
+                        ));
                     }
                 }
                 Ok(isa.as_ref().unwrap())
@@ -112,15 +128,25 @@ impl Target {
 /// Helper: Create default flags for RISC-V 32-bit target
 fn default_riscv32_flags() -> Result<Flags, GlslError> {
     let mut flag_builder = settings::builder();
-    flag_builder.set("is_pic", "false").map_err(|e| {
-        GlslError::new(ErrorCode::E0400, format!("failed to set is_pic: {}", e))
-    })?;
-    flag_builder.set("use_colocated_libcalls", "false").map_err(|e| {
-        GlslError::new(ErrorCode::E0400, format!("failed to set use_colocated_libcalls: {}", e))
-    })?;
-    flag_builder.set("enable_multi_ret_implicit_sret", "true").map_err(|e| {
-        GlslError::new(ErrorCode::E0400, format!("failed to set enable_multi_ret_implicit_sret: {}", e))
-    })?;
+    flag_builder
+        .set("is_pic", "false")
+        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("failed to set is_pic: {}", e)))?;
+    flag_builder
+        .set("use_colocated_libcalls", "false")
+        .map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("failed to set use_colocated_libcalls: {}", e),
+            )
+        })?;
+    flag_builder
+        .set("enable_multi_ret_implicit_sret", "true")
+        .map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("failed to set enable_multi_ret_implicit_sret: {}", e),
+            )
+        })?;
 
     Ok(settings::Flags::new(flag_builder))
 }
@@ -129,22 +155,35 @@ fn default_riscv32_flags() -> Result<Flags, GlslError> {
 #[cfg(feature = "std")]
 fn default_host_flags() -> Result<Flags, GlslError> {
     let mut flag_builder = settings::builder();
-    flag_builder.set("is_pic", "false").map_err(|e| {
-        GlslError::new(ErrorCode::E0400, format!("failed to set is_pic: {}", e))
-    })?;
-    flag_builder.set("use_colocated_libcalls", "false").map_err(|e| {
-        GlslError::new(ErrorCode::E0400, format!("failed to set use_colocated_libcalls: {}", e))
-    })?;
-    flag_builder.set("enable_multi_ret_implicit_sret", "true").map_err(|e| {
-        GlslError::new(ErrorCode::E0400, format!("failed to set enable_multi_ret_implicit_sret: {}", e))
-    })?;
+    flag_builder
+        .set("is_pic", "false")
+        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("failed to set is_pic: {}", e)))?;
+    flag_builder
+        .set("use_colocated_libcalls", "false")
+        .map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("failed to set use_colocated_libcalls: {}", e),
+            )
+        })?;
+    flag_builder
+        .set("enable_multi_ret_implicit_sret", "true")
+        .map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("failed to set enable_multi_ret_implicit_sret: {}", e),
+            )
+        })?;
 
     Ok(settings::Flags::new(flag_builder))
 }
 
 /// Helper: Get RISC-V 32-bit triple
 fn riscv32_triple() -> target_lexicon::Triple {
-    use target_lexicon::{Architecture, BinaryFormat, Environment, OperatingSystem, Riscv32Architecture, Triple, Vendor};
+    use target_lexicon::{
+        Architecture, BinaryFormat, Environment, OperatingSystem, Riscv32Architecture, Triple,
+        Vendor,
+    };
 
     Triple {
         architecture: Architecture::Riscv32(Riscv32Architecture::Riscv32imac),
@@ -225,4 +264,3 @@ mod tests {
         assert!(call_conv.is_ok());
     }
 }
-

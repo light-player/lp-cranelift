@@ -6,8 +6,10 @@ use crate::error::{ErrorCode, GlslError};
 use crate::frontend::src_loc::GlSourceMap;
 use crate::frontend::src_loc_manager::SourceLocManager;
 use cranelift_object::ObjectModule;
+use cranelift_module::Module;
 use hashbrown::HashMap;
 use alloc::vec::Vec;
+use alloc::string::String;
 
 /// Emulator execution options
 #[derive(Debug, Clone)]
@@ -25,7 +27,7 @@ pub struct EmulatorOptions {
 /// Called by GlModule<ObjectModule>::build_executable()
 #[cfg(feature = "emulator")]
 pub fn build_emu_executable(
-    gl_module: GlModule<ObjectModule>,
+    mut gl_module: GlModule<ObjectModule>,
     options: &EmulatorOptions,
 ) -> Result<GlslEmulatorModule, GlslError> {
     use lp_riscv_tools::emu::emulator::Riscv32Emulator;
@@ -33,12 +35,44 @@ pub fn build_emu_executable(
     use lp_riscv_tools::elf_loader::{find_symbol_address, load_elf};
     use object::{Object, ObjectSection};
     
-    // 1. Finish module and get object file
-    let product = gl_module.module.finish();
+    // 1. Define all functions (compile them)
+    // Collect function data first to avoid borrowing conflicts
+    let funcs: Vec<(String, cranelift_codegen::ir::Function, cranelift_module::FuncId)> = gl_module.fns
+        .iter()
+        .map(|(name, gl_func)| (name.clone(), gl_func.function.clone(), gl_func.func_id))
+        .collect();
+    
+    for (name, func, func_id) in funcs {
+        // Create context using immutable borrow
+        let mut ctx = {
+            let module_ref = gl_module.module_internal();
+            module_ref.make_context()
+        };
+        ctx.func = func;
+        // Define function using mutable borrow
+        gl_module.module_mut_internal().define_function(func_id, &mut ctx)
+            .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to define function '{}': {}", name, e)))?;
+        // Clear context using immutable borrow
+        {
+            let module_ref = gl_module.module_internal();
+            module_ref.clear_context(&mut ctx);
+        }
+    }
+
+    // 2. Build signatures before moving gl_module (minimal for Phase 1)
+    let signatures = HashMap::new();
+    let mut cranelift_signatures = HashMap::new();
+    for (name, gl_func) in &gl_module.fns {
+        cranelift_signatures.insert(name.clone(), gl_func.clif_sig.clone());
+        // Minimal GLSL signature for Phase 1
+    }
+
+    // 3. Finish module and get object file
+    let product = gl_module.into_module().finish();
     let elf_bytes = product.emit()
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to emit ELF: {}", e)))?;
 
-    // 2. Load ELF and find main address
+    // 4. Load ELF and find main address
     let load_info = load_elf(&elf_bytes)
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to load ELF: {}", e)))?;
     let obj = object::File::parse(&elf_bytes[..])
@@ -57,24 +91,16 @@ pub fn build_emu_executable(
     let main_address = find_symbol_address(&obj, "main", text_section_base)
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to find main address: {}", e)))?;
 
-    // 3. Create emulator
+    // 5. Create emulator
     let binary = load_info.code;
     let mut emulator = Riscv32Emulator::new(binary.clone(), vec![0; options.max_memory])
         .with_max_instructions(options.max_instructions);
 
-    // 4. Set up stack and PC
+    // 6. Set up stack and PC
     emulator.set_register(Gpr::Sp, options.max_memory as i32);
     emulator.set_pc(0);
 
-    // 5. Build signatures (minimal for Phase 1)
-    let signatures = HashMap::new();
-    let mut cranelift_signatures = HashMap::new();
-    for (name, gl_func) in &gl_module.fns {
-        cranelift_signatures.insert(name.clone(), gl_func.clif_sig.clone());
-        // Minimal GLSL signature for Phase 1
-    }
-
-    // 6. Create GlslEmulatorModule
+    // 7. Create GlslEmulatorModule
     // Note: Some fields are required by GlslEmulatorModule but not needed for Phase 1
     // Use minimal/default values for now
     Ok(GlslEmulatorModule {
@@ -100,7 +126,8 @@ pub fn build_emu_executable(
 mod tests {
     use super::*;
     use crate::backend2::target::Target;
-    use crate::backend2::module::builder::build_simple_function;
+    use crate::backend2::module::gl_module::GlModule;
+    use crate::backend2::module::test_helpers::test_helpers::build_simple_function;
     use cranelift_codegen::ir::{types, AbiParam, Signature, InstBuilder};
     use cranelift_codegen::isa::CallConv;
     use cranelift_module::Linkage;
