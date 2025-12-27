@@ -8,10 +8,10 @@ use crate::validation::validate_clif_module;
 use anyhow::{Context, Result};
 use cranelift_codegen::ir::{ExternalName, UserFuncName};
 use cranelift_codegen::write_function;
-use lp_glsl::{GlslCompiler};
+use cranelift_object::ObjectModule;
+use lp_glsl::GlslCompiler;
 use lp_glsl::backend::module::gl_module::GlModule;
 use lp_glsl::backend::target::Target;
-use cranelift_object::ObjectModule;
 use std::collections::HashMap;
 use std::env;
 use std::path::Path;
@@ -29,7 +29,9 @@ pub fn format_clif_module(module: &GlModule<ObjectModule>) -> Result<String> {
     }
 
     // Add user functions (excluding main)
-    let mut user_funcs: Vec<_> = module.fns.iter()
+    let mut user_funcs: Vec<_> = module
+        .fns
+        .iter()
         .filter(|(name, _)| *name != "main")
         .collect();
     // Sort by name for deterministic output
@@ -99,7 +101,8 @@ pub fn run_compile_test(glsl_source: &str, expected_clif: &str, path: &Path) -> 
 
     // Get ISA for validation
     let mut target_for_isa = target.clone();
-    let isa = target_for_isa.create_isa()
+    let isa = target_for_isa
+        .create_isa()
         .with_context(|| "failed to create ISA for validation")?;
 
     // Validate CLIF module

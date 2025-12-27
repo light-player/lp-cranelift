@@ -33,12 +33,10 @@ impl Target {
                     .map(|b| ModuleBuilder::Object(b))
             }
             #[cfg(not(feature = "emulator"))]
-            Target::Rv32Emu { .. } => {
-                Err(GlslError::new(
-                    ErrorCode::E0400,
-                    "Emulator feature is not enabled",
-                ))
-            }
+            Target::Rv32Emu { .. } => Err(GlslError::new(
+                ErrorCode::E0400,
+                "Emulator feature is not enabled",
+            )),
             Target::HostJit { .. } => {
                 // Internally knows: JITModule, host triple, etc.
                 Ok(ModuleBuilder::JIT(JITBuilder::with_isa(

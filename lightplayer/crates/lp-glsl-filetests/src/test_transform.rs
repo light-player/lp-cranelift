@@ -6,11 +6,11 @@ use crate::test_compile::{compare_clif, format_clif_module};
 use crate::test_utils;
 use crate::validation::validate_clif_module;
 use anyhow::{Context, Result};
-use lp_glsl::{GlslCompiler};
+use cranelift_object::ObjectModule;
+use lp_glsl::GlslCompiler;
 use lp_glsl::backend::module::gl_module::GlModule;
 use lp_glsl::backend::target::Target;
 use lp_glsl::backend::transform::fixed32::{Fixed32Transform, FixedPointFormat};
-use cranelift_object::ObjectModule;
 use std::path::Path;
 
 /// Run a transform test: verify CLIF IR after fixed32 transformation.
@@ -35,12 +35,14 @@ pub fn run_transform_fixed32_test(
 
     // Apply fixed32 transformation
     let transform = Fixed32Transform::new(FixedPointFormat::Fixed16x16);
-    let transformed_module = module.apply_transform(transform)
+    let transformed_module = module
+        .apply_transform(transform)
         .with_context(|| "failed to apply fixed32 transformation")?;
 
     // Get ISA for validation
     let mut target_for_isa = target.clone();
-    let isa = target_for_isa.create_isa()
+    let isa = target_for_isa
+        .create_isa()
         .with_context(|| "failed to create ISA for validation")?;
 
     // Validate CLIF module after transformation
