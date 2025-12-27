@@ -343,19 +343,6 @@ pub fn extract_span_from_identifier(ident: &glsl::syntax::Identifier) -> glsl::s
     ident.span.clone()
 }
 
-/// Extract source line text from a span
-/// TODO: This function is still used by validator.rs. Once validator.rs is updated to use
-/// the new Rust-style formatting (add_span_text_to_error), this can be removed.
-pub fn extract_source_line(source: &str, span: &glsl::syntax::SourceSpan) -> Option<String> {
-    if span.is_unknown() {
-        return None;
-    }
-    source
-        .lines()
-        .nth(span.line.saturating_sub(1))
-        .map(|s| s.into())
-}
-
 /// Calculate the number of digits needed to display a line number.
 /// Returns at least 2 to ensure consistent alignment for small line numbers.
 fn calculate_line_number_width(line_num: usize) -> usize {

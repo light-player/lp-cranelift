@@ -4,7 +4,7 @@
 //! and return statements to ensure they are semantically correct before codegen.
 
 use crate::error::{
-    extract_source_line, extract_span_from_expr, source_span_to_location, ErrorCode, GlslError,
+    add_span_text_to_error, extract_span_from_expr, source_span_to_location, ErrorCode, GlslError,
 };
 use crate::frontend::semantic::functions::FunctionRegistry;
 use crate::frontend::semantic::scope::{StorageClass, SymbolTable};
@@ -15,19 +15,6 @@ use crate::frontend::semantic::type_resolver;
 use crate::frontend::semantic::types::Type;
 use glsl::syntax::{JumpStatement, SimpleStatement, Statement};
 
-/// Helper function to add span text to an error if source is available
-/// TODO: Update this to use the new Rust-style formatting from error::add_span_text_to_error()
-/// instead of the simpler extract_source_line() approach for consistency
-fn add_span_text_to_error(
-    mut error: GlslError,
-    source: &str,
-    span: &glsl::syntax::SourceSpan,
-) -> GlslError {
-    if let Some(span_text) = extract_source_line(source, span) {
-        error = error.with_span_text(span_text);
-    }
-    error
-}
 
 use alloc::format;
 
@@ -94,7 +81,7 @@ fn validate_simple_statement(
             let expr_span = extract_span_from_expr(expr);
             infer_expr_type_with_registry(expr, symbols, Some(func_registry)).map_err(|e| {
                 if e.span_text.is_none() {
-                    add_span_text_to_error(e, source, &expr_span)
+                    add_span_text_to_error(e, Some(source), &expr_span)
                 } else {
                     e
                 }
@@ -198,13 +185,13 @@ fn validate_initializer(
                 infer_expr_type_with_registry(expr.as_ref(), symbols, Some(func_registry))
                     .map_err(|e| {
                         if e.span_text.is_none() {
-                            add_span_text_to_error(e, source, &init_span)
+                            add_span_text_to_error(e, Some(source), &init_span)
                         } else {
                             e
                         }
                     })?;
             check_assignment_with_span(declared_type, &init_type, Some(init_span.clone()))
-                .map_err(|e| add_span_text_to_error(e, source, &init_span))?;
+                .map_err(|e| add_span_text_to_error(e, Some(source), &init_span))?;
             Ok(())
         }
         _ => {
@@ -229,14 +216,14 @@ fn validate_selection(
     let cond_type = infer_expr_type_with_registry(&selection.cond, symbols, Some(func_registry))
         .map_err(|e| {
             if e.span_text.is_none() {
-                add_span_text_to_error(e, source, &cond_span)
+                add_span_text_to_error(e, Some(source), &cond_span)
             } else {
                 e
             }
         })?;
     check_condition(&cond_type).map_err(|e| {
         let error = e.with_location(source_span_to_location(&cond_span));
-        add_span_text_to_error(error, source, &cond_span)
+        add_span_text_to_error(error, Some(source), &cond_span)
     })?;
 
     // Validate then/else branches
@@ -360,7 +347,7 @@ fn validate_jump(
             let expr_type = infer_expr_type_with_registry(expr, symbols, Some(func_registry))
                 .map_err(|e| {
                     if e.span_text.is_none() {
-                        add_span_text_to_error(e, source, &expr_span)
+                        add_span_text_to_error(e, Some(source), &expr_span)
                     } else {
                         e
                     }
@@ -379,7 +366,7 @@ fn validate_jump(
                     "function returns `{:?}` but expression has type `{:?}`",
                     return_type, expr_type
                 ));
-                return Err(add_span_text_to_error(error, source, &expr_span));
+                return Err(add_span_text_to_error(error, Some(source), &expr_span));
             }
             Ok(())
         }

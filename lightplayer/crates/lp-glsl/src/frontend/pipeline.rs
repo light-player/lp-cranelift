@@ -3,7 +3,7 @@
 //! This module provides a unified compilation pipeline that can be used
 //! by different backends (JIT, code generation, CLIF output).
 
-use crate::error::{extract_source_line, source_span_to_location, ErrorCode, GlslError};
+use crate::error::{add_span_text_to_error, source_span_to_location, ErrorCode, GlslError};
 use crate::frontend::semantic::functions::FunctionRegistry;
 use crate::frontend::semantic::TypedShader;
 
@@ -62,9 +62,7 @@ impl CompilationPipeline {
             // Try to extract span from parse error if available
             if let Some(ref span) = e.span {
                 error = error.with_location(source_span_to_location(span));
-                if let Some(span_text) = extract_source_line(source, span) {
-                    error = error.with_span_text(span_text);
-                }
+                error = add_span_text_to_error(error, Some(source), span);
             }
             error
         })?;
