@@ -256,7 +256,7 @@ mod tests {
         let ptr_type = target.pointer_type();
         assert!(ptr_type.is_ok());
         // RISC-V 32-bit should have I32 pointer type
-        assert_eq!(ptr_type.unwrap(), types::I32);
+        assert_eq!(ptr_type.unwrap(), cranelift_codegen::ir::types::I32);
     }
 
     #[test]

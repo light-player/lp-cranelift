@@ -972,6 +972,16 @@ impl GlslExecutable for GlslEmulatorModule {
     fn format_clif_ir(&self) -> (Option<String>, Option<String>) {
         (self.original_clif.clone(), self.transformed_clif.clone())
     }
+
+    #[cfg(feature = "std")]
+    fn format_vcode(&self) -> Option<String> {
+        self.vcode.clone()
+    }
+
+    #[cfg(feature = "std")]
+    fn format_disassembly(&self) -> Option<String> {
+        self.disassembly.clone()
+    }
 }
 
 #[cfg(feature = "emulator")]

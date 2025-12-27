@@ -109,3 +109,140 @@ pub fn assert_nop_fixed32_transform(message: &str, clif_input: &str) {
         message, parsed_buf, transformed_buf
     );
 }
+
+/// Build and run a module, returning the result
+#[cfg(feature = "emulator")]
+fn build_and_run_module(
+    gl_module: crate::backend::module::gl_module::GlModule<cranelift_object::ObjectModule>,
+    transform_name: &str,
+) -> i32 {
+    use crate::GlslExecutable;
+    use crate::backend::codegen::emu::EmulatorOptions;
+    use cranelift_codegen::write_function;
+
+    // Print transformed CLIF
+    eprintln!(
+        "\n=== CLIF IR (AFTER {} transformation) ===",
+        transform_name
+    );
+    let mut funcs: Vec<_> = gl_module.fns.iter().collect();
+    funcs.sort_by_key(|(name, _)| *name);
+    for (name, gl_func) in funcs {
+        eprintln!("function {}:", name);
+        let mut buf = String::new();
+        write_function(&mut buf, &gl_func.function).unwrap();
+        eprintln!("{}", buf);
+    }
+
+    // Build executable
+    let options = EmulatorOptions {
+        max_memory: 1024 * 1024,
+        stack_size: 64 * 1024,
+        max_instructions: 10000,
+    };
+
+    eprintln!("\n=== Building executable ({}) ===", transform_name);
+    let mut executable = gl_module
+        .build_executable(&options, None, None)
+        .expect("Failed to build executable");
+
+    // Call main function and get result
+    eprintln!("\n=== Executing main function ({}) ===", transform_name);
+    executable
+        .call_i32("main", &[])
+        .expect("Failed to execute main function")
+}
+
+/// Compile GLSL, run it raw and with transforms, verify all results match
+///
+/// # Parameters
+/// * `glsl_source` - GLSL source code (should have a function named "main" that calls the test function)
+/// * `expected_int` - Expected integer result
+#[cfg(feature = "emulator")]
+pub fn run_int32_test(glsl_source: &str, expected_int: i32) {
+    use crate::backend::target::Target;
+    use crate::backend::transform::fixed32::{Fixed32Transform, FixedPointFormat};
+    use crate::frontend::glsl_compiler::GlslCompiler;
+
+    // Print input GLSL
+    eprintln!("\n=== GLSL Source (INPUT) ===");
+    eprintln!("{}", glsl_source);
+
+    let target = Target::riscv32_emulator().unwrap();
+    let mut compiler = GlslCompiler::new();
+
+    // Compile GLSL to raw module (no transform)
+    eprintln!("\n=== Compiling GLSL (raw, no transform) ===");
+    let raw_module = compiler
+        .compile_to_gl_module_object(glsl_source, target.clone())
+        .expect("Failed to compile GLSL");
+
+    // Print CLIF before transformation
+    eprintln!("\n=== CLIF IR (BEFORE transformation) ===");
+    use cranelift_codegen::write_function;
+    let mut funcs: Vec<_> = raw_module.fns.iter().collect();
+    funcs.sort_by_key(|(name, _)| *name);
+    for (name, gl_func) in funcs {
+        eprintln!("function {}:", name);
+        let mut buf = String::new();
+        write_function(&mut buf, &gl_func.function).unwrap();
+        eprintln!("{}", buf);
+    }
+
+    // Run raw (no transform)
+    let raw_result = build_and_run_module(raw_module, "raw");
+
+    // Compile GLSL for identity transform
+    eprintln!("\n=== Compiling GLSL (identity transform) ===");
+    let mut identity_module = compiler
+        .compile_to_gl_module_object(glsl_source, target.clone())
+        .expect("Failed to compile GLSL");
+    let identity_module = identity_module
+        .apply_transform(IdentityTransform)
+        .expect("Failed to apply identity transform");
+    let identity_result = build_and_run_module(identity_module, "identity");
+
+    // Compile GLSL for fixed32 transform
+    eprintln!("\n=== Compiling GLSL (fixed32 transform) ===");
+    let mut fixed32_module = compiler
+        .compile_to_gl_module_object(glsl_source, target.clone())
+        .expect("Failed to compile GLSL");
+    let fixed32_transform = Fixed32Transform::new(FixedPointFormat::Fixed16x16);
+    let fixed32_module = fixed32_module
+        .apply_transform(fixed32_transform)
+        .expect("Failed to apply fixed32 transform");
+    let fixed32_result = build_and_run_module(fixed32_module, "fixed32");
+
+    // Verify all results match expected value
+    eprintln!("\n=== Results ===");
+    eprintln!("Expected: {}", expected_int);
+    eprintln!("Raw:      {}", raw_result);
+    eprintln!("Identity: {}", identity_result);
+    eprintln!("Fixed32:  {}", fixed32_result);
+
+    assert_eq!(
+        raw_result, expected_int,
+        "Raw execution failed: expected {}, got {}",
+        expected_int, raw_result
+    );
+    assert_eq!(
+        identity_result, expected_int,
+        "Identity transform failed: expected {}, got {}",
+        expected_int, identity_result
+    );
+    assert_eq!(
+        fixed32_result, expected_int,
+        "Fixed32 transform failed: expected {}, got {}",
+        expected_int, fixed32_result
+    );
+    assert_eq!(
+        raw_result, identity_result,
+        "Raw and identity results differ: raw={}, identity={}",
+        raw_result, identity_result
+    );
+    assert_eq!(
+        raw_result, fixed32_result,
+        "Raw and fixed32 results differ: raw={}, fixed32={}",
+        raw_result, fixed32_result
+    );
+}

@@ -81,25 +81,85 @@ pub fn build_emu_executable(
             .module_mut_internal()
             .define_function(func_id, &mut ctx)
             .map_err(|e| {
-                GlslError::new(
-                    ErrorCode::E0400,
-                    format!("Failed to define function '{}': {}", name, e),
-                )
+                // TODO: This is a hacky way to get the verifier error and it should be improved
+                // Check if this is a verifier error by checking the error message
+                // If it is, verify the function again to get detailed error messages
+                let error_str = format!("{}", e);
+                let error_msg = if error_str.contains("Verifier errors") {
+                    // It's a verifier error - verify the function again to get detailed errors
+                    use cranelift_codegen::verifier::verify_function;
+                    let module_ref = gl_module.module_internal();
+                    let isa = module_ref.isa();
+
+                    if let Err(verifier_errors) = verify_function(&ctx.func, isa) {
+                        // Format verifier errors with the function IR for context
+                        #[cfg(feature = "std")]
+                        {
+                            use cranelift_codegen::print_errors::pretty_verifier_error;
+                            format!(
+                                "Failed to define function '{}': Verifier errors\n\n{}",
+                                name,
+                                pretty_verifier_error(&ctx.func, None, verifier_errors)
+                            )
+                        }
+                        #[cfg(not(feature = "std"))]
+                        {
+                            format!(
+                                "Failed to define function '{}': Verifier errors\n\n{}",
+                                name, verifier_errors
+                            )
+                        }
+                    } else {
+                        // Fallback if verification somehow succeeds
+                        format!("Failed to define function '{}': {}", name, e)
+                    }
+                } else {
+                    format!("Failed to define function '{}': {}", name, e)
+                };
+
+                let mut error = GlslError::new(ErrorCode::E0400, error_msg);
+
+                // Add CLIF IR (before and after transformation) if available
+                // Only show both if they're different
+                match (&original_clif, &transformed_clif) {
+                    (Some(original), Some(transformed)) if original != transformed => {
+                        error = error.with_note(format!(
+                            "=== CLIF IR (BEFORE transformation) ===\n{}",
+                            original
+                        ));
+                        error = error.with_note(format!(
+                            "=== CLIF IR (AFTER transformation) ===\n{}",
+                            transformed
+                        ));
+                    }
+                    (Some(ir), Some(_)) => {
+                        // They're the same, just show one
+                        error = error.with_note(format!("=== CLIF IR ===\n{}", ir));
+                    }
+                    (Some(ir), None) => {
+                        error = error.with_note(format!("=== CLIF IR ===\n{}", ir));
+                    }
+                    (None, Some(ir)) => {
+                        error = error.with_note(format!("=== CLIF IR ===\n{}", ir));
+                    }
+                    (None, None) => {
+                        // No CLIF IR available
+                    }
+                }
+
+                error
             })?;
 
         // Capture V-Code and disassembly if available (only in std builds)
         #[cfg(feature = "std")]
         {
             if let Some(compiled_code) = ctx.compiled_code() {
-                // Get disassembly from compiled_code
-                let disasm = compiled_code.vcode.as_ref().map(|s| s.clone());
+                // Get VCode (intermediate representation)
+                let vcode = compiled_code.vcode.as_ref().map(|s| s.clone());
 
-                // Try to generate disassembly using ISA capabilities if available
-                let disasm = if let Some(ref disasm_str) = disasm {
-                    Some(disasm_str.clone())
-                } else {
-                    // Try to disassemble using the ISA if available
-
+                // Try to generate actual RISC-V disassembly using Capstone first (preferred)
+                // This gives us real assembly instructions, not VCode pseudo-instructions
+                let disasm = {
                     #[cfg(feature = "emulator")]
                     {
                         let module_ref = gl_module.module_internal();
@@ -110,26 +170,29 @@ pub fn build_emu_executable(
                             {
                                 Some(disasm_str)
                             } else {
-                                None
+                                // Fall back to VCode if Capstone disassembly fails
+                                vcode.clone()
                             }
                         } else {
-                            None
+                            // Fall back to VCode if Capstone isn't available
+                            vcode.clone()
                         }
                     }
                     #[cfg(not(feature = "emulator"))]
                     {
-                        None
+                        // Fall back to VCode if emulator feature isn't enabled
+                        vcode.clone()
                     }
                 };
 
+                // Store actual disassembly (RISC-V assembly)
                 if let Some(ref disasm_str) = disasm {
                     all_disasm_parts.push(format!("// function {}:\n{}", name, disasm_str));
                 }
 
-                // For V-Code, use the disassembly as a placeholder
-                // TODO: Capture actual pre-regalloc V-Code if needed
-                if let Some(ref disasm_str) = disasm {
-                    all_vcode_parts.push(format!("// function {}:\n{}", name, disasm_str));
+                // Store VCode separately (intermediate representation)
+                if let Some(ref vcode_str) = vcode {
+                    all_vcode_parts.push(format!("// function {}:\n{}", name, vcode_str));
                 }
             }
         }

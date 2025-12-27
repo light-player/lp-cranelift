@@ -87,7 +87,7 @@ pub fn run_fixed32_test(clif_input: &str, expected_float: f32) {
 
     eprintln!("\n=== Building executable ===");
     let mut executable = transformed_module
-        .build_executable(&options)
+        .build_executable(&options, None, None)
         .expect("Failed to build executable");
 
     // Call main function and get result

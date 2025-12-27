@@ -50,5 +50,5 @@ int test_continue_do_while_loop_after_first() {
     return sum;
 }
 
-// run: test_continue_do_while_loop_after_first() == 1
+// run: test_continue_do_while_loop_after_first() == 10
 

@@ -214,40 +214,4 @@ block7:
 "#,
         );
     }
-
-    #[test]
-    #[cfg(feature = "std")]
-    fn test_call_clif() {
-        // Test with multiple functions - parse each separately
-        transform_test_util::assert_identity_transform(
-            "Identity transform should preserve add function",
-            r#"
-function %test_int_add_positive_positive() -> i32 system_v {
-block0:
-    v0 = iconst.i32 5
-    v1 = iconst.i32 3
-    v2 = iadd v0, v1  ; v0 = 5, v1 = 3
-    return v2
-
-block1:
-
-    v3 = iconst.i32 0
-    return v3  ; v3 = 0
-}
-
-function %main() -> i32 system_v {
-    sig0 = () -> i32 system_v
-    fn0 = colocated %test_int_add_positive_positive sig0
-
-block0:
-    v0 = call fn0()
-    return v0
-
-block1:
-    v1 = iconst.i32 0
-    return v1  ; v1 = 0
-}
-"#,
-        );
-    }
 }

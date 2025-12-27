@@ -156,4 +156,34 @@ block1:
 "#,
         );
     }
+
+    #[test]
+    #[cfg(feature = "std")]
+    #[cfg(feature = "emulator")]
+    fn test_do_while() {
+        // Test do-while loop with continue - should return 1 (only first iteration adds to sum)
+        use crate::backend::transform::shared::transform_test_util::run_int32_test;
+        run_int32_test(
+            r#"
+int test_continue_do_while_loop_after_first() {
+    int sum = 0;
+    int i = 0;
+    do {
+        sum = sum + i;
+        i = i + 1;
+        if (i >= 2) {
+            continue;
+        }
+    } while (i < 5);
+
+    return sum;
+}
+
+int main() {
+    return test_continue_do_while_loop_after_first();
+}
+"#,
+            1, // Expected result: sum should be 1 (only first iteration adds 0+0=0, then i becomes 1, sum becomes 1, then continue skips rest)
+        );
+    }
 }

@@ -71,6 +71,18 @@ pub trait GlslExecutable {
         (None, None)
     }
 
+    /// Get VCode as a formatted string, if available.
+    #[cfg(feature = "std")]
+    fn format_vcode(&self) -> Option<String> {
+        None
+    }
+
+    /// Get disassembly as a formatted string, if available.
+    #[cfg(feature = "std")]
+    fn format_disassembly(&self) -> Option<String> {
+        None
+    }
+
     // TODO: Future extensions:
     // fn set_uniform(&mut self, name: &str, value: GlslValue) -> Result<(), GlslError>;
     // fn get_uniform(&self, name: &str) -> Option<&GlslValue>;
