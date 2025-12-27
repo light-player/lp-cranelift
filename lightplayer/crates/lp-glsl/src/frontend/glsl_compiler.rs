@@ -9,6 +9,7 @@ use cranelift_codegen::ir::Function;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_jit::JITModule;
 use cranelift_module::{FuncId, Linkage, Module, ModuleDeclarations, ModuleError, ModuleResult};
+#[cfg(feature = "emulator")]
 use cranelift_object::ObjectModule;
 use hashbrown::HashMap;
 
@@ -176,6 +177,7 @@ impl GlslCompiler {
 
     /// Compile GLSL source to a GlModule<ObjectModule>
     /// All functions are compiled with float types initially (no fixed-point conversion)
+    #[cfg(feature = "emulator")]
     pub fn compile_to_gl_module_object(
         &mut self,
         source: &str,

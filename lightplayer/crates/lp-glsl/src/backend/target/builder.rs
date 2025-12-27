@@ -4,11 +4,13 @@ use crate::backend::target::target::Target;
 use crate::error::{ErrorCode, GlslError};
 use cranelift_jit::JITBuilder;
 use cranelift_module::default_libcall_names;
+#[cfg(feature = "emulator")]
 use cranelift_object::ObjectBuilder;
 
 /// Module builder enum (wraps different builder types)
 pub enum ModuleBuilder {
     JIT(JITBuilder),
+    #[cfg(feature = "emulator")]
     Object(ObjectBuilder),
 }
 
@@ -18,6 +20,7 @@ impl Target {
     pub fn create_module_builder(&mut self) -> Result<ModuleBuilder, GlslError> {
         let isa = self.create_isa()?.clone(); // Clone owned ISA for builder
         match self {
+            #[cfg(feature = "emulator")]
             Target::Rv32Emu { .. } => {
                 // Internally knows: ObjectModule, riscv32 triple, etc.
                 ObjectBuilder::new(isa, b"module", default_libcall_names())
@@ -28,6 +31,13 @@ impl Target {
                         )
                     })
                     .map(|b| ModuleBuilder::Object(b))
+            }
+            #[cfg(not(feature = "emulator"))]
+            Target::Rv32Emu { .. } => {
+                Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "Emulator feature is not enabled",
+                ))
             }
             Target::HostJit { .. } => {
                 // Internally knows: JITModule, host triple, etc.
@@ -57,6 +67,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "emulator")]
     fn test_create_object_builder() {
         let mut target = Target::riscv32_emulator().unwrap();
         let builder = target.create_module_builder();

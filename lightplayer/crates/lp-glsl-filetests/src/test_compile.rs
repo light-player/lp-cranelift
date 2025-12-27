@@ -8,39 +8,46 @@ use crate::validation::validate_clif_module;
 use anyhow::{Context, Result};
 use cranelift_codegen::ir::{ExternalName, UserFuncName};
 use cranelift_codegen::write_function;
-use lp_glsl::{ClifModule, GlslCompiler};
+use lp_glsl::{GlslCompiler};
+use lp_glsl::backend::module::gl_module::GlModule;
+use lp_glsl::backend::target::Target;
+use cranelift_object::ObjectModule;
 use std::collections::HashMap;
 use std::env;
 use std::path::Path;
 
-/// Format a ClifModule as CLIF text.
+/// Format a GlModule as CLIF text.
 /// Exported for use by test_transform module.
-pub fn format_clif_module(module: &ClifModule) -> Result<String> {
+pub fn format_clif_module(module: &GlModule<ObjectModule>) -> Result<String> {
     let mut result = String::new();
 
     // Build mapping from func_id string to function name for updating external references
-    let func_id_to_name = module.func_id_to_name_map();
+    // In backend2, func_id_to_name is not stored, but we can build it from fns
     let mut name_mapping: HashMap<String, String> = HashMap::new();
-    for (func_id, name) in func_id_to_name.iter() {
-        name_mapping.insert(func_id.to_string(), name.clone());
+    for (name, gl_func) in &module.fns {
+        name_mapping.insert(gl_func.func_id.as_u32().to_string(), name.clone());
     }
 
-    // Add user functions
-    let mut user_funcs: Vec<_> = module.user_functions().iter().collect();
+    // Add user functions (excluding main)
+    let mut user_funcs: Vec<_> = module.fns.iter()
+        .filter(|(name, _)| *name != "main")
+        .collect();
     // Sort by name for deterministic output
     user_funcs.sort_by_key(|(name, _)| *name);
 
-    for (name, func) in user_funcs {
+    for (name, gl_func) in user_funcs {
         result.push_str(&format!("// function {}:\n", name));
-        let func_text = format_function(func, name, &name_mapping)?;
+        let func_text = format_function(&gl_func.function, name, &name_mapping)?;
         result.push_str(&func_text);
         result.push('\n');
     }
 
     // Add main function
-    result.push_str("// function main:\n");
-    let main_text = format_function(module.main_function(), "main", &name_mapping)?;
-    result.push_str(&main_text);
+    if let Some(main_func) = module.fns.get("main") {
+        result.push_str("// function main:\n");
+        let main_text = format_function(&main_func.function, "main", &name_mapping)?;
+        result.push_str(&main_text);
+    }
 
     Ok(result)
 }
@@ -82,13 +89,18 @@ pub fn run_compile_test(glsl_source: &str, expected_clif: &str, path: &Path) -> 
         return Ok(());
     }
 
-    // Compile to CLIF (no transformations)
+    // Compile to GlModule (no transformations)
     let mut compiler = GlslCompiler::new();
-    let isa = test_utils::create_riscv32_isa()
-        .with_context(|| "failed to create riscv32 ISA for compile test")?;
+    let target = Target::riscv32_emulator()
+        .with_context(|| "failed to create riscv32 target for compile test")?;
     let module = compiler
-        .compile_to_clif_module(glsl_source, isa.clone())
-        .with_context(|| "failed to compile GLSL to CLIF module")?;
+        .compile_to_gl_module_object(glsl_source, target.clone())
+        .with_context(|| "failed to compile GLSL to GlModule")?;
+
+    // Get ISA for validation
+    let mut target_for_isa = target.clone();
+    let isa = target_for_isa.create_isa()
+        .with_context(|| "failed to create ISA for validation")?;
 
     // Validate CLIF module
     validate_clif_module(&module, isa.as_ref())

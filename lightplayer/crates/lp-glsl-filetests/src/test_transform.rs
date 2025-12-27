@@ -6,7 +6,11 @@ use crate::test_compile::{compare_clif, format_clif_module};
 use crate::test_utils;
 use crate::validation::validate_clif_module;
 use anyhow::{Context, Result};
-use lp_glsl::{FixedPointFormat, GlslCompiler, transform_module};
+use lp_glsl::{GlslCompiler};
+use lp_glsl::backend::module::gl_module::GlModule;
+use lp_glsl::backend::target::Target;
+use lp_glsl::backend::transform::fixed32::{Fixed32Transform, FixedPointFormat};
+use cranelift_object::ObjectModule;
 use std::path::Path;
 
 /// Run a transform test: verify CLIF IR after fixed32 transformation.
@@ -21,17 +25,23 @@ pub fn run_transform_fixed32_test(
         return Ok(());
     }
 
-    // Compile to CLIF
+    // Compile to GlModule
     let mut compiler = GlslCompiler::new();
-    let isa = test_utils::create_riscv32_isa()
-        .with_context(|| "failed to create riscv32 ISA for transform test")?;
+    let target = Target::riscv32_emulator()
+        .with_context(|| "failed to create riscv32 target for transform test")?;
     let module = compiler
-        .compile_to_clif_module(glsl_source, isa.clone())
-        .with_context(|| "failed to compile GLSL to CLIF module")?;
+        .compile_to_gl_module_object(glsl_source, target.clone())
+        .with_context(|| "failed to compile GLSL to GlModule")?;
 
     // Apply fixed32 transformation
-    let transformed_module = transform_module(&module, FixedPointFormat::Fixed16x16)
+    let transform = Fixed32Transform::new(FixedPointFormat::Fixed16x16);
+    let transformed_module = module.apply_transform(transform)
         .with_context(|| "failed to apply fixed32 transformation")?;
+
+    // Get ISA for validation
+    let mut target_for_isa = target.clone();
+    let isa = target_for_isa.create_isa()
+        .with_context(|| "failed to create ISA for validation")?;
 
     // Validate CLIF module after transformation
     validate_clif_module(&transformed_module, isa.as_ref())

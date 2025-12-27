@@ -1,14 +1,24 @@
 //! Emulator codegen - build executable from GlModule<ObjectModule>
 
+#[cfg(feature = "emulator")]
 use crate::backend::module::gl_module::GlModule;
+#[cfg(feature = "emulator")]
 use crate::error::{ErrorCode, GlslError};
+#[cfg(feature = "emulator")]
 use crate::exec::emu::GlslEmulatorModule;
+#[cfg(feature = "emulator")]
 use crate::frontend::src_loc::GlSourceMap;
+#[cfg(feature = "emulator")]
 use crate::frontend::src_loc_manager::SourceLocManager;
+#[cfg(feature = "emulator")]
 use alloc::string::String;
+#[cfg(feature = "emulator")]
 use alloc::vec::Vec;
+#[cfg(feature = "emulator")]
 use cranelift_module::Module;
+#[cfg(feature = "emulator")]
 use cranelift_object::ObjectModule;
+#[cfg(feature = "emulator")]
 use hashbrown::HashMap;
 
 /// Emulator execution options

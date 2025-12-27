@@ -15,6 +15,7 @@ fn fixed32_to_float(fixed: i32) -> f32 {
 /// # Parameters
 /// * `clif_input` - CLIF function text (should have a function named "main")
 /// * `expected_float` - Expected float result (will be compared as fixed-point)
+#[cfg(feature = "emulator")]
 pub fn run_fixed32_test(clif_input: &str, expected_float: f32) {
     // Print input CLIF
     eprintln!("\n=== CLIF IR (INPUT) ===");
@@ -48,6 +49,7 @@ pub fn run_fixed32_test(clif_input: &str, expected_float: f32) {
     use crate::backend::transform::fixed32::Fixed32Transform;
     use cranelift_codegen::write_function;
     use cranelift_module::Linkage;
+    #[cfg(feature = "emulator")]
     use cranelift_object::ObjectModule;
     use cranelift_reader::{ParseOptions, parse_test};
     use std::prelude::rust_2015::{String, Vec}; // Print parsed CLIF (before transformation)

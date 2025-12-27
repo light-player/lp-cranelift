@@ -15,7 +15,7 @@ extern crate alloc;
 pub mod error;
 pub mod frontend;
 
-// Private modules
+// Backend2 module (public for filetests)
 pub mod backend;
 mod exec;
 

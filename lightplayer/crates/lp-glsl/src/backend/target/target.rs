@@ -233,6 +233,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "emulator")]
     fn test_isa_creation() {
         let mut target = Target::riscv32_emulator().unwrap();
         let isa = target.create_isa();
@@ -240,6 +241,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "emulator")]
     fn test_isa_caching() {
         let mut target = Target::riscv32_emulator().unwrap();
         let isa1_ptr = target.create_isa().unwrap() as *const _;
@@ -249,6 +251,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "emulator")]
     fn test_pointer_type() {
         let mut target = Target::riscv32_emulator().unwrap();
         let ptr_type = target.pointer_type();
@@ -258,6 +261,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "emulator")]
     fn test_call_conv() {
         let mut target = Target::riscv32_emulator().unwrap();
         let call_conv = target.default_call_conv();

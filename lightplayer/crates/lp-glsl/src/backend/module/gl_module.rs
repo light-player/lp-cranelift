@@ -9,6 +9,7 @@ use crate::frontend::src_loc_manager::SourceLocManager;
 use alloc::string::String;
 use cranelift_jit::JITModule;
 use cranelift_module::Module;
+#[cfg(feature = "emulator")]
 use cranelift_object::ObjectModule;
 use hashbrown::HashMap;
 
@@ -62,6 +63,7 @@ impl GlModule<JITModule> {
     }
 }
 
+#[cfg(feature = "emulator")]
 impl GlModule<ObjectModule> {
     /// Create new GlModule with ObjectModule from Rv32Emu target
     pub fn new_object(mut target: Target) -> Result<Self, GlslError> {
@@ -303,6 +305,7 @@ impl GlModule<JITModule> {
     }
 }
 
+#[cfg(feature = "emulator")]
 impl GlModule<ObjectModule> {
     /// Build executable from Object module (for emulator)
     /// Returns a boxed GlslExecutable trait object for generic code
@@ -364,6 +367,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "emulator")]
     fn test_create_object_module() {
         let target = Target::riscv32_emulator().unwrap();
         let gl_module = GlModule::new_object(target);
