@@ -168,8 +168,7 @@ pub fn is_matrix_type_name(name: &str) -> bool {
 
 /// Check if a name is a scalar type constructor
 pub fn is_scalar_type_name(name: &str) -> bool {
-    matches!(name, "bool" | "int" | "float")
-    // TODO: Add "uint" when Type::UInt is added
+    matches!(name, "bool" | "int" | "uint" | "float")
 }
 
 /// Check scalar constructor arguments and infer result type
@@ -202,8 +201,8 @@ pub fn check_scalar_constructor_with_span(
     let result_type = match type_name {
         "bool" => Type::Bool,
         "int" => Type::Int,
+        "uint" => Type::UInt,
         "float" => Type::Float,
-        // TODO: Add uint when Type::UInt is added
         _ => {
             let mut error = GlslError::new(
                 ErrorCode::E0112,

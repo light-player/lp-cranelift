@@ -14,7 +14,7 @@ pub struct BootstrapResult {
 
 /// Known GLSL return types that can be inferred.
 const KNOWN_TYPES: &[&str] = &[
-    "float", "int", "bool", "vec2", "vec3", "vec4", "ivec2", "ivec3", "ivec4", "bvec2", "bvec3",
+    "float", "int", "uint", "bool", "vec2", "vec3", "vec4", "ivec2", "ivec3", "ivec4", "bvec2", "bvec3",
     "bvec4", "uvec2", "uvec3", "uvec4", "mat2", "mat3", "mat4",
 ];
 
@@ -92,7 +92,7 @@ pub fn infer_return_type_from_expression(source: &str, expression: &str) -> Resu
     let func_name = extract_function_name(expression)?;
 
     // First try: Search for function definition in source
-    if let Some(return_type) = find_return_type_in_source(source, &func_name) {
+    if let Some(return_type) = find_return_type_in_source(source, &func_name)? {
         return Ok(return_type);
     }
 
@@ -110,7 +110,8 @@ fn extract_function_name(expression: &str) -> Result<String> {
 }
 
 /// Search for function definition in source and extract its return type.
-fn find_return_type_in_source(source: &str, func_name: &str) -> Option<String> {
+/// Returns an error if the return type is not in KNOWN_TYPES.
+fn find_return_type_in_source(source: &str, func_name: &str) -> Result<Option<String>> {
     let pattern = format!("{}(", func_name);
     for line in source.lines() {
         let trimmed = line.trim();
@@ -121,12 +122,22 @@ fn find_return_type_in_source(source: &str, func_name: &str) -> Option<String> {
             if let Some(return_type) = before_func.split_whitespace().last() {
                 // Validate it's a known type
                 if KNOWN_TYPES.contains(&return_type) {
-                    return Some(return_type.to_string());
+                    return Ok(Some(return_type.to_string()));
+                } else {
+                    // Error if we found a return type that's not in KNOWN_TYPES
+                    return Err(anyhow::anyhow!(
+                        "unknown return type '{}' for function '{}'. Known types: {:?}. \
+                         Please add '{}' to KNOWN_TYPES in bootstrap.rs",
+                        return_type,
+                        func_name,
+                        KNOWN_TYPES,
+                        return_type
+                    ));
                 }
             }
         }
     }
-    None
+    Ok(None)
 }
 
 /// Infer return type using heuristics based on function name or expression content.
@@ -134,6 +145,11 @@ fn infer_type_from_heuristics(func_name: &str, expression: &str) -> String {
     // Check for float indicators
     if func_name.contains("float") || expression.contains('.') {
         return "float".to_string();
+    }
+
+    // Check for uint indicators
+    if func_name.contains("uint") {
+        return "uint".to_string();
     }
 
     // Check for vector/matrix types in function name

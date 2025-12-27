@@ -10,8 +10,13 @@ use glsl::syntax::SourceSpan;
 pub fn promote_numeric(lhs: &Type, rhs: &Type) -> Type {
     match (lhs, rhs) {
         (Type::Int, Type::Int) => Type::Int,
+        (Type::UInt, Type::UInt) => Type::UInt,
         (Type::Float, Type::Float) => Type::Float,
         (Type::Int, Type::Float) | (Type::Float, Type::Int) => Type::Float,
+        // int + uint: both can convert to uint/float/double, promote to uint
+        (Type::Int, Type::UInt) | (Type::UInt, Type::Int) => Type::UInt,
+        // uint + float: promote to float
+        (Type::UInt, Type::Float) | (Type::Float, Type::UInt) => Type::Float,
         // int → float implicit conversion per GLSL spec
         _ => Type::Int, // Fallback (shouldn't reach here after validation)
     }
@@ -32,12 +37,20 @@ pub fn can_implicitly_convert(from: &Type, to: &Type) -> bool {
     if matches!((from, to), (Type::Float, Type::Int)) {
         return true;
     }
+    // int ↔ uint conversions (bit pattern preserved)
+    if matches!((from, to), (Type::Int, Type::UInt) | (Type::UInt, Type::Int)) {
+        return true;
+    }
+    // uint ↔ float conversions
+    if matches!((from, to), (Type::UInt, Type::Float) | (Type::Float, Type::UInt)) {
+        return true;
+    }
     // Numeric to bool conversions (for constructors: 0/0.0 → false, non-zero → true)
-    if matches!((from, to), (Type::Int, Type::Bool) | (Type::Float, Type::Bool)) {
+    if matches!((from, to), (Type::Int, Type::Bool) | (Type::UInt, Type::Bool) | (Type::Float, Type::Bool)) {
         return true;
     }
     // Bool to numeric conversions (for constructors: false → 0/0.0, true → 1/1.0)
-    if matches!((from, to), (Type::Bool, Type::Int) | (Type::Bool, Type::Float)) {
+    if matches!((from, to), (Type::Bool, Type::Int) | (Type::Bool, Type::UInt) | (Type::Bool, Type::Float)) {
         return true;
     }
 

@@ -238,6 +238,7 @@ fn format_float(f: f32) -> String {
 pub fn format_glsl_value(value: &GlslValue) -> String {
     match value {
         GlslValue::I32(i) => i.to_string(),
+        GlslValue::U32(u) => format!("{}u", u),
         GlslValue::F32(f) => {
             // Format float with enough precision but avoid unnecessary decimals
             if f.fract() == 0.0 {

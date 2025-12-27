@@ -52,7 +52,12 @@ pub fn coerce_to_type_with_location(
             crate::debug!("  Bool -> Float coercion: converted to f32, f32_val={:?}", f32_val);
             Ok(f32_val)
         }
-        // TODO: Add (GlslType::Bool, GlslType::UInt) when UInt type is added
+        // Boolean to uint conversion
+        (GlslType::Bool, GlslType::UInt) => {
+            // bool → uint: false → 0u, true → 1u
+            // val is i8 (0 or 1), extend to i32 (treat as unsigned)
+            Ok(ctx.builder.ins().uextend(types::I32, val))
+        }
         // Numeric to boolean conversions
         (GlslType::Int, GlslType::Bool) => {
             // int → bool: 0 → false, non-zero → true
@@ -79,7 +84,33 @@ pub fn coerce_to_type_with_location(
             // val is f32, convert to i32 using fcvt_to_sint
             Ok(ctx.builder.ins().fcvt_to_sint(types::I32, val))
         }
-        // TODO: Add (GlslType::UInt, GlslType::Bool) when UInt type is added
+        // uint to boolean conversion
+        (GlslType::UInt, GlslType::Bool) => {
+            // uint → bool: 0 → false, non-zero → true
+            // val is i32 (treated as unsigned), compare with 0, convert result to i8
+            let zero = ctx.builder.ins().iconst(types::I32, 0);
+            let cmp = ctx.builder.ins().icmp(IntCC::NotEqual, val, zero);
+            let one = ctx.builder.ins().iconst(types::I8, 1);
+            let zero_i8 = ctx.builder.ins().iconst(types::I8, 0);
+            Ok(ctx.builder.ins().select(cmp, one, zero_i8))
+        }
+        // int ↔ uint conversions (bit pattern preserved, no-op)
+        (GlslType::Int, GlslType::UInt) | (GlslType::UInt, GlslType::Int) => {
+            // Bit pattern preservation: no conversion needed, just type change
+            // Both use I32 in Cranelift, operations differ based on type
+            Ok(val)
+        }
+        // float ↔ uint conversions
+        (GlslType::Float, GlslType::UInt) => {
+            // float → uint: truncates fractional part toward zero (undefined for negative)
+            // val is f32, convert to i32 using fcvt_to_uint
+            Ok(ctx.builder.ins().fcvt_to_uint(types::I32, val))
+        }
+        (GlslType::UInt, GlslType::Float) => {
+            // uint → float: convert unsigned to float
+            // val is i32 (treated as unsigned), convert to f32 using fcvt_from_uint
+            Ok(ctx.builder.ins().fcvt_from_uint(types::F32, val))
+        }
         _ => {
             let error_msg = format!("cannot implicitly convert {:?} to {:?}", from_ty, to_ty);
             let mut error = GlslError::new(ErrorCode::E0103, error_msg);

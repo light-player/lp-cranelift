@@ -10,6 +10,14 @@ use lp_glsl::GlslValue;
 pub fn parse_glsl_value(s: &str) -> Result<GlslValue> {
     let s = s.trim();
 
+    // Check for uint suffix (u or U)
+    if s.ends_with('u') || s.ends_with('U') {
+        let num_str = &s[..s.len() - 1];
+        if let Ok(u) = num_str.parse::<u32>() {
+            return Ok(GlslValue::U32(u));
+        }
+    }
+
     // Try parsing as integer
     if let Ok(i) = s.parse::<i32>() {
         return Ok(GlslValue::I32(i));

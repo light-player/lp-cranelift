@@ -62,9 +62,37 @@ uint test_uint_from_float_expression_zero() {
 // run: test_uint_from_float_expression_zero() == 0u
 
 uint test_uint_from_float_large() {
-    float f = 4294967295.0;  // UINT_MAX
+    float f = 32767.0;  // Maximum representable integer in fixed16x16 format
     return uint(f);
 }
 
-// run: test_uint_from_float_large() == 4294967295u
+// run: test_uint_from_float_large() == 32767u
+
+uint test_uint_from_float_negative() {
+    float f = -1.0;
+    return uint(f);
+}
+
+// run: test_uint_from_float_negative() == 0u
+
+uint test_uint_from_float_negative_large() {
+    float f = -100.5;
+    return uint(f);
+}
+
+// run: test_uint_from_float_negative_large() == 0u
+
+uint test_uint_from_float_negative_literal() {
+    return uint(-42.0);
+}
+
+// run: test_uint_from_float_negative_literal() == 0u
+
+uint test_uint_from_float_negative_expression() {
+    float a = 3.0;
+    float b = 5.0;
+    return uint(a - b);
+}
+
+// run: test_uint_from_float_negative_expression() == 0u
 

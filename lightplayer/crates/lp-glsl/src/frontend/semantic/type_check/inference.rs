@@ -37,6 +37,7 @@ pub fn infer_expr_type_with_registry(
 ) -> Result<Type, GlslError> {
     match expr {
         Expr::IntConst(_, _) => Ok(Type::Int),
+        Expr::UIntConst(_, _) => Ok(Type::UInt),
         Expr::FloatConst(_, _) => Ok(Type::Float),
         Expr::BoolConst(_, _) => Ok(Type::Bool),
         Expr::DoubleConst(_, _) => Ok(Type::Float), // Treat as float for now
@@ -350,6 +351,7 @@ pub fn infer_expr_type_in_context(
     // We'll try different return types to see which one parses successfully
     let wrappers = [
         format!("int main() {{ return {}; }}", expr_str),
+        format!("uint main() {{ return {}; }}", expr_str),
         format!("float main() {{ return {}; }}", expr_str),
         format!("bool main() {{ return {}; }}", expr_str),
     ];

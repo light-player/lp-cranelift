@@ -142,6 +142,7 @@ pub fn parse_type_specifier(
 
     match &type_spec.ty.ty {
         TypeSpecifierNonArray::Int => Ok(crate::frontend::semantic::types::Type::Int),
+        TypeSpecifierNonArray::UInt => Ok(crate::frontend::semantic::types::Type::UInt),
         TypeSpecifierNonArray::Bool => Ok(crate::frontend::semantic::types::Type::Bool),
         TypeSpecifierNonArray::Float => Ok(crate::frontend::semantic::types::Type::Float),
         TypeSpecifierNonArray::Vec2 => Ok(crate::frontend::semantic::types::Type::Vec2),

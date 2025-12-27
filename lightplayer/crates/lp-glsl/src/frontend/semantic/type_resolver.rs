@@ -14,6 +14,7 @@ pub fn parse_type_specifier(
         TypeSpecifierNonArray::Void => Ok(types::Type::Void),
         TypeSpecifierNonArray::Bool => Ok(types::Type::Bool),
         TypeSpecifierNonArray::Int => Ok(types::Type::Int),
+        TypeSpecifierNonArray::UInt => Ok(types::Type::UInt),
         TypeSpecifierNonArray::Float => Ok(types::Type::Float),
         TypeSpecifierNonArray::Vec2 => Ok(types::Type::Vec2),
         TypeSpecifierNonArray::Vec3 => Ok(types::Type::Vec3),

@@ -12,6 +12,11 @@ pub fn emit_literal_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
             let val = ctx.builder.ins().iconst(types::I32, *n as i64);
             Ok(RValue::from_scalar(val, GlslType::Int))
         }
+        Expr::UIntConst(n, _) => {
+            // UIntConst stores value as u32, preserve bit pattern by casting to i64
+            let val = ctx.builder.ins().iconst(types::I32, *n as i64);
+            Ok(RValue::from_scalar(val, GlslType::UInt))
+        }
         Expr::FloatConst(f, _) => {
             let val = ctx.builder.ins().f32const(*f);
             Ok(RValue::from_scalar(val, GlslType::Float))

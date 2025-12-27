@@ -32,7 +32,7 @@ fn generate_default_scalar_return(
     return_type: &Type,
 ) -> Result<(), GlslError> {
     let return_val = match return_type {
-        Type::Int => ctx.builder.ins().iconst(types::I32, 0),
+        Type::Int | Type::UInt => ctx.builder.ins().iconst(types::I32, 0),
         Type::Float => ctx.builder.ins().f32const(0.0),
         Type::Bool => ctx.builder.ins().iconst(types::I8, 0),
         _ => {
@@ -88,7 +88,7 @@ fn create_zero_value(
 ) -> Result<cranelift_codegen::ir::Value, GlslError> {
     match base_ty {
         Type::Float => Ok(ctx.builder.ins().f32const(0.0)),
-        Type::Int => Ok(ctx.builder.ins().iconst(types::I32, 0)),
+        Type::Int | Type::UInt => Ok(ctx.builder.ins().iconst(types::I32, 0)),
         Type::Bool => Ok(ctx.builder.ins().iconst(types::I8, 0)),
         _ => Err(GlslError::new(
             ErrorCode::E0400,

@@ -6,6 +6,7 @@ pub enum Type {
     Void,
     Bool,
     Int,
+    UInt,
 
     // Future phases:
     Float,
@@ -29,15 +30,10 @@ pub enum Type {
 pub type StructId = usize;
 
 impl Type {
-    /// Returns true if this type is supported in Phase 1
-    pub fn is_phase1_supported(&self) -> bool {
-        matches!(self, Type::Void | Type::Bool | Type::Int)
-    }
-
     /// Returns true if this type is numeric (can be used in arithmetic)
     pub fn is_numeric(&self) -> bool {
         match self {
-            Type::Int | Type::Float => true,
+            Type::Int | Type::UInt | Type::Float => true,
             Type::Vec2 | Type::Vec3 | Type::Vec4 | Type::IVec2 | Type::IVec3 | Type::IVec4 => true,
             Type::Mat2 | Type::Mat3 | Type::Mat4 => true,
             _ => false,
@@ -46,7 +42,7 @@ impl Type {
 
     /// Returns true if this type is a scalar (single value)
     pub fn is_scalar(&self) -> bool {
-        matches!(self, Type::Bool | Type::Int | Type::Float)
+        matches!(self, Type::Bool | Type::Int | Type::UInt | Type::Float)
     }
 
     /// Returns true if this type is a vector
@@ -146,6 +142,7 @@ impl Type {
         match self {
             Type::Bool => Ok(cranelift_codegen::ir::types::I8),
             Type::Int => Ok(cranelift_codegen::ir::types::I32),
+            Type::UInt => Ok(cranelift_codegen::ir::types::I32),
             Type::Float => Ok(cranelift_codegen::ir::types::F32),
             Type::Void => Err(crate::error::GlslError::new(
                 crate::error::ErrorCode::E0109,

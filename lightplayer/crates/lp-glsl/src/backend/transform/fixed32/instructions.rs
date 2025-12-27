@@ -168,6 +168,11 @@ fn convert_instruction(
                 old_func, old_inst, builder, value_map, format,
             )?;
         }
+        Opcode::FcvtToUint => {
+            converters::conversions::convert_fcvt_to_uint(
+                old_func, old_inst, builder, value_map, format,
+            )?;
+        }
         // ... more F32 instructions as we add them ...
         _ => {
             // For non-F32 instructions, fall back to base copier

@@ -265,9 +265,8 @@ pub fn translate_scalar_constructor(
     let result_ty = match type_name {
         "bool" => GlslType::Bool,
         "int" => GlslType::Int,
+        "uint" => GlslType::UInt,
         "float" => GlslType::Float,
-        // TODO: Add uint support when Type::UInt is added
-        // "uint" => GlslType::UInt,
         _ => {
             return Err(GlslError::new(
                 ErrorCode::E0112,

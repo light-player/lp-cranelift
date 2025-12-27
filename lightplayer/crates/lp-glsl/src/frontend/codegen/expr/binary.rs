@@ -169,7 +169,7 @@ fn translate_scalar_binary_op(
     let val = match op {
         // Arithmetic operators - dispatch based on type
         Add => match operand_ty {
-            GlslType::Int => ctx.builder.ins().iadd(lhs, rhs),
+            GlslType::Int | GlslType::UInt => ctx.builder.ins().iadd(lhs, rhs),
             GlslType::Float => ctx.builder.ins().fadd(lhs, rhs),
             _ => {
                 return Err(GlslError::new(
@@ -179,7 +179,7 @@ fn translate_scalar_binary_op(
             }
         },
         Sub => match operand_ty {
-            GlslType::Int => ctx.builder.ins().isub(lhs, rhs),
+            GlslType::Int | GlslType::UInt => ctx.builder.ins().isub(lhs, rhs),
             GlslType::Float => ctx.builder.ins().fsub(lhs, rhs),
             _ => {
                 return Err(GlslError::new(
@@ -189,7 +189,7 @@ fn translate_scalar_binary_op(
             }
         },
         Mult => match operand_ty {
-            GlslType::Int => ctx.builder.ins().imul(lhs, rhs),
+            GlslType::Int | GlslType::UInt => ctx.builder.ins().imul(lhs, rhs),
             GlslType::Float => ctx.builder.ins().fmul(lhs, rhs),
             _ => {
                 return Err(GlslError::new(
@@ -204,6 +204,7 @@ fn translate_scalar_binary_op(
             ctx.builder.set_srcloc(srcloc);
             match operand_ty {
                 GlslType::Int => ctx.builder.ins().sdiv(lhs, rhs),
+                GlslType::UInt => ctx.builder.ins().udiv(lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fdiv(lhs, rhs),
                 _ => {
                     return Err(GlslError::new(
@@ -219,6 +220,7 @@ fn translate_scalar_binary_op(
             ctx.builder.set_srcloc(srcloc);
             match operand_ty {
                 GlslType::Int => ctx.builder.ins().srem(lhs, rhs),
+                GlslType::UInt => ctx.builder.ins().urem(lhs, rhs),
                 _ => {
                     return Err(GlslError::new(
                         ErrorCode::E0400,
@@ -239,7 +241,7 @@ fn translate_scalar_binary_op(
                     // Boolean equality: compare directly as i8
                     ctx.builder.ins().icmp(IntCC::Equal, lhs, rhs)
                 }
-                GlslType::Int => ctx.builder.ins().icmp(IntCC::Equal, lhs, rhs),
+                GlslType::Int | GlslType::UInt => ctx.builder.ins().icmp(IntCC::Equal, lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fcmp(FloatCC::Equal, lhs, rhs),
                 _ => {
                     return Err(GlslError::new(
@@ -259,7 +261,7 @@ fn translate_scalar_binary_op(
                     // Boolean inequality: compare directly as i8
                     ctx.builder.ins().icmp(IntCC::NotEqual, lhs, rhs)
                 }
-                GlslType::Int => ctx.builder.ins().icmp(IntCC::NotEqual, lhs, rhs),
+                GlslType::Int | GlslType::UInt => ctx.builder.ins().icmp(IntCC::NotEqual, lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fcmp(FloatCC::NotEqual, lhs, rhs),
                 _ => {
                     return Err(GlslError::new(
@@ -275,6 +277,7 @@ fn translate_scalar_binary_op(
         LT => {
             let cmp_result = match operand_ty {
                 GlslType::Int => ctx.builder.ins().icmp(IntCC::SignedLessThan, lhs, rhs),
+                GlslType::UInt => ctx.builder.ins().icmp(IntCC::UnsignedLessThan, lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fcmp(FloatCC::LessThan, lhs, rhs),
                 _ => {
                     return Err(GlslError::new(
@@ -290,6 +293,7 @@ fn translate_scalar_binary_op(
         GT => {
             let cmp_result = match operand_ty {
                 GlslType::Int => ctx.builder.ins().icmp(IntCC::SignedGreaterThan, lhs, rhs),
+                GlslType::UInt => ctx.builder.ins().icmp(IntCC::UnsignedGreaterThan, lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fcmp(FloatCC::GreaterThan, lhs, rhs),
                 _ => {
                     return Err(GlslError::new(
@@ -308,6 +312,10 @@ fn translate_scalar_binary_op(
                     .builder
                     .ins()
                     .icmp(IntCC::SignedLessThanOrEqual, lhs, rhs),
+                GlslType::UInt => ctx
+                    .builder
+                    .ins()
+                    .icmp(IntCC::UnsignedLessThanOrEqual, lhs, rhs),
                 GlslType::Float => ctx.builder.ins().fcmp(FloatCC::LessThanOrEqual, lhs, rhs),
                 _ => {
                     return Err(GlslError::new(
@@ -326,6 +334,10 @@ fn translate_scalar_binary_op(
                     .builder
                     .ins()
                     .icmp(IntCC::SignedGreaterThanOrEqual, lhs, rhs),
+                GlslType::UInt => ctx
+                    .builder
+                    .ins()
+                    .icmp(IntCC::UnsignedGreaterThanOrEqual, lhs, rhs),
                 GlslType::Float => ctx
                     .builder
                     .ins()

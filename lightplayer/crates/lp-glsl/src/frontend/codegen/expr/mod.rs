@@ -51,7 +51,7 @@ impl<'a> CodegenContext<'a> {
     fn emit_rvalue_impl(&mut self, expr: &Expr) -> Result<RValue, GlslError> {
         match expr {
             // Simple delegations stay inline
-            Expr::IntConst(..) | Expr::FloatConst(..) | Expr::BoolConst(..) => {
+            Expr::IntConst(..) | Expr::UIntConst(..) | Expr::FloatConst(..) | Expr::BoolConst(..) => {
                 literal::emit_literal_rvalue(self, expr)
             }
             Expr::Binary(..) => binary::emit_binary_rvalue(self, expr),

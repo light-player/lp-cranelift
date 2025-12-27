@@ -27,6 +27,7 @@ use alloc::{format, vec::Vec};
 #[derive(Debug, Clone)]
 pub enum GlslValue {
     I32(i32),
+    U32(u32),
     F32(f32),
     Bool(bool),
     Vec2([f32; 2]),
@@ -49,6 +50,7 @@ impl GlslValue {
         // We'll try different return types to determine the literal type
         let wrappers = [
             format!("int main() {{ return {}; }}", literal_str),
+            format!("uint main() {{ return {}; }}", literal_str),
             format!("float main() {{ return {}; }}", literal_str),
             format!("bool main() {{ return {}; }}", literal_str),
             format!("vec2 main() {{ return {}; }}", literal_str),
@@ -73,6 +75,9 @@ impl GlslValue {
                         Expr::IntConst(n, _) => {
                             return Ok(GlslValue::I32(*n));
                         }
+                        Expr::UIntConst(n, _) => {
+                            return Ok(GlslValue::U32(*n));
+                        }
                         Expr::FloatConst(f, _) => {
                             return Ok(GlslValue::F32(*f));
                         }
@@ -86,6 +91,10 @@ impl GlslValue {
                                 match **unary_expr {
                                     Expr::IntConst(n, _) => {
                                         return Ok(GlslValue::I32(-n));
+                                    }
+                                    Expr::UIntConst(n, _) => {
+                                        // -1u gives 0xffffffffu (wrapping negation: !n + 1)
+                                        return Ok(GlslValue::U32((!n).wrapping_add(1)));
                                     }
                                     Expr::FloatConst(f, _) => {
                                         return Ok(GlslValue::F32(-f));
@@ -210,6 +219,7 @@ impl GlslValue {
     pub fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (GlslValue::I32(a), GlslValue::I32(b)) => a == b,
+            (GlslValue::U32(a), GlslValue::U32(b)) => a == b,
             (GlslValue::F32(a), GlslValue::F32(b)) => a == b, // Exact equality
             (GlslValue::Bool(a), GlslValue::Bool(b)) => a == b,
             (GlslValue::Vec2(a), GlslValue::Vec2(b)) => a == b,
@@ -232,6 +242,7 @@ impl GlslValue {
     pub fn approx_eq(&self, other: &Self, tolerance: f32) -> bool {
         match (self, other) {
             (GlslValue::I32(a), GlslValue::I32(b)) => a == b, // Exact for ints
+            (GlslValue::U32(a), GlslValue::U32(b)) => a == b, // Exact for uints
             (GlslValue::F32(a), GlslValue::F32(b)) => (a - b).abs() <= tolerance,
             (GlslValue::Bool(a), GlslValue::Bool(b)) => a == b, // Exact for bools
             (GlslValue::Vec2(a), GlslValue::Vec2(b)) => a

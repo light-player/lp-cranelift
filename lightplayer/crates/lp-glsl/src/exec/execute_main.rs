@@ -41,6 +41,10 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
             .call_i32("main", &[])
             .map(GlslValue::I32)
             .map_err(|e| format_error(e, executable)),
+        Type::UInt => executable
+            .call_i32("main", &[])
+            .map(|i| GlslValue::U32(i as u32)) // Convert i32 to u32 (bit pattern preserved)
+            .map_err(|e| format_error(e, executable)),
         Type::Bool => executable
             .call_bool("main", &[])
             .map(GlslValue::Bool)

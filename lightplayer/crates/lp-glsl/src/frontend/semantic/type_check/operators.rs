@@ -85,11 +85,11 @@ pub fn infer_binary_result_type(
             Ok(promote_numeric(lhs_ty, rhs_ty))
         }
 
-        // Modulo operator: integer types only (int, ivec2, ivec3, ivec4)
+        // Modulo operator: integer types only (int, uint, ivec2, ivec3, ivec4)
         Mod => {
             // Modulo is only valid for integer types, not floats
-            let lhs_is_int = matches!(lhs_ty, Type::Int | Type::IVec2 | Type::IVec3 | Type::IVec4);
-            let rhs_is_int = matches!(rhs_ty, Type::Int | Type::IVec2 | Type::IVec3 | Type::IVec4);
+            let lhs_is_int = matches!(lhs_ty, Type::Int | Type::UInt | Type::IVec2 | Type::IVec3 | Type::IVec4);
+            let rhs_is_int = matches!(rhs_ty, Type::Int | Type::UInt | Type::IVec2 | Type::IVec3 | Type::IVec4);
 
             if !lhs_is_int || !rhs_is_int {
                 return Err(GlslError::new(
@@ -131,7 +131,7 @@ pub fn infer_binary_result_type(
                 // Vector % Scalar or Scalar % Vector: result is vector type
                 if lhs_ty.is_vector() {
                     let vec_base = lhs_ty.vector_base_type().unwrap();
-                    if !matches!(vec_base, Type::Int) || !matches!(rhs_ty, Type::Int) {
+                    if !matches!(vec_base, Type::Int | Type::UInt) || !matches!(rhs_ty, Type::Int | Type::UInt) {
                         return Err(GlslError::new(
                             ErrorCode::E0106,
                             format!(
@@ -146,7 +146,7 @@ pub fn infer_binary_result_type(
 
                 if rhs_ty.is_vector() {
                     let vec_base = rhs_ty.vector_base_type().unwrap();
-                    if !matches!(vec_base, Type::Int) || !matches!(lhs_ty, Type::Int) {
+                    if !matches!(vec_base, Type::Int | Type::UInt) || !matches!(lhs_ty, Type::Int | Type::UInt) {
                         return Err(GlslError::new(
                             ErrorCode::E0106,
                             format!(
@@ -160,18 +160,25 @@ pub fn infer_binary_result_type(
                 }
             }
 
-            // Scalar operations: both must be Int
-            if !matches!(lhs_ty, Type::Int) || !matches!(rhs_ty, Type::Int) {
-                return Err(GlslError::new(
-                    ErrorCode::E0106,
-                    format!(
-                        "modulo operator requires integer operands, got {:?} and {:?}",
-                        lhs_ty, rhs_ty
-                    ),
-                )
-                .with_location(source_span_to_location(&span)));
+            // Scalar operations: both must be Int or UInt
+            match (lhs_ty, rhs_ty) {
+                (Type::Int, Type::Int) => Ok(Type::Int),
+                (Type::UInt, Type::UInt) => Ok(Type::UInt),
+                (Type::Int, Type::UInt) | (Type::UInt, Type::Int) => {
+                    // Mixed int/uint: promote to uint per GLSL spec
+                    Ok(Type::UInt)
+                }
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0106,
+                        format!(
+                            "modulo operator requires integer operands, got {:?} and {:?}",
+                            lhs_ty, rhs_ty
+                        ),
+                    )
+                    .with_location(source_span_to_location(&span)));
+                }
             }
-            Ok(Type::Int)
         }
 
         // Comparison operators: operands must be compatible, result is bool

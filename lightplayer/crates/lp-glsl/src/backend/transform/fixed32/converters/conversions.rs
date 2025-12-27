@@ -5,7 +5,7 @@ use crate::backend::transform::fixed32::converters::{
 };
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::error::GlslError;
-use cranelift_codegen::ir::{types, Function, Inst, InstBuilder, Value};
+use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, types};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 
@@ -103,7 +103,7 @@ pub(crate) fn convert_fcvt_to_sint(
 ) -> Result<(), GlslError> {
     let old_result = get_first_result(old_func, old_inst);
     let result_ty = old_func.dfg.value_type(old_result);
-    
+
     // Only handle F32 -> I32 conversions
     let arg = extract_unary_operand(old_func, old_inst)?;
     if old_func.dfg.value_type(arg) != types::F32 {
@@ -123,21 +123,83 @@ pub(crate) fn convert_fcvt_to_sint(
     //   Formula: (value + (1 << shift) - 1) >> shift for negative numbers
     let shift_const = builder.ins().iconst(target_type, shift_amount);
     let zero = builder.ins().iconst(target_type, 0);
-    let bias_mask = builder.ins().iconst(target_type, (1i64 << shift_amount) - 1);
-    
+    let bias_mask = builder
+        .ins()
+        .iconst(target_type, (1i64 << shift_amount) - 1);
+
     // Check if value is negative
-    let is_negative = builder.ins().icmp(cranelift_codegen::ir::condcodes::IntCC::SignedLessThan, mapped_arg, zero);
-    
+    let is_negative = builder.ins().icmp(
+        cranelift_codegen::ir::condcodes::IntCC::SignedLessThan,
+        mapped_arg,
+        zero,
+    );
+
     // For negative numbers, add bias before shifting; for positive, shift directly
     let biased_arg = builder.ins().iadd(mapped_arg, bias_mask);
     let biased_value = builder.ins().select(is_negative, biased_arg, mapped_arg);
     let result = builder.ins().sshr(biased_value, shift_const);
-    
+
     // If result type is smaller than target_type, truncate
     let final_result = if result_ty.bits() < target_type.bits() {
         builder.ins().ireduce(result_ty, result)
     } else if result_ty.bits() > target_type.bits() {
         builder.ins().sextend(result_ty, result)
+    } else {
+        result
+    };
+
+    value_map.insert(old_result, final_result);
+
+    Ok(())
+}
+
+/// Convert FcvtToUint instruction.
+/// In fixed32 mode, floats are represented as integers shifted left by shift_amount.
+/// Converting float to uint means: truncate(float_value) = truncate(int_value / 2^shift) = int_value >> shift_amount
+/// Note: GLSL spec says converting negative float to uint is undefined behavior.
+/// We choose to clamp negative values to 0 (since uint cannot represent negative values).
+/// This matches "truncate toward zero" semantics: negative values become 0.
+pub(crate) fn convert_fcvt_to_uint(
+    old_func: &Function,
+    old_inst: Inst,
+    builder: &mut FunctionBuilder,
+    value_map: &mut HashMap<Value, Value>,
+    format: FixedPointFormat,
+) -> Result<(), GlslError> {
+    let old_result = get_first_result(old_func, old_inst);
+    let result_ty = old_func.dfg.value_type(old_result);
+
+    // Only handle F32 -> I32 conversions (uint uses I32 in Cranelift)
+    let arg = extract_unary_operand(old_func, old_inst)?;
+    if old_func.dfg.value_type(arg) != types::F32 {
+        // Not an F32 conversion, skip
+        return Ok(());
+    }
+
+    // Map the fixed-point integer argument (representing a float)
+    let mapped_arg = map_operand(value_map, arg);
+    let shift_amount = format.shift_amount();
+    let target_type = format.cranelift_type();
+
+    // Check if value is negative (in fixed-point representation, negative means < 0)
+    let zero = builder.ins().iconst(target_type, 0);
+    let is_negative = builder.ins().icmp(
+        cranelift_codegen::ir::condcodes::IntCC::SignedLessThan,
+        mapped_arg,
+        zero,
+    );
+
+    // For negative values, clamp to 0; for positive values, shift right
+    let shift_const = builder.ins().iconst(target_type, shift_amount);
+    let shifted = builder.ins().ushr(mapped_arg, shift_const);
+    let result = builder.ins().select(is_negative, zero, shifted);
+
+    // If result type is smaller than target_type, truncate
+    let final_result = if result_ty.bits() < target_type.bits() {
+        builder.ins().ireduce(result_ty, result)
+    } else if result_ty.bits() > target_type.bits() {
+        // Zero-extend for unsigned
+        builder.ins().uextend(result_ty, result)
     } else {
         result
     };
