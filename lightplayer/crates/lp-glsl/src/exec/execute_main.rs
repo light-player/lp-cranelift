@@ -134,6 +134,25 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
                 })
                 .map_err(|e| format_error(e, executable))
         }
+        // Boolean vectors: stored as i8 in StructReturn, read as i8 and convert to bool
+        Type::BVec2 => {
+            executable
+                .call_bvec("main", &[], 2)
+                .map(|v| GlslValue::BVec2([v[0], v[1]]))
+                .map_err(|e| format_error(e, executable))
+        }
+        Type::BVec3 => {
+            executable
+                .call_bvec("main", &[], 3)
+                .map(|v| GlslValue::BVec3([v[0], v[1], v[2]]))
+                .map_err(|e| format_error(e, executable))
+        }
+        Type::BVec4 => {
+            executable
+                .call_bvec("main", &[], 4)
+                .map(|v| GlslValue::BVec4([v[0], v[1], v[2], v[3]]))
+                .map_err(|e| format_error(e, executable))
+        }
         _ => anyhow::bail!("unsupported return type: {:?}", sig.return_type),
     }
 }

@@ -67,9 +67,9 @@ impl LValue {
                 GlslType::Float
             }
             LValue::MatrixColumn { result_ty, .. } => result_ty.clone(),
-            LValue::VectorElement { .. } => {
-                // Vector element is always float scalar
-                GlslType::Float
+            LValue::VectorElement { base_ty, .. } => {
+                // Vector element type is the base type of the vector
+                base_ty.vector_base_type().unwrap()
             }
         }
     }
@@ -423,10 +423,14 @@ pub fn read_lvalue(
         }
 
         LValue::VectorElement {
-            base_vars, index, ..
+            base_vars,
+            base_ty,
+            index,
         } => {
             let val = ctx.builder.use_var(base_vars[*index]);
-            Ok((vec![val], GlslType::Float))
+            let base_type = base_ty.vector_base_type().unwrap();
+            crate::debug!("read_lvalue VectorElement: base_ty={:?}, base_type={:?}, index={}", base_ty, base_type, index);
+            Ok((vec![val], base_type))
         }
     }
 }

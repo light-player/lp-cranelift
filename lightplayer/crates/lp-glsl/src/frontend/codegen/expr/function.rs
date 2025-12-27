@@ -345,6 +345,8 @@ fn execute_function_call(
     func_sig: &crate::frontend::semantic::functions::FunctionSignature,
     return_buffer_ptr: Option<cranelift_codegen::ir::Value>,
 ) -> Result<Vec<cranelift_codegen::ir::Value>, GlslError> {
+    // Ensure we're in a block before making the call
+    ctx.ensure_block()?;
     let call_inst = ctx.builder.ins().call(func_ref, call_args);
 
     if let Some(buffer_ptr) = return_buffer_ptr {
@@ -359,17 +361,36 @@ fn execute_function_call(
             ));
         };
 
+        // Determine the base type and corresponding Cranelift IR type
+        let base_type = if func_sig.return_type.is_vector() {
+            func_sig.return_type.vector_base_type().unwrap()
+        } else {
+            // Matrices are always float
+            crate::frontend::semantic::types::Type::Float
+        };
+        
+        let cranelift_ty = base_type.to_cranelift_type().map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("Failed to convert return type to Cranelift type: {}", e.message),
+            )
+        })?;
+
+        crate::debug!("execute_function_call: loading {} elements of type {:?} (cranelift_ty={:?})", element_count, base_type, cranelift_ty);
         let mut loaded_vals = Vec::new();
         for i in 0..element_count {
             let offset = (i * crate::frontend::codegen::constants::F32_SIZE_BYTES) as i32;
+            crate::debug!("  loading element {} at offset {}, cranelift_ty={:?}", i, offset, cranelift_ty);
             let val = ctx.builder.ins().load(
-                cranelift_codegen::ir::types::F32,
+                cranelift_ty,
                 cranelift_codegen::ir::MemFlags::trusted(),
                 buffer_ptr,
                 offset,
             );
+            crate::debug!("    loaded val = {:?} (should be {:?})", val, cranelift_ty);
             loaded_vals.push(val);
         }
+        crate::debug!("  execute_function_call: returning {} loaded values", loaded_vals.len());
         Ok(loaded_vals)
     } else {
         Ok(ctx.builder.inst_results(call_inst).to_vec())
@@ -426,7 +447,16 @@ fn translate_user_function_call(
     // Step 6: Execute call
     let return_vals =
         execute_function_call(ctx, func_ref, &call_args, &func_sig, return_buffer_ptr)?;
+    crate::debug!("translate_user_function_call: loaded {} return values, func_sig.return_type={:?}", return_vals.len(), func_sig.return_type);
+    for (i, val) in return_vals.iter().enumerate() {
+        crate::debug!("  return_vals[{}] = {:?}", i, val);
+    }
 
     // Step 7: Package return values
-    package_return_values(return_vals, &func_sig.return_type)
+    let (packaged_vals, packaged_ty) = package_return_values(return_vals, &func_sig.return_type)?;
+    crate::debug!("translate_user_function_call: packaged to {} values, type={:?}", packaged_vals.len(), packaged_ty);
+    for (i, val) in packaged_vals.iter().enumerate() {
+        crate::debug!("  packaged_vals[{}] = {:?}", i, val);
+    }
+    Ok((packaged_vals, packaged_ty))
 }

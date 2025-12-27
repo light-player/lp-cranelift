@@ -14,7 +14,7 @@
 macro_rules! debug {
     ($($arg:tt)*) => {
         if std::env::var("DEBUG").as_deref() == Ok("1") {
-            println!($($arg)*);
+            println!("[{}:{}] {}", file!(), line!(), format!($($arg)*));
         }
     };
 }

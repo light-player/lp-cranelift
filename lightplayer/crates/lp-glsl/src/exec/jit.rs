@@ -435,6 +435,50 @@ impl GlslExecutable for GlslJitModule {
         Ok(result != 0)
     }
 
+    fn call_bvec(
+        &mut self,
+        name: &str,
+        args: &[GlslValue],
+        dim: usize,
+    ) -> Result<Vec<bool>, GlslError> {
+        use crate::error::ErrorCode;
+
+        self.validate_main_only(name)?;
+        self.validate_no_args(args, "call_bvec")?;
+
+        let func_ptr = self.function_ptrs.get(name).ok_or_else(|| {
+            GlslError::new(ErrorCode::E0101, format!("Function '{}' not found", name))
+        })?;
+
+        // Use struct return for boolean vectors (multiple i8s returned via pointer)
+        // Boolean values are stored as i8 but with 4-byte alignment (matching return statement codegen)
+        let buffer_size = dim * 4;
+        let mut buffer = vec![0u8; buffer_size];
+        unsafe {
+            call_structreturn(
+                *func_ptr,
+                buffer.as_mut_ptr() as *mut u8,
+                buffer_size,
+                self.call_conv,
+                self.pointer_type,
+            )
+            .map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("StructReturn call failed for bvec{}: {}", dim, e),
+                )
+            })?;
+        }
+        // Extract i8 values from 4-byte-aligned positions and convert to bool
+        // Values are stored at offsets 0, 4, 8, etc.
+        let mut result = Vec::with_capacity(dim);
+        for i in 0..dim {
+            let offset = i * 4;
+            result.push(buffer[offset] != 0); // Convert i8 to bool: 0 → false, non-zero → true
+        }
+        Ok(result)
+    }
+
     fn call_vec(
         &mut self,
         name: &str,

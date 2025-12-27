@@ -31,6 +31,16 @@ pub trait GlslExecutable {
     /// Call a function that returns bool
     fn call_bool(&mut self, name: &str, args: &[GlslValue]) -> Result<bool, GlslError>;
 
+    /// Call a function that returns a boolean vector (bvec2, bvec3, or bvec4)
+    /// `dim` is the dimension (2, 3, or 4)
+    /// Returns a Vec<bool> with the boolean values
+    fn call_bvec(
+        &mut self,
+        name: &str,
+        args: &[GlslValue],
+        dim: usize,
+    ) -> Result<Vec<bool>, GlslError>;
+
     /// Call a function that returns a vector (vec2, vec3, or vec4)
     /// `dim` is the dimension (2, 3, or 4)
     fn call_vec(

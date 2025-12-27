@@ -14,8 +14,8 @@ pub struct BootstrapResult {
 
 /// Known GLSL return types that can be inferred.
 const KNOWN_TYPES: &[&str] = &[
-    "float", "int", "bool", "vec2", "vec3", "vec4", "ivec2", "ivec3", "ivec4", "mat2", "mat3",
-    "mat4",
+    "float", "int", "bool", "vec2", "vec3", "vec4", "ivec2", "ivec3", "ivec4", "bvec2", "bvec3",
+    "bvec4", "uvec2", "uvec3", "uvec4", "mat2", "mat3", "mat4",
 ];
 
 /// Generate bootstrap GLSL code that wraps the expression in a main() function.
@@ -138,20 +138,40 @@ fn infer_type_from_heuristics(func_name: &str, expression: &str) -> String {
 
     // Check for vector/matrix types in function name
     if func_name.contains("vec") || func_name.contains("mat") {
-        // Check for integer vectors first (ivec2, ivec3, ivec4)
-        if func_name.contains("ivec2") {
+        // Check for boolean vectors first (bvec2, bvec3, bvec4)
+        if func_name.contains("bvec2") {
+            return "bvec2".to_string();
+        } else if func_name.contains("bvec3") {
+            return "bvec3".to_string();
+        } else if func_name.contains("bvec4") {
+            return "bvec4".to_string();
+        }
+        // Check for unsigned integer vectors (uvec2, uvec3, uvec4)
+        else if func_name.contains("uvec2") {
+            return "uvec2".to_string();
+        } else if func_name.contains("uvec3") {
+            return "uvec3".to_string();
+        } else if func_name.contains("uvec4") {
+            return "uvec4".to_string();
+        }
+        // Check for signed integer vectors (ivec2, ivec3, ivec4)
+        else if func_name.contains("ivec2") {
             return "ivec2".to_string();
         } else if func_name.contains("ivec3") {
             return "ivec3".to_string();
         } else if func_name.contains("ivec4") {
             return "ivec4".to_string();
-        } else if func_name.contains("vec2") {
+        }
+        // Check for float vectors (vec2, vec3, vec4)
+        else if func_name.contains("vec2") {
             return "vec2".to_string();
         } else if func_name.contains("vec3") {
             return "vec3".to_string();
         } else if func_name.contains("vec4") {
             return "vec4".to_string();
-        } else if func_name.contains("mat2") {
+        }
+        // Check for matrices
+        else if func_name.contains("mat2") {
             return "mat2".to_string();
         } else if func_name.contains("mat3") {
             return "mat3".to_string();

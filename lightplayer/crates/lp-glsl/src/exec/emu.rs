@@ -752,6 +752,104 @@ impl GlslExecutable for GlslEmulatorModule {
         }
     }
 
+    fn call_bvec(
+        &mut self,
+        name: &str,
+        args: &[GlslValue],
+        dim: usize,
+    ) -> Result<Vec<bool>, GlslError> {
+        use crate::error::ErrorCode;
+        use cranelift_codegen::ir::ArgumentPurpose;
+
+        Self::validate_main_only(name)?;
+        Self::validate_no_args(args)?;
+
+        // Get the actual Cranelift signature for main
+        let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
+            GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
+        })?;
+
+        // Check if function uses StructReturn
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
+
+        if uses_struct_return {
+            // Clone signature before mutable borrow
+            let sig = sig.clone();
+
+            // Calculate buffer size for struct return
+            // Boolean values are stored as i8 but with 4-byte alignment (matching return statement codegen)
+            let buffer_size = dim * 4;
+
+            // Call main via emulator with struct return (buffer allocation handled internally)
+            let results = self
+                .emulator
+                .call_function_with_struct_return(self.main_address, &[], &sig, buffer_size)
+                .map_err(|e| match e {
+                    EmulatorError::Trap { code, pc, regs } => {
+                        self.format_trap_error_from_emulator_error(code, pc, &regs, name)
+                    }
+                    other => self.build_enhanced_error(
+                        ErrorCode::E0400,
+                        &format!("Emulator execution failed: {}", other),
+                        name,
+                    ),
+                })?;
+
+            // Convert results from returned Vec<DataValue> (i32 words containing i8 values)
+            // The emulator reads StructReturn buffers as i32 words, but boolean values are stored as i8
+            // Each i32 word contains one i8 value in its low byte (at 4-byte-aligned positions)
+            let mut vec_result = Vec::with_capacity(dim);
+            for result in results.iter().take(dim) {
+                match result {
+                    cranelift_codegen::data_value::DataValue::I32(v) => {
+                        // Extract i8 value from low byte of i32 word
+                        let i8_val = (*v & 0xFF) as i8;
+                        vec_result.push(i8_val != 0); // Convert i8 to bool: 0 → false, non-zero → true
+                    }
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "Expected i32 return values (containing i8) for boolean vector",
+                        ));
+                    }
+                }
+            }
+            Ok(vec_result)
+        } else {
+            // No StructReturn - read from return registers (legacy path)
+            let results = self
+                .emulator
+                .call_function(self.main_address, &[], sig)
+                .map_err(|e| {
+                    self.build_enhanced_error(
+                        ErrorCode::E0400,
+                        &format!("Emulator execution failed: {}", e),
+                        name,
+                    )
+                })?;
+
+            // Convert results from i8 to bool
+            let mut vec_result = Vec::with_capacity(dim);
+            for result in results.iter().take(dim) {
+                match result {
+                    cranelift_codegen::data_value::DataValue::I8(v) => {
+                        vec_result.push(*v != 0); // Convert i8 to bool
+                    }
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "Expected i8 return values for boolean vector",
+                        ));
+                    }
+                }
+            }
+            Ok(vec_result)
+        }
+    }
+
     fn call_vec(
         &mut self,
         name: &str,

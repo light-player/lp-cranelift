@@ -22,7 +22,7 @@ pub fn translate_vector_binary(
     // Validate operation is allowed on vectors
     match op {
         Add | Sub | Mult | Div | Mod => {} // arithmetic operations
-        Equal | NonEqual => {} // comparison operations (aggregate comparison)
+        Equal | NonEqual => {} // comparison operations (component-wise, returns boolean vector)
         _ => {
             return Err(GlslError::new(
                 ErrorCode::E0400,
@@ -82,7 +82,7 @@ pub fn translate_vector_binary(
     let base_ty = result_ty.vector_base_type().unwrap();
     let component_count = result_ty.component_count().unwrap();
 
-    // Handle comparison operators specially - they return scalar bool (aggregate comparison)
+    // Handle comparison operators specially - they return boolean vector (component-wise comparison)
     if matches!(op, glsl::syntax::BinaryOp::Equal | glsl::syntax::BinaryOp::NonEqual) {
         if !matches!(mode, VectorOpMode::ComponentWise) {
             return Err(GlslError::new(
@@ -90,13 +90,11 @@ pub fn translate_vector_binary(
                 "comparison operators require matching vector types",
             ));
         }
-        // Compare all components (aggregate comparison)
+        // Component-wise comparison: compare each component and return boolean vector
         let zero = ctx.builder.ins().iconst(cranelift_codegen::ir::types::I8, 0);
         let one = ctx.builder.ins().iconst(cranelift_codegen::ir::types::I8, 1);
         
-        // Start with true (all components equal so far)
-        let mut all_equal_cmp: Option<cranelift_codegen::ir::Value> = None;
-        
+        let mut result_vals = Vec::new();
         for i in 0..component_count {
             let lhs_comp = lhs_vals[i];
             let rhs_comp = rhs_vals[i];
@@ -114,25 +112,28 @@ pub fn translate_vector_binary(
                     rhs_comp,
                 )
             };
-            // AND with previous result (band works on I1)
-            if let Some(prev) = all_equal_cmp {
-                all_equal_cmp = Some(ctx.builder.ins().band(prev, cmp));
+            // Convert I1 to I8 (bool)
+            let result = if matches!(op, glsl::syntax::BinaryOp::Equal) {
+                ctx.builder.ins().select(cmp, one, zero)
             } else {
-                all_equal_cmp = Some(cmp);
-            }
+                // For !=, negate the comparison result
+                let not_cmp = ctx.builder.ins().bnot(cmp);
+                ctx.builder.ins().select(not_cmp, one, zero)
+            };
+            result_vals.push(result);
         }
         
-        let all_equal = all_equal_cmp.unwrap();
-        
-        // For ==, return all_equal; for !=, return NOT(all_equal)
-        if matches!(op, glsl::syntax::BinaryOp::Equal) {
-            let result = ctx.builder.ins().select(all_equal, one, zero);
-            return Ok((vec![result], GlslType::Bool));
-        } else {
-            let not_all_equal = ctx.builder.ins().bnot(all_equal);
-            let result = ctx.builder.ins().select(not_all_equal, one, zero);
-            return Ok((vec![result], GlslType::Bool));
-        }
+        // Return boolean vector with same dimension as input vectors
+        let bool_vec_ty = match component_count {
+            2 => GlslType::BVec2,
+            3 => GlslType::BVec3,
+            4 => GlslType::BVec4,
+            _ => return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!("unsupported vector dimension: {}", component_count),
+            )),
+        };
+        return Ok((result_vals, bool_vec_ty));
     }
 
     let mut result_vals = Vec::new();

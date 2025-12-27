@@ -21,11 +21,6 @@ pub(crate) fn convert_load(
     let old_result = old_func.dfg.first_result(old_inst);
     let old_result_type = old_func.dfg.value_type(old_result);
 
-    if old_result_type != types::F32 {
-        // Not an F32 load, copy as-is (will be handled by copy_instruction fallback)
-        return Ok(());
-    }
-
     if let InstructionData::Load {
         opcode: _,
         flags,
@@ -35,13 +30,17 @@ pub(crate) fn convert_load(
     {
         // Map address
         let address = map_value(value_map, *arg);
-        let target_type = format.cranelift_type();
 
-        // Emit load with new type
-        let new_result = builder.ins().load(target_type, *flags, address, *offset);
-
-        // Map result
-        value_map.insert(old_result, new_result);
+        if old_result_type == types::F32 {
+            // F32 load: convert to fixed-point type
+            let target_type = format.cranelift_type();
+            let new_result = builder.ins().load(target_type, *flags, address, *offset);
+            value_map.insert(old_result, new_result);
+        } else {
+            // Non-F32 load: copy as-is (preserve original type)
+            let new_result = builder.ins().load(old_result_type, *flags, address, *offset);
+            value_map.insert(old_result, new_result);
+        }
     } else {
         return Err(GlslError::new(
             ErrorCode::E0301,

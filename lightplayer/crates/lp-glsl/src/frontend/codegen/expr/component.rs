@@ -72,6 +72,7 @@ pub fn translate_matrix_indexing(
     };
 
     let (array_vals, array_ty) = ctx.translate_expr_typed(array_expr)?;
+    crate::debug!("translate_matrix_indexing: array_ty={:?}, array_vals.len()={}", array_ty, array_vals.len());
 
     if !array_ty.is_matrix() && !array_ty.is_vector() {
         return Err(GlslError::new(
@@ -157,6 +158,7 @@ pub fn translate_matrix_indexing(
         } else if current_ty.is_vector() {
             // Vector indexing: vec[index] returns scalar component
             let component_count = current_ty.component_count().unwrap();
+            crate::debug!("vector indexing: current_ty={:?}, index={}, component_count={}", current_ty, index, component_count);
 
             if index >= component_count {
                 return Err(GlslError::new(
@@ -171,8 +173,10 @@ pub fn translate_matrix_indexing(
             }
 
             let base_type = current_ty.vector_base_type().unwrap();
+            crate::debug!("  extracted component: base_type={:?}, val index={}", base_type, index);
             current_vals = vec![current_vals[index]];
             current_ty = base_type;
+            crate::debug!("  after extraction: current_ty={:?}, current_vals.len()={}", current_ty, current_vals.len());
         } else {
             return Err(GlslError::new(
                 ErrorCode::E0400,
@@ -185,6 +189,7 @@ pub fn translate_matrix_indexing(
         }
     }
 
+    crate::debug!("translate_matrix_indexing result: current_ty={:?}, current_vals.len()={}", current_ty, current_vals.len());
     Ok((current_vals, current_ty))
 }
 
@@ -333,12 +338,24 @@ pub fn has_duplicates(indices: &[usize]) -> bool {
 
 /// Emit component access expression as RValue
 ///
-/// Handles dot notation (e.g., `vec.x`, `vec.xy`) by resolving as LValue then loading.
+/// Handles dot notation (e.g., `vec.x`, `vec.xy`) for both LValues and RValues.
+/// For LValues (variables), resolves as LValue then loads.
+/// For RValues (expressions), evaluates the expression then extracts components.
 pub fn emit_component_access_rvalue(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<RValue, GlslError> {
-    emit_lvalue_as_rvalue(ctx, expr)
+    // Try LValue path first (for variables like `a.x`)
+    // This is more efficient as it can directly access variable storage
+    match ctx.emit_lvalue(expr) {
+        Ok(lvalue) => ctx.load_lvalue(lvalue),
+        Err(_) => {
+            // Fall back to RValue path (for expressions like `not(bvec2(...)).x`)
+            // This evaluates the expression first, then extracts components
+            let (vals, ty) = translate_component_access(ctx, expr)?;
+            Ok(RValue::from_aggregate(vals, ty))
+        }
+    }
 }
 
 /// Emit matrix/vector indexing expression as RValue

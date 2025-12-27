@@ -16,7 +16,7 @@ pub mod test_utils;
 pub mod validation;
 
 use anyhow::Result;
-use glob::{glob_with, MatchOptions};
+use glob::{MatchOptions, glob_with};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use walkdir::WalkDir;
@@ -392,6 +392,10 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
         println!("\n{}", format_results_summary(passed, failed, elapsed));
 
         if failed > 0 {
+            println!(
+                "\n{}",
+                colorize("Tip: Rerun with DEBUG=1 for detailed logging", colors::DIM)
+            );
             anyhow::bail!("{} test file(s) failed", failed);
         }
 
