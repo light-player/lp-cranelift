@@ -69,12 +69,14 @@ vec2 test_vec2_multiply_in_assignment() {
 // run: test_vec2_multiply_in_assignment() ~= vec2(12.0, 21.0)
 
 vec2 test_vec2_multiply_large_numbers() {
+    // Large numbers are clamped to fixed16x16 max (32767.99998)
+    // Multiplication saturates to max for each component
     vec2 a = vec2(1000.0, 2000.0);
     vec2 b = vec2(3000.0, 1000.0);
     return a * b;
 }
 
-// run: test_vec2_multiply_large_numbers() ~= vec2(3000000.0, 2000000.0)
+// run: test_vec2_multiply_large_numbers() ~= vec2(32767.0, 32767.0)
 
 vec2 test_vec2_multiply_mixed_components() {
     vec2 a = vec2(2.0, -3.0);

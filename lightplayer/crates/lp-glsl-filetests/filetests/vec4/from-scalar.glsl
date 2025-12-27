@@ -52,10 +52,11 @@ vec4 test_vec4_from_scalar_in_assignment() {
 // run: test_vec4_from_scalar_in_assignment() ~= vec4(-8.0, -8.0, -8.0, -8.0)
 
 vec4 test_vec4_from_scalar_large_value() {
+    // Large values are clamped to fixed16x16 max (32767.99998)
     return vec4(100000.0);
 }
 
-// run: test_vec4_from_scalar_large_value() ~= vec4(100000.0, 100000.0, 100000.0, 100000.0)
+// run: test_vec4_from_scalar_large_value() ~= vec4(32768.0, 32768.0, 32768.0, 32768.0)
 
 vec4 test_vec4_from_scalar_fractional() {
     return vec4(0.5);

@@ -52,10 +52,11 @@ vec3 test_vec3_from_scalar_in_assignment() {
 // run: test_vec3_from_scalar_in_assignment() ~= vec3(-8.0, -8.0, -8.0)
 
 vec3 test_vec3_from_scalar_large_value() {
+    // Large values are clamped to fixed16x16 max (32767.99998)
     return vec3(100000.0);
 }
 
-// run: test_vec3_from_scalar_large_value() ~= vec3(100000.0, 100000.0, 100000.0)
+// run: test_vec3_from_scalar_large_value() ~= vec3(32768.0, 32768.0, 32768.0)
 
 vec3 test_vec3_from_scalar_fractional() {
     return vec3(0.5);

@@ -61,12 +61,14 @@ vec3 test_vec3_add_in_assignment() {
 // run: test_vec3_add_in_assignment() ~= vec3(15.0, 10.0, 10.0)
 
 vec3 test_vec3_add_large_numbers() {
+    // Large numbers are clamped to fixed16x16 max (32767.99998)
+    // Addition saturates to max for each component
     vec3 a = vec3(100000.0, 50000.0, 25000.0);
     vec3 b = vec3(200000.0, 30000.0, 15000.0);
     return a + b;
 }
 
-// run: test_vec3_add_large_numbers() ~= vec3(300000.0, 80000.0, 40000.0)
+// run: test_vec3_add_large_numbers() ~= vec3(32767.0, 32767.0, 32767.0)
 
 vec3 test_vec3_add_mixed_components() {
     vec3 a = vec3(1.0, -2.0, 3.0);

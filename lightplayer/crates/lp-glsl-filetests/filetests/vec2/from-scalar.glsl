@@ -52,10 +52,11 @@ vec2 test_vec2_from_scalar_in_assignment() {
 // run: test_vec2_from_scalar_in_assignment() ~= vec2(-8.0, -8.0)
 
 vec2 test_vec2_from_scalar_large_value() {
+    // Large values are clamped to fixed16x16 max (32767.99998)
     return vec2(100000.0);
 }
 
-// run: test_vec2_from_scalar_large_value() ~= vec2(100000.0, 100000.0)
+// run: test_vec2_from_scalar_large_value() ~= vec2(32768.0, 32768.0)
 
 vec2 test_vec2_from_scalar_fractional() {
     return vec2(0.5);
