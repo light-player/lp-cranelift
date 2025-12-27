@@ -40,8 +40,9 @@ impl Transform for Fixed32Transform {
         let new_sig = convert_signature(&old_func.signature, self.format);
         let format = self.format;
 
-        // 3. Capture func_id_map and module reference from context
+        // 3. Capture func_id_map and old_func_id_map from context
         let func_id_map = ctx.func_id_map.clone();
+        let old_func_id_map = ctx.old_func_id_map.clone();
         // We need module access for declare_func_in_func, but we can't capture mutable references
         // So we'll pass the module through a different mechanism - store it in a way that can be accessed
         // For now, we'll handle colocated functions differently in the converter
@@ -67,6 +68,7 @@ impl Transform for Fixed32Transform {
                     stack_slot_map,
                     &mut *call_state.borrow_mut(),
                     &func_id_map,
+                    &old_func_id_map,
                 )
             },
             // Type mapping callback for block parameters

@@ -38,6 +38,7 @@ pub(crate) fn convert_all_instructions(
     stack_slot_map: Option<&HashMap<StackSlot, StackSlot>>,
     call_state: &mut CallConversionState,
     func_id_map: &HashMap<String, FuncId>,
+    old_func_id_map: &HashMap<FuncId, String>,
 ) -> Result<(), GlslError> {
     convert_instruction(
         old_func,
@@ -49,6 +50,7 @@ pub(crate) fn convert_all_instructions(
         stack_slot_map,
         call_state,
         func_id_map,
+        old_func_id_map,
     )
 }
 
@@ -63,6 +65,7 @@ fn convert_instruction(
     stack_slot_map: Option<&HashMap<StackSlot, StackSlot>>,
     call_state: &mut CallConversionState,
     func_id_map: &HashMap<String, FuncId>,
+    old_func_id_map: &HashMap<FuncId, String>,
 ) -> Result<(), GlslError> {
     // Copy source location
     let srcloc = old_func.srcloc(old_inst);
@@ -107,6 +110,7 @@ fn convert_instruction(
                 &mut call_state.sig_map,
                 format,
                 func_id_map,
+                old_func_id_map,
             )?;
         }
         Opcode::CallIndirect => {

@@ -19,6 +19,8 @@ pub struct TransformContext<'a, M: Module> {
     pub module: &'a mut GlModule<M>,
     /// Mapping from function names to their new FuncIds (for creating FuncRefs per function)
     pub func_id_map: HashMap<String, FuncId>,
+    /// Mapping from old FuncIds to function names (for mapping UserExternalName references)
+    pub old_func_id_map: HashMap<FuncId, String>,
 }
 
 /// Transform trait for module-level transformations

@@ -23,6 +23,8 @@ pub(crate) fn map_external_function(
     ext_func_map: &mut HashMap<FuncRef, FuncRef>,
     sig_map: &mut HashMap<SigRef, SigRef>,
     format: FixedPointFormat,
+    func_id_map: &HashMap<String, FuncId>,
+    old_func_id_map: &HashMap<FuncId, String>,
 ) -> Result<FuncRef, GlslError> {
     if let Some(&new_func_ref) = ext_func_map.get(&old_func_ref) {
         return Ok(new_func_ref);
@@ -44,6 +46,9 @@ pub(crate) fn map_external_function(
     // Extract actual UserExternalName (namespace:index) from old function and create
     // new reference in new function. This ensures mapping by function identity rather
     // than reference index, which is critical when multiple functions share signatures.
+    //
+    // IMPORTANT: The UserExternalName.index contains the OLD FuncId. We need to map it
+    // to the NEW FuncId by: old FuncId -> function name -> new FuncId
     let new_name = match &old_ext_func.name {
         ExternalName::User(old_user_ref) => {
             let user_name = old_func
@@ -60,7 +65,31 @@ pub(crate) fn map_external_function(
                         ),
                     )
                 })?;
-            let new_user_ref = builder.func.declare_imported_user_function(user_name);
+
+            // Map old FuncId to new FuncId via function name
+            let old_func_id = FuncId::from_u32(user_name.index);
+            let func_name = old_func_id_map.get(&old_func_id).ok_or_else(|| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    alloc::format!(
+                        "Old FuncId {} not found in old_func_id_map",
+                        old_func_id.as_u32()
+                    ),
+                )
+            })?;
+            let new_func_id = func_id_map.get(func_name).ok_or_else(|| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    alloc::format!("Function '{}' not found in func_id_map", func_name),
+                )
+            })?;
+
+            // Create new UserExternalName with the NEW FuncId
+            let new_user_name = cranelift_codegen::ir::UserExternalName {
+                namespace: user_name.namespace,
+                index: new_func_id.as_u32(),
+            };
+            let new_user_ref = builder.func.declare_imported_user_function(new_user_name);
             ExternalName::User(new_user_ref)
         }
         _ => old_ext_func.name.clone(),
@@ -88,6 +117,7 @@ pub(crate) fn convert_call(
     sig_map: &mut HashMap<SigRef, SigRef>,
     format: FixedPointFormat,
     _func_id_map: &HashMap<String, FuncId>,
+    old_func_id_map: &HashMap<FuncId, String>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -127,7 +157,16 @@ pub(crate) fn convert_call(
             builder.func.import_function(new_ext_func)
         } else {
             // Use existing logic for external functions (with caching)
-            map_external_function(old_func, *func_ref, builder, ext_func_map, sig_map, format)?
+            map_external_function(
+                old_func,
+                *func_ref,
+                builder,
+                ext_func_map,
+                sig_map,
+                format,
+                _func_id_map,
+                old_func_id_map,
+            )?
         };
 
         let old_args = args.as_slice(&old_func.dfg.value_lists);

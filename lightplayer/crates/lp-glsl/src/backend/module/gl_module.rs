@@ -217,6 +217,7 @@ impl<M: Module> GlModule<M> {
 
         // 1. Transform all function signatures and create FuncId mappings
         let mut func_id_map = hashbrown::HashMap::new();
+        let mut old_func_id_map = hashbrown::HashMap::new();
         for (name, gl_func) in &fns {
             let new_sig = transform.transform_signature(&gl_func.clif_sig);
             // Determine linkage - for now, use Local (can be enhanced later)
@@ -234,6 +235,8 @@ impl<M: Module> GlModule<M> {
                     )
                 })?;
             func_id_map.insert(name.clone(), func_id);
+            // Build reverse mapping: old FuncId -> function name
+            old_func_id_map.insert(gl_func.func_id, name.clone());
         }
 
         // 2. Transform function bodies
@@ -241,6 +244,7 @@ impl<M: Module> GlModule<M> {
             let mut transform_ctx = TransformContext {
                 module: &mut new_module,
                 func_id_map: func_id_map.clone(),
+                old_func_id_map: old_func_id_map.clone(),
             };
             let transformed_func =
                 transform.transform_function(&gl_func.function, &mut transform_ctx)?;

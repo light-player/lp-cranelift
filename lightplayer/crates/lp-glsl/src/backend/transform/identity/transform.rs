@@ -230,6 +230,7 @@ block0:
     return v2
 
 block1:
+
     v3 = iconst.i32 0
     return v3  ; v3 = 0
 }
