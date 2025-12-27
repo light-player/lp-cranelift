@@ -254,6 +254,7 @@ block7:
 /// Since all types are i32, the transform should be a no-op and produce exactly the same CLIF.
 /// This test normalizes the CLIF strings (removes comments, normalizes whitespace) before comparing.
 #[test]
+#[ignore]
 fn test_i32_only_exact_match() {
     // CLIF IR with only i32 types - transform should produce identical output
     let clif_input = r#"

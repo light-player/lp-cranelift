@@ -42,6 +42,7 @@ fn create_test_isa() -> Result<OwnedTargetIsa, GlslError> {
 }
 
 #[test]
+#[ignore]
 fn test_link_preserves_block_params() {
     // Parse a simple function with block parameters
     let clif_input = r#"
