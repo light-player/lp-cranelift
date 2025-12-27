@@ -37,9 +37,12 @@ pub struct EmulatorOptions {
 pub fn build_emu_executable(
     mut gl_module: GlModule<ObjectModule>,
     options: &EmulatorOptions,
+    original_clif: Option<String>,
+    transformed_clif: Option<String>,
 ) -> Result<GlslEmulatorModule, GlslError> {
     use lp_riscv_tools::Gpr;
     use lp_riscv_tools::elf_loader::{find_symbol_address, load_elf};
+    use lp_riscv_tools::emu::LogLevel;
     use lp_riscv_tools::emu::emulator::Riscv32Emulator;
     use object::{Object, ObjectSection};
 
@@ -55,6 +58,12 @@ pub fn build_emu_executable(
         .map(|(name, gl_func)| (name.clone(), gl_func.function.clone(), gl_func.func_id))
         .collect();
 
+    // Collect V-Code and disassembly for all functions
+    #[cfg(feature = "std")]
+    let mut all_vcode_parts: Vec<String> = Vec::new();
+    #[cfg(feature = "std")]
+    let mut all_disasm_parts: Vec<String> = Vec::new();
+
     for (name, func, func_id) in funcs {
         // Create context using immutable borrow
         let mut ctx = {
@@ -62,6 +71,11 @@ pub fn build_emu_executable(
             module_ref.make_context()
         };
         ctx.func = func;
+
+        // Enable disassembly for debugging (only in std builds)
+        #[cfg(feature = "std")]
+        ctx.set_disasm(true);
+
         // Define function using mutable borrow
         gl_module
             .module_mut_internal()
@@ -72,12 +86,77 @@ pub fn build_emu_executable(
                     format!("Failed to define function '{}': {}", name, e),
                 )
             })?;
+
+        // Capture V-Code and disassembly if available (only in std builds)
+        #[cfg(feature = "std")]
+        {
+            if let Some(compiled_code) = ctx.compiled_code() {
+                // Get disassembly from compiled_code
+                let disasm = compiled_code.vcode.as_ref().map(|s| s.clone());
+
+                // Try to generate disassembly using ISA capabilities if available
+                let disasm = if let Some(ref disasm_str) = disasm {
+                    Some(disasm_str.clone())
+                } else {
+                    // Try to disassemble using the ISA if available
+                    let module_ref = gl_module.module_internal();
+                    let isa = module_ref.isa();
+                    #[cfg(feature = "disas")]
+                    {
+                        if let Ok(cs) = isa.to_capstone() {
+                            if let Ok(disasm_str) =
+                                compiled_code.disassemble(Some(&ctx.func.params), &cs)
+                            {
+                                Some(disasm_str)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                    #[cfg(not(feature = "disas"))]
+                    {
+                        None
+                    }
+                };
+
+                if let Some(ref disasm_str) = disasm {
+                    all_disasm_parts.push(format!("// function {}:\n{}", name, disasm_str));
+                }
+
+                // For V-Code, use the disassembly as a placeholder
+                // TODO: Capture actual pre-regalloc V-Code if needed
+                if let Some(ref disasm_str) = disasm {
+                    all_vcode_parts.push(format!("// function {}:\n{}", name, disasm_str));
+                }
+            }
+        }
+
         // Clear context using immutable borrow
         {
             let module_ref = gl_module.module_internal();
             module_ref.clear_context(&mut ctx);
         }
     }
+
+    // Combine all V-Code and disassembly parts
+    #[cfg(feature = "std")]
+    let vcode = if all_vcode_parts.is_empty() {
+        None
+    } else {
+        Some(all_vcode_parts.join("\n\n"))
+    };
+    #[cfg(feature = "std")]
+    let disassembly = if all_disasm_parts.is_empty() {
+        None
+    } else {
+        Some(all_disasm_parts.join("\n\n"))
+    };
+    #[cfg(not(feature = "std"))]
+    let vcode = None;
+    #[cfg(not(feature = "std"))]
+    let disassembly = None;
 
     // 2. Build signatures and extract metadata before moving gl_module
     let signatures = gl_module.glsl_signatures.clone();
@@ -123,7 +202,8 @@ pub fn build_emu_executable(
     // 5. Create emulator
     let binary = load_info.code;
     let mut emulator = Riscv32Emulator::new(binary.clone(), vec![0; options.max_memory])
-        .with_max_instructions(options.max_instructions);
+        .with_max_instructions(options.max_instructions)
+        .with_log_level(LogLevel::Instructions);
 
     // 6. Set up stack and PC
     emulator.set_register(Gpr::Sp, options.max_memory as i32);
@@ -137,10 +217,10 @@ pub fn build_emu_executable(
         cranelift_signatures,
         binary,
         main_address,
-        transformed_clif: None,       // Phase 1: not needed
-        original_clif: None,          // Phase 1: not needed
-        vcode: None,                  // Phase 1: not needed
-        disassembly: None,            // Phase 1: not needed
+        transformed_clif,
+        original_clif,
+        vcode,
+        disassembly,
         trap_source_info: Vec::new(), // Phase 1: empty
         source_loc_manager,
         source_map,
@@ -154,7 +234,7 @@ mod tests {
     use crate::backend::module::gl_module::GlModule;
     use crate::backend::module::test_helpers::test_helpers::build_simple_function;
     use crate::backend::target::Target;
-    use cranelift_codegen::ir::{types, AbiParam, InstBuilder, Signature};
+    use cranelift_codegen::ir::{AbiParam, InstBuilder, Signature, types};
     use cranelift_codegen::isa::CallConv;
     use cranelift_module::Linkage;
 
@@ -184,7 +264,7 @@ mod tests {
             max_instructions: 10000,
         };
 
-        let mut executable = build_emu_executable(gl_module, &options).unwrap();
+        let mut executable = build_emu_executable(gl_module, &options, None, None).unwrap();
         // main_address will be set by find_symbol_address
         // Note: main_address can be 0 if the function is at the start of the text section
 

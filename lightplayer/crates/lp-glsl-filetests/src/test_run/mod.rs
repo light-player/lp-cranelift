@@ -92,37 +92,11 @@ pub fn run_test_file_with_line_filter(
         })?;
 
         // Execute main() and get result
+        // Note: execute_main already includes emulator state in the error, so we don't add it again
         let actual_value = execution::execute_main(&mut *executable).map_err(|e| {
-            // Check if this is a trap error
+            // Format error - emulator state is already included by execute_main
             let error_str = format!("{:#}", e);
-            let is_trap = error_str.contains("Trap:")
-                || error_str.contains("trap")
-                || error_str.contains("execution trapped");
-
-            // Get emulator state if available (only when showing full output)
-            let emulator_state = if show_full_output {
-                executable.format_emulator_state()
-            } else {
-                None
-            };
-
-            // Get CLIF IR (before and after transformation) if available (only when showing full output)
-            let clif_ir_section = if show_full_output {
-                let (original_ir, transformed_ir) = executable.format_clif_ir();
-                let mut section = String::new();
-                if let Some(ref orig) = original_ir {
-                    section.push_str("\n\n=== CLIF IR (BEFORE transformation) ===\n");
-                    section.push_str(orig);
-                }
-                if let Some(ref trans) = transformed_ir {
-                    section.push_str("\n\n=== CLIF IR (AFTER transformation) ===\n");
-                    section.push_str(trans);
-                }
-                section
-            } else {
-                String::new()
-            };
-
+            
             // Generate rerun command using the script
             let rerun_cmd = format!(
                 "scripts/glsl-filetests.sh {}:{}",
@@ -139,60 +113,33 @@ pub fn run_test_file_with_line_filter(
                 String::new()
             };
 
+            // Check if this is a trap error
+            let is_trap = error_str.contains("Trap:")
+                || error_str.contains("trap")
+                || error_str.contains("execution trapped");
+
             if is_trap {
                 // Format trap error with clear message and bootstrap code context
-                let trap_msg = if let Some(state) = emulator_state {
-                    format!(
-                        "run test failed at line {}: execution trapped\n\
-                         \n\
-                         The test expected a value but execution trapped instead.\n\
-                         This indicates the code under test encountered an error condition\n\
-                         (e.g., division by zero, overflow, etc.).{}{}\n\
-                         \n\
-                         Error details:\n\
-                         {}{}\n\
-                         \n\
-                         To rerun just this test:\n\
-                         {}",
-                        directive.line_number,
-                        bootstrap_code_display,
-                        clif_ir_section,
-                        error_str,
-                        state,
-                        rerun_cmd
-                    )
-                } else {
-                    format!(
-                        "run test failed at line {}: execution trapped\n\
-                         \n\
-                         The test expected a value but execution trapped instead.\n\
-                         This indicates the code under test encountered an error condition\n\
-                         (e.g., division by zero, overflow, etc.).{}{}\n\
-                         \n\
-                         Error details:\n\
-                         {}\n\
-                         \n\
-                         To rerun just this test:\n\
-                         {}",
-                        directive.line_number,
-                        bootstrap_code_display,
-                        clif_ir_section,
-                        error_str,
-                        rerun_cmd
-                    )
-                };
-                anyhow::anyhow!("{}", trap_msg)
+                anyhow::anyhow!(
+                    "run test failed at line {}: execution trapped\n\
+                     \n\
+                     The test expected a value but execution trapped instead.\n\
+                     This indicates the code under test encountered an error condition\n\
+                     (e.g., division by zero, overflow, etc.).{}\n\
+                     \n\
+                     Error details:\n\
+                     {}\n\
+                     \n\
+                     To rerun just this test:\n\
+                     {}",
+                    directive.line_number,
+                    bootstrap_code_display,
+                    error_str,
+                    rerun_cmd
+                )
             } else {
                 // Regular execution error
-                let error_msg = if let Some(state) = emulator_state {
-                    format!(
-                        "{}{}\n\nTo rerun just this test:\n{}",
-                        error_str, state, rerun_cmd
-                    )
-                } else {
-                    format!("{}\n\nTo rerun just this test:\n{}", error_str, rerun_cmd)
-                };
-                anyhow::anyhow!("{}", error_msg)
+                anyhow::anyhow!("{}\n\nTo rerun just this test:\n{}", error_str, rerun_cmd)
             }
         })?;
 
@@ -213,34 +160,10 @@ pub fn run_test_file_with_line_filter(
                         directive.comparison,
                     )?;
                 } else {
-                    // Get emulator state if available (only when showing full output)
-                    let emulator_state = if show_full_output {
-                        executable.format_emulator_state()
-                    } else {
-                        None
-                    };
-
-                    // Get CLIF IR (before and after transformation) if available (only when showing full output)
-                    let clif_ir_section = if show_full_output {
-                        let (original_ir, transformed_ir) = executable.format_clif_ir();
-                        let mut section = String::new();
-                        if let Some(ref orig) = original_ir {
-                            section.push_str("\n\n=== CLIF IR (BEFORE transformation) ===\n");
-                            section.push_str(orig);
-                        }
-                        if let Some(ref trans) = transformed_ir {
-                            section.push_str("\n\n=== CLIF IR (AFTER transformation) ===\n");
-                            section.push_str(trans);
-                        }
-                        section
-                    } else {
-                        String::new()
-                    };
-
                     // Format bootstrap code for display (only when showing full output)
                     let bootstrap_code_display = if show_full_output {
                         format!(
-                            "\n\nGenerated bootstrap code:\n{}",
+                            "\n\n=== Bootstrapped GLSL Test ===\n{}",
                             format_code_block(&bootstrap_result.source)
                         )
                     } else {
@@ -253,38 +176,21 @@ pub fn run_test_file_with_line_filter(
                         relative_path, directive.line_number
                     );
 
-                    let error_msg = if let Some(state) = emulator_state {
-                        format!(
-                            "run test failed at line {}: {}{}{}{}\n\
-                             \n\
-                             This test assertion can be automatically updated by setting the\n\
-                             CRANELIFT_TEST_BLESS=1 environment variable when running this test.\n\
-                             \n\
-                             To rerun just this test:\n\
-                             {}",
-                            directive.line_number,
-                            err_msg,
-                            bootstrap_code_display,
-                            clif_ir_section,
-                            state,
-                            rerun_cmd
-                        )
-                    } else {
-                        format!(
-                            "run test failed at line {}: {}{}{}\n\
-                             \n\
-                             This test assertion can be automatically updated by setting the\n\
-                             CRANELIFT_TEST_BLESS=1 environment variable when running this test.\n\
-                             \n\
-                             To rerun just this test:\n\
-                             {}",
-                            directive.line_number,
-                            err_msg,
-                            bootstrap_code_display,
-                            clif_ir_section,
-                            rerun_cmd
-                        )
-                    };
+                    // Format error message
+                    // Note: For comparison errors, execution succeeded so emulator state isn't needed
+                    let error_msg = format!(
+                        "run test failed at line {}: {}{}\n\
+                         \n\
+                         This test assertion can be automatically updated by setting the\n\
+                         CRANELIFT_TEST_BLESS=1 environment variable when running this test.\n\
+                         \n\
+                         To rerun just this test:\n\
+                         {}",
+                        directive.line_number,
+                        err_msg,
+                        bootstrap_code_display,
+                        rerun_cmd
+                    );
                     anyhow::bail!("{}", error_msg);
                 }
             }
@@ -332,7 +238,7 @@ fn format_compilation_error(
     // Format bootstrap code only when showing full output
     let bootstrap_section = if show_full_output {
         format!(
-            "\n\nGenerated bootstrap code:\n{}",
+            "\n\n=== Bootstrapped GLSL Test ===\n{}",
             format_code_block(&bootstrap.source)
         )
     } else {

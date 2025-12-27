@@ -182,11 +182,11 @@ impl GlslEmulatorModule {
 
         // Add VCode and disassembly if available (from compilation)
         if let Some(ref vcode) = self.vcode {
-            error = error.with_note(format!("VCode:\n{}", vcode));
+            error = error.with_note(format!("=== VCode ===\n{}", vcode));
         }
 
         if let Some(ref disassembly) = self.disassembly {
-            error = error.with_note(format!("Disassembled:\n{}", disassembly));
+            error = error.with_note(format!("=== Disassembled ===\n{}", disassembly));
         }
 
         // Fall back to runtime disassembly if stored disassembly not available
@@ -335,12 +335,28 @@ impl GlslEmulatorModule {
             error = error.with_note(format!("Function: {}", func_name));
         }
 
-        // Add CLIF IR for context
+        // Add CLIF IR (before and after transformation) if available
+        if let Some(ref original_clif) = self.original_clif {
+            error = error.with_note(format!(
+                "=== CLIF IR (BEFORE transformation) ===\n{}",
+                original_clif
+            ));
+        }
+
         if let Some(ref transformed_clif) = self.transformed_clif {
             error = error.with_note(format!(
                 "=== CLIF IR (AFTER transformation) ===\n{}",
                 transformed_clif
             ));
+        }
+
+        // Add VCode and disassembly if available
+        if let Some(ref vcode) = self.vcode {
+            error = error.with_note(format!("VCode:\n{}", vcode));
+        }
+
+        if let Some(ref disassembly) = self.disassembly {
+            error = error.with_note(format!("Disassembled:\n{}", disassembly));
         }
 
         error
@@ -941,10 +957,15 @@ impl GlslExecutable for GlslEmulatorModule {
     fn format_emulator_state(&self) -> Option<String> {
         let state_dump = self.emulator.dump_state();
         let debug_info = self.emulator.format_debug_info(None, 100);
-        Some(format!(
-            "\n=== Emulator State ===\n{}\n\n=== Debug Info ===\n{}",
-            state_dump, debug_info
-        ))
+        // Only include debug info section if there's actual content
+        if debug_info.is_empty() {
+            Some(format!("\n=== Emulator State ===\n{}", state_dump))
+        } else {
+            Some(format!(
+                "\n=== Emulator State ===\n{}\n\n=== Debug Info ===\n{}",
+                state_dump, debug_info
+            ))
+        }
     }
 
     #[cfg(feature = "std")]

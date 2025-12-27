@@ -18,8 +18,8 @@ pub mod src_loc_manager;
 pub use glsl_compiler::GlslCompiler;
 #[allow(unused_imports)]
 pub use pipeline::{
-    parse_program_with_registry, Backend, CompilationPipeline, CompiledShader, ParseResult, SemanticResult,
-    TransformationPass,
+    Backend, CompilationPipeline, CompiledShader, ParseResult, SemanticResult, TransformationPass,
+    parse_program_with_registry,
 };
 
 // ============================================================================
@@ -100,11 +100,14 @@ pub fn compile_glsl_to_gl_module_jit(
 
 /// Compile GLSL to GlModule<ObjectModule> (internal, reusable)
 /// This is the core compilation step for emulator execution
+/// Returns the module along with CLIF IR strings for debugging
 #[cfg(feature = "emulator")]
 pub fn compile_glsl_to_gl_module_object(
     source: &str,
     options: &GlslOptions,
-) -> Result<GlModule<ObjectModule>, GlslError> {
+) -> Result<(GlModule<ObjectModule>, Option<String>, Option<String>), GlslError> {
+    #[cfg(feature = "std")]
+    use crate::backend::util::clif_format::format_clif_module;
     use crate::exec::executable::DecimalFormat;
 
     options.validate()?;
@@ -125,11 +128,26 @@ pub fn compile_glsl_to_gl_module_object(
     // Compile to GlModule
     let mut module = compiler.compile_to_gl_module_object(source, target)?;
 
+    // Capture original CLIF IR before transformation (only in std builds)
+    #[cfg(feature = "std")]
+    let original_clif = format_clif_module(&module).ok();
+    #[cfg(not(feature = "std"))]
+    let original_clif = None;
+
     // Apply transformations
-    match options.decimal_format {
+    let transformed_clif = match options.decimal_format {
         DecimalFormat::Fixed32 => {
             let transform = Fixed32Transform::new(FixedPointFormat::Fixed16x16);
             module = module.apply_transform(transform)?;
+            // Capture transformed CLIF IR after transformation (only in std builds)
+            #[cfg(feature = "std")]
+            {
+                format_clif_module(&module).ok()
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                None
+            }
         }
         DecimalFormat::Fixed64 => {
             return Err(GlslError::new(
@@ -138,11 +156,19 @@ pub fn compile_glsl_to_gl_module_object(
             ));
         }
         DecimalFormat::Float => {
-            // No transformation needed
+            // No transformation needed, so transformed_clif is same as original_clif
+            #[cfg(feature = "std")]
+            {
+                original_clif.clone()
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                None
+            }
         }
-    }
+    };
 
-    Ok(module)
+    Ok((module, original_clif, transformed_clif))
 }
 
 /// Compile and JIT execute GLSL
@@ -171,7 +197,8 @@ pub fn glsl_emu_riscv32_with_metadata(
     source_file_path: Option<String>,
 ) -> Result<Box<dyn GlslExecutable>, GlslError> {
     // Compile to GlModule (transformations already applied)
-    let module = compile_glsl_to_gl_module_object(source, &options)?;
+    let (module, original_clif, transformed_clif) =
+        compile_glsl_to_gl_module_object(source, &options)?;
 
     let emulator_options = match &options.run_mode {
         RunMode::Emulator {
@@ -196,5 +223,5 @@ pub fn glsl_emu_riscv32_with_metadata(
     // This can be added later if needed
     let _ = source_file_path;
 
-    module.build_executable(&emulator_options)
+    module.build_executable(&emulator_options, original_clif, transformed_clif)
 }

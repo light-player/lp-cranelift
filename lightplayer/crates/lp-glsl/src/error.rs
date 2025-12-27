@@ -233,7 +233,7 @@ impl fmt::Display for GlslError {
 
         // Add notes
         for note in &self.notes {
-            write!(f, "\n  = note: {}", note)?;
+            write!(f, "\n{}", note)?;
         }
 
         // Add spec reference

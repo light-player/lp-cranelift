@@ -101,7 +101,7 @@ impl Riscv32Emulator {
 
         // Reset state for clean function call
         self.pc = func_entry;
-        self.instruction_count = 0;
+        // Don't reset instruction_count - limit should be cumulative across all calls
         self.regs[1] = halt_address as i32; // ra = halt_address
 
         // Execute until function returns (EBREAK or PC at halt address)
@@ -240,7 +240,7 @@ impl Riscv32Emulator {
 
         // Reset state for clean function call
         self.pc = func_entry;
-        self.instruction_count = 0;
+        // Don't reset instruction_count - limit should be cumulative across all calls
         self.regs[1] = halt_address as i32; // ra = halt_address
 
         // Execute until function returns (EBREAK or PC at halt address)

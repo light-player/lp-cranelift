@@ -312,8 +312,16 @@ impl GlModule<ObjectModule> {
     pub fn build_executable(
         self,
         options: &crate::backend::codegen::emu::EmulatorOptions,
+        original_clif: Option<alloc::string::String>,
+        transformed_clif: Option<alloc::string::String>,
     ) -> Result<alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>, GlslError> {
-        crate::backend::codegen::emu::build_emu_executable(self, options).map(|emu| {
+        crate::backend::codegen::emu::build_emu_executable(
+            self,
+            options,
+            original_clif,
+            transformed_clif,
+        )
+        .map(|emu| {
             alloc::boxed::Box::new(emu)
                 as alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>
         })

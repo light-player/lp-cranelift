@@ -22,12 +22,8 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
     // Helper to add emulator state to error if available
     fn format_error(e: crate::error::GlslError, executable: &dyn GlslExecutable) -> anyhow::Error {
         // Use {:#} format to preserve location and span_text formatting
-        let mut error_msg = format!("{:#}", e);
-        // Include notes if present (these contain CLIF IR and other debug info)
-        if !e.notes.is_empty() {
-            error_msg.push_str("\n\n");
-            error_msg.push_str(&e.notes.join("\n"));
-        }
+        // Notes are already included in the Display implementation
+        let error_msg = format!("{:#}", e);
         if let Some(state) = executable.format_emulator_state() {
             anyhow::anyhow!("{}{}", error_msg, state)
         } else {

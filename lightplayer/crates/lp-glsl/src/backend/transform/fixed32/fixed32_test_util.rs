@@ -51,7 +51,7 @@ pub fn run_fixed32_test(clif_input: &str, expected_float: f32) {
     use cranelift_module::Linkage;
     #[cfg(feature = "emulator")]
     use cranelift_object::ObjectModule;
-    use cranelift_reader::{parse_test, ParseOptions};
+    use cranelift_reader::{ParseOptions, parse_test};
     use std::prelude::rust_2015::{String, Vec}; // Print parsed CLIF (before transformation)
     eprintln!("\n=== CLIF IR (BEFORE transformation) ===");
     for (name, func) in &original_funcs {
