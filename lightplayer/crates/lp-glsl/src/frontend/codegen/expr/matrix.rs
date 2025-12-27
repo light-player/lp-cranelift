@@ -8,7 +8,7 @@ use super::coercion;
 
 use alloc::{format, vec::Vec};
 
-pub fn translate_matrix_binary(
+pub fn emit_matrix_binary(
     ctx: &mut CodegenContext,
     op: &glsl::syntax::BinaryOp,
     lhs_vals: Vec<Value>,

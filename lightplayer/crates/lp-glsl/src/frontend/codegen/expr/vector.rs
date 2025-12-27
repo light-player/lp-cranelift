@@ -8,7 +8,7 @@ use super::coercion;
 
 use alloc::{format, vec::Vec};
 
-pub fn translate_vector_binary(
+pub fn emit_vector_binary(
     ctx: &mut CodegenContext,
     op: &glsl::syntax::BinaryOp,
     lhs_vals: Vec<Value>,
@@ -159,7 +159,7 @@ pub fn translate_vector_binary(
             for i in 0..component_count {
                 let lhs_comp = lhs_vals[i];
                 let rhs_comp = rhs_vals[i];
-                let result_comp = binary::translate_scalar_binary_op_internal(
+                let result_comp = binary::emit_scalar_binary_op_internal(
                     ctx,
                     op,
                     lhs_comp,
@@ -176,7 +176,7 @@ pub fn translate_vector_binary(
             // Coerce scalar to vector base type if needed
             let scalar = coercion::coerce_to_type(ctx, scalar, rhs_ty, &base_ty)?;
             for &comp in &lhs_vals {
-                let result_comp = binary::translate_scalar_binary_op_internal(
+                let result_comp = binary::emit_scalar_binary_op_internal(
                     ctx,
                     op,
                     comp,
@@ -193,7 +193,7 @@ pub fn translate_vector_binary(
             // Coerce scalar to vector base type if needed
             let scalar = coercion::coerce_to_type(ctx, scalar, lhs_ty, &base_ty)?;
             for &comp in &rhs_vals {
-                let result_comp = binary::translate_scalar_binary_op_internal(
+                let result_comp = binary::emit_scalar_binary_op_internal(
                     ctx,
                     op,
                     scalar,

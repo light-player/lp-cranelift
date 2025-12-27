@@ -253,7 +253,7 @@ pub fn resolve_lvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<LValue, G
                 };
 
                 // Evaluate index (must be int)
-                let (_, index_ty) = ctx.translate_expr_typed(index_expr)?;
+                let (_, index_ty) = ctx.emit_expr_typed(index_expr)?;
                 if index_ty != GlslType::Int {
                     return Err(GlslError::new(ErrorCode::E0106, "index must be int")
                         .with_location(source_span_to_location(span)));

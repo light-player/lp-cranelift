@@ -19,43 +19,43 @@ use glsl::syntax::Expr;
 use alloc::{format, vec::Vec};
 
 /// Translate pre-increment expression (++i)
-pub fn translate_preinc(
+pub fn emit_preinc(
     ctx: &mut CodegenContext,
     operand: &Expr,
     span: glsl::syntax::SourceSpan,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
-    translate_incdec(ctx, operand, span, true, false, true)
+    emit_incdec(ctx, operand, span, true, false, true)
 }
 
 /// Translate pre-decrement expression (--i)
-pub fn translate_predec(
+pub fn emit_predec(
     ctx: &mut CodegenContext,
     operand: &Expr,
     span: glsl::syntax::SourceSpan,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
-    translate_incdec(ctx, operand, span, false, true, true)
+    emit_incdec(ctx, operand, span, false, true, true)
 }
 
 /// Translate post-increment expression (i++)
-pub fn translate_postinc(
+pub fn emit_postinc(
     ctx: &mut CodegenContext,
     operand: &Expr,
     span: glsl::syntax::SourceSpan,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
-    translate_incdec(ctx, operand, span, true, false, false)
+    emit_incdec(ctx, operand, span, true, false, false)
 }
 
 /// Translate post-decrement expression (i--)
-pub fn translate_postdec(
+pub fn emit_postdec(
     ctx: &mut CodegenContext,
     operand: &Expr,
     span: glsl::syntax::SourceSpan,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
-    translate_incdec(ctx, operand, span, false, true, false)
+    emit_incdec(ctx, operand, span, false, true, false)
 }
 
 /// Common implementation for increment/decrement operations
-fn translate_incdec(
+fn emit_incdec(
     ctx: &mut CodegenContext,
     operand: &Expr,
     span: glsl::syntax::SourceSpan,
@@ -144,7 +144,7 @@ pub fn emit_postinc_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
     let Expr::PostInc(operand, span) = expr else {
         unreachable!("emit_postinc_rvalue called on non-postinc expr");
     };
-    let (vals, ty) = translate_postinc(ctx, operand, span.clone())?;
+    let (vals, ty) = emit_postinc(ctx, operand, span.clone())?;
     Ok(RValue::from_aggregate(vals, ty))
 }
 
@@ -155,6 +155,6 @@ pub fn emit_postdec_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
     let Expr::PostDec(operand, span) = expr else {
         unreachable!("emit_postdec_rvalue called on non-postdec expr");
     };
-    let (vals, ty) = translate_postdec(ctx, operand, span.clone())?;
+    let (vals, ty) = emit_postdec(ctx, operand, span.clone())?;
     Ok(RValue::from_aggregate(vals, ty))
 }

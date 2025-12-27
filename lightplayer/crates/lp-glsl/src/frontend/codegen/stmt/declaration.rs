@@ -181,7 +181,7 @@ pub fn emit_initializer(
     use glsl::syntax::Initializer;
 
     match init {
-        Initializer::Simple(expr) => ctx.translate_expr_typed(expr.as_ref()),
+        Initializer::Simple(expr) => ctx.emit_expr_typed(expr.as_ref()),
         _ => Err(GlslError::new(
             ErrorCode::E0400,
             "only simple initializers supported",

@@ -50,7 +50,7 @@ pub fn emit_loop_do_while_stmt(
     // or from continue statements. Since cond_block is sealed with all predecessors
     // declared, Cranelift will correctly handle SSA construction whether there's
     // one or multiple predecessors.
-    let condition_value = ctx.translate_expr(condition)?;
+    let condition_value = ctx.emit_expr(condition)?;
     // This brif creates the back edge to body_block
     ctx.emit_cond_branch(condition_value, body_block, exit_block)?;
 

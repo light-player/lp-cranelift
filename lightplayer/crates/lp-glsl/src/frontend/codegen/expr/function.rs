@@ -19,12 +19,12 @@ pub fn emit_function_call_rvalue(
     // Ensure we're in a block before evaluating
     ctx.ensure_block()?;
 
-    let (vals, ty) = translate_function_call(ctx, expr)?;
+    let (vals, ty) = emit_function_call(ctx, expr)?;
     Ok(RValue::from_aggregate(vals, ty))
 }
 
 /// Legacy function for backwards compatibility
-pub fn translate_function_call(
+pub fn emit_function_call(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {
@@ -44,28 +44,28 @@ pub fn translate_function_call(
 
     // Check if it's a type constructor
     if is_vector_type_name(func_name) {
-        return constructor::translate_vector_constructor(ctx, func_name, args, span.clone());
+        return constructor::emit_vector_constructor(ctx, func_name, args, span.clone());
     }
 
     if is_matrix_type_name(func_name) {
-        return constructor::translate_matrix_constructor(ctx, func_name, args);
+        return constructor::emit_matrix_constructor(ctx, func_name, args);
     }
 
     // Check for scalar constructors
     if is_scalar_type_name(func_name) {
-        return constructor::translate_scalar_constructor(ctx, func_name, args, span.clone());
+        return constructor::emit_scalar_constructor(ctx, func_name, args, span.clone());
     }
 
     // Check if it's a built-in function
     if crate::frontend::semantic::builtins::is_builtin_function(func_name) {
-        return translate_builtin_call_expr(ctx, func_name, args, span.clone());
+        return emit_builtin_call_expr(ctx, func_name, args, span.clone());
     }
 
     // User-defined function
-    translate_user_function_call(ctx, func_name, args, span.clone())
+    emit_user_function_call(ctx, func_name, args, span.clone())
 }
 
-fn translate_builtin_call_expr(
+fn emit_builtin_call_expr(
     ctx: &mut CodegenContext,
     name: &str,
     args: &[glsl::syntax::Expr],
@@ -76,7 +76,7 @@ fn translate_builtin_call_expr(
     let mut arg_types = Vec::new();
 
     for arg in args {
-        let (vals, ty) = ctx.translate_expr_typed(arg)?;
+        let (vals, ty) = ctx.emit_expr_typed(arg)?;
         translated_args.push((vals, ty.clone()));
         arg_types.push(ty);
     }
@@ -95,7 +95,7 @@ fn translate_builtin_call_expr(
     }
 
     // Delegate to built-in implementation and add span to any errors
-    match ctx.translate_builtin_call(name, translated_args) {
+    match ctx.emit_builtin_call(name, translated_args) {
         Ok(result) => Ok(result),
         Err(mut error) => {
             // Add location and span_text if not already present
@@ -116,7 +116,7 @@ fn prepare_function_arguments(
     let mut arg_types = Vec::new();
 
     for arg in args {
-        let (vals, ty) = ctx.translate_expr_typed(arg)?;
+        let (vals, ty) = ctx.emit_expr_typed(arg)?;
         arg_vals_flat.extend(vals);
         arg_types.push(ty);
     }
@@ -431,7 +431,7 @@ fn package_return_values(
     }
 }
 
-fn translate_user_function_call(
+fn emit_user_function_call(
     ctx: &mut CodegenContext,
     name: &str,
     args: &[glsl::syntax::Expr],

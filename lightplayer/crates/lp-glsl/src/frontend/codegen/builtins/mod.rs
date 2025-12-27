@@ -20,7 +20,7 @@ use alloc::format;
 #[cfg(feature = "std")]
 use std::format;
 impl<'a> CodegenContext<'a> {
-    pub fn translate_builtin_call(
+    pub fn emit_builtin_call(
         &mut self,
         name: &str,
         args: Vec<(Vec<Value>, Type)>,

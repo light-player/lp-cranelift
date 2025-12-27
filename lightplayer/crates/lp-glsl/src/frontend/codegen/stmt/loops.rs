@@ -25,7 +25,7 @@ pub fn emit_iteration_stmt(
 
 /// Shared helper: translate condition expression to boolean value
 /// Supports both expression conditions and variable declaration conditions (e.g., `while (bool j = i < 3)`)
-pub fn translate_condition(
+pub fn emit_condition(
     ctx: &mut CodegenContext,
     condition: &glsl::syntax::Condition,
 ) -> Result<cranelift_codegen::ir::Value, GlslError> {
@@ -33,7 +33,7 @@ pub fn translate_condition(
 
     match condition {
         glsl::syntax::Condition::Expr(expr) => {
-            let (vals, ty) = ctx.translate_expr_typed(expr)?;
+            let (vals, ty) = ctx.emit_expr_typed(expr)?;
             // Validate that condition is bool type (GLSL spec requirement)
             let cond_span = crate::error::extract_span_from_expr(expr);
             match crate::frontend::semantic::type_check::check_condition(&ty) {

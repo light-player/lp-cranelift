@@ -17,7 +17,7 @@ enum NamingSet {
     STPQ, // Texture coordinates: s, t, p, q
 }
 
-pub fn translate_component_access(
+pub fn emit_component_access(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
@@ -28,7 +28,7 @@ pub fn translate_component_access(
         unreachable!("translate_component_access called on non-dot expr");
     };
 
-    let (vals, ty) = ctx.translate_expr_typed(base_expr)?;
+    let (vals, ty) = ctx.emit_expr_typed(base_expr)?;
 
     if !ty.is_vector() {
         let span = extract_span_from_expr(base_expr);
@@ -60,7 +60,7 @@ pub fn translate_component_access(
     }
 }
 
-pub fn translate_matrix_indexing(
+pub fn emit_indexing(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
@@ -71,7 +71,7 @@ pub fn translate_matrix_indexing(
         unreachable!("translate_matrix_indexing called on non-bracket expr");
     };
 
-    let (array_vals, array_ty) = ctx.translate_expr_typed(array_expr)?;
+    let (array_vals, array_ty) = ctx.emit_expr_typed(array_expr)?;
     crate::debug!(
         "translate_matrix_indexing: array_ty={:?}, array_vals.len()={}",
         array_ty,
@@ -112,7 +112,7 @@ pub fn translate_matrix_indexing(
         };
 
         // Evaluate index (must be int)
-        let (index_vals, index_ty) = ctx.translate_expr_typed(index_expr)?;
+        let (index_vals, index_ty) = ctx.emit_expr_typed(index_expr)?;
         if index_ty != GlslType::Int {
             return Err(GlslError::new(ErrorCode::E0106, "index must be int")
                 .with_location(source_span_to_location(span)));
@@ -479,7 +479,7 @@ pub fn emit_component_access_rvalue(
         Err(_) => {
             // Fall back to RValue path (for expressions like `not(bvec2(...)).x`)
             // This evaluates the expression first, then extracts components
-            let (vals, ty) = translate_component_access(ctx, expr)?;
+            let (vals, ty) = emit_component_access(ctx, expr)?;
             Ok(RValue::from_aggregate(vals, ty))
         }
     }
@@ -509,7 +509,7 @@ pub fn emit_matrix_indexing_rvalue(
 
     if has_variable_index {
         // Variable index - use translate_matrix_indexing directly
-        let (vals, ty) = translate_matrix_indexing(ctx, expr)?;
+        let (vals, ty) = emit_indexing(ctx, expr)?;
         Ok(RValue::from_aggregate(vals, ty))
     } else {
         // Constant index - use LValue path for efficiency

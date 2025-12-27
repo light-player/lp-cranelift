@@ -8,7 +8,7 @@ use glsl::syntax::Expr;
 
 use alloc::{format, vec::Vec};
 
-pub fn translate_variable(
+pub fn emit_variable(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {

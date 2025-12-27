@@ -12,7 +12,7 @@ pub fn emit_return_stmt(ctx: &mut CodegenContext, expr: Option<&Expr>) -> Result
 
     if let Some(ret_expr) = expr {
         let span = extract_span_from_expr(ret_expr);
-        let (ret_vals, ret_ty) = ctx.translate_expr_typed(ret_expr)?;
+        let (ret_vals, ret_ty) = ctx.emit_expr_typed(ret_expr)?;
         crate::debug!(
             "return statement: ret_ty={:?}, ret_vals.len()={}",
             ret_ty,

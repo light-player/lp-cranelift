@@ -29,10 +29,10 @@ pub fn emit_literal_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
     }
 }
 
-/// Legacy function for backwards compatibility
+/// TODO Legacy function for backwards compatibility
 use alloc::vec::Vec;
 
-pub fn translate_literal(
+pub fn emit_literal(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {

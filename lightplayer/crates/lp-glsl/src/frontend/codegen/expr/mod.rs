@@ -102,7 +102,7 @@ impl<'a> CodegenContext<'a> {
     ///
     /// This method is kept for backwards compatibility during the transition.
     /// New code should use `emit_rvalue` instead.
-    pub fn translate_expr_typed(
+    pub fn emit_expr_typed(
         &mut self,
         expr: &Expr,
     ) -> Result<(Vec<Value>, GlslType), GlslError> {
@@ -112,8 +112,8 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// Legacy wrapper for compatibility - returns just the first value (for scalars)
-    pub fn translate_expr(&mut self, expr: &Expr) -> Result<Value, GlslError> {
-        let (vals, _ty) = self.translate_expr_typed(expr)?;
+    pub fn emit_expr(&mut self, expr: &Expr) -> Result<Value, GlslError> {
+        let (vals, _ty) = self.emit_expr_typed(expr)?;
         let expr_span = crate::error::extract_span_from_expr(expr);
         vals.into_iter().next().ok_or_else(|| {
             let error = GlslError::new(ErrorCode::E0400, "expression produced no values")

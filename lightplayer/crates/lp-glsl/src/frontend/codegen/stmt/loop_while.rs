@@ -2,7 +2,7 @@ use glsl::syntax::{Condition, Statement};
 
 use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;
-use crate::frontend::codegen::stmt::loops::translate_condition;
+use crate::frontend::codegen::stmt::loops::emit_condition;
 
 /// Emit while loop statement
 pub fn emit_loop_while_stmt(
@@ -33,7 +33,7 @@ pub fn emit_loop_while_stmt(
     // Header: evaluate condition
     // Don't seal header yet - it will receive a back edge from body
     ctx.switch_to_block(header_block);
-    let condition_value = translate_condition(ctx, condition)?;
+    let condition_value = emit_condition(ctx, condition)?;
     ctx.emit_cond_branch(condition_value, body_block, exit_block)?;
 
     // Body

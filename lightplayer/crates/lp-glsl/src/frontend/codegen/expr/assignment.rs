@@ -17,7 +17,7 @@ pub fn emit_assignment_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<R
     let Expr::Assignment(lhs, op, rhs, _span) = expr else {
         unreachable!("emit_assignment_rvalue called on non-assignment expr");
     };
-    let (vals, ty) = translate_assignment_typed(ctx, lhs, op, rhs)?;
+    let (vals, ty) = emit_assignment_typed(ctx, lhs, op, rhs)?;
     Ok(RValue::from_aggregate(vals, ty))
 }
 
@@ -25,7 +25,7 @@ pub fn emit_assignment_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<R
 ///
 /// Handles both simple assignment (=) and compound assignment (+=, -=, *=, /=).
 /// Returns the assigned value(s) and type.
-pub fn translate_assignment_typed(
+pub fn emit_assignment_typed(
     ctx: &mut CodegenContext,
     lhs: &Expr,
     op: &glsl::syntax::AssignmentOp,
@@ -39,7 +39,7 @@ pub fn translate_assignment_typed(
 
     // Handle compound assignment operators (+=, -=, *=, /=)
     if !matches!(op, glsl::syntax::AssignmentOp::Equal) {
-        return translate_compound_assignment_typed(ctx, lhs, op, rhs);
+        return emit_compound_assignment_typed(ctx, lhs, op, rhs);
     }
 
     // Resolve LHS to an LValue
@@ -154,7 +154,7 @@ pub fn translate_assignment_typed(
 }
 
 /// Handle compound assignment operators (+=, -=, *=, /=)
-fn translate_compound_assignment_typed(
+fn emit_compound_assignment_typed(
     ctx: &mut CodegenContext,
     lhs: &Expr,
     op: &glsl::syntax::AssignmentOp,
@@ -219,7 +219,7 @@ fn translate_compound_assignment_typed(
     // Perform the compound operation
     let (operation_result_vals, operation_result_ty) = if lhs_ty.is_matrix() || rhs_ty.is_matrix() {
         // Use matrix operations for matrix compound assignments
-        matrix::translate_matrix_binary(
+        matrix::emit_matrix_binary(
             ctx,
             &binary_op,
             lhs_vals,
@@ -230,7 +230,7 @@ fn translate_compound_assignment_typed(
         )?
     } else if lhs_ty.is_vector() || rhs_ty.is_vector() {
         // Use vector operations
-        vector::translate_vector_binary(
+        vector::emit_vector_binary(
             ctx,
             &binary_op,
             lhs_vals,
@@ -253,7 +253,7 @@ fn translate_compound_assignment_typed(
         let rhs_val_coerced = super::coercion::coerce_to_type(ctx, rhs_vals[0], &rhs_ty, &base_ty)?;
 
         // Perform scalar operation
-        let result_val = binary::translate_scalar_binary_op_internal(
+        let result_val = binary::emit_scalar_binary_op_internal(
             ctx,
             &binary_op,
             lhs_val_coerced,

@@ -34,7 +34,7 @@ pub fn emit_binary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValu
 
     // Delegate to matrix/vector/scalar handlers
     if lhs_ty.is_matrix() || rhs_ty.is_matrix() {
-        let (vals, ty) = matrix::translate_matrix_binary(
+        let (vals, ty) = matrix::emit_matrix_binary(
             ctx,
             op,
             lhs_vals,
@@ -45,7 +45,7 @@ pub fn emit_binary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValu
         )?;
         Ok(RValue::from_aggregate(vals, ty))
     } else if lhs_ty.is_vector() || rhs_ty.is_vector() {
-        let (vals, ty) = vector::translate_vector_binary(
+        let (vals, ty) = vector::emit_vector_binary(
             ctx,
             op,
             lhs_vals,
@@ -56,7 +56,7 @@ pub fn emit_binary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValu
         )?;
         Ok(RValue::from_aggregate(vals, ty))
     } else {
-        let (vals, ty) = translate_scalar_binary(
+        let (vals, ty) = emit_scalar_binary(
             ctx,
             op,
             lhs_vals[0],
@@ -70,7 +70,7 @@ pub fn emit_binary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValu
 }
 
 /// Legacy function for backwards compatibility
-pub fn translate_binary(
+pub fn emit_binary(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
@@ -79,7 +79,7 @@ pub fn translate_binary(
     Ok((rvalue.into_values(), ty))
 }
 
-fn translate_scalar_binary(
+fn emit_scalar_binary(
     ctx: &mut CodegenContext,
     op: &glsl::syntax::BinaryOp,
     lhs_val: Value,
@@ -152,12 +152,12 @@ fn translate_scalar_binary(
     };
 
     // Generate operation
-    let result_val = translate_scalar_binary_op(ctx, op, lhs_val, rhs_val, &operand_ty, span)?;
+    let result_val = emit_scalar_binary_op(ctx, op, lhs_val, rhs_val, &operand_ty, span)?;
     Ok((vec![result_val], result_ty))
 }
 
 // Internal function for scalar binary operations (used by vector/matrix modules)
-pub fn translate_scalar_binary_op_internal(
+pub fn emit_scalar_binary_op_internal(
     ctx: &mut CodegenContext,
     op: &glsl::syntax::BinaryOp,
     lhs: Value,
@@ -165,10 +165,10 @@ pub fn translate_scalar_binary_op_internal(
     operand_ty: &GlslType,
     span: glsl::syntax::SourceSpan,
 ) -> Result<Value, GlslError> {
-    translate_scalar_binary_op(ctx, op, lhs, rhs, operand_ty, span)
+    emit_scalar_binary_op(ctx, op, lhs, rhs, operand_ty, span)
 }
 
-fn translate_scalar_binary_op(
+fn emit_scalar_binary_op(
     ctx: &mut CodegenContext,
     op: &glsl::syntax::BinaryOp,
     lhs: Value,

@@ -12,7 +12,7 @@ pub fn emit_if_stmt(
     use glsl::syntax::SelectionRestStatement;
 
     // Translate condition and validate type
-    let (cond_vals, cond_ty) = ctx.translate_expr_typed(&selection.cond)?;
+    let (cond_vals, cond_ty) = ctx.emit_expr_typed(&selection.cond)?;
     let cond_span = extract_span_from_expr(&selection.cond);
     // Validate that condition is bool type (GLSL spec requirement)
     if cond_ty != crate::frontend::semantic::types::Type::Bool {

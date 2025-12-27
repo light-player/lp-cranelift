@@ -134,7 +134,7 @@ pub fn emit_ternary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
 
     if result_ty.is_matrix() {
         // Matrix: select component-wise
-        let (vals, ty) = translate_matrix_ternary(
+        let (vals, ty) = emit_matrix_ternary(
             ctx,
             cond_val,
             true_vals,
@@ -145,7 +145,7 @@ pub fn emit_ternary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
         Ok(RValue::from_aggregate(vals, ty))
     } else if result_ty.is_vector() {
         // Vector: select component-wise
-        let (vals, ty) = translate_vector_ternary(
+        let (vals, ty) = emit_vector_ternary(
             ctx,
             cond_val,
             true_vals,
@@ -156,7 +156,7 @@ pub fn emit_ternary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
         Ok(RValue::from_aggregate(vals, ty))
     } else {
         // Scalar: use select directly
-        let (vals, ty) = translate_scalar_ternary(
+        let (vals, ty) = emit_scalar_ternary(
             ctx,
             cond_val,
             true_vals[0],
@@ -168,7 +168,7 @@ pub fn emit_ternary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
     }
 }
 
-fn translate_scalar_ternary(
+fn emit_scalar_ternary(
     ctx: &mut CodegenContext,
     cond_val: Value,
     true_val: Value,
@@ -184,7 +184,7 @@ fn translate_scalar_ternary(
     Ok((vec![result_val], result_ty.clone()))
 }
 
-fn translate_vector_ternary(
+fn emit_vector_ternary(
     ctx: &mut CodegenContext,
     cond_val: Value,
     true_vals: Vec<Value>,
@@ -211,7 +211,7 @@ fn translate_vector_ternary(
     Ok((result_vals, result_ty.clone()))
 }
 
-fn translate_matrix_ternary(
+fn emit_matrix_ternary(
     ctx: &mut CodegenContext,
     cond_val: Value,
     true_vals: Vec<Value>,

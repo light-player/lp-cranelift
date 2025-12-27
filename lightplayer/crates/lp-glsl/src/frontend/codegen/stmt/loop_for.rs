@@ -2,7 +2,7 @@ use glsl::syntax::{ForInitStatement, ForRestStatement, Statement};
 
 use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;
-use crate::frontend::codegen::stmt::loops::translate_condition;
+use crate::frontend::codegen::stmt::loops::emit_condition;
 use cranelift_codegen::ir::InstBuilder;
 
 /// Emit for loop statement
@@ -31,7 +31,7 @@ pub fn emit_loop_for_stmt(
     // Translate init (now inside loop scope)
     match init {
         glsl::syntax::ForInitStatement::Expression(Some(expr)) => {
-            ctx.translate_expr(expr)?;
+            ctx.emit_expr(expr)?;
         }
         glsl::syntax::ForInitStatement::Declaration(decl) => {
             ctx.emit_declaration(decl)?;
@@ -47,7 +47,7 @@ pub fn emit_loop_for_stmt(
     // Don't seal header yet - it will receive a back edge from update block
     ctx.switch_to_block(header_block);
     let condition_value = if let Some(condition) = &rest.condition {
-        translate_condition(ctx, condition)?
+        emit_condition(ctx, condition)?
     } else {
         // No condition means infinite loop (while(true))
         ctx.builder
@@ -64,7 +64,7 @@ pub fn emit_loop_for_stmt(
     // Update block
     ctx.emit_block(update_block);
     if let Some(update_expr) = &rest.post_expr {
-        ctx.translate_expr(update_expr)?;
+        ctx.emit_expr(update_expr)?;
     }
     ctx.emit_branch(header_block)?;
 

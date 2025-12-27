@@ -22,11 +22,11 @@ pub fn emit_unary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue
     use glsl::syntax::UnaryOp::*;
     match op {
         Inc => {
-            let (vals, ty) = incdec::translate_preinc(ctx, operand, span.clone())?;
+            let (vals, ty) = incdec::emit_preinc(ctx, operand, span.clone())?;
             Ok(RValue::from_aggregate(vals, ty))
         }
         Dec => {
-            let (vals, ty) = incdec::translate_predec(ctx, operand, span.clone())?;
+            let (vals, ty) = incdec::emit_predec(ctx, operand, span.clone())?;
             Ok(RValue::from_aggregate(vals, ty))
         }
         _ => {
@@ -43,13 +43,13 @@ pub fn emit_unary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue
             if vals.len() == 1 {
                 // Scalar operation
                 let val = vals[0];
-                let result_val = translate_unary_op(ctx, op, val, &ty)?;
+                let result_val = emit_unary_op(ctx, op, val, &ty)?;
                 Ok(RValue::from_scalar(result_val, result_ty))
             } else {
                 // Vector or matrix operation - apply component-wise
                 let mut result_vals = Vec::new();
                 for val in vals {
-                    let result_val = translate_unary_op(ctx, op, val, &ty)?;
+                    let result_val = emit_unary_op(ctx, op, val, &ty)?;
                     result_vals.push(result_val);
                 }
                 Ok(RValue::from_aggregate(result_vals, result_ty))
@@ -58,8 +58,8 @@ pub fn emit_unary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue
     }
 }
 
-/// Legacy function for backwards compatibility
-pub fn translate_unary(
+/// TODO Legacy function for backwards compatibility
+pub fn emit_unary(
     ctx: &mut CodegenContext,
     expr: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
@@ -68,7 +68,7 @@ pub fn translate_unary(
     Ok((rvalue.into_values(), ty))
 }
 
-fn translate_unary_op(
+fn emit_unary_op(
     ctx: &mut CodegenContext,
     op: &glsl::syntax::UnaryOp,
     val: Value,

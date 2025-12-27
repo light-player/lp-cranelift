@@ -9,7 +9,7 @@ use super::coercion;
 
 use alloc::{format, vec::Vec};
 
-pub fn translate_vector_constructor(
+pub fn emit_vector_constructor(
     ctx: &mut CodegenContext,
     type_name: &str,
     args: &[Expr],
@@ -23,7 +23,7 @@ pub fn translate_vector_constructor(
     let mut arg_types: Vec<GlslType> = Vec::new();
 
     for arg in args {
-        let (vals, ty) = ctx.translate_expr_typed(arg)?;
+        let (vals, ty) = ctx.emit_expr_typed(arg)?;
         arg_vals.push(vals);
         arg_types.push(ty);
     }
@@ -93,7 +93,7 @@ pub fn translate_vector_constructor(
 
 /// Translate matrix constructor
 /// Implements GLSL spec: variables.adoc:72-97
-pub fn translate_matrix_constructor(
+pub fn emit_matrix_constructor(
     ctx: &mut CodegenContext,
     type_name: &str,
     args: &[Expr],
@@ -106,7 +106,7 @@ pub fn translate_matrix_constructor(
     let mut arg_types: Vec<GlslType> = Vec::new();
 
     for arg in args {
-        let (vals, ty) = ctx.translate_expr_typed(arg)?;
+        let (vals, ty) = ctx.emit_expr_typed(arg)?;
         arg_vals.push(vals);
         arg_types.push(ty);
     }
@@ -217,7 +217,7 @@ pub fn translate_matrix_constructor(
 }
 
 /// Translate scalar type constructor (bool(int), int(bool), etc.)
-pub fn translate_scalar_constructor(
+pub fn emit_scalar_constructor(
     ctx: &mut CodegenContext,
     type_name: &str,
     args: &[Expr],
