@@ -204,3 +204,4 @@ git commit -m "lpc: fix boolean values in arithmetic operations"
 - **Debugging**: May need to add debug output to identify the exact location of the issue
 - **Type Safety**: Ensure type checking properly rejects boolean operands in arithmetic
 
+

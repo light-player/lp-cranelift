@@ -121,3 +121,4 @@ git commit -m "lpc: implement logical XOR operator"
 - **Simpler Implementation**: Since boolean values are stored as 0/1 (i8), we can directly compare them with `icmp NotEqual` to get XOR result
 - **Pattern**: Follows the same pattern as logical AND/OR, but with XOR logic
 
+

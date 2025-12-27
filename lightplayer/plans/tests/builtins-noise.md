@@ -37,3 +37,4 @@ builtins/noise/
 
 - **builtinfunctions.adoc**: Noise Functions (lines 3387-3431)
 - Key sections: Noise1, Noise2, Noise3, Noise4, Deprecation
+

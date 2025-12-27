@@ -276,3 +276,4 @@ globals/
   - Read-only restrictions
   - Scope and shadowing rules
 
+

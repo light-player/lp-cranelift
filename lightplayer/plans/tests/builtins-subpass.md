@@ -35,3 +35,4 @@ builtins/subpass/
 - **builtinfunctions.adoc**: Subpass-Input Functions (lines 3687-3750)
 - Key sections: subpassLoad, input attachment types, Vulkan restrictions
 
+

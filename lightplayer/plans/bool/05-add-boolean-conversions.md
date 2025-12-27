@@ -181,3 +181,4 @@ git commit -m "lpc: add boolean type conversions"
 - **UInt Representation**: UInt is represented as i32 in Cranelift
 - **Zero Comparison**: For numeric → bool, any non-zero value converts to true
 - **Explicit Conversions**: All conversions are explicit (via constructors), not implicit
+

@@ -55,3 +55,4 @@ builtins/images/
 
 - **builtinfunctions.adoc**: Image Functions (lines 2668-2975)
 - Key sections: ImageSize, ImageSamples, ImageLoad, ImageStore, Atomic functions
+

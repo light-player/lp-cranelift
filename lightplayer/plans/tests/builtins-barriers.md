@@ -42,3 +42,4 @@ builtins/barriers/
 
 - **builtinfunctions.adoc**: Shader Invocation Control Functions (lines 3432-3491), Shader Memory Control Functions (lines 3492-3686)
 - Key sections: barrier, memoryBarrier variants, synchronization, visibility, ordering
+

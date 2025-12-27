@@ -41,3 +41,4 @@ builtins/fragment/
 
 - **builtinfunctions.adoc**: Fragment Processing Functions (lines 3087-3386)
 - Key sections: Derivative Functions, Interpolation Functions
+

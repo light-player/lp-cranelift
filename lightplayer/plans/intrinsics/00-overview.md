@@ -241,3 +241,4 @@ lightplayer/crates/lp-glsl/src/
 - [ ] Intrinsics can call helper functions within the same file
 - [ ] Architecture supports adding globals/lookup tables in the future (even if not implemented now)
 
+

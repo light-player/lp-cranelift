@@ -88,3 +88,4 @@ Comprehensive test suite in `lightplayer/crates/lp-glsl-filetests/filetests/cont
 - **edge_cases.glsl**: Edge cases (function calls, arithmetic operations, complex expressions)
 - **short_circuit.glsl**: Short-circuit evaluation behavior (note: both branches evaluated with `select`)
 
+
