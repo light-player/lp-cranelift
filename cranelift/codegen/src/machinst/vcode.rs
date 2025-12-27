@@ -863,7 +863,8 @@ impl<I: VCodeInst> VCode<I> {
                            state: &mut I::State| {
                 if want_disasm && !inst.is_args() {
                     let mut s = state.clone();
-                    writeln!(disasm, "  {}", inst.pretty_print_inst(&mut s)).unwrap();
+                    let offset = buffer.cur_offset();
+                    writeln!(disasm, "  {:08x}: {}", offset, inst.pretty_print_inst(&mut s)).unwrap();
                 }
                 inst.emit(buffer, &self.emit_info, state);
             };
