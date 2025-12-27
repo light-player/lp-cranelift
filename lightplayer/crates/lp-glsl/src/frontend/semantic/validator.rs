@@ -16,6 +16,8 @@ use crate::frontend::semantic::types::Type;
 use glsl::syntax::{JumpStatement, SimpleStatement, Statement};
 
 /// Helper function to add span text to an error if source is available
+/// TODO: Update this to use the new Rust-style formatting from error::add_span_text_to_error()
+/// instead of the simpler extract_source_line() approach for consistency
 fn add_span_text_to_error(
     mut error: GlslError,
     source: &str,

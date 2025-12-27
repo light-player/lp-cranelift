@@ -24,6 +24,12 @@ pub fn emit_loop_while_stmt(
     // Jump to header
     ctx.emit_branch(header_block)?;
 
+    // Enter scope for loop body BEFORE evaluating condition
+    // This ensures variables declared in the condition are in the same scope as the body
+    // According to GLSL spec: "Variables declared in the condition-expression are only
+    // in scope until the end of the sub-statement of the while loop"
+    ctx.enter_scope();
+
     // Header: evaluate condition
     // Don't seal header yet - it will receive a back edge from body
     ctx.switch_to_block(header_block);
@@ -32,10 +38,11 @@ pub fn emit_loop_while_stmt(
 
     // Body
     ctx.emit_block(body_block);
-    ctx.enter_scope(); // Enter scope for body variables
     ctx.emit_statement(body)?;
-    ctx.exit_scope(); // Exit scope for body variables
     ctx.emit_branch(header_block)?; // Loop back
+
+    // Exit scope for loop body (condition variables go out of scope here)
+    ctx.exit_scope();
 
     // Now seal header block - all predecessors (initial jump + back edge) are known
     ctx.seal_block(header_block);

@@ -24,10 +24,13 @@ pub fn emit_iteration_stmt(
 }
 
 /// Shared helper: translate condition expression to boolean value
+/// Supports both expression conditions and variable declaration conditions (e.g., `while (bool j = i < 3)`)
 pub fn translate_condition(
     ctx: &mut CodegenContext,
     condition: &glsl::syntax::Condition,
 ) -> Result<cranelift_codegen::ir::Value, GlslError> {
+    use crate::frontend::codegen::stmt::declaration::{emit_initializer, parse_type_specifier};
+
     match condition {
         glsl::syntax::Condition::Expr(expr) => {
             let (vals, ty) = ctx.translate_expr_typed(expr)?;
@@ -38,9 +41,80 @@ pub fn translate_condition(
                 GlslError::new(ErrorCode::E0400, "condition expression produced no value")
             })?)
         }
-        _ => Err(GlslError::new(
-            ErrorCode::E0400,
-            "only expression conditions supported",
-        )),
+        glsl::syntax::Condition::Assignment(type_spec, identifier, initializer) => {
+            // Variable declaration in condition: `while (bool j = i < 3)`
+            // According to GLSL spec, the variable is declared, initialized, and its value is used as the condition
+            
+            // Parse the type
+            let var_ty = parse_type_specifier(ctx, type_spec)?;
+            
+            // Declare the variable in the current scope
+            let vars = ctx.declare_variable(identifier.name.clone(), var_ty.clone())?;
+            
+            // Evaluate the initializer
+            let (init_vals, init_ty) = emit_initializer(ctx, initializer)?;
+            
+            // Extract span from initializer for error reporting
+            let init_span = match initializer {
+                glsl::syntax::Initializer::Simple(expr) => {
+                    crate::error::extract_span_from_expr(expr.as_ref())
+                }
+                _ => glsl::syntax::SourceSpan::unknown(),
+            };
+            
+            // Type check (allows implicit conversions)
+            match crate::frontend::semantic::type_check::check_assignment(&var_ty, &init_ty) {
+                Ok(()) => {}
+                Err(mut error) => {
+                    if error.location.is_none() {
+                        error = error.with_location(crate::error::source_span_to_location(
+                            &init_span,
+                        ));
+                    }
+                    return Err(ctx.add_span_to_error(error, &init_span));
+                }
+            }
+            
+            // Coerce initializer values to match variable type
+            let base_ty = if var_ty.is_vector() {
+                var_ty.vector_base_type().unwrap()
+            } else if var_ty.is_matrix() {
+                crate::frontend::semantic::types::Type::Float
+            } else {
+                var_ty.clone()
+            };
+            let init_base = if init_ty.is_vector() {
+                init_ty.vector_base_type().unwrap()
+            } else if init_ty.is_matrix() {
+                crate::frontend::semantic::types::Type::Float
+            } else {
+                init_ty.clone()
+            };
+            
+            // Check component counts match
+            if vars.len() != init_vals.len() {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!(
+                        "component count mismatch: variable has {} components, initializer has {}",
+                        vars.len(),
+                        init_vals.len()
+                    ),
+                ));
+            }
+            
+            // Assign each component with type coercion
+            for (var, val) in vars.iter().zip(&init_vals) {
+                let coerced_val = ctx.coerce_to_type(*val, &init_base, &base_ty)?;
+                ctx.builder.def_var(*var, coerced_val);
+            }
+            
+            // Read the variable's value to use as the condition
+            // Validate that the variable type is bool (GLSL spec requirement for conditions)
+            crate::frontend::semantic::type_check::check_condition(&var_ty)?;
+            
+            // Return the first (and only) component value
+            Ok(ctx.builder.use_var(vars[0]))
+        }
     }
 }

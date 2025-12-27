@@ -231,8 +231,13 @@ impl fmt::Display for GlslError {
             }
         }
 
-        // Add notes
-        for note in &self.notes {
+        // Add notes (skip the first one if it was already shown in span_text on the caret line)
+        let notes_to_show = if self.span_text.is_some() && !self.notes.is_empty() {
+            &self.notes[1..]
+        } else {
+            &self.notes[..]
+        };
+        for note in notes_to_show {
             write!(f, "\n{}", note)?;
         }
 
@@ -339,6 +344,8 @@ pub fn extract_span_from_identifier(ident: &glsl::syntax::Identifier) -> glsl::s
 }
 
 /// Extract source line text from a span
+/// TODO: This function is still used by validator.rs. Once validator.rs is updated to use
+/// the new Rust-style formatting (add_span_text_to_error), this can be removed.
 pub fn extract_source_line(source: &str, span: &glsl::syntax::SourceSpan) -> Option<String> {
     if span.is_unknown() {
         return None;
@@ -349,6 +356,82 @@ pub fn extract_source_line(source: &str, span: &glsl::syntax::SourceSpan) -> Opt
         .map(|s| s.into())
 }
 
+/// Calculate the number of digits needed to display a line number.
+/// Returns at least 2 to ensure consistent alignment for small line numbers.
+fn calculate_line_number_width(line_num: usize) -> usize {
+    if line_num == 0 {
+        return 1;
+    }
+    let mut width = 0;
+    let mut n = line_num;
+    while n > 0 {
+        width += 1;
+        n /= 10;
+    }
+    width.max(2)
+}
+
+/// Format source line with error span for error display (Rust-style formatting).
+/// Shows only the error line with blank line before and caret pointing to the error.
+fn format_source_lines_around_span(
+    source: &str,
+    span: &glsl::syntax::SourceSpan,
+    error_message: Option<&str>,
+) -> Option<String> {
+    if span.is_unknown() {
+        return None;
+    }
+
+    let lines: Vec<&str> = source.lines().collect();
+    if span.line == 0 || span.line > lines.len() {
+        return None;
+    }
+
+    let error_line = lines[span.line - 1];
+    let line_num_width = calculate_line_number_width(span.line);
+
+    let mut source_display = String::new();
+
+    // Blank line before error line (Rust style)
+    source_display.push_str(&format!("{} |\n", " ".repeat(line_num_width)));
+
+    // Error line
+    source_display.push_str(&format!(
+        "{:>width$} | {}\n",
+        span.line,
+        error_line,
+        width = line_num_width
+    ));
+
+    // Calculate caret position and length to span the expression
+    let col_pos = span.column.saturating_sub(1).min(error_line.len());
+    // Find the end of the expression by looking for common delimiters
+    // This helps the caret span the entire problematic expression, not just one character
+    let remaining = &error_line[col_pos..];
+    let expr_end = remaining
+        .find(|c: char| c == ';' || c == ')' || c == ']' || c == '}' || c == ',')
+        .unwrap_or_else(|| remaining.len().min(20)); // Limit to 20 chars or end of line
+    let caret_len = expr_end.max(1).min(remaining.len());
+    let caret = "^".repeat(caret_len);
+    if let Some(msg) = error_message {
+        source_display.push_str(&format!(
+            "{} | {}{} {}\n",
+            " ".repeat(line_num_width),
+            " ".repeat(col_pos),
+            caret,
+            msg
+        ));
+    } else {
+        source_display.push_str(&format!(
+            "{} | {}{}\n",
+            " ".repeat(line_num_width),
+            " ".repeat(col_pos),
+            caret
+        ));
+    }
+    Some(String::from(source_display.trim_end()))
+}
+
 /// Helper to add span_text to an error if source is available
 pub fn add_span_text_to_error(
     mut error: GlslError,
@@ -356,7 +439,13 @@ pub fn add_span_text_to_error(
     span: &glsl::syntax::SourceSpan,
 ) -> GlslError {
     if let Some(source_text) = source {
-        if let Some(span_text) = extract_source_line(source_text, span) {
+        // Use the first note as the error message on the caret line, or fall back to main message
+        let error_msg = error
+            .notes
+            .first()
+            .map(|n| n.as_str())
+            .or(Some(&error.message));
+        if let Some(span_text) = format_source_lines_around_span(source_text, span, error_msg) {
             error = error.with_span_text(span_text);
         }
     }

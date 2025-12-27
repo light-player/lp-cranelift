@@ -127,7 +127,13 @@ impl<'a> CodegenContext<'a> {
             location.column,
         );
         let error = error.with_location(location);
-        add_span_text_to_error(error, self.source_text, span)
+        // Try to get source text from context first, then fall back to source_map
+        let source_text = self.source_text.or_else(|| {
+            self.source_map
+                .get_file(self.current_file_id)
+                .map(|file| file.contents.as_str())
+        });
+        add_span_text_to_error(error, source_text, span)
     }
 
     pub fn declare_variable(
