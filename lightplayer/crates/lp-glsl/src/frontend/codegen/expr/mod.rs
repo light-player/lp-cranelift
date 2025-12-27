@@ -22,6 +22,7 @@ pub mod function;
 pub mod incdec;
 pub mod literal;
 pub mod matrix;
+pub mod ternary;
 pub mod unary;
 pub mod variable;
 pub mod vector;
@@ -64,6 +65,7 @@ impl<'a> CodegenContext<'a> {
             Expr::Assignment(..) => assignment::emit_assignment_rvalue(self, expr),
             Expr::PostInc(..) => incdec::emit_postinc_rvalue(self, expr),
             Expr::PostDec(..) => incdec::emit_postdec_rvalue(self, expr),
+            Expr::Ternary(..) => ternary::emit_ternary_rvalue(self, expr),
 
             _ => Err(GlslError::new(
                 ErrorCode::E0400,

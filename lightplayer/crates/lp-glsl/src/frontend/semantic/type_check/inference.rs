@@ -17,6 +17,7 @@ use super::constructors::{
     check_vector_constructor_with_span, is_matrix_type_name, is_scalar_type_name,
     is_vector_type_name,
 };
+use super::conversion::can_implicitly_convert;
 use super::operators::{
     infer_binary_result_type, infer_postdec_result_type, infer_postinc_result_type,
     infer_unary_result_type,
@@ -262,6 +263,50 @@ pub fn infer_expr_type_with_registry(
             }
 
             Ok(current_ty)
+        }
+
+        Expr::Ternary(cond, true_expr, false_expr, span) => {
+            // Validate condition is scalar bool
+            let cond_ty = infer_expr_type_with_registry(cond, symbols, func_registry)?;
+            if cond_ty != Type::Bool {
+                return Err(GlslError::new(
+                    ErrorCode::E0107,
+                    "ternary condition must be scalar bool type",
+                )
+                .with_location(source_span_to_location(span))
+                .with_note(format!(
+                    "condition has type `{:?}`, expected `Bool`",
+                    cond_ty
+                )));
+            }
+
+            // Infer types of both branches
+            let true_ty = infer_expr_type_with_registry(true_expr, symbols, func_registry)?;
+            let false_ty = infer_expr_type_with_registry(false_expr, symbols, func_registry)?;
+
+            // Determine result type: exact match or implicit conversion
+            if true_ty == false_ty {
+                // Exact match
+                Ok(true_ty)
+            } else if can_implicitly_convert(&true_ty, &false_ty) {
+                // true_ty can convert to false_ty, use false_ty as result
+                Ok(false_ty)
+            } else if can_implicitly_convert(&false_ty, &true_ty) {
+                // false_ty can convert to true_ty, use true_ty as result
+                Ok(true_ty)
+            } else {
+                // No conversion possible
+                Err(GlslError::new(
+                    ErrorCode::E0106,
+                    "ternary operator branches have incompatible types",
+                )
+                .with_location(source_span_to_location(span))
+                .with_note(format!(
+                    "true branch has type `{:?}`, false branch has type `{:?}`",
+                    true_ty, false_ty
+                ))
+                .with_note("branches must have matching types or allow implicit conversion"))
+            }
         }
 
         _ => {

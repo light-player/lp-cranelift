@@ -74,6 +74,11 @@ pub fn coerce_to_type_with_location(
             let zero_i8 = ctx.builder.ins().iconst(types::I8, 0);
             Ok(ctx.builder.ins().select(cmp, one, zero_i8))
         }
+        (GlslType::Float, GlslType::Int) => {
+            // float → int: truncates fractional part toward zero
+            // val is f32, convert to i32 using fcvt_to_sint
+            Ok(ctx.builder.ins().fcvt_to_sint(types::I32, val))
+        }
         // TODO: Add (GlslType::UInt, GlslType::Bool) when UInt type is added
         _ => {
             let error_msg = format!("cannot implicitly convert {:?} to {:?}", from_ty, to_ty);

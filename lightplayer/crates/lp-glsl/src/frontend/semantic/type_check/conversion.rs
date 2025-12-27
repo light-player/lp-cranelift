@@ -28,6 +28,10 @@ pub fn can_implicitly_convert(from: &Type, to: &Type) -> bool {
     if matches!((from, to), (Type::Int, Type::Float)) {
         return true;
     }
+    // Float to int conversion (for constructors: truncates toward zero)
+    if matches!((from, to), (Type::Float, Type::Int)) {
+        return true;
+    }
     // Numeric to bool conversions (for constructors: 0/0.0 → false, non-zero → true)
     if matches!((from, to), (Type::Int, Type::Bool) | (Type::Float, Type::Bool)) {
         return true;
