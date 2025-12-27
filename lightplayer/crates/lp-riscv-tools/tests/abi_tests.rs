@@ -5,18 +5,20 @@
 //! - Implicit SRET (enable_multi_ret_implicit_sret)
 //! - Edge cases (no args with stack returns, many args, etc.)
 
+use cranelift_codegen::Context;
 use cranelift_codegen::data_value::DataValue;
 use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, Signature, UserFuncName, types};
-use cranelift_codegen::isa::{lookup, CallConv};
+use cranelift_codegen::isa::{CallConv, lookup};
 use cranelift_codegen::settings::{self, Configurable, Flags};
-use cranelift_codegen::Context;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use lp_riscv_tools::Riscv32Emulator;
 
 /// Helper to create flags with enable_multi_ret_implicit_sret enabled
 fn create_flags() -> Flags {
     let mut builder = settings::builder();
-    builder.set("enable_multi_ret_implicit_sret", "true").unwrap();
+    builder
+        .set("enable_multi_ret_implicit_sret", "true")
+        .unwrap();
     builder.set("opt_level", "none").unwrap();
     Flags::new(builder)
 }
@@ -327,21 +329,37 @@ fn test_return_area_pointer_with_arguments() {
     });
 
     let mut emu = Riscv32Emulator::new(code, vec![0; 1024]);
-    
+
     // The bug: when return area pointer is needed, a0 should contain the return area pointer address
     // But currently, a0 contains the first argument (1), causing invalid memory write at address 0x00000001
     // This test should fail with InvalidMemoryAccess until the bug is fixed
-    let result = emu.call_function(entry, &[DataValue::I8(1), DataValue::I8(2), DataValue::I8(3)], &sig);
-    
+    let result = emu.call_function(
+        entry,
+        &[DataValue::I8(1), DataValue::I8(2), DataValue::I8(3)],
+        &sig,
+    );
+
     // Currently this fails due to the bug - a0 contains 1 instead of return area pointer
     // After fix, this should succeed and return [1, 2, 3]
     match result {
         Ok(results) => {
             // After fix: should return [1, 2, 3]
             assert_eq!(results.len(), 3);
-            assert_eq!(results[0], DataValue::I8(1), "First return should be 1 (first arg)");
-            assert_eq!(results[1], DataValue::I8(2), "Second return should be 2 (second arg)");
-            assert_eq!(results[2], DataValue::I8(3), "Third return should be 3 (third arg)");
+            assert_eq!(
+                results[0],
+                DataValue::I8(1),
+                "First return should be 1 (first arg)"
+            );
+            assert_eq!(
+                results[1],
+                DataValue::I8(2),
+                "Second return should be 2 (second arg)"
+            );
+            assert_eq!(
+                results[2],
+                DataValue::I8(3),
+                "Third return should be 3 (third arg)"
+            );
         }
         Err(e) => {
             // Current bug: invalid memory write at address 0x00000001 (a0 contains 1 instead of return area pointer)
@@ -352,7 +370,10 @@ fn test_return_area_pointer_with_arguments() {
                 err_str
             );
             // This test will fail until the bug is fixed
-            panic!("BUG CONFIRMED: a0 contains first argument (1) instead of return area pointer. Error: {}", err_str);
+            panic!(
+                "BUG CONFIRMED: a0 contains first argument (1) instead of return area pointer. Error: {}",
+                err_str
+            );
         }
     }
 }
@@ -380,11 +401,11 @@ fn test_return_area_pointer_no_arguments() {
     });
 
     let mut emu = Riscv32Emulator::new(code, vec![0; 1024]);
-    
+
     // This should work correctly since there are no arguments to conflict with a0
     // But if a0 is 0 or uninitialized, it will fail with invalid memory write
     let result = emu.call_function(entry, &[], &sig);
-    
+
     match result {
         Ok(results) => {
             assert_eq!(results.len(), 3);
@@ -396,11 +417,12 @@ fn test_return_area_pointer_no_arguments() {
             // If this fails, it's likely because a0 is 0 or wrong
             let err_str = format!("{:?}", e);
             assert!(
-                err_str.contains("InvalidMemoryAccess") || err_str.contains("Invalid memory write") || err_str.contains("address: 0"),
+                err_str.contains("InvalidMemoryAccess")
+                    || err_str.contains("Invalid memory write")
+                    || err_str.contains("address: 0"),
                 "Expected invalid memory write error, got: {}",
                 err_str
             );
         }
     }
 }
-

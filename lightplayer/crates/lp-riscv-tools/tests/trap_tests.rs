@@ -1,7 +1,7 @@
 //! Trap handling tests for RISC-V emulator.
 
-use lp_riscv_tools::{Riscv32Emulator, StepResult};
 use cranelift_codegen::ir::TrapCode;
+use lp_riscv_tools::{Riscv32Emulator, StepResult};
 
 #[test]
 fn test_trap_with_code() {
@@ -24,7 +24,7 @@ fn test_trap_without_metadata() {
     let mut emu = Riscv32Emulator::new(vec![0x73, 0x00, 0x10, 0x00], vec![0; 1024]);
 
     match emu.step() {
-        Ok(StepResult::Halted) => {}, // Expected
+        Ok(StepResult::Halted) => {} // Expected
         Ok(other) => panic!("Expected Halted, got {:?}", other),
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
@@ -42,7 +42,7 @@ fn test_trap_at_offset_4() {
 
     // First step: execute nop
     match emu.step() {
-        Ok(StepResult::Continue) => {},
+        Ok(StepResult::Continue) => {}
         Ok(other) => panic!("Expected Continue, got {:?}", other),
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
@@ -85,7 +85,7 @@ fn test_multiple_traps() {
 
     // Second step: execute nop
     match emu.step() {
-        Ok(StepResult::Continue) => {},
+        Ok(StepResult::Continue) => {}
         Ok(other) => panic!("Expected Continue, got {:?}", other),
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
@@ -150,7 +150,10 @@ fn test_trap_at_absolute_address() {
         Ok(StepResult::Trap(code)) => {
             assert_eq!(code, TrapCode::INTEGER_DIVISION_BY_ZERO);
         }
-        Ok(other) => panic!("Expected Trap, got {:?} - this demonstrates the bug!", other),
+        Ok(other) => panic!(
+            "Expected Trap, got {:?} - this demonstrates the bug!",
+            other
+        ),
         Err(e) => panic!("Unexpected error: {:?}", e),
     }
 }

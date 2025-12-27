@@ -86,7 +86,7 @@ pub fn translate_matrix_binary(
                 let vec_size = rhs_ty.component_count().unwrap();
 
                 if cols != vec_size {
-                    return Err(GlslError::new(ErrorCode::E0106, 
+                    return Err(GlslError::new(ErrorCode::E0106,
                         format!("matrix × vector dimension mismatch: {}×{} matrix requires {}-component vector", rows, cols, cols))
                         .with_location(source_span_to_location(&span)));
                 }

@@ -2,8 +2,8 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
 use super::super::{logging::LogLevel, memory::Memory};
+use alloc::vec::Vec;
 use cranelift_codegen::ir::TrapCode;
 
 /// Default RAM start address (0x80000000, matching embive's RAM_OFFSET).
@@ -73,4 +73,3 @@ impl Riscv32Emulator {
         self.instruction_count
     }
 }
-

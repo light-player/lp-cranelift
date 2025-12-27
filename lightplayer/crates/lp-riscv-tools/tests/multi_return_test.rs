@@ -10,7 +10,9 @@ use lp_riscv_tools::emu::abi_helper;
 
 fn create_flags_with_multi_ret() -> Flags {
     let mut builder = settings::builder();
-    builder.set("enable_multi_ret_implicit_sret", "true").unwrap();
+    builder
+        .set("enable_multi_ret_implicit_sret", "true")
+        .unwrap();
     Flags::new(builder)
 }
 
@@ -63,7 +65,7 @@ fn test_abi_helper_three_returns() {
 
     let locations = abi_helper::compute_return_locations(&sig, &flags).unwrap();
     assert_eq!(locations.len(), 3);
-    
+
     // First two should be in registers
     assert_eq!(locations[0].slots.len(), 1);
     match &locations[0].slots[0] {
@@ -75,7 +77,7 @@ fn test_abi_helper_three_returns() {
         abi_helper::ReturnLocation::Reg(reg_enc, _) => assert_eq!(*reg_enc, 11), // a1
         _ => panic!("Expected register location for second return"),
     }
-    
+
     // Third should be on stack
     assert_eq!(locations[2].slots.len(), 1);
     assert_eq!(locations[2].ty, types::I8); // Original return type
@@ -100,7 +102,7 @@ fn test_abi_helper_four_returns() {
 
     let locations = abi_helper::compute_return_locations(&sig, &flags).unwrap();
     assert_eq!(locations.len(), 4);
-    
+
     // First two should be in registers
     assert_eq!(locations[0].slots.len(), 1);
     match &locations[0].slots[0] {
@@ -112,7 +114,7 @@ fn test_abi_helper_four_returns() {
         abi_helper::ReturnLocation::Reg(reg_enc, _) => assert_eq!(*reg_enc, 11), // a1
         _ => panic!("Expected register location"),
     }
-    
+
     // Third and fourth should be on stack
     assert_eq!(locations[2].slots.len(), 1);
     assert_eq!(locations[2].ty, types::I8); // Original return type
@@ -150,7 +152,7 @@ fn test_abi_helper_mixed_types() {
 
     let locations = abi_helper::compute_return_locations(&sig, &flags).unwrap();
     assert_eq!(locations.len(), 3);
-    
+
     // First two in registers
     assert_eq!(locations[0].slots.len(), 1);
     match &locations[0].slots[0] {
@@ -168,7 +170,7 @@ fn test_abi_helper_mixed_types() {
         }
         _ => panic!("Expected register location"),
     }
-    
+
     // Third on stack
     assert_eq!(locations[2].slots.len(), 1);
     match &locations[2].slots[0] {
@@ -183,4 +185,3 @@ fn test_abi_helper_mixed_types() {
 // Note: Integration test with actual emulator execution would require
 // compiling CLIF IR to machine code, which is more complex.
 // The filetest integration will verify the full stack works correctly.
-

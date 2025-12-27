@@ -1,8 +1,8 @@
 //! Register, PC, and memory accessor methods.
 
-use crate::Gpr;
-use super::state::Riscv32Emulator;
 use super::super::memory::Memory;
+use super::state::Riscv32Emulator;
+use crate::Gpr;
 
 impl Riscv32Emulator {
     /// Get the value of a register.
@@ -43,4 +43,3 @@ impl Riscv32Emulator {
         &mut self.memory
     }
 }
-

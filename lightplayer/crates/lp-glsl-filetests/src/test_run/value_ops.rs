@@ -1,7 +1,7 @@
 //! Value parsing and comparison operations.
 
-use crate::filetest::ComparisonOp;
 use crate::file_update::format_glsl_value;
+use crate::filetest::ComparisonOp;
 use anyhow::Result;
 use lp_glsl::GlslValue;
 
@@ -47,7 +47,11 @@ pub fn compare_results(
             if actual.eq(expected) {
                 Ok(())
             } else {
-                Err(format!("expected {}, got {}", format_glsl_value(expected), format_glsl_value(actual)))
+                Err(format!(
+                    "expected {}, got {}",
+                    format_glsl_value(expected),
+                    format_glsl_value(actual)
+                ))
             }
         }
         ComparisonOp::Approx => {
@@ -57,10 +61,11 @@ pub fn compare_results(
             } else {
                 Err(format!(
                     "expected {} (tolerance: {}), got {}",
-                    format_glsl_value(expected), tolerance, format_glsl_value(actual)
+                    format_glsl_value(expected),
+                    tolerance,
+                    format_glsl_value(actual)
                 ))
             }
         }
     }
 }
-

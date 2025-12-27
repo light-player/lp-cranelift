@@ -1,5 +1,6 @@
 # Code review process
 
+Format the code with `cd lightplayer/ && cargo +nightly fmt` (only format lightplayer code)
 Build the code and the tests.
 Plan any needed changes to the code. Be specific about the changes.
 

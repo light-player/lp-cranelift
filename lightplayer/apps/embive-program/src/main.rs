@@ -16,17 +16,17 @@ mod toy_demo;
 fn panic(info: &PanicInfo) -> ! {
     // Try to get panic message
     use core::fmt::Write;
-    
+
     // Create a buffer for the panic message
     let mut panic_msg_buf = [0u8; 256];
     let mut cursor = 0;
-    
+
     // Format the panic message into our buffer
     struct BufWriter<'a> {
         buf: &'a mut [u8],
         cursor: &'a mut usize,
     }
-    
+
     impl<'a> Write for BufWriter<'a> {
         fn write_str(&mut self, s: &str) -> core::fmt::Result {
             let bytes = s.as_bytes();
@@ -39,15 +39,15 @@ fn panic(info: &PanicInfo) -> ! {
             Ok(())
         }
     }
-    
+
     let mut writer = BufWriter {
         buf: &mut panic_msg_buf,
         cursor: &mut cursor,
     };
-    
+
     // Try to format the full panic info
     let _ = write!(writer, "{}", info.message());
-    
+
     // If message is empty, try payload
     if cursor == 0 {
         if let Some(payload) = info.payload().downcast_ref::<&str>() {
@@ -94,7 +94,7 @@ pub extern "Rust" fn main() {
 
     // Phase 2: Toy Language Runtime Compilation with Memory Tracking!
     println!("Testing Toy Language compilation with memory tracking...");
-    
+
     let result = toy_demo::run_toy_demo();
 
     // Report result

@@ -2,17 +2,17 @@
 
 extern crate alloc;
 
-use alloc::{format, string::String, vec::Vec};
-use super::state::Riscv32Emulator;
-use super::types::StepResult;
 use super::super::{
     abi_helper::{self, ArgLocation, ArgSlot, ReturnLocation, ReturnValueLocation},
     error::EmulatorError,
     memory::DEFAULT_RAM_START,
 };
+use super::state::Riscv32Emulator;
+use super::types::StepResult;
+use alloc::{format, string::String, vec::Vec};
 use cranelift_codegen::data_value::DataValue;
-use cranelift_codegen::ir::{ArgumentPurpose, Signature};
 use cranelift_codegen::ir::types;
+use cranelift_codegen::ir::{ArgumentPurpose, Signature};
 use cranelift_codegen::settings::{self, Configurable, Flags};
 
 impl Riscv32Emulator {
@@ -47,7 +47,9 @@ impl Riscv32Emulator {
             return Err(EmulatorError::InvalidInstruction {
                 pc: self.pc,
                 instruction: 0,
-                reason: String::from("StructReturn requires explicit struct size - use call_function_with_struct_return"),
+                reason: String::from(
+                    "StructReturn requires explicit struct size - use call_function_with_struct_return",
+                ),
                 regs: self.regs,
             });
         }
@@ -56,12 +58,14 @@ impl Riscv32Emulator {
         let flags = create_flags_with_multi_ret()?;
 
         // Compute return locations to determine if return area is needed
-        let return_locations = abi_helper::compute_return_locations(signature, &flags)
-            .map_err(|e| EmulatorError::InvalidInstruction {
-                pc: self.pc,
-                instruction: 0,
-                reason: format!("Failed to compute return locations: {:?}", e),
-                regs: self.regs,
+        let return_locations =
+            abi_helper::compute_return_locations(signature, &flags).map_err(|e| {
+                EmulatorError::InvalidInstruction {
+                    pc: self.pc,
+                    instruction: 0,
+                    reason: format!("Failed to compute return locations: {:?}", e),
+                    regs: self.regs,
+                }
             })?;
 
         // Check if return area pointer is needed
@@ -77,11 +81,8 @@ impl Riscv32Emulator {
             })?;
 
         // Setup stack and return area (needs arg_locations to compute stack space)
-        let (entry_sp, return_area_addr, _return_area_size) = setup_call_stack(
-            self,
-            &return_locations,
-            &arg_locations,
-        )?;
+        let (entry_sp, return_area_addr, _return_area_size) =
+            setup_call_stack(self, &return_locations, &arg_locations)?;
 
         // Place return area pointer if needed (before arguments)
         if let Some(return_area_addr) = return_area_addr {
@@ -97,7 +98,7 @@ impl Riscv32Emulator {
         let code_size = self.memory.code().len() as u32;
         let code_end = code_start + code_size;
         let halt_address = code_end; // Address just past end of code
-        
+
         // Reset state for clean function call
         self.pc = func_entry;
         self.instruction_count = 0;
@@ -110,13 +111,13 @@ impl Riscv32Emulator {
                 // Function returned via RET
                 break;
             }
-            
+
             // Check if PC is outside code region
             if self.pc < code_start || self.pc >= code_end {
                 // Function returned (PC outside code region)
                 break;
             }
-            
+
             match self.step()? {
                 StepResult::Halted => {
                     // Function returned via EBREAK
@@ -186,12 +187,14 @@ impl Riscv32Emulator {
 
         // Compute argument locations (skip StructReturn parameter)
         // StructReturn takes a0, so we don't need return area
-        let arg_locations = abi_helper::compute_arg_locations(signature, &flags, false)
-            .map_err(|e| EmulatorError::InvalidInstruction {
-                pc: self.pc,
-                instruction: 0,
-                reason: format!("Failed to compute argument locations: {:?}", e),
-                regs: self.regs,
+        let arg_locations =
+            abi_helper::compute_arg_locations(signature, &flags, false).map_err(|e| {
+                EmulatorError::InvalidInstruction {
+                    pc: self.pc,
+                    instruction: 0,
+                    reason: format!("Failed to compute argument locations: {:?}", e),
+                    regs: self.regs,
+                }
             })?;
 
         // Filter out StructReturn parameter from arg_locations
@@ -247,13 +250,13 @@ impl Riscv32Emulator {
                 // Function returned via RET
                 break;
             }
-            
+
             // Check if PC is outside code region
             if self.pc < code_start || self.pc >= code_end {
                 // Function returned (PC outside code region)
                 break;
             }
-            
+
             match self.step()? {
                 StepResult::Halted => {
                     // Function returned via EBREAK
@@ -385,17 +388,20 @@ fn setup_call_stack(
 
     // Compute maximum stack space needed for arguments
     let max_stack_arg_size = compute_max_stack_arg_offset(arg_locations);
-    
+
     // Total stack space needed: return area + stack args + some padding
     // Stack grows downward, so we allocate from the top
     let total_stack_space = return_area_size + max_stack_arg_size + 64; // 64 bytes padding
-    
+
     // Ensure we don't exceed RAM
     if total_stack_space > ram_size as u32 {
         return Err(EmulatorError::InvalidInstruction {
             pc: emulator.pc,
             instruction: 0,
-            reason: format!("Not enough RAM for stack (need {} bytes, have {} bytes)", total_stack_space, ram_size),
+            reason: format!(
+                "Not enough RAM for stack (need {} bytes, have {} bytes)",
+                total_stack_space, ram_size
+            ),
             regs: emulator.regs,
         });
     }
@@ -445,7 +451,7 @@ fn allocate_struct_return_buffer(
     // Find a suitable location in RAM
     // Ensure 4-byte alignment
     let aligned_size = ((size + 3) / 4) * 4;
-    
+
     // Allocate at ram_start + some offset to avoid stack overlap
     // Stack is typically at the top, so we allocate lower
     let buffer_addr = ram_start + 1024; // Start after first 1KB
@@ -455,7 +461,10 @@ fn allocate_struct_return_buffer(
         return Err(EmulatorError::InvalidInstruction {
             pc: emulator.pc,
             instruction: 0,
-            reason: format!("Not enough RAM for struct return buffer (need {} bytes)", aligned_size),
+            reason: format!(
+                "Not enough RAM for struct return buffer (need {} bytes)",
+                aligned_size
+            ),
             regs: emulator.regs,
         });
     }
@@ -591,14 +600,18 @@ fn place_stack_argument(
     match value {
         DataValue::I8(v) => {
             if slot_idx == 0 {
-                emulator.memory.write_word(stack_addr, *v as i32).map_err(|e| {
-                    EmulatorError::InvalidInstruction {
+                emulator
+                    .memory
+                    .write_word(stack_addr, *v as i32)
+                    .map_err(|e| EmulatorError::InvalidInstruction {
                         pc: emulator.pc,
                         instruction: 0,
-                        reason: format!("Failed to write i8 stack argument at 0x{:08x}: {}", stack_addr, e),
+                        reason: format!(
+                            "Failed to write i8 stack argument at 0x{:08x}: {}",
+                            stack_addr, e
+                        ),
                         regs: emulator.regs,
-                    }
-                })?;
+                    })?;
             } else {
                 return Err(EmulatorError::InvalidInstruction {
                     pc: emulator.pc,
@@ -610,14 +623,18 @@ fn place_stack_argument(
         }
         DataValue::I16(v) => {
             if slot_idx == 0 {
-                emulator.memory.write_word(stack_addr, *v as i32).map_err(|e| {
-                    EmulatorError::InvalidInstruction {
+                emulator
+                    .memory
+                    .write_word(stack_addr, *v as i32)
+                    .map_err(|e| EmulatorError::InvalidInstruction {
                         pc: emulator.pc,
                         instruction: 0,
-                        reason: format!("Failed to write i16 stack argument at 0x{:08x}: {}", stack_addr, e),
+                        reason: format!(
+                            "Failed to write i16 stack argument at 0x{:08x}: {}",
+                            stack_addr, e
+                        ),
                         regs: emulator.regs,
-                    }
-                })?;
+                    })?;
             } else {
                 return Err(EmulatorError::InvalidInstruction {
                     pc: emulator.pc,
@@ -633,7 +650,10 @@ fn place_stack_argument(
                     EmulatorError::InvalidInstruction {
                         pc: emulator.pc,
                         instruction: 0,
-                        reason: format!("Failed to write i32 stack argument at 0x{:08x}: {}", stack_addr, e),
+                        reason: format!(
+                            "Failed to write i32 stack argument at 0x{:08x}: {}",
+                            stack_addr, e
+                        ),
                         regs: emulator.regs,
                     }
                 })?;
@@ -667,14 +687,18 @@ fn place_stack_argument(
                 }
             };
             // ABI provides correct offset for each slot
-            emulator.memory.write_word(stack_addr, word_value).map_err(|e| {
-                EmulatorError::InvalidInstruction {
+            emulator
+                .memory
+                .write_word(stack_addr, word_value)
+                .map_err(|e| EmulatorError::InvalidInstruction {
                     pc: emulator.pc,
                     instruction: 0,
-                    reason: format!("Failed to write i64 slot {} stack argument at 0x{:08x}: {}", slot_idx, stack_addr, e),
+                    reason: format!(
+                        "Failed to write i64 slot {} stack argument at 0x{:08x}: {}",
+                        slot_idx, stack_addr, e
+                    ),
                     regs: emulator.regs,
-                }
-            })?;
+                })?;
         }
         DataValue::I128(v) => {
             let v_u128 = *v as u128;
@@ -693,14 +717,18 @@ fn place_stack_argument(
                 }
             };
             // ABI provides correct offset for each slot
-            emulator.memory.write_word(stack_addr, word_value).map_err(|e| {
-                EmulatorError::InvalidInstruction {
+            emulator
+                .memory
+                .write_word(stack_addr, word_value)
+                .map_err(|e| EmulatorError::InvalidInstruction {
                     pc: emulator.pc,
                     instruction: 0,
-                    reason: format!("Failed to write i128 slot {} stack argument at 0x{:08x}: {}", slot_idx, stack_addr, e),
+                    reason: format!(
+                        "Failed to write i128 slot {} stack argument at 0x{:08x}: {}",
+                        slot_idx, stack_addr, e
+                    ),
                     regs: emulator.regs,
-                }
-            })?;
+                })?;
         }
         _ => {
             return Err(EmulatorError::InvalidInstruction {
@@ -776,14 +804,19 @@ fn extract_stack_return_value(
     entry_sp: i32,
 ) -> Result<u32, EmulatorError> {
     let stack_addr = (entry_sp as u64).wrapping_add(offset as u64) as u32;
-    let word_value = emulator.memory.read_word(stack_addr).map_err(|e| {
-        EmulatorError::InvalidInstruction {
-            pc: emulator.pc,
-            instruction: 0,
-            reason: format!("Failed to read stack return value at 0x{:08x}: {}", stack_addr, e),
-            regs: emulator.regs,
-        }
-    })?;
+    let word_value =
+        emulator
+            .memory
+            .read_word(stack_addr)
+            .map_err(|e| EmulatorError::InvalidInstruction {
+                pc: emulator.pc,
+                instruction: 0,
+                reason: format!(
+                    "Failed to read stack return value at 0x{:08x}: {}",
+                    stack_addr, e
+                ),
+                regs: emulator.regs,
+            })?;
     Ok(word_value as u32)
 }
 
@@ -893,17 +926,15 @@ fn extract_single_return_value(
             let reg2 = reg_values[2] as u128;
             let reg3 = reg_values[3] as u128;
             Ok(DataValue::I128(
-                ((reg3 << 96) | (reg2 << 64) | (reg1 << 32) | reg0) as i128
+                ((reg3 << 96) | (reg2 << 64) | (reg1 << 32) | reg0) as i128,
             ))
         }
-        _ => {
-            Err(EmulatorError::InvalidInstruction {
-                pc: emulator.pc,
-                instruction: 0,
-                reason: format!("Unsupported return type: {:?}", retval_location.ty),
-                regs: emulator.regs,
-            })
-        }
+        _ => Err(EmulatorError::InvalidInstruction {
+            pc: emulator.pc,
+            instruction: 0,
+            reason: format!("Unsupported return type: {:?}", retval_location.ty),
+            regs: emulator.regs,
+        }),
     }
 }
 
@@ -933,17 +964,19 @@ fn extract_struct_return_value(
 
     for i in 0..num_words {
         let addr = buffer_addr + (i * 4) as u32;
-        let word_value = emulator.memory.read_word(addr).map_err(|e| {
-            EmulatorError::InvalidInstruction {
-                pc: emulator.pc,
-                instruction: 0,
-                reason: format!(
-                    "Failed to read struct return value word {} at 0x{:08x}: {}",
-                    i, addr, e
-                ),
-                regs: emulator.regs,
-            }
-        })?;
+        let word_value =
+            emulator
+                .memory
+                .read_word(addr)
+                .map_err(|e| EmulatorError::InvalidInstruction {
+                    pc: emulator.pc,
+                    instruction: 0,
+                    reason: format!(
+                        "Failed to read struct return value word {} at 0x{:08x}: {}",
+                        i, addr, e
+                    ),
+                    regs: emulator.regs,
+                })?;
         results.push(DataValue::I32(word_value));
     }
 
@@ -968,7 +1001,9 @@ mod tests {
     fn create_flags() -> Flags {
         use cranelift_codegen::settings::Configurable;
         let mut builder = settings::builder();
-        builder.set("enable_multi_ret_implicit_sret", "true").unwrap();
+        builder
+            .set("enable_multi_ret_implicit_sret", "true")
+            .unwrap();
         Flags::new(builder)
     }
 
@@ -977,10 +1012,8 @@ mod tests {
         let mut sig = Signature::new(CallConv::SystemV);
         assert!(!has_struct_return(&sig));
 
-        sig.params.push(AbiParam::special(
-            types::I32,
-            ArgumentPurpose::StructReturn,
-        ));
+        sig.params
+            .push(AbiParam::special(types::I32, ArgumentPurpose::StructReturn));
         assert!(has_struct_return(&sig));
     }
 

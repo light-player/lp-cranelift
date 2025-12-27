@@ -3,9 +3,9 @@
 //! These functions handle platform-specific calling conventions for
 //! calling JIT-compiled functions that use StructReturn.
 
-use cranelift_codegen::isa::CallConv;
-use cranelift_codegen::ir::{Type, types};
 use crate::error::JitCallError;
+use cranelift_codegen::ir::{Type, types};
+use cranelift_codegen::isa::CallConv;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -35,37 +35,37 @@ where
 {
     // Validate inputs
     validate_call_args(func_ptr, buffer as *mut u8, buffer_size, pointer_type)?;
-    
+
     // Dispatch to platform-specific implementation
     #[cfg(target_arch = "aarch64")]
     {
         return match (call_conv, pointer_type) {
-            (CallConv::AppleAarch64, types::I64) => {
-                unsafe { call_structreturn_arm64_apple(func_ptr, buffer as *mut u8, buffer_size) }
-            }
-            (CallConv::SystemV, types::I64) => {
-                unsafe { call_structreturn_arm64_systemv(func_ptr, buffer as *mut u8, buffer_size) }
-            }
+            (CallConv::AppleAarch64, types::I64) => unsafe {
+                call_structreturn_arm64_apple(func_ptr, buffer as *mut u8, buffer_size)
+            },
+            (CallConv::SystemV, types::I64) => unsafe {
+                call_structreturn_arm64_systemv(func_ptr, buffer as *mut u8, buffer_size)
+            },
             _ => Err(JitCallError::UnsupportedCallingConvention {
                 call_conv,
                 pointer_type,
             }),
         };
     }
-    
+
     #[cfg(target_arch = "riscv32")]
     {
         return match (call_conv, pointer_type) {
-            (CallConv::SystemV, types::I32) => {
-                unsafe { call_structreturn_riscv32(func_ptr, buffer as *mut u8, buffer_size) }
-            }
+            (CallConv::SystemV, types::I32) => unsafe {
+                call_structreturn_riscv32(func_ptr, buffer as *mut u8, buffer_size)
+            },
             _ => Err(JitCallError::UnsupportedCallingConvention {
                 call_conv,
                 pointer_type,
             }),
         };
     }
-    
+
     #[cfg(not(any(target_arch = "aarch64", target_arch = "riscv32")))]
     {
         let _ = (func_ptr, buffer, buffer_size);
@@ -83,7 +83,7 @@ unsafe fn call_structreturn_arm64_apple(
     _buffer_size: usize,
 ) -> Result<(), JitCallError> {
     use core::arch::asm;
-    
+
     // On AppleAarch64, StructReturn uses x8 register
     // We need to use inline assembly to pass the parameter in x8
     // blr expects the function address in a register (we'll use x9 as temp)
@@ -99,7 +99,7 @@ unsafe fn call_structreturn_arm64_apple(
             clobber_abi("C"),
         );
     }
-    
+
     Ok(())
 }
 
@@ -137,15 +137,15 @@ fn validate_call_args(
     if func_ptr.is_null() {
         return Err(JitCallError::NullFunctionPointer);
     }
-    
+
     if buffer.is_null() {
         return Err(JitCallError::NullBuffer);
     }
-    
+
     if buffer_size == 0 {
         return Err(JitCallError::ZeroBufferSize);
     }
-    
+
     // Validate pointer type matches platform
     let actual_width = if cfg!(target_pointer_width = "32") {
         "32"
@@ -154,7 +154,7 @@ fn validate_call_args(
     } else {
         "unknown"
     };
-    
+
     match pointer_type {
         types::I32 if cfg!(target_pointer_width = "32") => Ok(()),
         types::I64 if cfg!(target_pointer_width = "64") => Ok(()),
@@ -164,4 +164,3 @@ fn validate_call_args(
         }),
     }
 }
-

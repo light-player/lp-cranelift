@@ -1,13 +1,11 @@
 //! Instruction execution logic.
 
-use crate::{Gpr, Inst};
+use super::super::{
+    decoder::decode_instruction, error::EmulatorError, executor::execute_instruction,
+};
 use super::state::Riscv32Emulator;
 use super::types::{StepResult, SyscallInfo};
-use super::super::{
-    decoder::decode_instruction,
-    error::EmulatorError,
-    executor::execute_instruction,
-};
+use crate::{Gpr, Inst};
 
 impl Riscv32Emulator {
     /// Execute a single instruction.
@@ -65,7 +63,9 @@ impl Riscv32Emulator {
         // For EBREAK instructions, we need to check if the current PC is a trap location
         let is_trap_before_execution = if let Inst::Ebreak = decoded {
             // Traps are stored as absolute addresses, compare directly with PC
-            self.traps.binary_search_by_key(&self.pc, |(addr, _)| *addr).is_ok()
+            self.traps
+                .binary_search_by_key(&self.pc, |(addr, _)| *addr)
+                .is_ok()
         } else {
             false
         };
@@ -88,7 +88,9 @@ impl Riscv32Emulator {
             if is_trap_before_execution {
                 // This was a trap - find the trap code using the original PC (before PC update)
                 let original_pc = self.pc.saturating_sub(pc_increment);
-                let index = self.traps.binary_search_by_key(&original_pc, |(addr, _)| *addr)
+                let index = self
+                    .traps
+                    .binary_search_by_key(&original_pc, |(addr, _)| *addr)
                     .expect("Trap should be found since is_trap_before_execution was true");
                 let trap_code = self.traps[index].1;
                 Ok(StepResult::Trap(trap_code))
@@ -116,4 +118,3 @@ impl Riscv32Emulator {
         }
     }
 }
-

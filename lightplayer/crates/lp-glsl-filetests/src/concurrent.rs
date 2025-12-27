@@ -57,7 +57,7 @@ impl ConcurrentRunner {
                 usize::from_str(&s).ok().filter(|&n| n > 0)
             })
             .unwrap_or_else(|| num_cpus::get());
-        
+
         let handles = (0..num_threads)
             .map(|num| worker_thread(num, request_mutex.clone(), reply_tx.clone()))
             .collect();
@@ -85,7 +85,13 @@ impl ConcurrentRunner {
     }
 
     /// Add a new job to the queue.
-    pub fn put(&mut self, jobid: usize, path: &Path, line_filter: Option<usize>, show_full_output: bool) {
+    pub fn put(
+        &mut self,
+        jobid: usize,
+        path: &Path,
+        line_filter: Option<usize>,
+        show_full_output: bool,
+    ) {
         self.request_tx
             .as_ref()
             .expect("cannot push after shutdown")
@@ -151,14 +157,10 @@ fn worker_thread(
                         // Try to format the panic payload as debug string
                         format!("{:?}", e)
                     };
-                    
+
                     // Extract just the essential panic message (first line usually)
-                    let short_msg = panic_msg
-                        .lines()
-                        .next()
-                        .unwrap_or("panic")
-                        .to_string();
-                    
+                    let short_msg = panic_msg.lines().next().unwrap_or("panic").to_string();
+
                     anyhow::bail!("panicked: {}", short_msg)
                 });
 
@@ -167,4 +169,3 @@ fn worker_thread(
         })
         .unwrap()
 }
-

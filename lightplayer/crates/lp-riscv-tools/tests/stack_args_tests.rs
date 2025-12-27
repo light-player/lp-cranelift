@@ -3,18 +3,20 @@
 //! These tests verify that functions with many arguments correctly handle
 //! stack arguments when registers are exhausted.
 
+use cranelift_codegen::Context;
 use cranelift_codegen::data_value::DataValue;
 use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, Signature, UserFuncName, types};
-use cranelift_codegen::isa::{lookup, CallConv};
+use cranelift_codegen::isa::{CallConv, lookup};
 use cranelift_codegen::settings::{self, Configurable, Flags};
-use cranelift_codegen::Context;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use lp_riscv_tools::Riscv32Emulator;
 
 /// Helper to create flags with enable_multi_ret_implicit_sret enabled
 fn create_flags() -> Flags {
     let mut builder = settings::builder();
-    builder.set("enable_multi_ret_implicit_sret", "true").unwrap();
+    builder
+        .set("enable_multi_ret_implicit_sret", "true")
+        .unwrap();
     builder.set("opt_level", "none").unwrap();
     Flags::new(builder)
 }
@@ -60,7 +62,7 @@ fn test_many_stack_arguments() {
         builder.append_block_params_for_function_params(block0);
         builder.switch_to_block(block0);
         builder.seal_block(block0);
-        
+
         // Sum all 10 arguments
         let mut sum = builder.block_params(block0)[0];
         for i in 1..10 {
@@ -83,11 +85,10 @@ fn test_many_stack_arguments() {
         DataValue::I32(9),
         DataValue::I32(10),
     ];
-    
+
     let results = emu.call_function(entry, &args, &sig).unwrap();
 
     assert_eq!(results.len(), 1);
     // Sum should be 1+2+3+4+5+6+7+8+9+10 = 55
     assert_eq!(results[0], DataValue::I32(55), "Sum of 1..10 should be 55");
 }
-

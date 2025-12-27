@@ -23,4 +23,3 @@ pub struct SyscallInfo {
     /// Syscall arguments (from a0-a6 registers)
     pub args: [i32; 7],
 }
-

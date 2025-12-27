@@ -5,8 +5,6 @@ fn main() {
         std::env::var("CARGO_MANIFEST_DIR").unwrap()
     );
     println!("cargo:rustc-link-arg=-Tmemory.ld");
-    
+
     // No build-time compilation - we do it at runtime!
 }
-
-

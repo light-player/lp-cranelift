@@ -55,8 +55,7 @@ fn parse_clif_expectations(lines: &[&String], test_types: &[TestType]) -> Result
     if let Some(start) = clif_boundaries.transform_start {
         let end = clif_boundaries.transform_end.unwrap_or(lines.len());
         if test_types.contains(&TestType::TransformFixed32) {
-            expectations.post_transform_fixed32 =
-                Some(extract_clif_from_lines(&lines[start..end]));
+            expectations.post_transform_fixed32 = Some(extract_clif_from_lines(&lines[start..end]));
         }
     }
 
@@ -73,10 +72,7 @@ struct LocalClifBoundaries {
 }
 
 /// Find CLIF section boundaries within the expectations section (local indices).
-fn find_local_clif_boundaries(
-    lines: &[&String],
-    test_types: &[TestType],
-) -> LocalClifBoundaries {
+fn find_local_clif_boundaries(lines: &[&String], test_types: &[TestType]) -> LocalClifBoundaries {
     let mut compile_start = None;
     let mut compile_end = None;
     let mut transform_start = None;
@@ -153,7 +149,3 @@ fn extract_clif_from_lines(lines: &[&String]) -> String {
     }
     result.trim_end().to_string()
 }
-
-
-
-

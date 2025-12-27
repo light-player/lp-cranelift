@@ -1,8 +1,8 @@
-use cranelift_codegen::isa::CallConv;
-use cranelift_codegen::ir::Type;
 use crate::call::call_structreturn;
 use crate::error::JitCallError;
 use core::marker::PhantomData;
+use cranelift_codegen::ir::Type;
+use cranelift_codegen::isa::CallConv;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -54,7 +54,7 @@ where
         if buffer_size == 0 {
             return Err(JitCallError::ZeroBufferSize);
         }
-        
+
         Ok(Self {
             func_ptr,
             buffer_size,
@@ -63,12 +63,12 @@ where
             _phantom: PhantomData,
         })
     }
-    
+
     /// Call the wrapped function and return the result.
     pub fn call(&self) -> Vec<T> {
         let mut buffer = Vec::new();
         buffer.resize(self.buffer_size, T::default());
-        
+
         unsafe {
             call_structreturn(
                 self.func_ptr,
@@ -76,11 +76,12 @@ where
                 self.buffer_size,
                 self.call_conv,
                 self.pointer_type,
-            ).unwrap_or_else(|e| {
+            )
+            .unwrap_or_else(|e| {
                 panic!("StructReturn call failed in wrapper: {}", e);
             });
         }
-        
+
         buffer
     }
 
@@ -119,10 +120,8 @@ pub fn wrap_structreturn_function<T>(
 where
     T: Copy + Default + 'static,
 {
-    let wrapper = unsafe {
-        StructReturnWrapper::new(func_ptr, buffer_size, call_conv, pointer_type)?
-    };
-    
+    let wrapper =
+        unsafe { StructReturnWrapper::new(func_ptr, buffer_size, call_conv, pointer_type)? };
+
     Ok(Box::new(move || wrapper.call()))
 }
-

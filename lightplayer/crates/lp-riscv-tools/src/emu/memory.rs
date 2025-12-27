@@ -331,7 +331,7 @@ impl Memory {
         }
 
         let offset = (address - self.code_start) as usize;
-        
+
         // First, read at least 2 bytes to check if it's compressed
         if offset + 2 > self.code.len() {
             return Err(EmulatorError::InvalidMemoryAccess {

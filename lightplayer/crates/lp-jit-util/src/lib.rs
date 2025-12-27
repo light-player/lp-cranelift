@@ -11,10 +11,9 @@
 extern crate alloc;
 
 pub mod call;
-pub mod wrapper;
 pub mod error;
+pub mod wrapper;
 
 pub use call::call_structreturn;
 pub use error::JitCallError;
-pub use wrapper::{wrap_structreturn_function, StructReturnWrapper};
-
+pub use wrapper::{StructReturnWrapper, wrap_structreturn_function};

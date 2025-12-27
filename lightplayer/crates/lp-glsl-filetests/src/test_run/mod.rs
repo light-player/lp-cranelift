@@ -75,31 +75,37 @@ pub fn run_test_file_with_line_filter(
 
         // Compile and execute
         // Note: bootstrap_result.source now contains ONLY the function being tested + main()
-        let mut executable =
-            glsl_emu_riscv32_with_metadata(&bootstrap_result.source, options.clone(), Some(relative_path.clone())).map_err(|e| {
-                format_compilation_error(
-                    &e,
-                    &bootstrap_result,
-                    directive.line_number,
-                    &directive.expression_str,
-                    &relative_path,
-                    show_full_output,
-                )
-            })?;
+        let mut executable = glsl_emu_riscv32_with_metadata(
+            &bootstrap_result.source,
+            options.clone(),
+            Some(relative_path.clone()),
+        )
+        .map_err(|e| {
+            format_compilation_error(
+                &e,
+                &bootstrap_result,
+                directive.line_number,
+                &directive.expression_str,
+                &relative_path,
+                show_full_output,
+            )
+        })?;
 
         // Execute main() and get result
         let actual_value = execution::execute_main(&mut *executable).map_err(|e| {
             // Check if this is a trap error
             let error_str = format!("{:#}", e);
-            let is_trap = error_str.contains("Trap:") || error_str.contains("trap") || error_str.contains("execution trapped");
-            
+            let is_trap = error_str.contains("Trap:")
+                || error_str.contains("trap")
+                || error_str.contains("execution trapped");
+
             // Get emulator state if available (only when showing full output)
             let emulator_state = if show_full_output {
                 executable.format_emulator_state()
             } else {
                 None
             };
-            
+
             // Get CLIF IR (before and after transformation) if available (only when showing full output)
             let clif_ir_section = if show_full_output {
                 let (original_ir, transformed_ir) = executable.format_clif_ir();
@@ -116,20 +122,23 @@ pub fn run_test_file_with_line_filter(
             } else {
                 String::new()
             };
-            
+
             // Generate rerun command using the script
             let rerun_cmd = format!(
                 "scripts/glsl-filetests.sh {}:{}",
                 relative_path, directive.line_number
             );
-            
+
             // Format bootstrap code for display (only when showing full output)
             let bootstrap_code_display = if show_full_output {
-                format!("\n\nGenerated test code:\n{}", format_code_block(&bootstrap_result.source))
+                format!(
+                    "\n\nGenerated test code:\n{}",
+                    format_code_block(&bootstrap_result.source)
+                )
             } else {
                 String::new()
             };
-            
+
             if is_trap {
                 // Format trap error with clear message and bootstrap code context
                 let trap_msg = if let Some(state) = emulator_state {
@@ -145,7 +154,12 @@ pub fn run_test_file_with_line_filter(
                          \n\
                          To rerun just this test:\n\
                          {}",
-                        directive.line_number, bootstrap_code_display, clif_ir_section, error_str, state, rerun_cmd
+                        directive.line_number,
+                        bootstrap_code_display,
+                        clif_ir_section,
+                        error_str,
+                        state,
+                        rerun_cmd
                     )
                 } else {
                     format!(
@@ -160,14 +174,21 @@ pub fn run_test_file_with_line_filter(
                          \n\
                          To rerun just this test:\n\
                          {}",
-                        directive.line_number, bootstrap_code_display, clif_ir_section, error_str, rerun_cmd
+                        directive.line_number,
+                        bootstrap_code_display,
+                        clif_ir_section,
+                        error_str,
+                        rerun_cmd
                     )
                 };
                 anyhow::anyhow!("{}", trap_msg)
             } else {
                 // Regular execution error
                 let error_msg = if let Some(state) = emulator_state {
-                    format!("{}{}\n\nTo rerun just this test:\n{}", error_str, state, rerun_cmd)
+                    format!(
+                        "{}{}\n\nTo rerun just this test:\n{}",
+                        error_str, state, rerun_cmd
+                    )
                 } else {
                     format!("{}\n\nTo rerun just this test:\n{}", error_str, rerun_cmd)
                 };
@@ -218,7 +239,10 @@ pub fn run_test_file_with_line_filter(
 
                     // Format bootstrap code for display (only when showing full output)
                     let bootstrap_code_display = if show_full_output {
-                        format!("\n\nGenerated bootstrap code:\n{}", format_code_block(&bootstrap_result.source))
+                        format!(
+                            "\n\nGenerated bootstrap code:\n{}",
+                            format_code_block(&bootstrap_result.source)
+                        )
                     } else {
                         String::new()
                     };
@@ -238,7 +262,12 @@ pub fn run_test_file_with_line_filter(
                              \n\
                              To rerun just this test:\n\
                              {}",
-                            directive.line_number, err_msg, bootstrap_code_display, clif_ir_section, state, rerun_cmd
+                            directive.line_number,
+                            err_msg,
+                            bootstrap_code_display,
+                            clif_ir_section,
+                            state,
+                            rerun_cmd
                         )
                     } else {
                         format!(
@@ -249,7 +278,11 @@ pub fn run_test_file_with_line_filter(
                              \n\
                              To rerun just this test:\n\
                              {}",
-                            directive.line_number, err_msg, bootstrap_code_display, clif_ir_section, rerun_cmd
+                            directive.line_number,
+                            err_msg,
+                            bootstrap_code_display,
+                            clif_ir_section,
+                            rerun_cmd
                         )
                     };
                     anyhow::bail!("{}", error_msg);

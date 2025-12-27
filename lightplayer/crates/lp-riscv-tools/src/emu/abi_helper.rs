@@ -8,11 +8,11 @@ use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
-use cranelift_codegen::ir::{AbiParam, Signature, Type};
+use cranelift_codegen::CodegenResult;
 use cranelift_codegen::ir::types;
+use cranelift_codegen::ir::{AbiParam, Signature, Type};
 use cranelift_codegen::isa::riscv32::abi;
 use cranelift_codegen::settings::Flags;
-use cranelift_codegen::CodegenResult;
 
 /// Location where a return value slot is stored.
 /// A return value may span multiple slots (e.g., i64 uses 2 slots).
@@ -89,24 +89,21 @@ pub fn compute_return_locations(
 
     // Use the public wrapper function from riscv32 abi module
     // This now returns Vec<Vec<...>> where outer vec is per return value
-    let abi_locations = abi::compute_return_locations_for_emulator(
-        signature.call_conv,
-        flags,
-        &returns,
-    )?;
+    let abi_locations =
+        abi::compute_return_locations_for_emulator(signature.call_conv, flags, &returns)?;
 
     // Convert to our ReturnValueLocation structs
     let mut return_values = Vec::new();
     for (i, slots_for_retval) in abi_locations.iter().enumerate() {
         let mut slots = Vec::new();
         let mut retval_ty = None;
-        
+
         for (reg_enc, stack_offset, ty) in slots_for_retval {
             // Use the type from the first slot (all slots for same return value should have same type)
             if retval_ty.is_none() {
                 retval_ty = Some(*ty);
             }
-            
+
             match (reg_enc, stack_offset) {
                 (Some(enc), None) => {
                     slots.push(ReturnLocation::Reg(*enc, *ty));
@@ -126,7 +123,7 @@ pub fn compute_return_locations(
                 }
             }
         }
-        
+
         // Get the original return value type from the signature
         let ty = if i < signature.returns.len() {
             signature.returns[i].value_type
@@ -134,7 +131,7 @@ pub fn compute_return_locations(
             // Fallback to type from first slot if signature doesn't match
             retval_ty.unwrap_or(types::I32)
         };
-        
+
         return_values.push(ReturnValueLocation { slots, ty });
     }
 
@@ -231,15 +228,17 @@ pub fn compute_arg_locations(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cranelift_codegen::ir::types;
     use cranelift_codegen::ir::AbiParam;
+    use cranelift_codegen::ir::types;
     use cranelift_codegen::settings;
 
     fn create_flags() -> Flags {
         use cranelift_codegen::settings::Configurable;
         let mut builder = settings::builder();
         // Enable multi-return implicit sret for testing
-        builder.set("enable_multi_ret_implicit_sret", "true").unwrap();
+        builder
+            .set("enable_multi_ret_implicit_sret", "true")
+            .unwrap();
         Flags::new(builder)
     }
 
@@ -315,7 +314,7 @@ mod tests {
             _ => panic!("Expected stack location for third return"),
         }
     }
-    
+
     #[test]
     fn test_i64_return_uses_two_slots() {
         let flags = create_flags();
@@ -339,4 +338,3 @@ mod tests {
         }
     }
 }
-

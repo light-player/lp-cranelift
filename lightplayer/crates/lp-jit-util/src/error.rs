@@ -1,6 +1,6 @@
-use cranelift_codegen::isa::CallConv;
-use cranelift_codegen::ir::Type;
 use core::fmt;
+use cranelift_codegen::ir::Type;
+use cranelift_codegen::isa::CallConv;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -38,14 +38,20 @@ impl fmt::Display for JitCallError {
             JitCallError::ZeroBufferSize => {
                 write!(f, "Buffer size must be greater than zero")
             }
-            JitCallError::PointerTypeMismatch { expected, actual_pointer_width } => {
+            JitCallError::PointerTypeMismatch {
+                expected,
+                actual_pointer_width,
+            } => {
                 write!(
                     f,
                     "Pointer type mismatch: expected {:?} but platform pointer width is {}",
                     expected, actual_pointer_width
                 )
             }
-            JitCallError::UnsupportedCallingConvention { call_conv, pointer_type } => {
+            JitCallError::UnsupportedCallingConvention {
+                call_conv,
+                pointer_type,
+            } => {
                 write!(
                     f,
                     "Unsupported calling convention {:?} with pointer type {:?}",
@@ -61,4 +67,3 @@ extern crate std;
 
 #[cfg(feature = "std")]
 impl std::error::Error for JitCallError {}
-

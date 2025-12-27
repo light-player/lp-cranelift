@@ -1,6 +1,6 @@
-use lp_jit_util::call::call_structreturn;
-use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::ir::types;
+use cranelift_codegen::isa::CallConv;
+use lp_jit_util::call::call_structreturn;
 
 #[test]
 fn test_error_handling_null_function_pointer() {
@@ -60,4 +60,3 @@ fn test_error_handling_unsupported_calling_convention() {
     };
     assert!(result.is_err());
 }
-

@@ -123,11 +123,7 @@ impl FileUpdate {
     }
 
     /// Update CLIF expectations for a test type (compile or transform.fixed32).
-    pub fn update_clif_expectations(
-        &self,
-        test_type: &str,
-        new_clif: &str,
-    ) -> Result<()> {
+    pub fn update_clif_expectations(&self, test_type: &str, new_clif: &str) -> Result<()> {
         // Read the old test file
         let old_test = fs::read_to_string(&self.path)?;
         let lines: Vec<String> = old_test.lines().map(|s| s.to_string()).collect();
@@ -152,7 +148,10 @@ impl FileUpdate {
         let (section_start, section_end) = match test_type {
             "compile" => {
                 if let Some(start) = compile_section_start {
-                    (start + 1, compile_section_end.unwrap_or(transform_section_start.unwrap_or(run_start)))
+                    (
+                        start + 1,
+                        compile_section_end.unwrap_or(transform_section_start.unwrap_or(run_start)),
+                    )
                 } else {
                     // No marker found, update from glsl_end to first blank line or transform section
                     let end = transform_section_start
@@ -190,7 +189,8 @@ impl FileUpdate {
         // Add section marker if it exists
         if section_start > 0 && section_start <= lines_refs.len() {
             let marker_line = lines_refs[section_start - 1].trim();
-            if marker_line.starts_with("// #compile:") || marker_line.starts_with("// #transform:") {
+            if marker_line.starts_with("// #compile:") || marker_line.starts_with("// #transform:")
+            {
                 new_test.push_str(lines_refs[section_start - 1]);
                 new_test.push('\n');
             }
@@ -255,8 +255,10 @@ pub fn format_glsl_value(value: &GlslValue) -> String {
             // m[col][row] format, so column 0 is [m[0][0], m[0][1]], column 1 is [m[1][0], m[1][1]]
             format!(
                 "mat2(vec2({}, {}), vec2({}, {}))",
-                format_float(m[0][0]), format_float(m[0][1]),
-                format_float(m[1][0]), format_float(m[1][1])
+                format_float(m[0][0]),
+                format_float(m[0][1]),
+                format_float(m[1][0]),
+                format_float(m[1][1])
             )
         }
         GlslValue::Mat3x3(m) => {
@@ -266,9 +268,15 @@ pub fn format_glsl_value(value: &GlslValue) -> String {
             // Column 2: [m[2][0], m[2][1], m[2][2]]
             format!(
                 "mat3(vec3({}, {}, {}), vec3({}, {}, {}), vec3({}, {}, {}))",
-                format_float(m[0][0]), format_float(m[0][1]), format_float(m[0][2]),  // column 0
-                format_float(m[1][0]), format_float(m[1][1]), format_float(m[1][2]),  // column 1
-                format_float(m[2][0]), format_float(m[2][1]), format_float(m[2][2])   // column 2
+                format_float(m[0][0]),
+                format_float(m[0][1]),
+                format_float(m[0][2]), // column 0
+                format_float(m[1][0]),
+                format_float(m[1][1]),
+                format_float(m[1][2]), // column 1
+                format_float(m[2][0]),
+                format_float(m[2][1]),
+                format_float(m[2][2]) // column 2
             )
         }
         GlslValue::Mat4x4(m) => {
@@ -279,10 +287,22 @@ pub fn format_glsl_value(value: &GlslValue) -> String {
             // Column 3: [m[3][0], m[3][1], m[3][2], m[3][3]]
             format!(
                 "mat4(vec4({}, {}, {}, {}), vec4({}, {}, {}, {}), vec4({}, {}, {}, {}), vec4({}, {}, {}, {}))",
-                format_float(m[0][0]), format_float(m[0][1]), format_float(m[0][2]), format_float(m[0][3]),  // column 0
-                format_float(m[1][0]), format_float(m[1][1]), format_float(m[1][2]), format_float(m[1][3]),  // column 1
-                format_float(m[2][0]), format_float(m[2][1]), format_float(m[2][2]), format_float(m[2][3]),  // column 2
-                format_float(m[3][0]), format_float(m[3][1]), format_float(m[3][2]), format_float(m[3][3])   // column 3
+                format_float(m[0][0]),
+                format_float(m[0][1]),
+                format_float(m[0][2]),
+                format_float(m[0][3]), // column 0
+                format_float(m[1][0]),
+                format_float(m[1][1]),
+                format_float(m[1][2]),
+                format_float(m[1][3]), // column 1
+                format_float(m[2][0]),
+                format_float(m[2][1]),
+                format_float(m[2][2]),
+                format_float(m[2][3]), // column 2
+                format_float(m[3][0]),
+                format_float(m[3][1]),
+                format_float(m[3][2]),
+                format_float(m[3][3]) // column 3
             )
         }
     }

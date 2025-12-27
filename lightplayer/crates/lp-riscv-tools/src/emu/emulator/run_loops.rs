@@ -2,11 +2,11 @@
 
 extern crate alloc;
 
-use alloc::string::String;
-use crate::Gpr;
+use super::super::error::EmulatorError;
 use super::state::Riscv32Emulator;
 use super::types::{StepResult, SyscallInfo};
-use super::super::error::EmulatorError;
+use crate::Gpr;
+use alloc::string::String;
 
 impl Riscv32Emulator {
     /// Run until EBREAK is encountered, returning the value in a0.
@@ -70,4 +70,3 @@ impl Riscv32Emulator {
         }
     }
 }
-
