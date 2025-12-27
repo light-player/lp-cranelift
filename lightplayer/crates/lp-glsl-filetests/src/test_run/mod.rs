@@ -170,6 +170,14 @@ pub fn run_test_file_with_line_filter(
                         String::new()
                     };
 
+                    // Format debug information (CLIF IR, VCode, disassembly, emulator state)
+                    // when showing full output
+                    let debug_info_display = if show_full_output {
+                        format_debug_info(&*executable)
+                    } else {
+                        String::new()
+                    };
+
                     // Generate rerun command using the script
                     let rerun_cmd = format!(
                         "scripts/glsl-filetests.sh {}:{}",
@@ -179,7 +187,7 @@ pub fn run_test_file_with_line_filter(
                     // Format error message
                     // Note: For comparison errors, execution succeeded so emulator state isn't needed
                     let error_msg = format!(
-                        "run test failed at line {}: {}{}\n\
+                        "run test failed at line {}: {}{}{}\n\
                          \n\
                          This test assertion can be automatically updated by setting the\n\
                          CRANELIFT_TEST_BLESS=1 environment variable when running this test.\n\
@@ -189,6 +197,7 @@ pub fn run_test_file_with_line_filter(
                         directive.line_number,
                         err_msg,
                         bootstrap_code_display,
+                        debug_info_display,
                         rerun_cmd
                     );
                     anyhow::bail!("{}", error_msg);
@@ -294,6 +303,59 @@ fn format_compilation_error(
     msg.push_str(&format!("\n\nTo rerun just this test:\n{}", rerun_cmd));
 
     anyhow::anyhow!("{}", msg)
+}
+
+/// Format all debug information from an executable (CLIF IR, VCode, disassembly, emulator state)
+fn format_debug_info(executable: &dyn lp_glsl::GlslExecutable) -> String {
+    let mut parts = Vec::new();
+
+    // Get CLIF IR (before and after transformation)
+    let (original_clif, transformed_clif) = executable.format_clif_ir();
+    
+    // Only show before/after if they're different
+    match (&original_clif, &transformed_clif) {
+        (Some(original), Some(transformed)) if original != transformed => {
+            // They're different, show both
+            parts.push(format!("=== CLIF IR (BEFORE transformation) ===\n{}", original));
+            parts.push(format!("=== CLIF IR (AFTER transformation) ===\n{}", transformed));
+        }
+        (Some(original), Some(_)) => {
+            // They're the same, just show one
+            parts.push(format!("=== CLIF IR ===\n{}", original));
+        }
+        (Some(original), None) => {
+            // Only original available
+            parts.push(format!("=== CLIF IR ===\n{}", original));
+        }
+        (None, Some(transformed)) => {
+            // Only transformed available
+            parts.push(format!("=== CLIF IR ===\n{}", transformed));
+        }
+        (None, None) => {
+            // No CLIF IR available
+        }
+    }
+
+    // Get VCode
+    if let Some(ref vcode) = executable.format_vcode() {
+        parts.push(format!("=== VCode ===\n{}", vcode));
+    }
+
+    // Get disassembly
+    if let Some(ref disassembly) = executable.format_disassembly() {
+        parts.push(format!("=== Disassembled ===\n{}", disassembly));
+    }
+
+    // Get emulator state
+    if let Some(ref emulator_state) = executable.format_emulator_state() {
+        parts.push(emulator_state.clone());
+    }
+
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!("\n\n{}", parts.join("\n\n"))
+    }
 }
 
 /// Format source code as a code block with line numbers for better readability
