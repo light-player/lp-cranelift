@@ -55,9 +55,9 @@ float test_float_from_uint_expression_zero() {
 // run: test_float_from_uint_expression_zero() ~= 0.0
 
 float test_float_from_uint_large() {
-    uint u = 4294967295u;  // UINT_MAX
+    uint u = 4294967295u;  // UINT_MAX - clamped to fixed16x16 max
     return float(u);
 }
 
-// run: test_float_from_uint_large() ~= 4294967295.0
+// run: test_float_from_uint_large() ~= 32767.0
 

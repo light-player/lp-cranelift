@@ -10,35 +10,63 @@ use cranelift_codegen::ir::{condcodes::IntCC, types, Function, Inst, InstBuilder
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 
-/// Convert Fadd to fixed-point addition
+/// Convert Fadd to fixed-point addition with saturation
 pub(crate) fn convert_fadd(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
     value_map: &mut HashMap<cranelift_codegen::ir::Value, cranelift_codegen::ir::Value>,
-    _format: FixedPointFormat,
+    format: FixedPointFormat,
 ) -> Result<(), GlslError> {
     let (arg1_old, arg2_old) = extract_binary_operands(old_func, old_inst)?;
     let arg1 = map_operand(value_map, arg1_old);
     let arg2 = map_operand(value_map, arg2_old);
+    let target_type = format.cranelift_type();
 
     // Fixed-point addition is just integer addition (no conversion needed)
     // Both operands are already in fixed-point format
     let result = builder.ins().iadd(arg1, arg2);
 
+    // Saturate result to fixed-point range
+    let zero = create_zero_const(builder, format);
+    let max_fixed = create_max_fixed_const(builder, format);
+    let min_fixed = create_min_fixed_const(builder, format);
+
+    // Check for overflow: if both operands are positive and result is negative, saturate to max
+    let arg1_positive = builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, arg1, zero);
+    let arg2_positive = builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, arg2, zero);
+    let result_negative = builder.ins().icmp(IntCC::SignedLessThan, result, zero);
+    let both_positive = builder.ins().band(arg1_positive, arg2_positive);
+    let overflow = builder.ins().band(both_positive, result_negative);
+
+    // Check for underflow: if both operands are negative and result is positive, saturate to min
+    let arg1_negative = builder.ins().icmp(IntCC::SignedLessThan, arg1, zero);
+    let arg2_negative = builder.ins().icmp(IntCC::SignedLessThan, arg2, zero);
+    let result_positive = builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, result, zero);
+    let both_negative = builder.ins().band(arg1_negative, arg2_negative);
+    let underflow = builder.ins().band(both_negative, result_positive);
+
+    // Clamp result to range [min_fixed, max_fixed]
+    let clamped_max = builder.ins().smin(result, max_fixed);
+    let clamped = builder.ins().smax(clamped_max, min_fixed);
+
+    // Select: if overflow use max, if underflow use min, otherwise use clamped
+    let saturated = builder.ins().select(overflow, max_fixed, clamped);
+    let final_result = builder.ins().select(underflow, min_fixed, saturated);
+
     let old_result = get_first_result(old_func, old_inst);
-    value_map.insert(old_result, result);
+    value_map.insert(old_result, final_result);
 
     Ok(())
 }
 
-/// Convert Fsub to fixed-point subtraction
+/// Convert Fsub to fixed-point subtraction with saturation
 pub(crate) fn convert_fsub(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
     value_map: &mut HashMap<cranelift_codegen::ir::Value, cranelift_codegen::ir::Value>,
-    _format: FixedPointFormat,
+    format: FixedPointFormat,
 ) -> Result<(), GlslError> {
     let (arg1_old, arg2_old) = extract_binary_operands(old_func, old_inst)?;
     let arg1 = map_operand(value_map, arg1_old);
@@ -47,8 +75,35 @@ pub(crate) fn convert_fsub(
     // Fixed-point subtraction: a - b
     let result = builder.ins().isub(arg1, arg2);
 
+    // Saturate result to fixed-point range
+    let zero = create_zero_const(builder, format);
+    let max_fixed = create_max_fixed_const(builder, format);
+    let min_fixed = create_min_fixed_const(builder, format);
+
+    // Check for overflow: if arg1 is positive and arg2 is negative and result is negative, saturate to max
+    let arg1_positive = builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, arg1, zero);
+    let arg2_negative = builder.ins().icmp(IntCC::SignedLessThan, arg2, zero);
+    let result_negative = builder.ins().icmp(IntCC::SignedLessThan, result, zero);
+    let overflow_cond = builder.ins().band(arg1_positive, arg2_negative);
+    let overflow = builder.ins().band(overflow_cond, result_negative);
+
+    // Check for underflow: if arg1 is negative and arg2 is positive and result is positive, saturate to min
+    let arg1_negative = builder.ins().icmp(IntCC::SignedLessThan, arg1, zero);
+    let arg2_positive = builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, arg2, zero);
+    let result_positive = builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, result, zero);
+    let underflow_cond = builder.ins().band(arg1_negative, arg2_positive);
+    let underflow = builder.ins().band(underflow_cond, result_positive);
+
+    // Clamp result to range [min_fixed, max_fixed]
+    let clamped_max = builder.ins().smin(result, max_fixed);
+    let clamped = builder.ins().smax(clamped_max, min_fixed);
+
+    // Select: if overflow use max, if underflow use min, otherwise use clamped
+    let saturated = builder.ins().select(overflow, max_fixed, clamped);
+    let final_result = builder.ins().select(underflow, min_fixed, saturated);
+
     let old_result = get_first_result(old_func, old_inst);
-    value_map.insert(old_result, result);
+    value_map.insert(old_result, final_result);
 
     Ok(())
 }
@@ -80,8 +135,18 @@ pub(crate) fn convert_fmul(
     let shift_const = builder.ins().iconst(types::I64, shift_amount);
     let shifted_wide = builder.ins().sshr(mul_result_wide, shift_const);
 
-    // Truncate back to i32
-    let result = builder.ins().ireduce(target_type, shifted_wide);
+    // Saturate to fixed-point range BEFORE truncation
+    // This catches overflow cases where the i64 value exceeds the i32 range
+    let max_fixed_i64 = builder.ins().iconst(types::I64, 0x7FFF0000i64);
+    // Min is -2147483648 (i32::MIN, which is 0x80000000 in fixed-point)
+    let min_fixed_i64 = builder.ins().iconst(types::I64, -2147483648i64);
+    
+    // Clamp at i64 level
+    let clamped_max_i64 = builder.ins().smin(shifted_wide, max_fixed_i64);
+    let clamped_i64 = builder.ins().smax(clamped_max_i64, min_fixed_i64);
+    
+    // Truncate the clamped value
+    let result = builder.ins().ireduce(target_type, clamped_i64);
 
     let old_result = get_first_result(old_func, old_inst);
     value_map.insert(old_result, result);

@@ -68,16 +68,16 @@ float test_float_from_int_expression_negative() {
 // run: test_float_from_int_expression_negative() ~= -2.0
 
 float test_float_from_int_large() {
-    int i = 2147483647;  // INT_MAX
+    int i = 2147483647;  // INT_MAX - clamped to fixed16x16 max
     return float(i);
 }
 
-// run: test_float_from_int_large() ~= 2147483647.0
+// run: test_float_from_int_large() ~= 32767.0
 
 float test_float_from_int_min() {
-    int i = -2147483648;  // INT_MIN
+    int i = -2147483648;  // INT_MIN - clamped to fixed16x16 min
     return float(i);
 }
 
-// run: test_float_from_int_min() ~= -2147483648.0
+// run: test_float_from_int_min() ~= -32768.0
 

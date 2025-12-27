@@ -33,16 +33,25 @@ pub(crate) fn convert_fcvt_from_sint(
 
     // Convert integer to fixed-point: int << shift_amount
     // Need to sign-extend if arg is smaller than target_type
+    // For fixed16x16, clamp values to range [-32768, 32767] BEFORE shifting
+    // to avoid overflow. After shifting, this becomes [-32768.0, 32767.0]
     let arg_type = old_func.dfg.value_type(arg);
     let shift_const = builder.ins().iconst(target_type, shift_amount);
 
+    // Clamp integer values before shifting to avoid overflow
+    // Max int: 32767, Min int: -32768
+    let max_int = builder.ins().iconst(target_type, 32767i64);
+    let min_int = builder.ins().iconst(target_type, -32768i64);
+    let clamped_max = builder.ins().smin(mapped_arg, max_int);
+    let clamped_int = builder.ins().smax(clamped_max, min_int);
+
     let shifted = if arg_type.bits() < target_type.bits() {
         // Sign-extend first, then shift
-        let extended = builder.ins().sextend(target_type, mapped_arg);
+        let extended = builder.ins().sextend(target_type, clamped_int);
         builder.ins().ishl(extended, shift_const)
     } else {
         // Direct shift
-        builder.ins().ishl(mapped_arg, shift_const)
+        builder.ins().ishl(clamped_int, shift_const)
     };
 
     value_map.insert(old_result, shifted);
@@ -74,6 +83,8 @@ pub(crate) fn convert_fcvt_from_uint(
 
     // Convert unsigned integer to fixed-point: uint << shift_amount
     // Need to zero-extend if arg is smaller than target_type
+    // For same-size types (both I32), we need to handle uint values that appear negative
+    // when stored as signed i32 (e.g., 4294967295u appears as -1)
     let arg_type = old_func.dfg.value_type(arg);
     let shift_const = builder.ins().iconst(target_type, shift_amount);
 
@@ -81,9 +92,25 @@ pub(crate) fn convert_fcvt_from_uint(
         // Zero-extend first, then shift
         let extended = builder.ins().uextend(target_type, mapped_arg);
         builder.ins().ishl(extended, shift_const)
+    } else if arg_type.bits() == target_type.bits() {
+        // Same size (both I32): uint values stored as i32 can appear negative
+        // (e.g., 4294967295u appears as -1). For fixed16x16, max representable
+        // value is 32767.0, so we clamp large uint values BEFORE shifting.
+        // Clamp to max uint value that fits: 32767
+        let max_uint = builder.ins().iconst(target_type, 32767i64);
+        // Use unsigned min to clamp (treating i32 as unsigned)
+        let i64_type = types::I64;
+        let extended_arg = builder.ins().uextend(i64_type, mapped_arg);
+        let extended_max = builder.ins().uextend(i64_type, max_uint);
+        let clamped_i64 = builder.ins().umin(extended_arg, extended_max);
+        let clamped = builder.ins().ireduce(target_type, clamped_i64);
+
+        // Now shift the clamped value
+        builder.ins().ishl(clamped, shift_const)
     } else {
-        // Direct shift
-        builder.ins().ishl(mapped_arg, shift_const)
+        // arg_type.bits() > target_type.bits(): truncate first, then shift
+        let truncated = builder.ins().ireduce(target_type, mapped_arg);
+        builder.ins().ishl(truncated, shift_const)
     };
 
     value_map.insert(old_result, shifted);
