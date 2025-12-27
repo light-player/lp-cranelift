@@ -88,6 +88,7 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// equal(x, y) - component-wise equality comparison
+    /// Returns a boolean vector with the same dimension as the input vectors
     pub fn builtin_equal(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
@@ -120,10 +121,20 @@ impl<'a> CodegenContext<'a> {
             result_vals.push(result);
         }
 
-        Ok((result_vals, x_ty.clone()))
+        // Return type is a boolean vector with the same dimension as the input
+        let return_ty = if x_ty.is_vector() {
+            let component_count = x_ty.component_count().unwrap();
+            Type::vector_type(&Type::Bool, component_count).unwrap()
+        } else {
+            // Scalar input -> scalar bool output
+            Type::Bool
+        };
+
+        Ok((result_vals, return_ty))
     }
 
     /// notEqual(x, y) - component-wise inequality comparison
+    /// Returns a boolean vector with the same dimension as the input vectors
     pub fn builtin_not_equal(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
@@ -156,7 +167,16 @@ impl<'a> CodegenContext<'a> {
             result_vals.push(result);
         }
 
-        Ok((result_vals, x_ty.clone()))
+        // Return type is a boolean vector with the same dimension as the input
+        let return_ty = if x_ty.is_vector() {
+            let component_count = x_ty.component_count().unwrap();
+            Type::vector_type(&Type::Bool, component_count).unwrap()
+        } else {
+            // Scalar input -> scalar bool output
+            Type::Bool
+        };
+
+        Ok((result_vals, return_ty))
     }
 }
 

@@ -23,14 +23,11 @@ pub fn coerce_to_type_with_location(
     to_ty: &GlslType,
     span: Option<glsl::syntax::SourceSpan>,
 ) -> Result<Value, GlslError> {
-    crate::debug!("coerce_to_type: {:?} -> {:?}", from_ty, to_ty);
-    
     if from_ty == to_ty {
-        crate::debug!("  types match, no coercion needed");
         return Ok(val);
     }
 
-    crate::debug!("  coercion needed, matching on ({:?}, {:?})", from_ty, to_ty);
+    crate::debug!("coerce_to_type: {:?} -> {:?}", from_ty, to_ty);
     match (from_ty, to_ty) {
         (GlslType::Int, GlslType::Float) => {
             // int → float: fcvt_from_sint
@@ -45,11 +42,8 @@ pub fn coerce_to_type_with_location(
         (GlslType::Bool, GlslType::Float) => {
             // bool → float: false → 0.0, true → 1.0
             // val is i8 (0 or 1), convert to i32 then to float
-            crate::debug!("  Bool -> Float coercion: val={:?}, val type should be i8", val);
             let i32_val = ctx.builder.ins().uextend(types::I32, val);
-            crate::debug!("  Bool -> Float coercion: extended to i32, i32_val={:?}", i32_val);
             let f32_val = ctx.builder.ins().fcvt_from_sint(types::F32, i32_val);
-            crate::debug!("  Bool -> Float coercion: converted to f32, f32_val={:?}", f32_val);
             Ok(f32_val)
         }
         // Boolean to uint conversion
@@ -71,9 +65,7 @@ pub fn coerce_to_type_with_location(
         (GlslType::Float, GlslType::Bool) => {
             // float → bool: 0.0 → false, non-zero → true
             // val is f32, compare with 0.0, convert result to i8
-            crate::debug!("  Float -> Bool coercion: val should be f32, creating f32const 0.0");
             let zero = ctx.builder.ins().f32const(0.0);
-            crate::debug!("  performing fcmp: val (should be f32) != 0.0");
             let cmp = ctx.builder.ins().fcmp(FloatCC::NotEqual, val, zero);
             let one = ctx.builder.ins().iconst(types::I8, 1);
             let zero_i8 = ctx.builder.ins().iconst(types::I8, 0);

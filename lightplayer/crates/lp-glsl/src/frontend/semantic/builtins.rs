@@ -432,11 +432,23 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
             return_type: BuiltinReturnType::SameAsParam(0),
         }]),
 
-        "equal" => Some(vec![BuiltinSignature {
-            name: "equal",
-            param_types: vec![BuiltinParamType::GenBType, BuiltinParamType::GenBType],
-            return_type: BuiltinReturnType::SameAsParam(0),
-        }]),
+        "equal" => Some(vec![
+            BuiltinSignature {
+                name: "equal",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "equal",
+                param_types: vec![BuiltinParamType::GenIType, BuiltinParamType::GenIType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "equal",
+                param_types: vec![BuiltinParamType::GenBType, BuiltinParamType::GenBType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
 
         "notEqual" => Some(vec![BuiltinSignature {
             name: "notEqual",

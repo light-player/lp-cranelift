@@ -173,6 +173,19 @@ fn convert_instruction(
                 old_func, old_inst, builder, value_map, format,
             )?;
         }
+        // Boolean operations: use operand types (may be i32 from fixed-point comparisons)
+        Opcode::Band => {
+            converters::boolean::convert_band(old_func, old_inst, builder, value_map)?;
+        }
+        Opcode::Bor => {
+            converters::boolean::convert_bor(old_func, old_inst, builder, value_map)?;
+        }
+        Opcode::Bxor => {
+            converters::boolean::convert_bxor(old_func, old_inst, builder, value_map)?;
+        }
+        Opcode::Bnot => {
+            converters::boolean::convert_bnot(old_func, old_inst, builder, value_map)?;
+        }
         // ... more F32 instructions as we add them ...
         _ => {
             // For non-F32 instructions, fall back to base copier
@@ -191,6 +204,9 @@ fn convert_instruction(
                 |ty| {
                     if ty == cranelift_codegen::ir::types::F32 {
                         cranelift_codegen::ir::types::I32
+                    } else if ty == cranelift_codegen::ir::types::I8 {
+                        // Keep i8 types unchanged (for boolean operations)
+                        cranelift_codegen::ir::types::I8
                     } else {
                         ty
                     }

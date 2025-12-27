@@ -51,7 +51,6 @@ pub fn translate_vector_constructor(
     if arg_types.len() == 1 && arg_types[0].is_scalar() {
         crate::debug!("  Case 1: Single scalar broadcast");
         let scalar = arg_vals[0][0];
-        crate::debug!("    coercing scalar: {:?} -> {:?}", arg_types[0], base_type);
         let coerced = coercion::coerce_to_type(ctx, scalar, &arg_types[0], &base_type)?;
         for _ in 0..component_count {
             components.push(coerced);
@@ -61,11 +60,9 @@ pub fn translate_vector_constructor(
     else if arg_types.len() == 1 && arg_types[0].is_vector() {
         crate::debug!("  Case 2: Single vector conversion");
         let src_base = arg_types[0].vector_base_type().unwrap();
-        crate::debug!("    src_base={:?}, base_type={:?}", src_base, base_type);
         // For shortening, only take the first component_count components
         for i in 0..component_count {
             let val = arg_vals[0][i];
-            crate::debug!("    coercing component {}: {:?} -> {:?}", i, src_base, base_type);
             components.push(coercion::coerce_to_type(ctx, val, &src_base, &base_type)?);
         }
     }
@@ -78,10 +75,8 @@ pub fn translate_vector_constructor(
             } else {
                 ty.clone()
             };
-            crate::debug!("    arg: ty={:?}, arg_base={:?}, base_type={:?}", ty, arg_base, base_type);
 
             for &val in vals {
-                crate::debug!("      coercing component: {:?} -> {:?}", arg_base, base_type);
                 components.push(coercion::coerce_to_type(ctx, val, &arg_base, &base_type)?);
             }
         }
