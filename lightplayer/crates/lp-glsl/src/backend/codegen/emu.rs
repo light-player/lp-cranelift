@@ -99,10 +99,11 @@ pub fn build_emu_executable(
                     Some(disasm_str.clone())
                 } else {
                     // Try to disassemble using the ISA if available
-                    let module_ref = gl_module.module_internal();
-                    let isa = module_ref.isa();
-                    #[cfg(feature = "disas")]
+
+                    #[cfg(feature = "emulator")]
                     {
+                        let module_ref = gl_module.module_internal();
+                        let isa = module_ref.isa();
                         if let Ok(cs) = isa.to_capstone() {
                             if let Ok(disasm_str) =
                                 compiled_code.disassemble(Some(&ctx.func.params), &cs)
@@ -115,7 +116,7 @@ pub fn build_emu_executable(
                             None
                         }
                     }
-                    #[cfg(not(feature = "disas"))]
+                    #[cfg(not(feature = "emulator"))]
                     {
                         None
                     }
