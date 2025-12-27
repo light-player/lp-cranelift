@@ -16,8 +16,19 @@ use hashbrown::HashMap;
 use alloc::{format, string::String, vec::Vec};
 
 /// Inline map_value utility
-fn map_value(value_map: &HashMap<Value, Value>, old_value: Value) -> Value {
-    *value_map.get(&old_value).unwrap_or(&old_value)
+/// Resolves aliases in the old function before mapping to ensure correct value translation
+fn map_value(
+    old_func: &Function,
+    value_map: &HashMap<Value, Value>,
+    old_value: Value,
+) -> Value {
+    // Resolve aliases in the old function first
+    // This is critical: if old_value is an alias (e.g., v10 -> v16), we need to resolve
+    // it to the actual value (v16) before looking it up in the value_map
+    let resolved_value = old_func.dfg.resolve_aliases(old_value);
+    
+    // Now map the resolved value
+    *value_map.get(&resolved_value).unwrap_or(&resolved_value)
 }
 
 /// Copy an instruction from old function to new function.
@@ -78,7 +89,7 @@ pub fn copy_instruction(
                 .collect();
             let new_args: Vec<BlockArg> = old_args
                 .iter()
-                .map(|&v| map_value(value_map, v).into())
+                .map(|&v| map_value(old_func, value_map, v).into())
                 .collect();
 
             // Emit jump
@@ -91,7 +102,7 @@ pub fn copy_instruction(
             ..
         } => {
             // Map condition
-            let condition = map_value(value_map, *arg);
+            let condition = map_value(old_func, value_map, *arg);
 
             // Extract blocks from BlockCalls
             let old_then_block = block_then_call.block(&old_func.dfg.value_lists);
@@ -136,11 +147,11 @@ pub fn copy_instruction(
 
             let new_then_args: Vec<BlockArg> = old_then_args
                 .iter()
-                .map(|&v| map_value(value_map, v).into())
+                .map(|&v| map_value(old_func, value_map, v).into())
                 .collect();
             let new_else_args: Vec<BlockArg> = old_else_args
                 .iter()
-                .map(|&v| map_value(value_map, v).into())
+                .map(|&v| map_value(old_func, value_map, v).into())
                 .collect();
 
             // Emit brif
@@ -155,7 +166,7 @@ pub fn copy_instruction(
         }
         InstructionData::BranchTable { arg, table, .. } => {
             // Map condition
-            let condition = map_value(value_map, *arg);
+            let condition = map_value(old_func, value_map, *arg);
 
             // Get old jump table
             let old_table = &old_func.dfg.jump_tables[*table];
@@ -184,7 +195,7 @@ pub fn copy_instruction(
                 .collect();
             let new_default_args: Vec<BlockArg> = old_default_args
                 .iter()
-                .map(|&v| map_value(value_map, v).into())
+                .map(|&v| map_value(old_func, value_map, v).into())
                 .collect();
             let new_default_block_call = builder
                 .func
@@ -216,7 +227,7 @@ pub fn copy_instruction(
                     .collect();
                 let new_args: Vec<BlockArg> = old_args
                     .iter()
-                    .map(|&v| map_value(value_map, v).into())
+                    .map(|&v| map_value(old_func, value_map, v).into())
                     .collect();
                 let new_block_call = builder.func.dfg.block_call(new_block, &new_args);
                 new_table_blocks.push(new_block_call);
@@ -238,7 +249,7 @@ pub fn copy_instruction(
                 // Map return arguments
                 let old_args = args.as_slice(&old_func.dfg.value_lists);
                 let new_args: Vec<Value> =
-                    old_args.iter().map(|&v| map_value(value_map, v)).collect();
+                    old_args.iter().map(|&v| map_value(old_func, value_map, v)).collect();
 
                 // Emit return
                 builder.ins().return_(&new_args);
@@ -253,7 +264,7 @@ pub fn copy_instruction(
     match inst_data {
         InstructionData::Call { func_ref, args, .. } => {
             let old_args = args.as_slice(&old_func.dfg.value_lists);
-            let new_args: Vec<Value> = old_args.iter().map(|&v| map_value(value_map, v)).collect();
+            let new_args: Vec<Value> = old_args.iter().map(|&v| map_value(old_func, value_map, v)).collect();
 
             // Map FuncRef: import the external function into the builder's function context
             // Similar to fixed32 transform: import signature first, then handle external names
@@ -332,10 +343,10 @@ pub fn copy_instruction(
             let new_sig_ref = builder.func.import_signature(old_sig.clone());
 
             let old_args = args.as_slice(&old_func.dfg.value_lists);
-            let func_addr = map_value(value_map, old_args[0]);
+            let func_addr = map_value(old_func, value_map, old_args[0]);
             let call_args: Vec<Value> = old_args[1..]
                 .iter()
-                .map(|&v| map_value(value_map, v))
+                .map(|&v| map_value(old_func, value_map, v))
                 .collect();
 
             // Emit indirect call with imported signature reference
@@ -378,7 +389,7 @@ pub fn copy_instruction(
     let ctrl_type = if opcode.constraints().requires_typevar_operand() {
         // Get type from first operand
         let first_arg = old_func.dfg.inst_args(old_inst)[0];
-        let mapped_first_arg = map_value(value_map, first_arg);
+        let mapped_first_arg = map_value(old_func, value_map, first_arg);
         builder.func.dfg.value_type(mapped_first_arg)
     } else {
         // Get type from first result
@@ -387,7 +398,7 @@ pub fn copy_instruction(
 
     // Get old arguments using DFG
     let old_args = old_func.dfg.inst_args(old_inst);
-    let mapped_args: Vec<Value> = old_args.iter().map(|&v| map_value(value_map, v)).collect();
+    let mapped_args: Vec<Value> = old_args.iter().map(|&v| map_value(old_func, value_map, v)).collect();
 
     // Reconstruct instruction data with mapped operands
     let new_inst_data = match inst_data {
