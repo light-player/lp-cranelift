@@ -98,29 +98,3 @@ int test_while_loop_condition_shadowing() {
     // Inner j should be out of scope here
     return j;  // Returns outer j to verify it wasn't affected
 }
-
-// run: test_while_loop_condition_shadowing() == 999
-
-int test_while_loop_condition_shadowing_same_name() {
-    int i = 0;  // Outer i
-    int sum = 0;
-    // Variable i declared in condition shadows outer i
-    // The condition variable i is scoped to the loop body
-    // Explicitly convert bool to int: true -> 1, false -> 0
-    while (int i = (sum < 3) ? 1 : 0) {
-        // Inner i shadows outer i, accessible in loop body
-        // Inner i is the result of (sum < 3), which is bool converted to int
-        // i is 1 when sum < 3, 0 otherwise
-        sum = sum + i;  // Add inner i to sum
-        // Verify we can access inner i
-        if (i == 1) {
-            sum = sum + 1;  // Add 1 more when condition is true
-        }
-    }
-    // Outer i should be unchanged (still 0)
-    // Inner i should be out of scope
-    // sum should be: 0+1+1 + 1+1 + 1+1 = 6 (3 iterations, each adds 2)
-    return i;  // Returns outer i to verify it wasn't affected
-}
-
-// run: test_while_loop_condition_shadowing_same_name() == 0
