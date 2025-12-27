@@ -5,12 +5,12 @@
 // Inout Parameters: Copy in and copy out
 // ============================================================================
 
+void increment(inout float value) {
+    value = value + 1.0;
+}
+
 float test_param_inout_simple() {
     // Inout parameter - copied in and out
-    void increment(inout float value) {
-        value = value + 1.0;
-    }
-
     float x = 5.0;
     increment(x);
     return x;
@@ -18,14 +18,14 @@ float test_param_inout_simple() {
 
 // run: test_param_inout_simple() ~= 6.0
 
+void swap(inout float a, inout float b) {
+    float temp = a;
+    a = b;
+    b = temp;
+}
+
 void test_param_inout_multiple() {
     // Multiple inout parameters
-    void swap(inout float a, inout float b) {
-        float temp = a;
-        a = b;
-        b = temp;
-    }
-
     float x = 1.0, y = 2.0;
     swap(x, y);
     // Values should be swapped
@@ -33,12 +33,12 @@ void test_param_inout_multiple() {
 
 // run: test_param_inout_multiple() == 0.0
 
+void scale_vector(inout vec2 v, float factor) {
+    v = v * factor;
+}
+
 vec2 test_param_inout_vector() {
     // Inout parameter with vector type
-    void scale_vector(inout vec2 v, float factor) {
-        v = v * factor;
-    }
-
     vec2 vec = vec2(1.0, 2.0);
     scale_vector(vec, 3.0);
     return vec;
@@ -46,12 +46,12 @@ vec2 test_param_inout_vector() {
 
 // run: test_param_inout_vector() ~= vec2(3.0, 6.0)
 
+void add_to_value(inout int value, int amount) {
+    value = value + amount;
+}
+
 int test_param_inout_int() {
     // Inout parameter with integer type
-    void add_to_value(inout int value, int amount) {
-        value = value + amount;
-    }
-
     int x = 10;
     add_to_value(x, 5);
     return x;
@@ -59,14 +59,14 @@ int test_param_inout_int() {
 
 // run: test_param_inout_int() == 15
 
+void adjust_components(inout vec3 v) {
+    v.x = v.x + 1.0;
+    v.y = v.y * 2.0;
+    v.z = v.z - 0.5;
+}
+
 float test_param_inout_modify_components() {
     // Modify components of inout vector
-    void adjust_components(inout vec3 v) {
-        v.x = v.x + 1.0;
-        v.y = v.y * 2.0;
-        v.z = v.z - 0.5;
-    }
-
     vec3 vec = vec3(1.0, 2.0, 3.0);
     adjust_components(vec);
     return vec.x + vec.y + vec.z;
@@ -74,12 +74,12 @@ float test_param_inout_modify_components() {
 
 // run: test_param_inout_modify_components() ~= 7.5
 
+void toggle(inout bool flag) {
+    flag = !flag;
+}
+
 bool test_param_inout_bool() {
     // Inout parameter with boolean type
-    void toggle(inout bool flag) {
-        flag = !flag;
-    }
-
     bool b = false;
     toggle(b);
     return b;
@@ -87,12 +87,12 @@ bool test_param_inout_bool() {
 
 // run: test_param_inout_bool() == true
 
+void complex_op(inout float result, float input) {
+    result = result * 2.0 + input;
+}
+
 float test_param_inout_complex() {
     // Complex inout usage with computation
-    void complex_op(inout float result, float input) {
-        result = result * 2.0 + input;
-    }
-
     float value = 3.0;
     complex_op(value, 4.0);
     return value;
