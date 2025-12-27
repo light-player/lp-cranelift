@@ -5,6 +5,7 @@ mod geometric;
 mod helpers;
 mod interpolation;
 mod matrix;
+mod relational;
 mod trigonometric;
 
 use crate::error::{ErrorCode, GlslError};
@@ -65,6 +66,13 @@ impl<'a> CodegenContext<'a> {
             "mix" => self.builtin_mix(args),
             "step" => self.builtin_step(args),
             "smoothstep" => self.builtin_smoothstep(args),
+
+            // Relational Functions
+            "all" => self.builtin_all(args),
+            "any" => self.builtin_any(args),
+            "not" => self.builtin_not(args),
+            "equal" => self.builtin_equal(args),
+            "notEqual" => self.builtin_not_equal(args),
 
             // Matrix Functions
             "matrixCompMult" => self.builtin_matrixCompMult(args),

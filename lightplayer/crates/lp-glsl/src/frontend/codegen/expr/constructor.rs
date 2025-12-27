@@ -54,11 +54,13 @@ pub fn translate_vector_constructor(
             components.push(coerced);
         }
     }
-    // Case 2: Single vector conversion
+    // Case 2: Single vector conversion (including shortening)
     else if arg_types.len() == 1 && arg_types[0].is_vector() {
         let src_base = arg_types[0].vector_base_type().unwrap();
-        for val in &arg_vals[0] {
-            components.push(coercion::coerce_to_type(ctx, *val, &src_base, &base_type)?);
+        // For shortening, only take the first component_count components
+        for i in 0..component_count {
+            let val = arg_vals[0][i];
+            components.push(coercion::coerce_to_type(ctx, val, &src_base, &base_type)?);
         }
     }
     // Case 3: Concatenation
@@ -227,14 +229,28 @@ pub fn translate_scalar_constructor(
     let arg_rvalue = ctx.emit_rvalue(&args[0])?;
     let arg_ty = arg_rvalue.ty().clone();
     let arg_vals = arg_rvalue.into_values();
-    if arg_vals.len() != 1 {
+    
+    // Extract first component (for vectors) or use scalar value
+    let arg_val = if arg_vals.len() > 1 {
+        // Vector: extract first component
+        arg_vals[0]
+    } else if arg_vals.len() == 1 {
+        // Scalar
+        arg_vals[0]
+    } else {
         return Err(GlslError::new(
             ErrorCode::E0115,
-            format!("`{}` constructor requires scalar argument", type_name),
+            format!("`{}` constructor requires at least one component", type_name),
         )
         .with_location(source_span_to_location(&span)));
-    }
-    let arg_val = arg_vals[0];
+    };
+    
+    // For vectors, get the base type for coercion
+    let arg_base_ty = if arg_ty.is_vector() {
+        arg_ty.vector_base_type().unwrap()
+    } else {
+        arg_ty.clone()
+    };
 
     // Determine result type
     let result_ty = match type_name {
@@ -252,11 +268,11 @@ pub fn translate_scalar_constructor(
         }
     };
 
-    // Convert argument to result type using coercion
+    // Convert argument to result type using coercion (use base type for vectors)
     let result_val = coercion::coerce_to_type_with_location(
         ctx,
         arg_val,
-        &arg_ty,
+        &arg_base_ty,
         &result_ty,
         Some(span.clone()),
     )?;

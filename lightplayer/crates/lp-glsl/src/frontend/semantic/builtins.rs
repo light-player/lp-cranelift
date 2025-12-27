@@ -19,6 +19,7 @@ pub struct BuiltinSignature {
 pub enum BuiltinParamType {
     GenFType,   // float, vec2, vec3, vec4
     GenIType,   // int, ivec2, ivec3, ivec4
+    GenBType,   // bool, bvec2, bvec3, bvec4
     GenMatType, // mat2, mat3, mat4
     Float,      // scalar float only
     Int,        // scalar int only
@@ -30,6 +31,7 @@ pub enum BuiltinReturnType {
     SameAsParam(usize), // Return type matches parameter N
     AlwaysFloat,        // Always returns float (length, dot)
     AlwaysVec3,         // Always returns vec3 (cross)
+    AlwaysBool,         // Always returns bool (all, any)
 }
 
 /// Check if a name is a built-in function
@@ -303,6 +305,15 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
                 ],
                 return_type: BuiltinReturnType::SameAsParam(0),
             },
+            BuiltinSignature {
+                name: "mix",
+                param_types: vec![
+                    BuiltinParamType::GenBType,
+                    BuiltinParamType::GenBType,
+                    BuiltinParamType::GenBType,
+                ],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
         ]),
 
         "step" => Some(vec![
@@ -402,6 +413,37 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
             return_type: BuiltinReturnType::SameAsParam(0),
         }]),
 
+        // Relational Functions
+        "all" => Some(vec![BuiltinSignature {
+            name: "all",
+            param_types: vec![BuiltinParamType::GenBType],
+            return_type: BuiltinReturnType::AlwaysBool,
+        }]),
+
+        "any" => Some(vec![BuiltinSignature {
+            name: "any",
+            param_types: vec![BuiltinParamType::GenBType],
+            return_type: BuiltinReturnType::AlwaysBool,
+        }]),
+
+        "not" => Some(vec![BuiltinSignature {
+            name: "not",
+            param_types: vec![BuiltinParamType::GenBType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+
+        "equal" => Some(vec![BuiltinSignature {
+            name: "equal",
+            param_types: vec![BuiltinParamType::GenBType, BuiltinParamType::GenBType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+
+        "notEqual" => Some(vec![BuiltinSignature {
+            name: "notEqual",
+            param_types: vec![BuiltinParamType::GenBType, BuiltinParamType::GenBType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+
         _ => None,
     }
 }
@@ -474,6 +516,7 @@ fn try_match_signature(sig: &BuiltinSignature, arg_types: &[Type]) -> Result<Typ
         }
         BuiltinReturnType::AlwaysFloat => Type::Float,
         BuiltinReturnType::AlwaysVec3 => Type::Vec3,
+        BuiltinReturnType::AlwaysBool => Type::Bool,
     };
 
     Ok(return_type)
@@ -487,6 +530,9 @@ fn matches_param_type(param: &BuiltinParamType, arg: &Type) -> bool {
         }
         BuiltinParamType::GenIType => {
             matches!(arg, Type::Int | Type::IVec2 | Type::IVec3 | Type::IVec4)
+        }
+        BuiltinParamType::GenBType => {
+            matches!(arg, Type::Bool | Type::BVec2 | Type::BVec3 | Type::BVec4)
         }
         BuiltinParamType::GenMatType => matches!(arg, Type::Mat2 | Type::Mat3 | Type::Mat4),
         BuiltinParamType::Float => arg == &Type::Float,
@@ -507,6 +553,7 @@ fn validate_gentype_consistency(
         match param {
             BuiltinParamType::GenFType
             | BuiltinParamType::GenIType
+            | BuiltinParamType::GenBType
             | BuiltinParamType::GenMatType => {
                 if let Some(ref expected) = expected_type {
                     if arg != expected {

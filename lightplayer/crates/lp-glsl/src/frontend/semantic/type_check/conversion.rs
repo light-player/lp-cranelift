@@ -28,6 +28,14 @@ pub fn can_implicitly_convert(from: &Type, to: &Type) -> bool {
     if matches!((from, to), (Type::Int, Type::Float)) {
         return true;
     }
+    // Numeric to bool conversions (for constructors: 0/0.0 → false, non-zero → true)
+    if matches!((from, to), (Type::Int, Type::Bool) | (Type::Float, Type::Bool)) {
+        return true;
+    }
+    // Bool to numeric conversions (for constructors: false → 0/0.0, true → 1/1.0)
+    if matches!((from, to), (Type::Bool, Type::Int) | (Type::Bool, Type::Float)) {
+        return true;
+    }
 
     // Matrix conversions: same dimensions, exact type match
     if from.is_matrix() && to.is_matrix() {

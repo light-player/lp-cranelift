@@ -53,18 +53,20 @@ pub fn check_vector_constructor_with_span(
         return Ok(result_type);
     }
 
-    // Case 2: Single vector - type conversion
+    // Case 2: Single vector - type conversion or shortening
     if args.len() == 1 && args[0].is_vector() {
-        if args[0].component_count() != Some(component_count) {
+        let src_component_count = args[0].component_count().unwrap();
+        // Allow shortening: source components >= target components
+        if src_component_count < component_count {
             return Err(add_location(
                 GlslError::new(
                     ErrorCode::E0115,
                     format!("cannot construct `{}` from `{:?}`", type_name, args[0]),
                 )
                 .with_note(format!(
-                    "expected {} components, found {}",
+                    "expected at least {} components, found {}",
                     component_count,
-                    args[0].component_count().unwrap()
+                    src_component_count
                 )),
             ));
         }
@@ -193,17 +195,8 @@ pub fn check_scalar_constructor_with_span(
         return Err(error);
     }
 
-    // Argument must be scalar
-    if !args[0].is_scalar() {
-        let mut error = GlslError::new(
-            ErrorCode::E0115,
-            format!("`{}` constructor requires scalar argument", type_name),
-        );
-        if let Some(ref s) = span {
-            error = error.with_location(source_span_to_location(s));
-        }
-        return Err(error);
-    }
+    // Argument can be scalar or vector (extracts first component)
+    // This is allowed per GLSL spec: scalar constructors can take vectors
 
     // Determine result type
     let result_type = match type_name {

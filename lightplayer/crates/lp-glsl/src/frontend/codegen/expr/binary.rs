@@ -105,12 +105,22 @@ fn translate_scalar_binary(
         (lhs_bool, rhs_bool, GlslType::Bool)
     } else if is_comparison {
         // Comparison operators: handle boolean and numeric separately
-        if matches!(op, Equal | NonEqual) && lhs_ty == &GlslType::Bool {
+        if matches!(op, Equal | NonEqual) && lhs_ty == &GlslType::Bool && rhs_ty == &GlslType::Bool {
             // Boolean equality: no promotion needed
             (lhs_val, rhs_val, GlslType::Bool)
         } else {
             // Numeric comparison: may need promotion
-            let common_ty = promote_numeric(lhs_ty, rhs_ty);
+            // Skip promotion if either operand is Bool (Bool comparisons should be handled above)
+            let common_ty = if lhs_ty == &GlslType::Bool || rhs_ty == &GlslType::Bool {
+                // If one operand is Bool, the other must be Bool too (for comparisons)
+                // This should have been caught by type checking, but handle gracefully
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!("comparison between {:?} and {:?} not supported", lhs_ty, rhs_ty),
+                ));
+            } else {
+                promote_numeric(lhs_ty, rhs_ty)
+            };
             let lhs_val = coercion::coerce_to_type(ctx, lhs_val, lhs_ty, &common_ty)?;
             let rhs_val = coercion::coerce_to_type(ctx, rhs_val, rhs_ty, &common_ty)?;
             (lhs_val, rhs_val, common_ty)

@@ -1,7 +1,7 @@
 use crate::error::{source_span_to_location, ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type as GlslType;
-use cranelift_codegen::ir::Value;
+use cranelift_codegen::ir::{InstBuilder, Value};
 
 use super::binary;
 use super::coercion;
@@ -21,7 +21,8 @@ pub fn translate_vector_binary(
 
     // Validate operation is allowed on vectors
     match op {
-        Add | Sub | Mult | Div | Mod => {} // allowed
+        Add | Sub | Mult | Div | Mod => {} // arithmetic operations
+        Equal | NonEqual => {} // comparison operations (aggregate comparison)
         _ => {
             return Err(GlslError::new(
                 ErrorCode::E0400,
@@ -80,6 +81,59 @@ pub fn translate_vector_binary(
 
     let base_ty = result_ty.vector_base_type().unwrap();
     let component_count = result_ty.component_count().unwrap();
+
+    // Handle comparison operators specially - they return scalar bool (aggregate comparison)
+    if matches!(op, glsl::syntax::BinaryOp::Equal | glsl::syntax::BinaryOp::NonEqual) {
+        if !matches!(mode, VectorOpMode::ComponentWise) {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                "comparison operators require matching vector types",
+            ));
+        }
+        // Compare all components (aggregate comparison)
+        let zero = ctx.builder.ins().iconst(cranelift_codegen::ir::types::I8, 0);
+        let one = ctx.builder.ins().iconst(cranelift_codegen::ir::types::I8, 1);
+        
+        // Start with true (all components equal so far)
+        let mut all_equal_cmp: Option<cranelift_codegen::ir::Value> = None;
+        
+        for i in 0..component_count {
+            let lhs_comp = lhs_vals[i];
+            let rhs_comp = rhs_vals[i];
+            // Compare components (returns I1)
+            let cmp = if base_ty == GlslType::Bool || base_ty == GlslType::Int {
+                ctx.builder.ins().icmp(
+                    cranelift_codegen::ir::condcodes::IntCC::Equal,
+                    lhs_comp,
+                    rhs_comp,
+                )
+            } else {
+                ctx.builder.ins().fcmp(
+                    cranelift_codegen::ir::condcodes::FloatCC::Equal,
+                    lhs_comp,
+                    rhs_comp,
+                )
+            };
+            // AND with previous result (band works on I1)
+            if let Some(prev) = all_equal_cmp {
+                all_equal_cmp = Some(ctx.builder.ins().band(prev, cmp));
+            } else {
+                all_equal_cmp = Some(cmp);
+            }
+        }
+        
+        let all_equal = all_equal_cmp.unwrap();
+        
+        // For ==, return all_equal; for !=, return NOT(all_equal)
+        if matches!(op, glsl::syntax::BinaryOp::Equal) {
+            let result = ctx.builder.ins().select(all_equal, one, zero);
+            return Ok((vec![result], GlslType::Bool));
+        } else {
+            let not_all_equal = ctx.builder.ins().bnot(all_equal);
+            let result = ctx.builder.ins().select(not_all_equal, one, zero);
+            return Ok((vec![result], GlslType::Bool));
+        }
+    }
 
     let mut result_vals = Vec::new();
 

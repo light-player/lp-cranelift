@@ -247,9 +247,12 @@ pub fn format_glsl_value(value: &GlslValue) -> String {
             }
         }
         GlslValue::Bool(b) => b.to_string(),
-        GlslValue::Vec2(v) => format!("[{}, {}]", v[0], v[1]),
-        GlslValue::Vec3(v) => format!("[{}, {}, {}]", v[0], v[1], v[2]),
-        GlslValue::Vec4(v) => format!("[{}, {}, {}, {}]", v[0], v[1], v[2], v[3]),
+        GlslValue::Vec2(v) => format!("vec2({}, {})", format_float(v[0]), format_float(v[1])),
+        GlslValue::Vec3(v) => format!("vec3({}, {}, {})", format_float(v[0]), format_float(v[1]), format_float(v[2])),
+        GlslValue::Vec4(v) => format!("vec4({}, {}, {}, {})", format_float(v[0]), format_float(v[1]), format_float(v[2]), format_float(v[3])),
+        GlslValue::BVec2(v) => format!("bvec2({}, {})", v[0], v[1]),
+        GlslValue::BVec3(v) => format!("bvec3({}, {}, {})", v[0], v[1], v[2]),
+        GlslValue::BVec4(v) => format!("bvec4({}, {}, {}, {})", v[0], v[1], v[2], v[3]),
         GlslValue::Mat2x2(m) => {
             // Display in GLSL constructor format: mat2(vec2(col0), vec2(col1))
             // m[col][row] format, so column 0 is [m[0][0], m[0][1]], column 1 is [m[1][0], m[1][1]]

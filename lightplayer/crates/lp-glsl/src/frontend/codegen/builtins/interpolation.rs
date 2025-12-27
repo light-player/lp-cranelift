@@ -3,19 +3,32 @@
 use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
-use cranelift_codegen::ir::{InstBuilder, Value};
+use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, Value};
 
 use alloc::vec::Vec;
 
 impl<'a> CodegenContext<'a> {
-    /// mix(x, y, a) = x * (1-a) + y * a (linear interpolation)
+    /// mix(x, y, a) = x * (1-a) + y * a (linear interpolation for floats)
+    /// For boolean vectors: if selector is false, take from x; if true, take from y
     pub fn builtin_mix(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
     ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
         let (y_vals, _) = &args[1];
-        let (a_vals, _) = &args[2];
+        let (a_vals, _a_ty) = &args[2];
+
+        // Check if this is a boolean vector mix
+        let base_ty = if x_ty.is_vector() {
+            x_ty.vector_base_type().unwrap()
+        } else {
+            x_ty.clone()
+        };
+
+        if base_ty == Type::Bool {
+            // Boolean vector mix: use selection logic
+            return self.builtin_mix_bool(args);
+        }
 
         let mut result_vals = Vec::new();
 
@@ -150,6 +163,30 @@ impl<'a> CodegenContext<'a> {
 
                 result_vals.push(result);
             }
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// mix(x, y, a) - component-wise selection for boolean vectors
+    /// For each component: if selector is false, take from x; if true, take from y
+    fn builtin_mix_bool(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let (y_vals, _) = &args[1];
+        let (a_vals, _) = &args[2];
+
+        let zero = self.builder.ins().iconst(types::I8, 0);
+
+        let mut result_vals = Vec::new();
+        for i in 0..x_vals.len() {
+            // Check if selector is non-zero (true)
+            let selector_true = self.builder.ins().icmp(IntCC::NotEqual, a_vals[i], zero);
+            // Select: if selector is true, take y; else take x
+            let result = self.builder.ins().select(selector_true, y_vals[i], x_vals[i]);
+            result_vals.push(result);
         }
 
         Ok((result_vals, x_ty.clone()))

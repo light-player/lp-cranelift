@@ -32,6 +32,9 @@ pub enum GlslValue {
     Vec2([f32; 2]),
     Vec3([f32; 3]),
     Vec4([f32; 4]),
+    BVec2([bool; 2]),
+    BVec3([bool; 3]),
+    BVec4([bool; 4]),
     Mat2x2([[f32; 2]; 2]), // [[col0_row0, col0_row1], [col1_row0, col1_row1]]
     Mat3x3([[f32; 3]; 3]), // [[col0_row0, col0_row1, col0_row2], [col1_row0, ...], ...]
     Mat4x4([[f32; 4]; 4]), // [[col0_row0, col0_row1, col0_row2, col0_row3], [col1_row0, ...], ...]
@@ -54,6 +57,9 @@ impl GlslValue {
             format!("ivec2 main() {{ return {}; }}", literal_str),
             format!("ivec3 main() {{ return {}; }}", literal_str),
             format!("ivec4 main() {{ return {}; }}", literal_str),
+            format!("bvec2 main() {{ return {}; }}", literal_str),
+            format!("bvec3 main() {{ return {}; }}", literal_str),
+            format!("bvec4 main() {{ return {}; }}", literal_str),
             format!("mat2 main() {{ return {}; }}", literal_str),
             format!("mat3 main() {{ return {}; }}", literal_str),
             format!("mat4 main() {{ return {}; }}", literal_str),
@@ -132,6 +138,21 @@ impl GlslValue {
                                             return Ok(GlslValue::Vec4([v[0], v[1], v[2], v[3]]));
                                         }
                                     }
+                                    "bvec2" => {
+                                        if let Ok(v) = parse_bool_vector_constructor(args, 2) {
+                                            return Ok(GlslValue::BVec2([v[0], v[1]]));
+                                        }
+                                    }
+                                    "bvec3" => {
+                                        if let Ok(v) = parse_bool_vector_constructor(args, 3) {
+                                            return Ok(GlslValue::BVec3([v[0], v[1], v[2]]));
+                                        }
+                                    }
+                                    "bvec4" => {
+                                        if let Ok(v) = parse_bool_vector_constructor(args, 4) {
+                                            return Ok(GlslValue::BVec4([v[0], v[1], v[2], v[3]]));
+                                        }
+                                    }
                                     "mat2" => {
                                         if let Ok(m) = parse_matrix_constructor(args, 2) {
                                             return Ok(GlslValue::Mat2x2([
@@ -194,6 +215,9 @@ impl GlslValue {
             (GlslValue::Vec2(a), GlslValue::Vec2(b)) => a == b,
             (GlslValue::Vec3(a), GlslValue::Vec3(b)) => a == b,
             (GlslValue::Vec4(a), GlslValue::Vec4(b)) => a == b,
+            (GlslValue::BVec2(a), GlslValue::BVec2(b)) => a == b,
+            (GlslValue::BVec3(a), GlslValue::BVec3(b)) => a == b,
+            (GlslValue::BVec4(a), GlslValue::BVec4(b)) => a == b,
             (GlslValue::Mat2x2(a), GlslValue::Mat2x2(b)) => a == b,
             (GlslValue::Mat3x3(a), GlslValue::Mat3x3(b)) => a == b,
             (GlslValue::Mat4x4(a), GlslValue::Mat4x4(b)) => a == b,
@@ -222,6 +246,9 @@ impl GlslValue {
                 .iter()
                 .zip(b.iter())
                 .all(|(x, y)| (x - y).abs() <= tolerance),
+            (GlslValue::BVec2(a), GlslValue::BVec2(b)) => a == b, // Exact for bools
+            (GlslValue::BVec3(a), GlslValue::BVec3(b)) => a == b, // Exact for bools
+            (GlslValue::BVec4(a), GlslValue::BVec4(b)) => a == b, // Exact for bools
             (GlslValue::Mat2x2(a), GlslValue::Mat2x2(b)) => a
                 .iter()
                 .flatten()
@@ -329,6 +356,94 @@ fn parse_vector_constructor(args: &[Expr], dim: usize) -> Result<Vec<f32>, GlslE
             ErrorCode::E0400,
             format!(
                 "vector constructor expects {} components, got {}",
+                dim,
+                components.len()
+            ),
+        ));
+    }
+
+    Ok(components)
+}
+
+/// Parse a boolean vector constructor expression into a Vec of bools
+/// Returns a Vec that can be converted to the appropriate array size
+fn parse_bool_vector_constructor(args: &[Expr], dim: usize) -> Result<Vec<bool>, GlslError> {
+    let mut components = Vec::new();
+
+    for arg in args {
+        match arg {
+            Expr::BoolConst(b, _) => components.push(*b),
+            Expr::IntConst(n, _) => {
+                // Convert int to bool: 0 → false, non-zero → true
+                components.push(*n != 0);
+            }
+            Expr::FloatConst(f, _) => {
+                // Convert float to bool: 0.0 → false, non-zero → true
+                components.push(*f != 0.0);
+            }
+            Expr::FunCall(func_ident, args, _) => {
+                // Handle nested vector constructors (e.g., bvec2(bvec4(...)))
+                if let glsl::syntax::FunIdentifier::Identifier(ident) = func_ident {
+                    let type_name = ident.name.as_str();
+                    if type_name.starts_with("bvec") {
+                        let nested_dim = match type_name {
+                            "bvec2" => 2,
+                            "bvec3" => 3,
+                            "bvec4" => 4,
+                            _ => continue,
+                        };
+                        let nested = parse_bool_vector_constructor(args, nested_dim)?;
+                        components.extend_from_slice(&nested);
+                    } else if type_name.starts_with("vec") || type_name.starts_with("ivec") {
+                        // Convert numeric vectors to bool (extract components)
+                        let nested_dim = match type_name {
+                            "vec2" | "ivec2" => 2,
+                            "vec3" | "ivec3" => 3,
+                            "vec4" | "ivec4" => 4,
+                            _ => continue,
+                        };
+                        let nested = parse_vector_constructor(args, nested_dim)?;
+                        // Convert float/int components to bool
+                        for val in nested {
+                            components.push(val != 0.0);
+                        }
+                    }
+                }
+            }
+            Expr::Unary(op, unary_expr, _) => {
+                use glsl::syntax::UnaryOp;
+                if let UnaryOp::Minus = *op {
+                    match **unary_expr {
+                        Expr::IntConst(n, _) => components.push(-n != 0),
+                        Expr::FloatConst(f, _) => components.push(-f != 0.0),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                "invalid boolean vector constructor argument",
+                            ));
+                        }
+                    }
+                } else {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        "invalid boolean vector constructor argument",
+                    ));
+                }
+            }
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "invalid boolean vector constructor argument",
+                ));
+            }
+        }
+    }
+
+    if components.len() != dim {
+        return Err(GlslError::new(
+            ErrorCode::E0400,
+            format!(
+                "boolean vector constructor expects {} components, got {}",
                 dim,
                 components.len()
             ),
