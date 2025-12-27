@@ -1464,6 +1464,7 @@ dependencies = [
  "cranelift-native",
  "cranelift-object",
  "glob",
+ "glsl",
  "lp-glsl",
  "lp-jit-util",
  "lp-riscv-tools",
