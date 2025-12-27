@@ -2,6 +2,7 @@
 
 pub mod bootstrap;
 pub mod execution;
+pub mod function_filter;
 pub mod target;
 pub mod value_ops;
 

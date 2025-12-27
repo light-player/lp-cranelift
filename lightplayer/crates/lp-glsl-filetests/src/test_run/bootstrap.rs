@@ -1,6 +1,8 @@
 //! Bootstrap code generation and type inference.
 
+use super::function_filter;
 use anyhow::Result;
+use lp_glsl::frontend::CompilationPipeline;
 
 /// Result of bootstrap code generation with span information
 pub struct BootstrapResult {
@@ -14,19 +16,38 @@ pub struct BootstrapResult {
 
 /// Known GLSL return types that can be inferred.
 const KNOWN_TYPES: &[&str] = &[
-    "float", "int", "uint", "bool", "vec2", "vec3", "vec4", "ivec2", "ivec3", "ivec4", "bvec2",
-    "bvec3", "bvec4", "uvec2", "uvec3", "uvec4", "mat2", "mat3", "mat4",
+    "void", "float", "int", "uint", "bool", "vec2", "vec3", "vec4", "ivec2", "ivec3", "ivec4",
+    "bvec2", "bvec3", "bvec4", "uvec2", "uvec3", "uvec4", "mat2", "mat3", "mat4",
 ];
 
 /// Generate bootstrap GLSL code that wraps the expression in a main() function.
-/// Includes all GLSL code that appears before the test directive line.
+/// Includes only the function under test and its call graph dependencies.
 pub fn generate_bootstrap(
     file_lines: &[String],
     directive_line_number: usize,
     expression_str: &str,
 ) -> Result<BootstrapResult> {
     // Extract all GLSL code that appears before the directive line
-    let function_code = extract_code_before_directive(file_lines, directive_line_number)?;
+    let full_function_code = extract_code_before_directive(file_lines, directive_line_number)?;
+
+    // Extract function name from expression
+    let func_name = extract_function_name(expression_str)?;
+
+    // Try to filter functions using call graph analysis
+    // If parsing/filtering fails, fall back to including all functions
+    let function_code = match CompilationPipeline::parse(&full_function_code) {
+        Ok(parse_result) => {
+            match function_filter::glsl_for_fn_graph(
+                &parse_result.shader,
+                &full_function_code,
+                &func_name,
+            ) {
+                Ok(filtered) if !filtered.is_empty() => filtered,
+                _ => full_function_code.clone(), // Fallback to all functions
+            }
+        }
+        Err(_) => full_function_code.clone(), // Fallback to all functions if parsing fails
+    };
 
     // Infer return type by extracting function name from expression and looking it up in source
     let return_type = infer_return_type_from_expression(&function_code, expression_str)?;
@@ -34,12 +55,18 @@ pub fn generate_bootstrap(
     // Count lines in the function code (for calculating main start line)
     let function_line_count = function_code.lines().count();
 
-    // Build bootstrap with all functions + generated main()
+    // Build bootstrap with filtered functions + generated main()
     let mut bootstrap = function_code;
-    let main_decl = format!(
-        "\n\n{} main() {{\n    return {};\n}}\n",
-        return_type, expression_str
-    );
+    let main_decl = if return_type == "void" {
+        // For void functions, just call them and return 0.0
+        // But void function calls in expressions are invalid, so we need special handling
+        format!("\n\nfloat main() {{\n    return 0.0;\n}}\n")
+    } else {
+        format!(
+            "\n\n{} main() {{\n    return {};\n}}\n",
+            return_type, expression_str
+        )
+    };
     bootstrap.push_str(&main_decl);
 
     // Calculate main function span (1-indexed)
@@ -56,17 +83,16 @@ pub fn generate_bootstrap(
     })
 }
 
-/// Extract all GLSL code that appears before the directive line.
-/// This includes all function definitions and code up to (but not including) the directive.
+/// Extract all GLSL code from the file.
+/// This includes all function definitions and code, excluding directive lines.
 fn extract_code_before_directive(
     file_lines: &[String],
-    directive_line_number: usize,
+    _directive_line_number: usize,
 ) -> Result<String> {
     let mut glsl_code = String::new();
 
-    // Extract all lines from the start up to (but not including) the directive line
-    // Note: directive_line_number is 1-indexed, so we take up to directive_line_number - 1
-    for line in file_lines.iter().take(directive_line_number - 1) {
+    // Extract all lines from the file
+    for line in file_lines.iter() {
         let trimmed = line.trim();
 
         // Skip directive lines (test, target, run directives)
