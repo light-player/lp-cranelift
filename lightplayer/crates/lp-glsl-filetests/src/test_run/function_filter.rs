@@ -23,7 +23,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 /// Filtered GLSL source containing only the reachable functions
 pub fn glsl_for_fn_graph(
     ast: &glsl::syntax::TranslationUnit,
-    _source: &str,
+    source: &str,
     fn_name: &str,
 ) -> Result<String> {
     // Step 1: Extract all function definitions and build call graph
@@ -51,8 +51,8 @@ pub fn glsl_for_fn_graph(
     // Step 3: Find all reachable functions from the starting function
     let reachable = find_reachable_functions(fn_name, &call_graph, &function_defs);
 
-    // Step 4: Extract function definitions from AST using transpiler
-    extract_functions_from_source_using_ast(ast, &function_defs, &reachable)
+    // Step 4: Extract function definitions from source using AST spans
+    extract_functions_from_source_using_ast(ast, source, &reachable)
 }
 
 /// Recursively extract all function calls from a statement.
@@ -308,40 +308,87 @@ fn find_reachable_functions(
     reachable
 }
 
-/// Extract function definitions from AST using the transpiler.
-/// This converts AST nodes back to GLSL source.
+/// Extract function definitions from source using AST spans.
+/// This preserves comments and whitespace perfectly.
 fn extract_functions_from_source_using_ast(
     ast: &glsl::syntax::TranslationUnit,
-    _function_defs: &HashMap<String, &glsl::syntax::FunctionDefinition>,
+    source: &str,
     function_names: &HashSet<String>,
 ) -> Result<String> {
     if function_names.is_empty() {
         return Ok(String::new());
     }
 
-    // Collect function definitions in order they appear in the AST
-    let mut functions_to_include: Vec<&glsl::syntax::FunctionDefinition> = Vec::new();
-    let mut seen = HashSet::new();
+    let source_lines: Vec<&str> = source.lines().collect();
+    let mut function_ranges: Vec<(usize, usize)> = Vec::new(); // (start_line, end_line) 1-indexed
 
-    // First, collect all functions we need in the order they appear
+    // Extract line ranges for each function we want to keep using spans
+    // Iterate through AST to preserve order
     for decl in &ast.0 {
-        if let glsl::syntax::ExternalDeclaration::FunctionDefinition(func) = decl {
-            let func_name = func.prototype.name.name.clone();
-            if function_names.contains(&func_name) && !seen.contains(&func_name) {
-                functions_to_include.push(func);
-                seen.insert(func_name);
+        if let glsl::syntax::ExternalDeclaration::FunctionDefinition(func_def) = decl {
+            let func_name = func_def.prototype.name.name.clone();
+
+            if !function_names.contains(&func_name) {
+                continue;
             }
+
+            let span = &func_def.span;
+
+            // Skip if span is unknown
+            if span.is_unknown() {
+                continue;
+            }
+
+            // Calculate end byte position: offset + len
+            let end_offset = span.offset + span.len;
+
+            // Convert byte offsets to line numbers
+            let start_line = byte_offset_to_line(source, span.offset)?;
+            let end_line = byte_offset_to_line(source, end_offset.saturating_sub(1))?;
+
+            function_ranges.push((start_line, end_line));
         }
     }
 
-    // Convert each function definition back to GLSL source using the transpiler
+    // Sort by start line to maintain order
+    function_ranges.sort_by_key(|(start, _)| *start);
+
+    // Extract the functions from source
     let mut result = String::new();
-    for func in functions_to_include {
-        glsl::transpiler::glsl::show_function_definition(&mut result, func);
-        result.push_str("\n\n");
+    let mut extracted_lines = HashSet::new();
+
+    for (start, end) in &function_ranges {
+        // Convert from 1-indexed to 0-indexed
+        let start_idx = start.saturating_sub(1);
+        let end_idx = end.saturating_sub(1);
+
+        for i in start_idx..=end_idx.min(source_lines.len().saturating_sub(1)) {
+            extracted_lines.insert(i);
+        }
+    }
+
+    // Build result, preserving original formatting including comments and whitespace
+    for (i, line) in source_lines.iter().enumerate() {
+        if extracted_lines.contains(&i) {
+            result.push_str(line);
+            result.push('\n');
+        }
     }
 
     Ok(result.trim().to_string())
+}
+
+/// Convert a byte offset in source to a line number (1-indexed).
+fn byte_offset_to_line(source: &str, offset: usize) -> Result<usize> {
+    if offset >= source.len() {
+        // If offset is at or past end, return the last line
+        return Ok(source.lines().count().max(1));
+    }
+
+    // Count newlines before this offset
+    let before_offset = &source[..offset];
+    let line_num = before_offset.chars().filter(|&c| c == '\n').count() + 1;
+    Ok(line_num)
 }
 
 #[cfg(test)]
