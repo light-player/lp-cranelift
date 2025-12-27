@@ -41,7 +41,7 @@ bvec3 test_bvec3_mix_other_mixed_selector() {
     return mix(a, b, selector);
 }
 
-// run: test_bvec3_mix_other_mixed_selector() == bvec3(true, false, true)
+// run: test_bvec3_mix_other_mixed_selector() == bvec3(true, true, true)
 
 bvec3 test_bvec3_mix_same_vectors() {
     bvec3 a = bvec3(true, true, true);

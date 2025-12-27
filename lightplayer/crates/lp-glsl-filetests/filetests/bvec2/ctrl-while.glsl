@@ -52,7 +52,7 @@ int test_bvec2_ctrl_while_dynamic_condition() {
     return counter;
 }
 
-// run: test_bvec2_ctrl_while_dynamic_condition() == 2
+// run: test_bvec2_ctrl_while_dynamic_condition() == 1
 
 int test_bvec2_ctrl_while_with_operations() {
     bvec2 a = bvec2(true, false);

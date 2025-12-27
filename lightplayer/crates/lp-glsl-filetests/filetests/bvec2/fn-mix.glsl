@@ -32,7 +32,7 @@ bvec2 test_bvec2_mix_mixed_selector() {
     return mix(a, b, selector);
 }
 
-// run: test_bvec2_mix_mixed_selector() == bvec2(false, false)
+// run: test_bvec2_mix_mixed_selector() == bvec2(true, true)
 
 bvec2 test_bvec2_mix_other_mixed_selector() {
     bvec2 a = bvec2(false, true);
