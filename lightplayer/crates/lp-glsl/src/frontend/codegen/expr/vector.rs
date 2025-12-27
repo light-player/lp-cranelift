@@ -1,4 +1,4 @@
-use crate::error::{source_span_to_location, ErrorCode, GlslError};
+use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::{InstBuilder, Value};
@@ -83,7 +83,10 @@ pub fn translate_vector_binary(
     let component_count = result_ty.component_count().unwrap();
 
     // Handle comparison operators specially - they return scalar bool (aggregate comparison)
-    if matches!(op, glsl::syntax::BinaryOp::Equal | glsl::syntax::BinaryOp::NonEqual) {
+    if matches!(
+        op,
+        glsl::syntax::BinaryOp::Equal | glsl::syntax::BinaryOp::NonEqual
+    ) {
         if !matches!(mode, VectorOpMode::ComponentWise) {
             return Err(GlslError::new(
                 ErrorCode::E0400,
@@ -91,17 +94,26 @@ pub fn translate_vector_binary(
             ));
         }
         // Aggregate comparison: compare all components and return bool (true if all equal)
-        let zero = ctx.builder.ins().iconst(cranelift_codegen::ir::types::I8, 0);
-        let one = ctx.builder.ins().iconst(cranelift_codegen::ir::types::I8, 1);
-        
+        let zero = ctx
+            .builder
+            .ins()
+            .iconst(cranelift_codegen::ir::types::I8, 0);
+        let one = ctx
+            .builder
+            .ins()
+            .iconst(cranelift_codegen::ir::types::I8, 1);
+
         // Start with true (all components equal so far)
         let mut all_equal_cmp: Option<cranelift_codegen::ir::Value> = None;
-        
+
         for i in 0..component_count {
             let lhs_comp = lhs_vals[i];
             let rhs_comp = rhs_vals[i];
             // Compare components (returns I1)
-            let cmp = if base_ty == GlslType::Bool || base_ty == GlslType::Int {
+            let cmp = if base_ty == GlslType::Bool
+                || base_ty == GlslType::Int
+                || base_ty == GlslType::UInt
+            {
                 ctx.builder.ins().icmp(
                     cranelift_codegen::ir::condcodes::IntCC::Equal,
                     lhs_comp,
@@ -121,9 +133,9 @@ pub fn translate_vector_binary(
                 all_equal_cmp = Some(cmp);
             }
         }
-        
+
         let all_equal = all_equal_cmp.unwrap();
-        
+
         // For ==, return all_equal; for !=, return NOT(all_equal)
         if matches!(op, glsl::syntax::BinaryOp::Equal) {
             // ==: return one if all equal, zero otherwise

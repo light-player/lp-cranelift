@@ -3,8 +3,8 @@
 use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use cranelift_codegen::{
-    ir::{FuncRef, Function},
     Context,
+    ir::{FuncRef, Function},
 };
 use cranelift_module::{FuncOrDataId, Linkage};
 

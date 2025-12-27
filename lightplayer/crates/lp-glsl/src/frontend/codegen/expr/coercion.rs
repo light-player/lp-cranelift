@@ -1,10 +1,10 @@
-use crate::error::{source_span_to_location, ErrorCode, GlslError};
+use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::{
-    condcodes::{FloatCC, IntCC}, types,
-    InstBuilder,
-    Value,
+    InstBuilder, Value,
+    condcodes::{FloatCC, IntCC},
+    types,
 };
 
 pub fn coerce_to_type(

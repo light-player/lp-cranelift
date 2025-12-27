@@ -850,6 +850,194 @@ impl GlslExecutable for GlslEmulatorModule {
         }
     }
 
+    fn call_ivec(
+        &mut self,
+        name: &str,
+        args: &[GlslValue],
+        dim: usize,
+    ) -> Result<Vec<i32>, GlslError> {
+        use crate::error::ErrorCode;
+        use cranelift_codegen::ir::ArgumentPurpose;
+
+        Self::validate_main_only(name)?;
+        Self::validate_no_args(args)?;
+
+        // Get the actual Cranelift signature for main
+        let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
+            GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
+        })?;
+
+        // Check if function uses StructReturn
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
+
+        if uses_struct_return {
+            // Clone signature before mutable borrow
+            let sig = sig.clone();
+
+            // Calculate buffer size for struct return
+            // Integer values are stored as i32 (4 bytes each)
+            let buffer_size = dim * 4;
+
+            // Call main via emulator with struct return (buffer allocation handled internally)
+            let results = self
+                .emulator
+                .call_function_with_struct_return(self.main_address, &[], &sig, buffer_size)
+                .map_err(|e| match e {
+                    EmulatorError::Trap { code, pc, regs } => {
+                        self.format_trap_error_from_emulator_error(code, pc, &regs, name)
+                    }
+                    other => self.build_enhanced_error(
+                        ErrorCode::E0400,
+                        &format!("Emulator execution failed: {}", other),
+                        name,
+                    ),
+                })?;
+
+            // Convert results from returned Vec<DataValue> (i32 values, no scaling)
+            let mut vec_result = Vec::with_capacity(dim);
+            for result in results.iter().take(dim) {
+                match result {
+                    cranelift_codegen::data_value::DataValue::I32(v) => {
+                        vec_result.push(*v); // Direct i32 value, no scaling
+                    }
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "Expected i32 return values for integer vector",
+                        ));
+                    }
+                }
+            }
+            Ok(vec_result)
+        } else {
+            // No StructReturn - read from return registers (legacy path)
+            let results = self
+                .emulator
+                .call_function(self.main_address, &[], sig)
+                .map_err(|e| {
+                    self.build_enhanced_error(
+                        ErrorCode::E0400,
+                        &format!("Emulator execution failed: {}", e),
+                        name,
+                    )
+                })?;
+
+            // Convert results from i32 (no scaling)
+            let mut vec_result = Vec::with_capacity(dim);
+            for result in results.iter().take(dim) {
+                match result {
+                    cranelift_codegen::data_value::DataValue::I32(v) => {
+                        vec_result.push(*v); // Direct i32 value
+                    }
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "Expected i32 return values for integer vector",
+                        ));
+                    }
+                }
+            }
+            Ok(vec_result)
+        }
+    }
+
+    fn call_uvec(
+        &mut self,
+        name: &str,
+        args: &[GlslValue],
+        dim: usize,
+    ) -> Result<Vec<u32>, GlslError> {
+        use crate::error::ErrorCode;
+        use cranelift_codegen::ir::ArgumentPurpose;
+
+        Self::validate_main_only(name)?;
+        Self::validate_no_args(args)?;
+
+        // Get the actual Cranelift signature for main
+        let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
+            GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
+        })?;
+
+        // Check if function uses StructReturn
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
+
+        if uses_struct_return {
+            // Clone signature before mutable borrow
+            let sig = sig.clone();
+
+            // Calculate buffer size for struct return
+            // Unsigned integer values are stored as i32 (4 bytes each), interpreted as u32
+            let buffer_size = dim * 4;
+
+            // Call main via emulator with struct return (buffer allocation handled internally)
+            let results = self
+                .emulator
+                .call_function_with_struct_return(self.main_address, &[], &sig, buffer_size)
+                .map_err(|e| match e {
+                    EmulatorError::Trap { code, pc, regs } => {
+                        self.format_trap_error_from_emulator_error(code, pc, &regs, name)
+                    }
+                    other => self.build_enhanced_error(
+                        ErrorCode::E0400,
+                        &format!("Emulator execution failed: {}", other),
+                        name,
+                    ),
+                })?;
+
+            // Convert results from returned Vec<DataValue> (i32 values interpreted as u32, no scaling)
+            let mut vec_result = Vec::with_capacity(dim);
+            for result in results.iter().take(dim) {
+                match result {
+                    cranelift_codegen::data_value::DataValue::I32(v) => {
+                        vec_result.push(*v as u32); // Convert i32 to u32 (bit pattern preserved)
+                    }
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "Expected i32 return values for unsigned integer vector",
+                        ));
+                    }
+                }
+            }
+            Ok(vec_result)
+        } else {
+            // No StructReturn - read from return registers (legacy path)
+            let results = self
+                .emulator
+                .call_function(self.main_address, &[], sig)
+                .map_err(|e| {
+                    self.build_enhanced_error(
+                        ErrorCode::E0400,
+                        &format!("Emulator execution failed: {}", e),
+                        name,
+                    )
+                })?;
+
+            // Convert results from i32 to u32 (no scaling)
+            let mut vec_result = Vec::with_capacity(dim);
+            for result in results.iter().take(dim) {
+                match result {
+                    cranelift_codegen::data_value::DataValue::I32(v) => {
+                        vec_result.push(*v as u32); // Convert i32 to u32 (bit pattern preserved)
+                    }
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "Expected i32 return values for unsigned integer vector",
+                        ));
+                    }
+                }
+            }
+            Ok(vec_result)
+        }
+    }
+
     fn call_vec(
         &mut self,
         name: &str,

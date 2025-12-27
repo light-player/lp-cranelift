@@ -50,7 +50,7 @@ mod tests {
     use super::*;
     use crate::backend::module::gl_module::GlModule;
     use crate::backend::target::Target;
-    use cranelift_codegen::ir::{types, AbiParam, Signature};
+    use cranelift_codegen::ir::{AbiParam, Signature, types};
     use cranelift_codegen::isa::CallConv;
 
     /// Identity transform for testing

@@ -40,7 +40,8 @@ pub fn translate_condition(
                 Ok(()) => {}
                 Err(mut error) => {
                     if error.location.is_none() {
-                        error = error.with_location(crate::error::source_span_to_location(&cond_span));
+                        error =
+                            error.with_location(crate::error::source_span_to_location(&cond_span));
                     }
                     return Err(ctx.add_span_to_error(error, &cond_span));
                 }
@@ -53,16 +54,16 @@ pub fn translate_condition(
         glsl::syntax::Condition::Assignment(type_spec, identifier, initializer) => {
             // Variable declaration in condition: `while (bool j = i < 3)`
             // According to GLSL spec, the variable is declared, initialized, and its value is used as the condition
-            
+
             // Parse the type
             let var_ty = parse_type_specifier(ctx, type_spec)?;
-            
+
             // Declare the variable in the current scope
             let vars = ctx.declare_variable(identifier.name.clone(), var_ty.clone())?;
-            
+
             // Evaluate the initializer
             let (init_vals, init_ty) = emit_initializer(ctx, initializer)?;
-            
+
             // Extract span from initializer for error reporting
             let init_span = match initializer {
                 glsl::syntax::Initializer::Simple(expr) => {
@@ -70,20 +71,19 @@ pub fn translate_condition(
                 }
                 _ => glsl::syntax::SourceSpan::unknown(),
             };
-            
+
             // Type check (allows implicit conversions)
             match crate::frontend::semantic::type_check::check_assignment(&var_ty, &init_ty) {
                 Ok(()) => {}
                 Err(mut error) => {
                     if error.location.is_none() {
-                        error = error.with_location(crate::error::source_span_to_location(
-                            &init_span,
-                        ));
+                        error =
+                            error.with_location(crate::error::source_span_to_location(&init_span));
                     }
                     return Err(ctx.add_span_to_error(error, &init_span));
                 }
             }
-            
+
             // Coerce initializer values to match variable type
             let base_ty = if var_ty.is_vector() {
                 var_ty.vector_base_type().unwrap()
@@ -99,7 +99,7 @@ pub fn translate_condition(
             } else {
                 init_ty.clone()
             };
-            
+
             // Check component counts match
             if vars.len() != init_vals.len() {
                 return Err(GlslError::new(
@@ -111,13 +111,13 @@ pub fn translate_condition(
                     ),
                 ));
             }
-            
+
             // Assign each component with type coercion
             for (var, val) in vars.iter().zip(&init_vals) {
                 let coerced_val = ctx.coerce_to_type(*val, &init_base, &base_ty)?;
                 ctx.builder.def_var(*var, coerced_val);
             }
-            
+
             // Read the variable's value to use as the condition
             // Validate that the variable type is bool (GLSL spec requirement for conditions)
             // Use the initializer span for error reporting - it covers the expression being assigned
@@ -127,14 +127,15 @@ pub fn translate_condition(
                 Ok(()) => {}
                 Err(mut error) => {
                     if error.location.is_none() {
-                        error = error.with_location(crate::error::source_span_to_location(&init_span));
+                        error =
+                            error.with_location(crate::error::source_span_to_location(&init_span));
                     }
                     // Use init_span but we need to create a span that covers the whole assignment
                     // For now, use init_span - the formatting function will need to handle extending it
                     return Err(ctx.add_span_to_error(error, &init_span));
                 }
             }
-            
+
             // Return the first (and only) component value
             Ok(ctx.builder.use_var(vars[0]))
         }

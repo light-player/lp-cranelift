@@ -1,7 +1,7 @@
 //! Constructor validation for vector and matrix types
 //! Implements GLSL spec: variables.adoc:72-97
 
-use crate::error::{source_span_to_location, ErrorCode, GlslError};
+use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use crate::frontend::semantic::types::Type;
 use glsl::syntax::SourceSpan;
 
@@ -65,8 +65,7 @@ pub fn check_vector_constructor_with_span(
                 )
                 .with_note(format!(
                     "expected at least {} components, found {}",
-                    component_count,
-                    src_component_count
+                    component_count, src_component_count
                 )),
             ));
         }
@@ -129,6 +128,9 @@ fn parse_vector_type_name(name: &str) -> Result<Type, GlslError> {
         "ivec2" => Ok(Type::IVec2),
         "ivec3" => Ok(Type::IVec3),
         "ivec4" => Ok(Type::IVec4),
+        "uvec2" => Ok(Type::UVec2),
+        "uvec3" => Ok(Type::UVec3),
+        "uvec4" => Ok(Type::UVec4),
         "bvec2" => Ok(Type::BVec2),
         "bvec3" => Ok(Type::BVec3),
         "bvec4" => Ok(Type::BVec4),
@@ -157,7 +159,18 @@ fn count_total_components(args: &[Type]) -> Result<usize, GlslError> {
 pub fn is_vector_type_name(name: &str) -> bool {
     matches!(
         name,
-        "vec2" | "vec3" | "vec4" | "ivec2" | "ivec3" | "ivec4" | "bvec2" | "bvec3" | "bvec4"
+        "vec2"
+            | "vec3"
+            | "vec4"
+            | "ivec2"
+            | "ivec3"
+            | "ivec4"
+            | "uvec2"
+            | "uvec3"
+            | "uvec4"
+            | "bvec2"
+            | "bvec3"
+            | "bvec4"
     )
 }
 

@@ -106,7 +106,7 @@ mod tests {
     use crate::backend::module::gl_module::GlModule;
     use crate::backend::module::test_helpers::test_helpers::build_simple_function;
     use crate::backend::target::Target;
-    use cranelift_codegen::ir::{types, AbiParam, InstBuilder, Signature};
+    use cranelift_codegen::ir::{AbiParam, InstBuilder, Signature, types};
     use cranelift_codegen::isa::CallConv;
     use cranelift_module::Linkage;
 

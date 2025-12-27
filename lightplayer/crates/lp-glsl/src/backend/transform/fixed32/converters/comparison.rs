@@ -6,8 +6,8 @@ use crate::backend::transform::fixed32::converters::{
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::error::GlslError;
 use cranelift_codegen::ir::{
-    condcodes::{FloatCC, IntCC}, Function, Inst, InstBuilder, InstructionData,
-    Value,
+    Function, Inst, InstBuilder, InstructionData, Value,
+    condcodes::{FloatCC, IntCC},
 };
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;

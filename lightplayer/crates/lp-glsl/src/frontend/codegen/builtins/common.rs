@@ -3,7 +3,7 @@
 use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
-use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, Value};
+use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
 
 use alloc::vec::Vec;
 
@@ -35,6 +35,13 @@ impl<'a> CodegenContext<'a> {
                         let cmp = self.builder.ins().icmp(IntCC::SignedLessThan, x, y_scalar);
                         self.builder.ins().select(cmp, x, y_scalar)
                     }
+                    Type::UInt => {
+                        let cmp = self
+                            .builder
+                            .ins()
+                            .icmp(IntCC::UnsignedLessThan, x, y_scalar);
+                        self.builder.ins().select(cmp, x, y_scalar)
+                    }
                     _ => {
                         return Err(GlslError::new(
                             ErrorCode::E0105,
@@ -54,6 +61,13 @@ impl<'a> CodegenContext<'a> {
                             self.builder
                                 .ins()
                                 .icmp(IntCC::SignedLessThan, x_vals[i], y_vals[i]);
+                        self.builder.ins().select(cmp, x_vals[i], y_vals[i])
+                    }
+                    Type::UInt => {
+                        let cmp =
+                            self.builder
+                                .ins()
+                                .icmp(IntCC::UnsignedLessThan, x_vals[i], y_vals[i]);
                         self.builder.ins().select(cmp, x_vals[i], y_vals[i])
                     }
                     _ => {
@@ -100,6 +114,13 @@ impl<'a> CodegenContext<'a> {
                             .icmp(IntCC::SignedGreaterThan, x, y_scalar);
                         self.builder.ins().select(cmp, x, y_scalar)
                     }
+                    Type::UInt => {
+                        let cmp = self
+                            .builder
+                            .ins()
+                            .icmp(IntCC::UnsignedGreaterThan, x, y_scalar);
+                        self.builder.ins().select(cmp, x, y_scalar)
+                    }
                     _ => {
                         return Err(GlslError::new(
                             ErrorCode::E0105,
@@ -119,6 +140,14 @@ impl<'a> CodegenContext<'a> {
                             self.builder
                                 .ins()
                                 .icmp(IntCC::SignedGreaterThan, x_vals[i], y_vals[i]);
+                        self.builder.ins().select(cmp, x_vals[i], y_vals[i])
+                    }
+                    Type::UInt => {
+                        let cmp = self.builder.ins().icmp(
+                            IntCC::UnsignedGreaterThan,
+                            x_vals[i],
+                            y_vals[i],
+                        );
                         self.builder.ins().select(cmp, x_vals[i], y_vals[i])
                     }
                     _ => {

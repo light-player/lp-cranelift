@@ -1,6 +1,6 @@
 //! Type parsing utilities for converting GLSL AST types to our Type enum
 
-use crate::error::{source_span_to_location, GlslError};
+use crate::error::{GlslError, source_span_to_location};
 use crate::frontend::semantic::types;
 
 /// Parse GLSL type specifier into our Type enum
@@ -22,6 +22,9 @@ pub fn parse_type_specifier(
         TypeSpecifierNonArray::IVec2 => Ok(types::Type::IVec2),
         TypeSpecifierNonArray::IVec3 => Ok(types::Type::IVec3),
         TypeSpecifierNonArray::IVec4 => Ok(types::Type::IVec4),
+        TypeSpecifierNonArray::UVec2 => Ok(types::Type::UVec2),
+        TypeSpecifierNonArray::UVec3 => Ok(types::Type::UVec3),
+        TypeSpecifierNonArray::UVec4 => Ok(types::Type::UVec4),
         TypeSpecifierNonArray::BVec2 => Ok(types::Type::BVec2),
         TypeSpecifierNonArray::BVec3 => Ok(types::Type::BVec3),
         TypeSpecifierNonArray::BVec4 => Ok(types::Type::BVec4),

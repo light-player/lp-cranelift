@@ -1,9 +1,9 @@
-use crate::error::{extract_span_from_expr, source_span_to_location, ErrorCode, GlslError};
+use crate::error::{ErrorCode, GlslError, extract_span_from_expr, source_span_to_location};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::rvalue::RValue;
 use crate::frontend::semantic::type_check::conversion::can_implicitly_convert;
 use crate::semantic::types::Type as GlslType;
-use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, Value};
+use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
 use glsl::syntax::Expr;
 
 use super::coercion;
@@ -95,12 +95,7 @@ pub fn emit_ternary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
         let true_count = true_vals.len();
         let mut coerced_true_vals = Vec::new();
         for i in 0..true_count {
-            let coerced = coercion::coerce_to_type(
-                ctx,
-                true_vals[i],
-                &true_base,
-                &result_base,
-            )?;
+            let coerced = coercion::coerce_to_type(ctx, true_vals[i], &true_base, &result_base)?;
             coerced_true_vals.push(coerced);
         }
         true_vals = coerced_true_vals;
@@ -125,12 +120,7 @@ pub fn emit_ternary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
         let false_count = false_vals.len();
         let mut coerced_false_vals = Vec::new();
         for i in 0..false_count {
-            let coerced = coercion::coerce_to_type(
-                ctx,
-                false_vals[i],
-                &false_base,
-                &result_base,
-            )?;
+            let coerced = coercion::coerce_to_type(ctx, false_vals[i], &false_base, &result_base)?;
             coerced_false_vals.push(coerced);
         }
         false_vals = coerced_false_vals;
@@ -208,7 +198,10 @@ fn translate_vector_ternary(
     let mut result_vals = Vec::new();
 
     for i in 0..component_count {
-        let result_comp = ctx.builder.ins().select(cond_i1, true_vals[i], false_vals[i]);
+        let result_comp = ctx
+            .builder
+            .ins()
+            .select(cond_i1, true_vals[i], false_vals[i]);
         result_vals.push(result_comp);
     }
 
@@ -232,10 +225,12 @@ fn translate_matrix_ternary(
     let mut result_vals = Vec::new();
 
     for i in 0..component_count {
-        let result_comp = ctx.builder.ins().select(cond_i1, true_vals[i], false_vals[i]);
+        let result_comp = ctx
+            .builder
+            .ins()
+            .select(cond_i1, true_vals[i], false_vals[i]);
         result_vals.push(result_comp);
     }
 
     Ok((result_vals, result_ty.clone()))
 }
-

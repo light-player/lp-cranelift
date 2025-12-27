@@ -1,7 +1,7 @@
 //! Matrix operation type inference
 //! Implements GLSL spec: operators.adoc:1019-1098
 
-use crate::error::{source_span_to_location, ErrorCode, GlslError};
+use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use crate::frontend::semantic::types::Type;
 use glsl::syntax::{BinaryOp, SourceSpan};
 

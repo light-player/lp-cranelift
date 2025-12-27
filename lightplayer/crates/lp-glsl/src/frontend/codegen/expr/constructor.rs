@@ -1,4 +1,4 @@
-use crate::error::{source_span_to_location, ErrorCode, GlslError};
+use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::type_check::{check_matrix_constructor, check_vector_constructor_with_span};
 use crate::semantic::types::Type as GlslType;
@@ -42,7 +42,13 @@ pub fn translate_vector_constructor(
         };
     let base_type = result_type.vector_base_type().unwrap();
     let component_count = result_type.component_count().unwrap();
-    crate::debug!("vector constructor: type_name={}, result_type={:?}, base_type={:?}, component_count={}", type_name, result_type, base_type, component_count);
+    crate::debug!(
+        "vector constructor: type_name={}, result_type={:?}, base_type={:?}, component_count={}",
+        type_name,
+        result_type,
+        base_type,
+        component_count
+    );
 
     // Generate component values
     let mut components = Vec::new();
@@ -233,7 +239,7 @@ pub fn translate_scalar_constructor(
     let arg_rvalue = ctx.emit_rvalue(&args[0])?;
     let arg_ty = arg_rvalue.ty().clone();
     let arg_vals = arg_rvalue.into_values();
-    
+
     // Extract first component (for vectors) or use scalar value
     let arg_val = if arg_vals.len() > 1 {
         // Vector: extract first component
@@ -244,11 +250,14 @@ pub fn translate_scalar_constructor(
     } else {
         return Err(GlslError::new(
             ErrorCode::E0115,
-            format!("`{}` constructor requires at least one component", type_name),
+            format!(
+                "`{}` constructor requires at least one component",
+                type_name
+            ),
         )
         .with_location(source_span_to_location(&span)));
     };
-    
+
     // For vectors, get the base type for coercion
     let arg_base_ty = if arg_ty.is_vector() {
         arg_ty.vector_base_type().unwrap()

@@ -479,6 +479,104 @@ impl GlslExecutable for GlslJitModule {
         Ok(result)
     }
 
+    fn call_ivec(
+        &mut self,
+        name: &str,
+        args: &[GlslValue],
+        dim: usize,
+    ) -> Result<Vec<i32>, GlslError> {
+        use crate::error::ErrorCode;
+
+        self.validate_main_only(name)?;
+        self.validate_no_args(args, "call_ivec")?;
+
+        let func_ptr = self.function_ptrs.get(name).ok_or_else(|| {
+            GlslError::new(ErrorCode::E0101, format!("Function '{}' not found", name))
+        })?;
+
+        // Use struct return for integer vectors (multiple i32s returned via pointer)
+        let buffer_size = dim * 4; // Each i32 is 4 bytes
+        let mut buffer = vec![0u8; buffer_size];
+        unsafe {
+            call_structreturn(
+                *func_ptr,
+                buffer.as_mut_ptr() as *mut u8,
+                buffer_size,
+                self.call_conv,
+                self.pointer_type,
+            )
+            .map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("StructReturn call failed for ivec{}: {}", dim, e),
+                )
+            })?;
+        }
+        // Extract i32 values from buffer (no scaling)
+        let mut result = Vec::with_capacity(dim);
+        for i in 0..dim {
+            let offset = i * 4;
+            let bytes = [
+                buffer[offset],
+                buffer[offset + 1],
+                buffer[offset + 2],
+                buffer[offset + 3],
+            ];
+            let value = i32::from_le_bytes(bytes);
+            result.push(value);
+        }
+        Ok(result)
+    }
+
+    fn call_uvec(
+        &mut self,
+        name: &str,
+        args: &[GlslValue],
+        dim: usize,
+    ) -> Result<Vec<u32>, GlslError> {
+        use crate::error::ErrorCode;
+
+        self.validate_main_only(name)?;
+        self.validate_no_args(args, "call_uvec")?;
+
+        let func_ptr = self.function_ptrs.get(name).ok_or_else(|| {
+            GlslError::new(ErrorCode::E0101, format!("Function '{}' not found", name))
+        })?;
+
+        // Use struct return for unsigned integer vectors (multiple i32s returned via pointer, interpreted as u32)
+        let buffer_size = dim * 4; // Each i32/u32 is 4 bytes
+        let mut buffer = vec![0u8; buffer_size];
+        unsafe {
+            call_structreturn(
+                *func_ptr,
+                buffer.as_mut_ptr() as *mut u8,
+                buffer_size,
+                self.call_conv,
+                self.pointer_type,
+            )
+            .map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("StructReturn call failed for uvec{}: {}", dim, e),
+                )
+            })?;
+        }
+        // Extract i32 values from buffer and convert to u32 (bit pattern preserved, no scaling)
+        let mut result = Vec::with_capacity(dim);
+        for i in 0..dim {
+            let offset = i * 4;
+            let bytes = [
+                buffer[offset],
+                buffer[offset + 1],
+                buffer[offset + 2],
+                buffer[offset + 3],
+            ];
+            let value = i32::from_le_bytes(bytes) as u32;
+            result.push(value);
+        }
+        Ok(result)
+    }
+
     fn call_vec(
         &mut self,
         name: &str,
@@ -566,7 +664,7 @@ impl GlslExecutable for GlslJitModule {
 #[cfg(test)]
 #[cfg(feature = "std")]
 mod tests {
-    use crate::{glsl_jit, DecimalFormat, GlslOptions, RunMode};
+    use crate::{DecimalFormat, GlslOptions, RunMode, glsl_jit};
 
     #[test]
     fn test_jit_int_literal() {

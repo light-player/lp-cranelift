@@ -3,7 +3,7 @@
 use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
-use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, Value};
+use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
 
 use alloc::vec::Vec;
 
@@ -185,7 +185,10 @@ impl<'a> CodegenContext<'a> {
             // Check if selector is non-zero (true)
             let selector_true = self.builder.ins().icmp(IntCC::NotEqual, a_vals[i], zero);
             // Select: if selector is true, take y; else take x
-            let result = self.builder.ins().select(selector_true, y_vals[i], x_vals[i]);
+            let result = self
+                .builder
+                .ins()
+                .select(selector_true, y_vals[i], x_vals[i]);
             result_vals.push(result);
         }
 

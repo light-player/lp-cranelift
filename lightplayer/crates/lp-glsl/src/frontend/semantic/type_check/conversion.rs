@@ -1,7 +1,7 @@
 //! Type promotion and conversion rules for GLSL
 //! Implements GLSL spec: variables.adoc:1182-1229
 
-use crate::error::{source_span_to_location, ErrorCode, GlslError};
+use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use crate::frontend::semantic::types::Type;
 use glsl::syntax::SourceSpan;
 
@@ -38,19 +38,31 @@ pub fn can_implicitly_convert(from: &Type, to: &Type) -> bool {
         return true;
     }
     // int ↔ uint conversions (bit pattern preserved)
-    if matches!((from, to), (Type::Int, Type::UInt) | (Type::UInt, Type::Int)) {
+    if matches!(
+        (from, to),
+        (Type::Int, Type::UInt) | (Type::UInt, Type::Int)
+    ) {
         return true;
     }
     // uint ↔ float conversions
-    if matches!((from, to), (Type::UInt, Type::Float) | (Type::Float, Type::UInt)) {
+    if matches!(
+        (from, to),
+        (Type::UInt, Type::Float) | (Type::Float, Type::UInt)
+    ) {
         return true;
     }
     // Numeric to bool conversions (for constructors: 0/0.0 → false, non-zero → true)
-    if matches!((from, to), (Type::Int, Type::Bool) | (Type::UInt, Type::Bool) | (Type::Float, Type::Bool)) {
+    if matches!(
+        (from, to),
+        (Type::Int, Type::Bool) | (Type::UInt, Type::Bool) | (Type::Float, Type::Bool)
+    ) {
         return true;
     }
     // Bool to numeric conversions (for constructors: false → 0/0.0, true → 1/1.0)
-    if matches!((from, to), (Type::Bool, Type::Int) | (Type::Bool, Type::UInt) | (Type::Bool, Type::Float)) {
+    if matches!(
+        (from, to),
+        (Type::Bool, Type::Int) | (Type::Bool, Type::UInt) | (Type::Bool, Type::Float)
+    ) {
         return true;
     }
 

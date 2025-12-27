@@ -2,18 +2,17 @@
 
 use crate::backend::module::gl_module::GlModule;
 use crate::error::GlslError;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use cranelift_codegen::ir::{ExternalName, UserFuncName};
 use cranelift_codegen::write_function;
 use cranelift_module::Module;
 use hashbrown::HashMap;
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
 
 /// Format a GlModule as CLIF text for debugging.
 /// This produces a human-readable representation of all functions in the module.
 #[cfg(feature = "std")]
 pub fn format_clif_module<M: Module>(module: &GlModule<M>) -> Result<String, GlslError> {
-
     let mut result = String::new();
 
     // Build mapping from func_id string to function name for updating external references
@@ -54,7 +53,6 @@ fn format_function(
     name: &str,
     name_mapping: &HashMap<String, String>,
 ) -> Result<String, GlslError> {
-
     // Clone the function so we can modify it
     let mut func_clone = func.clone();
 
@@ -87,13 +85,13 @@ fn format_function(
     }
 
     let mut buf = String::new();
-    write_function(&mut buf, &func_clone)
-        .map_err(|e| GlslError::new(
+    write_function(&mut buf, &func_clone).map_err(|e| {
+        GlslError::new(
             crate::error::ErrorCode::E0400,
             format!("failed to write function: {}", e),
-        ))?;
+        )
+    })?;
 
     // Return plain CLIF IR text (no comment prefixes)
     Ok(buf)
 }
-

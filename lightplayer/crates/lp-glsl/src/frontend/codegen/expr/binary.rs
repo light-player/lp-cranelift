@@ -4,9 +4,9 @@ use crate::frontend::codegen::rvalue::RValue;
 use crate::semantic::type_check::{infer_binary_result_type, promote_numeric};
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::{
-    condcodes::{FloatCC, IntCC}, types,
-    InstBuilder,
-    Value,
+    InstBuilder, Value,
+    condcodes::{FloatCC, IntCC},
+    types,
 };
 use glsl::syntax::Expr;
 
@@ -106,8 +106,13 @@ fn translate_scalar_binary(
         (lhs_bool, rhs_bool, GlslType::Bool)
     } else if is_comparison {
         // Comparison operators: handle boolean and numeric separately
-        crate::debug!("binary op: comparison, lhs_ty={:?}, rhs_ty={:?}", lhs_ty, rhs_ty);
-        if matches!(op, Equal | NonEqual) && lhs_ty == &GlslType::Bool && rhs_ty == &GlslType::Bool {
+        crate::debug!(
+            "binary op: comparison, lhs_ty={:?}, rhs_ty={:?}",
+            lhs_ty,
+            rhs_ty
+        );
+        if matches!(op, Equal | NonEqual) && lhs_ty == &GlslType::Bool && rhs_ty == &GlslType::Bool
+        {
             // Boolean equality: no promotion needed
             crate::debug!("  both operands are Bool, no promotion");
             (lhs_val, rhs_val, GlslType::Bool)
@@ -119,7 +124,10 @@ fn translate_scalar_binary(
                 // This should have been caught by type checking, but handle gracefully
                 return Err(GlslError::new(
                     ErrorCode::E0400,
-                    format!("comparison between {:?} and {:?} not supported", lhs_ty, rhs_ty),
+                    format!(
+                        "comparison between {:?} and {:?} not supported",
+                        lhs_ty, rhs_ty
+                    ),
                 ));
             } else {
                 promote_numeric(lhs_ty, rhs_ty)
@@ -131,7 +139,11 @@ fn translate_scalar_binary(
         }
     } else {
         // Arithmetic operators: promote to common type
-        crate::debug!("binary op: arithmetic, promoting lhs_ty={:?}, rhs_ty={:?}", lhs_ty, rhs_ty);
+        crate::debug!(
+            "binary op: arithmetic, promoting lhs_ty={:?}, rhs_ty={:?}",
+            lhs_ty,
+            rhs_ty
+        );
         let common_ty = promote_numeric(lhs_ty, rhs_ty);
         crate::debug!("  common_ty={:?}", common_ty);
         let lhs_val = coercion::coerce_to_type(ctx, lhs_val, lhs_ty, &common_ty)?;
@@ -334,10 +346,11 @@ fn translate_scalar_binary_op(
                     .builder
                     .ins()
                     .icmp(IntCC::SignedGreaterThanOrEqual, lhs, rhs),
-                GlslType::UInt => ctx
-                    .builder
-                    .ins()
-                    .icmp(IntCC::UnsignedGreaterThanOrEqual, lhs, rhs),
+                GlslType::UInt => {
+                    ctx.builder
+                        .ins()
+                        .icmp(IntCC::UnsignedGreaterThanOrEqual, lhs, rhs)
+                }
                 GlslType::Float => ctx
                     .builder
                     .ins()

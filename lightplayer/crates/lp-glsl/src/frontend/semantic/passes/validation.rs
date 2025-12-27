@@ -1,8 +1,8 @@
 //! Pass for validating function bodies
 
 use crate::error::GlslError;
-use crate::frontend::semantic::validator;
 use crate::frontend::semantic::TypedShader;
+use crate::frontend::semantic::validator;
 
 /// Validation pass that operates on a TypedShader
 /// Note: This pass operates on TypedShader, not TranslationUnit, so it's a different phase

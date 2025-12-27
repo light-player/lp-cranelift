@@ -3,7 +3,7 @@
 use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
-use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, Value};
+use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
 
 use alloc::vec::Vec;
 
@@ -107,7 +107,7 @@ impl<'a> CodegenContext<'a> {
 
         let mut result_vals = Vec::new();
         for i in 0..x_vals.len() {
-            let cmp = if base_ty == Type::Bool || base_ty == Type::Int {
+            let cmp = if base_ty == Type::Bool || base_ty == Type::Int || base_ty == Type::UInt {
                 self.builder.ins().icmp(IntCC::Equal, x_vals[i], y_vals[i])
             } else {
                 self.builder.ins().fcmp(
@@ -153,8 +153,10 @@ impl<'a> CodegenContext<'a> {
 
         let mut result_vals = Vec::new();
         for i in 0..x_vals.len() {
-            let cmp = if base_ty == Type::Bool || base_ty == Type::Int {
-                self.builder.ins().icmp(IntCC::NotEqual, x_vals[i], y_vals[i])
+            let cmp = if base_ty == Type::Bool || base_ty == Type::Int || base_ty == Type::UInt {
+                self.builder
+                    .ins()
+                    .icmp(IntCC::NotEqual, x_vals[i], y_vals[i])
             } else {
                 self.builder.ins().fcmp(
                     cranelift_codegen::ir::condcodes::FloatCC::NotEqual,
@@ -178,5 +180,200 @@ impl<'a> CodegenContext<'a> {
 
         Ok((result_vals, return_ty))
     }
-}
 
+    /// greaterThan(x, y) - component-wise greater than comparison
+    /// Returns a boolean vector with the same dimension as the input vectors
+    pub fn builtin_greater_than(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let (y_vals, _) = &args[1];
+
+        let base_ty = if x_ty.is_vector() {
+            x_ty.vector_base_type().unwrap()
+        } else {
+            x_ty.clone()
+        };
+
+        let zero = self.builder.ins().iconst(types::I8, 0);
+        let one = self.builder.ins().iconst(types::I8, 1);
+
+        let mut result_vals = Vec::new();
+        for i in 0..x_vals.len() {
+            let cmp = if base_ty == Type::Float {
+                self.builder.ins().fcmp(
+                    cranelift_codegen::ir::condcodes::FloatCC::GreaterThan,
+                    x_vals[i],
+                    y_vals[i],
+                )
+            } else {
+                // Integer comparison (works for both signed and unsigned)
+                self.builder
+                    .ins()
+                    .icmp(IntCC::SignedGreaterThan, x_vals[i], y_vals[i])
+            };
+            // Convert I1 to I8
+            let result = self.builder.ins().select(cmp, one, zero);
+            result_vals.push(result);
+        }
+
+        // Return type is a boolean vector with the same dimension as the input
+        let return_ty = if x_ty.is_vector() {
+            let component_count = x_ty.component_count().unwrap();
+            Type::vector_type(&Type::Bool, component_count).unwrap()
+        } else {
+            // Scalar input -> scalar bool output
+            Type::Bool
+        };
+
+        Ok((result_vals, return_ty))
+    }
+
+    /// greaterThanEqual(x, y) - component-wise greater than or equal comparison
+    /// Returns a boolean vector with the same dimension as the input vectors
+    pub fn builtin_greater_than_equal(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let (y_vals, _) = &args[1];
+
+        let base_ty = if x_ty.is_vector() {
+            x_ty.vector_base_type().unwrap()
+        } else {
+            x_ty.clone()
+        };
+
+        let zero = self.builder.ins().iconst(types::I8, 0);
+        let one = self.builder.ins().iconst(types::I8, 1);
+
+        let mut result_vals = Vec::new();
+        for i in 0..x_vals.len() {
+            let cmp = if base_ty == Type::Float {
+                self.builder.ins().fcmp(
+                    cranelift_codegen::ir::condcodes::FloatCC::GreaterThanOrEqual,
+                    x_vals[i],
+                    y_vals[i],
+                )
+            } else {
+                // Integer comparison (works for both signed and unsigned)
+                self.builder
+                    .ins()
+                    .icmp(IntCC::SignedGreaterThanOrEqual, x_vals[i], y_vals[i])
+            };
+            // Convert I1 to I8
+            let result = self.builder.ins().select(cmp, one, zero);
+            result_vals.push(result);
+        }
+
+        // Return type is a boolean vector with the same dimension as the input
+        let return_ty = if x_ty.is_vector() {
+            let component_count = x_ty.component_count().unwrap();
+            Type::vector_type(&Type::Bool, component_count).unwrap()
+        } else {
+            // Scalar input -> scalar bool output
+            Type::Bool
+        };
+
+        Ok((result_vals, return_ty))
+    }
+
+    /// lessThan(x, y) - component-wise less than comparison
+    /// Returns a boolean vector with the same dimension as the input vectors
+    pub fn builtin_less_than(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let (y_vals, _) = &args[1];
+
+        let base_ty = if x_ty.is_vector() {
+            x_ty.vector_base_type().unwrap()
+        } else {
+            x_ty.clone()
+        };
+
+        let zero = self.builder.ins().iconst(types::I8, 0);
+        let one = self.builder.ins().iconst(types::I8, 1);
+
+        let mut result_vals = Vec::new();
+        for i in 0..x_vals.len() {
+            let cmp = if base_ty == Type::Float {
+                self.builder.ins().fcmp(
+                    cranelift_codegen::ir::condcodes::FloatCC::LessThan,
+                    x_vals[i],
+                    y_vals[i],
+                )
+            } else {
+                // Integer comparison (works for both signed and unsigned)
+                self.builder
+                    .ins()
+                    .icmp(IntCC::SignedLessThan, x_vals[i], y_vals[i])
+            };
+            // Convert I1 to I8
+            let result = self.builder.ins().select(cmp, one, zero);
+            result_vals.push(result);
+        }
+
+        // Return type is a boolean vector with the same dimension as the input
+        let return_ty = if x_ty.is_vector() {
+            let component_count = x_ty.component_count().unwrap();
+            Type::vector_type(&Type::Bool, component_count).unwrap()
+        } else {
+            // Scalar input -> scalar bool output
+            Type::Bool
+        };
+
+        Ok((result_vals, return_ty))
+    }
+
+    /// lessThanEqual(x, y) - component-wise less than or equal comparison
+    /// Returns a boolean vector with the same dimension as the input vectors
+    pub fn builtin_less_than_equal(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let (y_vals, _) = &args[1];
+
+        let base_ty = if x_ty.is_vector() {
+            x_ty.vector_base_type().unwrap()
+        } else {
+            x_ty.clone()
+        };
+
+        let zero = self.builder.ins().iconst(types::I8, 0);
+        let one = self.builder.ins().iconst(types::I8, 1);
+
+        let mut result_vals = Vec::new();
+        for i in 0..x_vals.len() {
+            let cmp = if base_ty == Type::Float {
+                self.builder.ins().fcmp(
+                    cranelift_codegen::ir::condcodes::FloatCC::LessThanOrEqual,
+                    x_vals[i],
+                    y_vals[i],
+                )
+            } else {
+                // Integer comparison (works for both signed and unsigned)
+                self.builder
+                    .ins()
+                    .icmp(IntCC::SignedLessThanOrEqual, x_vals[i], y_vals[i])
+            };
+            // Convert I1 to I8
+            let result = self.builder.ins().select(cmp, one, zero);
+            result_vals.push(result);
+        }
+
+        // Return type is a boolean vector with the same dimension as the input
+        let return_ty = if x_ty.is_vector() {
+            let component_count = x_ty.component_count().unwrap();
+            Type::vector_type(&Type::Bool, component_count).unwrap()
+        } else {
+            // Scalar input -> scalar bool output
+            Type::Bool
+        };
+
+        Ok((result_vals, return_ty))
+    }
+}

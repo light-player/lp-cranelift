@@ -5,8 +5,8 @@
 //! eliminating code duplication across assignment, increment, and decrement operations.
 
 use crate::error::{
-    extract_span_from_expr, extract_span_from_identifier, source_span_to_location, ErrorCode,
-    GlslError,
+    ErrorCode, GlslError, extract_span_from_expr, extract_span_from_identifier,
+    source_span_to_location,
 };
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::rvalue::RValue;
@@ -430,7 +430,12 @@ pub fn read_lvalue(
         } => {
             let val = ctx.builder.use_var(base_vars[*index]);
             let base_type = base_ty.vector_base_type().unwrap();
-            crate::debug!("read_lvalue VectorElement: base_ty={:?}, base_type={:?}, index={}", base_ty, base_type, index);
+            crate::debug!(
+                "read_lvalue VectorElement: base_ty={:?}, base_type={:?}, index={}",
+                base_ty,
+                base_type,
+                index
+            );
             Ok((vec![val], base_type))
         }
     }

@@ -7,4 +7,4 @@ mod compiler;
 pub mod loader;
 
 pub use compiler::compile_intrinsic_functions;
-pub use loader::{get_or_create_intrinsic, IntrinsicCache};
+pub use loader::{IntrinsicCache, get_or_create_intrinsic};

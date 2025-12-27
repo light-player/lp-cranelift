@@ -9,7 +9,7 @@ use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 
 /// Convert Band instruction, handling type inference from operands.
-/// 
+///
 /// When operands are i32 (from fixed-point comparisons), use band.i32.
 /// When operands are i8 (original boolean), use band.i8.
 pub(crate) fn convert_band(
@@ -89,4 +89,3 @@ pub(crate) fn convert_bnot(
 
     Ok(())
 }
-

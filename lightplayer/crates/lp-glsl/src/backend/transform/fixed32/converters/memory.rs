@@ -3,7 +3,7 @@
 use crate::backend::transform::fixed32::converters::map_value;
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::error::{ErrorCode, GlslError};
-use cranelift_codegen::ir::{types, Function, Inst, InstBuilder, InstructionData, Value};
+use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData, Value, types};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 
@@ -38,7 +38,9 @@ pub(crate) fn convert_load(
             value_map.insert(old_result, new_result);
         } else {
             // Non-F32 load: copy as-is (preserve original type)
-            let new_result = builder.ins().load(old_result_type, *flags, address, *offset);
+            let new_result = builder
+                .ins()
+                .load(old_result_type, *flags, address, *offset);
             value_map.insert(old_result, new_result);
         }
     } else {

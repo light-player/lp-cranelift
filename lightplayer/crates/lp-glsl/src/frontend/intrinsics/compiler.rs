@@ -10,7 +10,7 @@ use alloc::{string::String, vec::Vec};
 
 use hashbrown::HashMap;
 
-use cranelift_codegen::{control::ControlPlane, Context};
+use cranelift_codegen::{Context, control::ControlPlane};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_module::{FuncId, Linkage, Module, ModuleDeclarations, ModuleError, ModuleResult};
 

@@ -2,8 +2,8 @@
 //!
 //! This module provides shared execution logic used by both filetests and runtime tests.
 
-use crate::exec::glsl_value::GlslValue;
 use crate::exec::GlslExecutable;
+use crate::exec::glsl_value::GlslValue;
 use crate::frontend::semantic::types::Type;
 #[cfg(feature = "std")]
 use anyhow::Result;
@@ -106,57 +106,45 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
                 ])
             })
             .map_err(|e| format_error(e, executable)),
-        // Integer vectors: call_vec reads i32 and divides by FIXED16X16_SCALE (for fixed-point),
-        // but integer vectors are stored as plain i32, so we multiply back to get the integer value
-        Type::IVec2 => {
-            const SCALE: f32 = 65536.0; // FIXED16X16_SCALE
-            executable
-                .call_vec("main", &[], 2)
-                .map(|v| {
-                    // Convert back from fixed-point scale to integer, then to float for Vec2
-                    GlslValue::Vec2([v[0] * SCALE, v[1] * SCALE])
-                })
-                .map_err(|e| format_error(e, executable))
-        }
-        Type::IVec3 => {
-            const SCALE: f32 = 65536.0; // FIXED16X16_SCALE
-            executable
-                .call_vec("main", &[], 3)
-                .map(|v| {
-                    // Convert back from fixed-point scale to integer, then to float for Vec3
-                    GlslValue::Vec3([v[0] * SCALE, v[1] * SCALE, v[2] * SCALE])
-                })
-                .map_err(|e| format_error(e, executable))
-        }
-        Type::IVec4 => {
-            const SCALE: f32 = 65536.0; // FIXED16X16_SCALE
-            executable
-                .call_vec("main", &[], 4)
-                .map(|v| {
-                    // Convert back from fixed-point scale to integer, then to float for Vec4
-                    GlslValue::Vec4([v[0] * SCALE, v[1] * SCALE, v[2] * SCALE, v[3] * SCALE])
-                })
-                .map_err(|e| format_error(e, executable))
-        }
+        // Integer vectors: stored as plain i32, read directly without fixed-point scaling
+        Type::IVec2 => executable
+            .call_ivec("main", &[], 2)
+            .map(|v| GlslValue::IVec2([v[0], v[1]]))
+            .map_err(|e| format_error(e, executable)),
+        Type::IVec3 => executable
+            .call_ivec("main", &[], 3)
+            .map(|v| GlslValue::IVec3([v[0], v[1], v[2]]))
+            .map_err(|e| format_error(e, executable)),
+        Type::IVec4 => executable
+            .call_ivec("main", &[], 4)
+            .map(|v| GlslValue::IVec4([v[0], v[1], v[2], v[3]]))
+            .map_err(|e| format_error(e, executable)),
         // Boolean vectors: stored as i8 in StructReturn, read as i8 and convert to bool
-        Type::BVec2 => {
-            executable
-                .call_bvec("main", &[], 2)
-                .map(|v| GlslValue::BVec2([v[0], v[1]]))
-                .map_err(|e| format_error(e, executable))
-        }
-        Type::BVec3 => {
-            executable
-                .call_bvec("main", &[], 3)
-                .map(|v| GlslValue::BVec3([v[0], v[1], v[2]]))
-                .map_err(|e| format_error(e, executable))
-        }
-        Type::BVec4 => {
-            executable
-                .call_bvec("main", &[], 4)
-                .map(|v| GlslValue::BVec4([v[0], v[1], v[2], v[3]]))
-                .map_err(|e| format_error(e, executable))
-        }
+        Type::BVec2 => executable
+            .call_bvec("main", &[], 2)
+            .map(|v| GlslValue::BVec2([v[0], v[1]]))
+            .map_err(|e| format_error(e, executable)),
+        Type::BVec3 => executable
+            .call_bvec("main", &[], 3)
+            .map(|v| GlslValue::BVec3([v[0], v[1], v[2]]))
+            .map_err(|e| format_error(e, executable)),
+        Type::BVec4 => executable
+            .call_bvec("main", &[], 4)
+            .map(|v| GlslValue::BVec4([v[0], v[1], v[2], v[3]]))
+            .map_err(|e| format_error(e, executable)),
+        // Unsigned integer vectors: stored as plain i32 (interpreted as u32), read directly without fixed-point scaling
+        Type::UVec2 => executable
+            .call_uvec("main", &[], 2)
+            .map(|v| GlslValue::UVec2([v[0], v[1]]))
+            .map_err(|e| format_error(e, executable)),
+        Type::UVec3 => executable
+            .call_uvec("main", &[], 3)
+            .map(|v| GlslValue::UVec3([v[0], v[1], v[2]]))
+            .map_err(|e| format_error(e, executable)),
+        Type::UVec4 => executable
+            .call_uvec("main", &[], 4)
+            .map(|v| GlslValue::UVec4([v[0], v[1], v[2], v[3]]))
+            .map_err(|e| format_error(e, executable)),
         _ => anyhow::bail!("unsupported return type: {:?}", sig.return_type),
     }
 }

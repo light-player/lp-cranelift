@@ -2,7 +2,7 @@ use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::rvalue::RValue;
 use crate::semantic::types::Type as GlslType;
-use cranelift_codegen::ir::{types, InstBuilder};
+use cranelift_codegen::ir::{InstBuilder, types};
 use glsl::syntax::Expr;
 
 /// Emit code to compute a literal as an RValue
@@ -31,7 +31,6 @@ pub fn emit_literal_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
 
 /// Legacy function for backwards compatibility
 use alloc::vec::Vec;
-
 
 pub fn translate_literal(
     ctx: &mut CodegenContext,

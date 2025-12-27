@@ -4,7 +4,7 @@
 //! and return statements to ensure they are semantically correct before codegen.
 
 use crate::error::{
-    add_span_text_to_error, extract_span_from_expr, source_span_to_location, ErrorCode, GlslError,
+    ErrorCode, GlslError, add_span_text_to_error, extract_span_from_expr, source_span_to_location,
 };
 use crate::frontend::semantic::functions::FunctionRegistry;
 use crate::frontend::semantic::scope::{StorageClass, SymbolTable};
@@ -14,7 +14,6 @@ use crate::frontend::semantic::type_check::{
 use crate::frontend::semantic::type_resolver;
 use crate::frontend::semantic::types::Type;
 use glsl::syntax::{JumpStatement, SimpleStatement, Statement};
-
 
 use alloc::format;
 

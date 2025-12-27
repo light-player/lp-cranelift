@@ -19,10 +19,12 @@ pub struct BuiltinSignature {
 pub enum BuiltinParamType {
     GenFType,   // float, vec2, vec3, vec4
     GenIType,   // int, ivec2, ivec3, ivec4
+    GenUType,   // uint, uvec2, uvec3, uvec4
     GenBType,   // bool, bvec2, bvec3, bvec4
     GenMatType, // mat2, mat3, mat4
     Float,      // scalar float only
     Int,        // scalar int only
+    UInt,       // scalar uint only
     Vec3,       // vec3 only (for cross product)
 }
 
@@ -93,6 +95,16 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
                 param_types: vec![BuiltinParamType::GenIType, BuiltinParamType::Int],
                 return_type: BuiltinReturnType::SameAsParam(0),
             },
+            BuiltinSignature {
+                name: "min",
+                param_types: vec![BuiltinParamType::GenUType, BuiltinParamType::GenUType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "min",
+                param_types: vec![BuiltinParamType::GenUType, BuiltinParamType::UInt],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
         ]),
 
         "max" => Some(vec![
@@ -114,6 +126,16 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
             BuiltinSignature {
                 name: "max",
                 param_types: vec![BuiltinParamType::GenIType, BuiltinParamType::Int],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "max",
+                param_types: vec![BuiltinParamType::GenUType, BuiltinParamType::GenUType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "max",
+                param_types: vec![BuiltinParamType::GenUType, BuiltinParamType::UInt],
                 return_type: BuiltinReturnType::SameAsParam(0),
             },
         ]),
@@ -445,16 +467,110 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
             },
             BuiltinSignature {
                 name: "equal",
+                param_types: vec![BuiltinParamType::GenUType, BuiltinParamType::GenUType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "equal",
                 param_types: vec![BuiltinParamType::GenBType, BuiltinParamType::GenBType],
                 return_type: BuiltinReturnType::SameAsParam(0),
             },
         ]),
 
-        "notEqual" => Some(vec![BuiltinSignature {
-            name: "notEqual",
-            param_types: vec![BuiltinParamType::GenBType, BuiltinParamType::GenBType],
-            return_type: BuiltinReturnType::SameAsParam(0),
-        }]),
+        "notEqual" => Some(vec![
+            BuiltinSignature {
+                name: "notEqual",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "notEqual",
+                param_types: vec![BuiltinParamType::GenIType, BuiltinParamType::GenIType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "notEqual",
+                param_types: vec![BuiltinParamType::GenUType, BuiltinParamType::GenUType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "notEqual",
+                param_types: vec![BuiltinParamType::GenBType, BuiltinParamType::GenBType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
+
+        "greaterThan" => Some(vec![
+            BuiltinSignature {
+                name: "greaterThan",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "greaterThan",
+                param_types: vec![BuiltinParamType::GenIType, BuiltinParamType::GenIType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "greaterThan",
+                param_types: vec![BuiltinParamType::GenUType, BuiltinParamType::GenUType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
+
+        "greaterThanEqual" => Some(vec![
+            BuiltinSignature {
+                name: "greaterThanEqual",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "greaterThanEqual",
+                param_types: vec![BuiltinParamType::GenIType, BuiltinParamType::GenIType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "greaterThanEqual",
+                param_types: vec![BuiltinParamType::GenUType, BuiltinParamType::GenUType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
+
+        "lessThan" => Some(vec![
+            BuiltinSignature {
+                name: "lessThan",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "lessThan",
+                param_types: vec![BuiltinParamType::GenIType, BuiltinParamType::GenIType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "lessThan",
+                param_types: vec![BuiltinParamType::GenUType, BuiltinParamType::GenUType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
+
+        "lessThanEqual" => Some(vec![
+            BuiltinSignature {
+                name: "lessThanEqual",
+                param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "lessThanEqual",
+                param_types: vec![BuiltinParamType::GenIType, BuiltinParamType::GenIType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+            BuiltinSignature {
+                name: "lessThanEqual",
+                param_types: vec![BuiltinParamType::GenUType, BuiltinParamType::GenUType],
+                return_type: BuiltinReturnType::SameAsParam(0),
+            },
+        ]),
 
         _ => None,
     }
@@ -543,12 +659,16 @@ fn matches_param_type(param: &BuiltinParamType, arg: &Type) -> bool {
         BuiltinParamType::GenIType => {
             matches!(arg, Type::Int | Type::IVec2 | Type::IVec3 | Type::IVec4)
         }
+        BuiltinParamType::GenUType => {
+            matches!(arg, Type::UInt | Type::UVec2 | Type::UVec3 | Type::UVec4)
+        }
         BuiltinParamType::GenBType => {
             matches!(arg, Type::Bool | Type::BVec2 | Type::BVec3 | Type::BVec4)
         }
         BuiltinParamType::GenMatType => matches!(arg, Type::Mat2 | Type::Mat3 | Type::Mat4),
         BuiltinParamType::Float => arg == &Type::Float,
         BuiltinParamType::Int => arg == &Type::Int,
+        BuiltinParamType::UInt => arg == &Type::UInt,
         BuiltinParamType::Vec3 => arg == &Type::Vec3,
     }
 }

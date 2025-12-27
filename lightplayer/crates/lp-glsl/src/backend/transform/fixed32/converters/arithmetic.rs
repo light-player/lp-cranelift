@@ -6,7 +6,7 @@ use crate::backend::transform::fixed32::converters::{
 };
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::error::GlslError;
-use cranelift_codegen::ir::{condcodes::IntCC, types, Function, Inst, InstBuilder};
+use cranelift_codegen::ir::{Function, Inst, InstBuilder, condcodes::IntCC, types};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 
@@ -33,8 +33,12 @@ pub(crate) fn convert_fadd(
     let min_fixed = create_min_fixed_const(builder, format);
 
     // Check for overflow: if both operands are positive and result is negative, saturate to max
-    let arg1_positive = builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, arg1, zero);
-    let arg2_positive = builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, arg2, zero);
+    let arg1_positive = builder
+        .ins()
+        .icmp(IntCC::SignedGreaterThanOrEqual, arg1, zero);
+    let arg2_positive = builder
+        .ins()
+        .icmp(IntCC::SignedGreaterThanOrEqual, arg2, zero);
     let result_negative = builder.ins().icmp(IntCC::SignedLessThan, result, zero);
     let both_positive = builder.ins().band(arg1_positive, arg2_positive);
     let overflow = builder.ins().band(both_positive, result_negative);
@@ -42,7 +46,9 @@ pub(crate) fn convert_fadd(
     // Check for underflow: if both operands are negative and result is positive, saturate to min
     let arg1_negative = builder.ins().icmp(IntCC::SignedLessThan, arg1, zero);
     let arg2_negative = builder.ins().icmp(IntCC::SignedLessThan, arg2, zero);
-    let result_positive = builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, result, zero);
+    let result_positive = builder
+        .ins()
+        .icmp(IntCC::SignedGreaterThanOrEqual, result, zero);
     let both_negative = builder.ins().band(arg1_negative, arg2_negative);
     let underflow = builder.ins().band(both_negative, result_positive);
 
@@ -81,7 +87,9 @@ pub(crate) fn convert_fsub(
     let min_fixed = create_min_fixed_const(builder, format);
 
     // Check for overflow: if arg1 is positive and arg2 is negative and result is negative, saturate to max
-    let arg1_positive = builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, arg1, zero);
+    let arg1_positive = builder
+        .ins()
+        .icmp(IntCC::SignedGreaterThanOrEqual, arg1, zero);
     let arg2_negative = builder.ins().icmp(IntCC::SignedLessThan, arg2, zero);
     let result_negative = builder.ins().icmp(IntCC::SignedLessThan, result, zero);
     let overflow_cond = builder.ins().band(arg1_positive, arg2_negative);
@@ -89,8 +97,12 @@ pub(crate) fn convert_fsub(
 
     // Check for underflow: if arg1 is negative and arg2 is positive and result is positive, saturate to min
     let arg1_negative = builder.ins().icmp(IntCC::SignedLessThan, arg1, zero);
-    let arg2_positive = builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, arg2, zero);
-    let result_positive = builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, result, zero);
+    let arg2_positive = builder
+        .ins()
+        .icmp(IntCC::SignedGreaterThanOrEqual, arg2, zero);
+    let result_positive = builder
+        .ins()
+        .icmp(IntCC::SignedGreaterThanOrEqual, result, zero);
     let underflow_cond = builder.ins().band(arg1_negative, arg2_positive);
     let underflow = builder.ins().band(underflow_cond, result_positive);
 
@@ -140,11 +152,11 @@ pub(crate) fn convert_fmul(
     let max_fixed_i64 = builder.ins().iconst(types::I64, 0x7FFF0000i64);
     // Min is -2147483648 (i32::MIN, which is 0x80000000 in fixed-point)
     let min_fixed_i64 = builder.ins().iconst(types::I64, -2147483648i64);
-    
+
     // Clamp at i64 level
     let clamped_max_i64 = builder.ins().smin(shifted_wide, max_fixed_i64);
     let clamped_i64 = builder.ins().smax(clamped_max_i64, min_fixed_i64);
-    
+
     // Truncate the clamped value
     let result = builder.ins().ireduce(target_type, clamped_i64);
 

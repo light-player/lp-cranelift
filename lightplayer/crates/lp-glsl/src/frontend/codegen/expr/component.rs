@@ -1,9 +1,9 @@
-use crate::error::{extract_span_from_expr, source_span_to_location, ErrorCode, GlslError};
+use crate::error::{ErrorCode, GlslError, extract_span_from_expr, source_span_to_location};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::lvalue::emit_lvalue_as_rvalue;
 use crate::frontend::codegen::rvalue::RValue;
 use crate::semantic::types::Type as GlslType;
-use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, TrapCode, Value};
+use cranelift_codegen::ir::{InstBuilder, TrapCode, Value, condcodes::IntCC, types};
 use glsl::syntax::{Expr, SourceSpan};
 
 use alloc::vec::Vec;
@@ -72,7 +72,11 @@ pub fn translate_matrix_indexing(
     };
 
     let (array_vals, array_ty) = ctx.translate_expr_typed(array_expr)?;
-    crate::debug!("translate_matrix_indexing: array_ty={:?}, array_vals.len()={}", array_ty, array_vals.len());
+    crate::debug!(
+        "translate_matrix_indexing: array_ty={:?}, array_vals.len()={}",
+        array_ty,
+        array_vals.len()
+    );
 
     if !array_ty.is_matrix() && !array_ty.is_vector() {
         return Err(GlslError::new(
@@ -177,7 +181,11 @@ pub fn translate_matrix_indexing(
                     for col in (0..cols - 1).rev() {
                         let col_const = ctx.builder.ins().iconst(types::I32, col as i64);
                         let is_match = ctx.builder.ins().icmp(IntCC::Equal, index_val, col_const);
-                        result = ctx.builder.ins().select(is_match, column_candidates[col][row_idx], result);
+                        result = ctx.builder.ins().select(
+                            is_match,
+                            column_candidates[col][row_idx],
+                            result,
+                        );
                     }
                     result_column.push(result);
                 }
@@ -188,10 +196,15 @@ pub fn translate_matrix_indexing(
         } else if current_ty.is_vector() {
             // Vector indexing: vec[index] returns scalar component
             let component_count = current_ty.component_count().unwrap();
-            
+
             if let Some(index) = is_constant {
                 // Compile-time constant index
-                crate::debug!("vector indexing: current_ty={:?}, index={}, component_count={}", current_ty, index, component_count);
+                crate::debug!(
+                    "vector indexing: current_ty={:?}, index={}, component_count={}",
+                    current_ty,
+                    index,
+                    component_count
+                );
 
                 if index >= component_count {
                     return Err(GlslError::new(
@@ -206,10 +219,18 @@ pub fn translate_matrix_indexing(
                 }
 
                 let base_type = current_ty.vector_base_type().unwrap();
-                crate::debug!("  extracted component: base_type={:?}, val index={}", base_type, index);
+                crate::debug!(
+                    "  extracted component: base_type={:?}, val index={}",
+                    base_type,
+                    index
+                );
                 current_vals = vec![current_vals[index]];
                 current_ty = base_type;
-                crate::debug!("  after extraction: current_ty={:?}, current_vals.len()={}", current_ty, current_vals.len());
+                crate::debug!(
+                    "  after extraction: current_ty={:?}, current_vals.len()={}",
+                    current_ty,
+                    current_vals.len()
+                );
             } else {
                 // Variable index - use dynamic selection
                 // Bounds check
@@ -239,7 +260,11 @@ pub fn translate_matrix_indexing(
         }
     }
 
-    crate::debug!("translate_matrix_indexing result: current_ty={:?}, current_vals.len()={}", current_ty, current_vals.len());
+    crate::debug!(
+        "translate_matrix_indexing result: current_ty={:?}, current_vals.len()={}",
+        current_ty,
+        current_vals.len()
+    );
     Ok((current_vals, current_ty))
 }
 
@@ -411,7 +436,7 @@ fn emit_bounds_check(
 ) -> Result<(), GlslError> {
     // Ensure we're in a block
     ctx.ensure_block()?;
-    
+
     // Set source location for trap instruction
     let srcloc = ctx.source_loc_manager().create_srcloc(span);
     ctx.builder.set_srcloc(srcloc);
@@ -419,16 +444,22 @@ fn emit_bounds_check(
     // Check: index < 0 || index >= bound
     let zero = ctx.builder.ins().iconst(types::I32, 0);
     let bound_val = ctx.builder.ins().iconst(types::I32, bound as i64);
-    let index_lt_zero = ctx.builder.ins().icmp(IntCC::SignedLessThan, index_val, zero);
-    let index_ge_bound = ctx.builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, index_val, bound_val);
+    let index_lt_zero = ctx
+        .builder
+        .ins()
+        .icmp(IntCC::SignedLessThan, index_val, zero);
+    let index_ge_bound =
+        ctx.builder
+            .ins()
+            .icmp(IntCC::SignedGreaterThanOrEqual, index_val, bound_val);
     let out_of_bounds = ctx.builder.ins().bor(index_lt_zero, index_ge_bound);
-    
+
     // Use trapnz to trap when out_of_bounds is non-zero (true)
     // NOTE: trapnz may not be available in the lowering code yet, but we use it here
     // and will fix the lowering code later if needed.
     let trap_code = TrapCode::user(1).unwrap();
     ctx.builder.ins().trapnz(out_of_bounds, trap_code);
-    
+
     Ok(())
 }
 
@@ -467,17 +498,15 @@ pub fn emit_matrix_indexing_rvalue(
     let Expr::Bracket(_, array_spec, _) = expr else {
         unreachable!("emit_matrix_indexing_rvalue called on non-bracket expr");
     };
-    
+
     use glsl::syntax::ArraySpecifierDimension;
-    let has_variable_index = array_spec.dimensions.0.iter().any(|dim| {
-        match dim {
-            ArraySpecifierDimension::ExplicitlySized(index_expr) => {
-                !matches!(index_expr.as_ref(), Expr::IntConst(_, _))
-            }
-            ArraySpecifierDimension::Unsized => false,
+    let has_variable_index = array_spec.dimensions.0.iter().any(|dim| match dim {
+        ArraySpecifierDimension::ExplicitlySized(index_expr) => {
+            !matches!(index_expr.as_ref(), Expr::IntConst(_, _))
         }
+        ArraySpecifierDimension::Unsized => false,
     });
-    
+
     if has_variable_index {
         // Variable index - use translate_matrix_indexing directly
         let (vals, ty) = translate_matrix_indexing(ctx, expr)?;

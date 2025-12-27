@@ -1,7 +1,7 @@
 //! Operator type inference for binary and unary operations
 //! Implements GLSL spec: operators.adoc:775-855
 
-use crate::error::{source_span_to_location, ErrorCode, GlslError};
+use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use crate::frontend::semantic::types::Type;
 use glsl::syntax::{BinaryOp, SourceSpan, UnaryOp};
 
@@ -85,11 +85,31 @@ pub fn infer_binary_result_type(
             Ok(promote_numeric(lhs_ty, rhs_ty))
         }
 
-        // Modulo operator: integer types only (int, uint, ivec2, ivec3, ivec4)
+        // Modulo operator: integer types only (int, uint, ivec2, ivec3, ivec4, uvec2, uvec3, uvec4)
         Mod => {
             // Modulo is only valid for integer types, not floats
-            let lhs_is_int = matches!(lhs_ty, Type::Int | Type::UInt | Type::IVec2 | Type::IVec3 | Type::IVec4);
-            let rhs_is_int = matches!(rhs_ty, Type::Int | Type::UInt | Type::IVec2 | Type::IVec3 | Type::IVec4);
+            let lhs_is_int = matches!(
+                lhs_ty,
+                Type::Int
+                    | Type::UInt
+                    | Type::IVec2
+                    | Type::IVec3
+                    | Type::IVec4
+                    | Type::UVec2
+                    | Type::UVec3
+                    | Type::UVec4
+            );
+            let rhs_is_int = matches!(
+                rhs_ty,
+                Type::Int
+                    | Type::UInt
+                    | Type::IVec2
+                    | Type::IVec3
+                    | Type::IVec4
+                    | Type::UVec2
+                    | Type::UVec3
+                    | Type::UVec4
+            );
 
             if !lhs_is_int || !rhs_is_int {
                 return Err(GlslError::new(
@@ -131,7 +151,9 @@ pub fn infer_binary_result_type(
                 // Vector % Scalar or Scalar % Vector: result is vector type
                 if lhs_ty.is_vector() {
                     let vec_base = lhs_ty.vector_base_type().unwrap();
-                    if !matches!(vec_base, Type::Int | Type::UInt) || !matches!(rhs_ty, Type::Int | Type::UInt) {
+                    if !matches!(vec_base, Type::Int | Type::UInt)
+                        || !matches!(rhs_ty, Type::Int | Type::UInt)
+                    {
                         return Err(GlslError::new(
                             ErrorCode::E0106,
                             format!(
@@ -146,7 +168,9 @@ pub fn infer_binary_result_type(
 
                 if rhs_ty.is_vector() {
                     let vec_base = rhs_ty.vector_base_type().unwrap();
-                    if !matches!(vec_base, Type::Int | Type::UInt) || !matches!(lhs_ty, Type::Int | Type::UInt) {
+                    if !matches!(vec_base, Type::Int | Type::UInt)
+                        || !matches!(lhs_ty, Type::Int | Type::UInt)
+                    {
                         return Err(GlslError::new(
                             ErrorCode::E0106,
                             format!(

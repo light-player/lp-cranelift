@@ -28,8 +28,8 @@ pub use frontend::codegen;
 pub use frontend::intrinsics;
 pub use frontend::semantic;
 pub use frontend::{
-    parse_program_with_registry, Backend, CompilationPipeline, CompiledShader, GlslCompiler, ParseResult,
-    SemanticResult, TransformationPass,
+    Backend, CompilationPipeline, CompiledShader, GlslCompiler, ParseResult, SemanticResult,
+    TransformationPass, parse_program_with_registry,
 };
 
 /// Type alias for convenience

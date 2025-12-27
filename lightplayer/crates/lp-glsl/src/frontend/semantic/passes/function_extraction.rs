@@ -1,8 +1,8 @@
 //! Pass for extracting function bodies from the AST
 
-use super::{function_signature, SemanticPass};
+use super::{SemanticPass, function_signature};
 use crate::error::GlslError;
-use crate::frontend::semantic::{TypedFunction, MAIN_FUNCTION_NAME};
+use crate::frontend::semantic::{MAIN_FUNCTION_NAME, TypedFunction};
 
 use alloc::vec::Vec;
 

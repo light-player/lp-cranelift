@@ -16,6 +16,9 @@ pub enum Type {
     IVec2,
     IVec3,
     IVec4,
+    UVec2,
+    UVec3,
+    UVec4,
     BVec2,
     BVec3,
     BVec4,
@@ -34,7 +37,15 @@ impl Type {
     pub fn is_numeric(&self) -> bool {
         match self {
             Type::Int | Type::UInt | Type::Float => true,
-            Type::Vec2 | Type::Vec3 | Type::Vec4 | Type::IVec2 | Type::IVec3 | Type::IVec4 => true,
+            Type::Vec2
+            | Type::Vec3
+            | Type::Vec4
+            | Type::IVec2
+            | Type::IVec3
+            | Type::IVec4
+            | Type::UVec2
+            | Type::UVec3
+            | Type::UVec4 => true,
             Type::Mat2 | Type::Mat3 | Type::Mat4 => true,
             _ => false,
         }
@@ -55,6 +66,9 @@ impl Type {
                 | Type::IVec2
                 | Type::IVec3
                 | Type::IVec4
+                | Type::UVec2
+                | Type::UVec3
+                | Type::UVec4
                 | Type::BVec2
                 | Type::BVec3
                 | Type::BVec4
@@ -66,6 +80,7 @@ impl Type {
         match self {
             Type::Vec2 | Type::Vec3 | Type::Vec4 => Some(Type::Float),
             Type::IVec2 | Type::IVec3 | Type::IVec4 => Some(Type::Int),
+            Type::UVec2 | Type::UVec3 | Type::UVec4 => Some(Type::UInt),
             Type::BVec2 | Type::BVec3 | Type::BVec4 => Some(Type::Bool),
             _ => None,
         }
@@ -74,9 +89,9 @@ impl Type {
     /// Get number of components (Vec3 → 3, IVec2 → 2)
     pub fn component_count(&self) -> Option<usize> {
         match self {
-            Type::Vec2 | Type::IVec2 | Type::BVec2 => Some(2),
-            Type::Vec3 | Type::IVec3 | Type::BVec3 => Some(3),
-            Type::Vec4 | Type::IVec4 | Type::BVec4 => Some(4),
+            Type::Vec2 | Type::IVec2 | Type::UVec2 | Type::BVec2 => Some(2),
+            Type::Vec3 | Type::IVec3 | Type::UVec3 | Type::BVec3 => Some(3),
+            Type::Vec4 | Type::IVec4 | Type::UVec4 | Type::BVec4 => Some(4),
             _ => None,
         }
     }
@@ -90,6 +105,9 @@ impl Type {
             (Type::Int, 2) => Some(Type::IVec2),
             (Type::Int, 3) => Some(Type::IVec3),
             (Type::Int, 4) => Some(Type::IVec4),
+            (Type::UInt, 2) => Some(Type::UVec2),
+            (Type::UInt, 3) => Some(Type::UVec3),
+            (Type::UInt, 4) => Some(Type::UVec4),
             (Type::Bool, 2) => Some(Type::BVec2),
             (Type::Bool, 3) => Some(Type::BVec3),
             (Type::Bool, 4) => Some(Type::BVec4),
@@ -153,6 +171,8 @@ impl Type {
                 // We return F32 as the base type, actual storage handled in codegen
                 Ok(cranelift_codegen::ir::types::F32)
             }
+            // UVec types are stored as i32 (same as UInt)
+            Type::UVec2 | Type::UVec3 | Type::UVec4 => Ok(cranelift_codegen::ir::types::I32),
             _ => Err(crate::error::GlslError::new(
                 crate::error::ErrorCode::E0109,
                 format!("Type not yet supported for codegen: {:?}", self),

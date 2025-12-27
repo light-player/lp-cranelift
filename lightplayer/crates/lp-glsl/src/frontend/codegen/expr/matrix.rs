@@ -1,4 +1,4 @@
-use crate::error::{source_span_to_location, ErrorCode, GlslError};
+use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::type_check::operators::infer_binary_result_type;
 use crate::semantic::types::Type as GlslType;

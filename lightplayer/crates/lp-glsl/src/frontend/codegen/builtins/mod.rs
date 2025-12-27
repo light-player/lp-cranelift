@@ -73,6 +73,10 @@ impl<'a> CodegenContext<'a> {
             "not" => self.builtin_not(args),
             "equal" => self.builtin_equal(args),
             "notEqual" => self.builtin_not_equal(args),
+            "greaterThan" => self.builtin_greater_than(args),
+            "greaterThanEqual" => self.builtin_greater_than_equal(args),
+            "lessThan" => self.builtin_less_than(args),
+            "lessThanEqual" => self.builtin_less_than_equal(args),
 
             // Matrix Functions
             "matrixCompMult" => self.builtin_matrixCompMult(args),

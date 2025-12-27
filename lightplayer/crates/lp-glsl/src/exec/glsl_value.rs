@@ -33,6 +33,12 @@ pub enum GlslValue {
     Vec2([f32; 2]),
     Vec3([f32; 3]),
     Vec4([f32; 4]),
+    IVec2([i32; 2]),
+    IVec3([i32; 3]),
+    IVec4([i32; 4]),
+    UVec2([u32; 2]),
+    UVec3([u32; 3]),
+    UVec4([u32; 4]),
     BVec2([bool; 2]),
     BVec3([bool; 3]),
     BVec4([bool; 4]),
@@ -59,6 +65,9 @@ impl GlslValue {
             format!("ivec2 main() {{ return {}; }}", literal_str),
             format!("ivec3 main() {{ return {}; }}", literal_str),
             format!("ivec4 main() {{ return {}; }}", literal_str),
+            format!("uvec2 main() {{ return {}; }}", literal_str),
+            format!("uvec3 main() {{ return {}; }}", literal_str),
+            format!("uvec4 main() {{ return {}; }}", literal_str),
             format!("bvec2 main() {{ return {}; }}", literal_str),
             format!("bvec3 main() {{ return {}; }}", literal_str),
             format!("bvec4 main() {{ return {}; }}", literal_str),
@@ -130,21 +139,33 @@ impl GlslValue {
                                         }
                                     }
                                     "ivec2" => {
-                                        // Parse integer vector and convert to float Vec2
-                                        if let Ok(v) = parse_vector_constructor(args, 2) {
-                                            return Ok(GlslValue::Vec2([v[0], v[1]]));
+                                        if let Ok(v) = parse_int_vector_constructor(args, 2) {
+                                            return Ok(GlslValue::IVec2([v[0], v[1]]));
                                         }
                                     }
                                     "ivec3" => {
-                                        // Parse integer vector and convert to float Vec3
-                                        if let Ok(v) = parse_vector_constructor(args, 3) {
-                                            return Ok(GlslValue::Vec3([v[0], v[1], v[2]]));
+                                        if let Ok(v) = parse_int_vector_constructor(args, 3) {
+                                            return Ok(GlslValue::IVec3([v[0], v[1], v[2]]));
                                         }
                                     }
                                     "ivec4" => {
-                                        // Parse integer vector and convert to float Vec4
-                                        if let Ok(v) = parse_vector_constructor(args, 4) {
-                                            return Ok(GlslValue::Vec4([v[0], v[1], v[2], v[3]]));
+                                        if let Ok(v) = parse_int_vector_constructor(args, 4) {
+                                            return Ok(GlslValue::IVec4([v[0], v[1], v[2], v[3]]));
+                                        }
+                                    }
+                                    "uvec2" => {
+                                        if let Ok(v) = parse_uint_vector_constructor(args, 2) {
+                                            return Ok(GlslValue::UVec2([v[0], v[1]]));
+                                        }
+                                    }
+                                    "uvec3" => {
+                                        if let Ok(v) = parse_uint_vector_constructor(args, 3) {
+                                            return Ok(GlslValue::UVec3([v[0], v[1], v[2]]));
+                                        }
+                                    }
+                                    "uvec4" => {
+                                        if let Ok(v) = parse_uint_vector_constructor(args, 4) {
+                                            return Ok(GlslValue::UVec4([v[0], v[1], v[2], v[3]]));
                                         }
                                     }
                                     "bvec2" => {
@@ -225,6 +246,12 @@ impl GlslValue {
             (GlslValue::Vec2(a), GlslValue::Vec2(b)) => a == b,
             (GlslValue::Vec3(a), GlslValue::Vec3(b)) => a == b,
             (GlslValue::Vec4(a), GlslValue::Vec4(b)) => a == b,
+            (GlslValue::IVec2(a), GlslValue::IVec2(b)) => a == b,
+            (GlslValue::IVec3(a), GlslValue::IVec3(b)) => a == b,
+            (GlslValue::IVec4(a), GlslValue::IVec4(b)) => a == b,
+            (GlslValue::UVec2(a), GlslValue::UVec2(b)) => a == b,
+            (GlslValue::UVec3(a), GlslValue::UVec3(b)) => a == b,
+            (GlslValue::UVec4(a), GlslValue::UVec4(b)) => a == b,
             (GlslValue::BVec2(a), GlslValue::BVec2(b)) => a == b,
             (GlslValue::BVec3(a), GlslValue::BVec3(b)) => a == b,
             (GlslValue::BVec4(a), GlslValue::BVec4(b)) => a == b,
@@ -257,6 +284,12 @@ impl GlslValue {
                 .iter()
                 .zip(b.iter())
                 .all(|(x, y)| (x - y).abs() <= tolerance),
+            (GlslValue::IVec2(a), GlslValue::IVec2(b)) => a == b, // Exact for ints
+            (GlslValue::IVec3(a), GlslValue::IVec3(b)) => a == b, // Exact for ints
+            (GlslValue::IVec4(a), GlslValue::IVec4(b)) => a == b, // Exact for ints
+            (GlslValue::UVec2(a), GlslValue::UVec2(b)) => a == b, // Exact for uints
+            (GlslValue::UVec3(a), GlslValue::UVec3(b)) => a == b, // Exact for uints
+            (GlslValue::UVec4(a), GlslValue::UVec4(b)) => a == b, // Exact for uints
             (GlslValue::BVec2(a), GlslValue::BVec2(b)) => a == b, // Exact for bools
             (GlslValue::BVec3(a), GlslValue::BVec3(b)) => a == b, // Exact for bools
             (GlslValue::BVec4(a), GlslValue::BVec4(b)) => a == b, // Exact for bools
@@ -455,6 +488,295 @@ fn parse_bool_vector_constructor(args: &[Expr], dim: usize) -> Result<Vec<bool>,
             ErrorCode::E0400,
             format!(
                 "boolean vector constructor expects {} components, got {}",
+                dim,
+                components.len()
+            ),
+        ));
+    }
+
+    Ok(components)
+}
+
+/// Parse a signed integer vector constructor expression into a Vec of i32s
+/// Returns a Vec that can be converted to the appropriate array size
+fn parse_int_vector_constructor(args: &[Expr], dim: usize) -> Result<Vec<i32>, GlslError> {
+    let mut components = Vec::new();
+
+    for arg in args {
+        match arg {
+            Expr::IntConst(n, _) => components.push(*n),
+            Expr::UIntConst(n, _) => {
+                // Convert u32 to i32 (clamp to i32::MAX if too large)
+                components.push(if *n > i32::MAX as u32 {
+                    i32::MAX
+                } else {
+                    *n as i32
+                });
+            }
+            Expr::FloatConst(f, _) => {
+                // Convert float to int: truncate towards zero, clamp to i32 range
+                let truncated = f.trunc() as i64;
+                let clamped = if truncated < i32::MIN as i64 {
+                    i32::MIN
+                } else if truncated > i32::MAX as i64 {
+                    i32::MAX
+                } else {
+                    truncated as i32
+                };
+                components.push(clamped);
+            }
+            Expr::BoolConst(b, _) => {
+                // Convert bool to int: false → 0, true → 1
+                components.push(if *b { 1 } else { 0 });
+            }
+            Expr::FunCall(func_ident, args, _) => {
+                // Handle nested vector constructors (e.g., ivec2(ivec4(...)))
+                if let glsl::syntax::FunIdentifier::Identifier(ident) = func_ident {
+                    let type_name = ident.name.as_str();
+                    if type_name.starts_with("ivec") {
+                        let nested_dim = match type_name {
+                            "ivec2" => 2,
+                            "ivec3" => 3,
+                            "ivec4" => 4,
+                            _ => continue,
+                        };
+                        let nested = parse_int_vector_constructor(args, nested_dim)?;
+                        components.extend_from_slice(&nested);
+                    } else if type_name.starts_with("uvec") {
+                        // Convert unsigned integer vectors to signed (extract components)
+                        let nested_dim = match type_name {
+                            "uvec2" => 2,
+                            "uvec3" => 3,
+                            "uvec4" => 4,
+                            _ => continue,
+                        };
+                        let nested = parse_uint_vector_constructor(args, nested_dim)?;
+                        // Convert u32 components to i32 (clamp if needed)
+                        for val in nested {
+                            components.push(if val > i32::MAX as u32 {
+                                i32::MAX
+                            } else {
+                                val as i32
+                            });
+                        }
+                    } else if type_name.starts_with("vec") {
+                        // Convert float vectors to int (extract components)
+                        let nested_dim = match type_name {
+                            "vec2" => 2,
+                            "vec3" => 3,
+                            "vec4" => 4,
+                            _ => continue,
+                        };
+                        let nested = parse_vector_constructor(args, nested_dim)?;
+                        // Convert float components to int
+                        for val in nested {
+                            let truncated = val.trunc() as i64;
+                            let clamped = if truncated < i32::MIN as i64 {
+                                i32::MIN
+                            } else if truncated > i32::MAX as i64 {
+                                i32::MAX
+                            } else {
+                                truncated as i32
+                            };
+                            components.push(clamped);
+                        }
+                    } else if type_name.starts_with("bvec") {
+                        // Convert boolean vectors to int (extract components)
+                        let nested_dim = match type_name {
+                            "bvec2" => 2,
+                            "bvec3" => 3,
+                            "bvec4" => 4,
+                            _ => continue,
+                        };
+                        let nested = parse_bool_vector_constructor(args, nested_dim)?;
+                        // Convert bool components to int
+                        for val in nested {
+                            components.push(if val { 1 } else { 0 });
+                        }
+                    }
+                }
+            }
+            Expr::Unary(op, unary_expr, _) => {
+                use glsl::syntax::UnaryOp;
+                if let UnaryOp::Minus = *op {
+                    match **unary_expr {
+                        Expr::IntConst(n, _) => components.push(-n),
+                        Expr::UIntConst(n, _) => {
+                            // -5u wraps to large positive in signed, but we'll just negate as i32
+                            components.push(-(n as i32));
+                        }
+                        Expr::FloatConst(f, _) => {
+                            // Convert negative float to int
+                            let truncated = (-f).trunc() as i64;
+                            let clamped = if truncated < i32::MIN as i64 {
+                                i32::MIN
+                            } else if truncated > i32::MAX as i64 {
+                                i32::MAX
+                            } else {
+                                truncated as i32
+                            };
+                            components.push(clamped);
+                        }
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                "invalid integer vector constructor argument",
+                            ));
+                        }
+                    }
+                } else {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        "invalid integer vector constructor argument",
+                    ));
+                }
+            }
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "invalid integer vector constructor argument",
+                ));
+            }
+        }
+    }
+
+    if components.len() != dim {
+        return Err(GlslError::new(
+            ErrorCode::E0400,
+            format!(
+                "integer vector constructor expects {} components, got {}",
+                dim,
+                components.len()
+            ),
+        ));
+    }
+
+    Ok(components)
+}
+
+/// Parse a unsigned integer vector constructor expression into a Vec of u32s
+/// Returns a Vec that can be converted to the appropriate array size
+fn parse_uint_vector_constructor(args: &[Expr], dim: usize) -> Result<Vec<u32>, GlslError> {
+    let mut components = Vec::new();
+
+    for arg in args {
+        match arg {
+            Expr::IntConst(n, _) => {
+                // Convert i32 to u32 (bit pattern preserved, but clamp negative values to 0 for safety)
+                components.push(if *n < 0 { 0 } else { *n as u32 });
+            }
+            Expr::UIntConst(n, _) => components.push(*n),
+            Expr::FloatConst(f, _) => {
+                // Convert float to uint: truncate towards zero, then cast to unsigned
+                // Negative values wrap around (e.g., -2.7 -> -2 -> 4294967294u)
+                let truncated = f.trunc() as i32;
+                let as_uint = truncated as u32;
+                components.push(as_uint);
+            }
+            Expr::BoolConst(b, _) => {
+                // Convert bool to uint: false → 0, true → 1
+                components.push(if *b { 1 } else { 0 });
+            }
+            Expr::FunCall(func_ident, args, _) => {
+                // Handle nested vector constructors (e.g., uvec2(uvec4(...)))
+                if let glsl::syntax::FunIdentifier::Identifier(ident) = func_ident {
+                    let type_name = ident.name.as_str();
+                    if type_name.starts_with("uvec") {
+                        let nested_dim = match type_name {
+                            "uvec2" => 2,
+                            "uvec3" => 3,
+                            "uvec4" => 4,
+                            _ => continue,
+                        };
+                        let nested = parse_uint_vector_constructor(args, nested_dim)?;
+                        components.extend_from_slice(&nested);
+                    } else if type_name.starts_with("vec") || type_name.starts_with("ivec") {
+                        // Convert numeric vectors to uint (extract components)
+                        let nested_dim = match type_name {
+                            "vec2" | "ivec2" => 2,
+                            "vec3" | "ivec3" => 3,
+                            "vec4" | "ivec4" => 4,
+                            _ => continue,
+                        };
+                        let nested = parse_vector_constructor(args, nested_dim)?;
+                        // Convert float/int components to uint
+                        for val in nested {
+                            let truncated = val.trunc() as i64;
+                            let clamped = if truncated < 0 {
+                                0
+                            } else if truncated > u32::MAX as i64 {
+                                u32::MAX
+                            } else {
+                                truncated as u32
+                            };
+                            components.push(clamped);
+                        }
+                    } else if type_name.starts_with("bvec") {
+                        // Convert boolean vectors to uint (extract components)
+                        let nested_dim = match type_name {
+                            "bvec2" => 2,
+                            "bvec3" => 3,
+                            "bvec4" => 4,
+                            _ => continue,
+                        };
+                        let nested = parse_bool_vector_constructor(args, nested_dim)?;
+                        // Convert bool components to uint
+                        for val in nested {
+                            components.push(if val { 1 } else { 0 });
+                        }
+                    }
+                }
+            }
+            Expr::Unary(op, unary_expr, _) => {
+                use glsl::syntax::UnaryOp;
+                if let UnaryOp::Minus = *op {
+                    match **unary_expr {
+                        Expr::IntConst(n, _) => {
+                            // Handle negative integers: -(-5) wraps to large positive in unsigned
+                            components.push((-n).wrapping_neg() as u32);
+                        }
+                        Expr::UIntConst(n, _) => {
+                            // -5u wraps to (2^32 - 5) in unsigned arithmetic
+                            components.push(n.wrapping_neg());
+                        }
+                        Expr::FloatConst(f, _) => {
+                            // Convert negative float to uint: -5.7 → 4294967291 (wrapping)
+                            let truncated = (-f).trunc() as i64;
+                            let wrapped = if truncated >= 0 {
+                                (truncated as u32).wrapping_neg()
+                            } else {
+                                (-truncated as u32).wrapping_neg()
+                            };
+                            components.push(wrapped);
+                        }
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                "invalid unsigned integer vector constructor argument",
+                            ));
+                        }
+                    }
+                } else {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        "invalid unsigned integer vector constructor argument",
+                    ));
+                }
+            }
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "invalid unsigned integer vector constructor argument",
+                ));
+            }
+        }
+    }
+
+    if components.len() != dim {
+        return Err(GlslError::new(
+            ErrorCode::E0400,
+            format!(
+                "unsigned integer vector constructor expects {} components, got {}",
                 dim,
                 components.len()
             ),

@@ -41,6 +41,26 @@ pub trait GlslExecutable {
         dim: usize,
     ) -> Result<Vec<bool>, GlslError>;
 
+    /// Call a function that returns a signed integer vector (ivec2, ivec3, or ivec4)
+    /// `dim` is the dimension (2, 3, or 4)
+    /// Returns a Vec<i32> with the integer values (no fixed-point scaling)
+    fn call_ivec(
+        &mut self,
+        name: &str,
+        args: &[GlslValue],
+        dim: usize,
+    ) -> Result<Vec<i32>, GlslError>;
+
+    /// Call a function that returns an unsigned integer vector (uvec2, uvec3, or uvec4)
+    /// `dim` is the dimension (2, 3, or 4)
+    /// Returns a Vec<u32> with the unsigned integer values (no fixed-point scaling)
+    fn call_uvec(
+        &mut self,
+        name: &str,
+        args: &[GlslValue],
+        dim: usize,
+    ) -> Result<Vec<u32>, GlslError>;
+
     /// Call a function that returns a vector (vec2, vec3, or vec4)
     /// `dim` is the dimension (2, 3, or 4)
     fn call_vec(

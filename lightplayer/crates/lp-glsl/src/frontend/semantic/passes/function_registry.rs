@@ -1,7 +1,7 @@
 //! Pass for collecting function signatures from the AST
 
-use super::function_signature;
 use super::SemanticPass;
+use super::function_signature;
 use crate::error::GlslError;
 use crate::frontend::semantic::functions::FunctionRegistry;
 
