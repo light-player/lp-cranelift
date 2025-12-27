@@ -25,17 +25,12 @@ use crate::frontend::codegen::signature::SignatureBuilder;
 pub fn compile_intrinsic_functions(
     glsl_source: &str,
     isa: &dyn TargetIsa,
+    source_map: &mut GlSourceMap,
+    file_id: crate::frontend::src_loc::GlFileId,
 ) -> Result<hashbrown::HashMap<String, Function>, GlslError> {
     // 1. Parse and analyze GLSL
     let semantic_result = CompilationPipeline::parse_and_analyze(glsl_source)?;
     let typed_ast = semantic_result.typed_ast;
-
-    // 1b. Create a source map for intrinsic functions
-    let mut source_map = GlSourceMap::new();
-    let intrinsic_file_id = source_map.add_file(
-        crate::frontend::src_loc::GlFileSource::Synthetic(String::from("intrinsics.glsl")),
-        String::from(glsl_source),
-    );
 
     // 2. Create a minimal module stub for function declarations
     struct MinimalModule<'a> {
@@ -227,7 +222,7 @@ pub fn compile_intrinsic_functions(
 
         {
             let mut codegen_ctx =
-                CodegenContext::new(builder, &mut module, &source_map, intrinsic_file_id);
+                CodegenContext::new(builder, &mut module, source_map, file_id);
             codegen_ctx.set_function_ids(&func_ids);
             codegen_ctx.set_function_registry(&typed_ast.function_registry);
             codegen_ctx.set_return_type(user_func.return_type.clone());

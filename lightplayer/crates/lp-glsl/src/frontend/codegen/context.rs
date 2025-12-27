@@ -50,7 +50,7 @@ pub struct CodegenContext<'a> {
     pub source_loc_manager: SourceLocManager,
 
     // Source map for managing file locations
-    pub source_map: &'a GlSourceMap,
+    pub source_map: &'a mut GlSourceMap,
 
     // Current file being compiled
     pub current_file_id: GlFileId,
@@ -65,7 +65,7 @@ impl<'a> CodegenContext<'a> {
     pub fn new(
         builder: FunctionBuilder<'a>,
         module: &'a mut dyn Module,
-        source_map: &'a GlSourceMap,
+        source_map: &'a mut GlSourceMap,
         current_file_id: GlFileId,
     ) -> Self {
         Self {

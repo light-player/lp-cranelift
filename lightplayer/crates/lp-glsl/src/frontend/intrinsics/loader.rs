@@ -75,6 +75,8 @@ pub fn get_or_create_intrinsic(
     libcall_name: &str,
     ctx: &mut CodegenContext,
 ) -> Result<FuncRef, GlslError> {
+    let source_map = &mut ctx.source_map;
+    // Note: current_file_id is available via ctx.current_file_id if needed for error context
     // Map library call name to intrinsic name
     let intrinsic_name = map_to_intrinsic_name(libcall_name)?;
 
@@ -92,20 +94,41 @@ pub fn get_or_create_intrinsic(
     // Determine which GLSL file to load
     let file_name = get_intrinsic_file(intrinsic_name)?;
 
-    // Load and compile GLSL file
-    let glsl_source = match file_name {
-        "trig" => include_str!("trig.glsl"),
-        _ => {
-            return Err(GlslError::new(
-                ErrorCode::E0400,
-                format!("Unknown intrinsic file: {}", file_name),
-            ));
-        }
+    // Check if intrinsic file is already in source map
+    let intrinsic_file_id = if let Some(existing_id) = source_map.find_intrinsic(file_name) {
+        existing_id
+    } else {
+        // Load and add intrinsic file to source map
+        let glsl_source = match file_name {
+            "trig" => include_str!("trig.glsl"),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!("Unknown intrinsic file: {}", file_name),
+                ));
+            }
+        };
+        source_map.add_file(
+            crate::frontend::src_loc::GlFileSource::Intrinsic(String::from(file_name)),
+            String::from(glsl_source),
+        )
     };
 
     // Compile all functions in the GLSL file
     let isa = ctx.module.isa();
-    let compiled_functions = compile_intrinsic_functions(glsl_source, isa)?;
+    // Extract source string to avoid borrow conflicts (clone to release immutable borrow)
+    let glsl_source_str = source_map.get_file(intrinsic_file_id)
+        .ok_or_else(|| GlslError::new(
+            ErrorCode::E0400,
+            format!("Intrinsic file {} not found in source map", file_name),
+        ))?
+        .contents.clone();
+    let compiled_functions = compile_intrinsic_functions(
+        glsl_source_str.as_str(),
+        isa,
+        source_map,
+        intrinsic_file_id,
+    )?;
 
     // Declare and define all functions first (they may call each other)
     let mut func_ids = hashbrown::HashMap::new();

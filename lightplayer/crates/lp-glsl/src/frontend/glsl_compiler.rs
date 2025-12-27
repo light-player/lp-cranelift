@@ -112,7 +112,7 @@ impl GlslCompiler {
                     module_ref,
                     isa_ref.as_ref(),
                     &mut source_loc_manager,
-                    &source_map,
+                    &mut source_map,
                     main_file_id,
                 )?
             };
@@ -148,7 +148,7 @@ impl GlslCompiler {
                 isa_ref.as_ref(),
                 semantic_result.source,
                 &mut source_loc_manager,
-                &source_map,
+                &mut source_map,
                 main_file_id,
             )?
         };
@@ -258,7 +258,7 @@ impl GlslCompiler {
                     module_ref,
                     isa_ref.as_ref(),
                     &mut source_loc_manager,
-                    &source_map,
+                    &mut source_map,
                     main_file_id,
                 )?
             };
@@ -294,7 +294,7 @@ impl GlslCompiler {
                 isa_ref.as_ref(),
                 semantic_result.source,
                 &mut source_loc_manager,
-                &source_map,
+                &mut source_map,
                 main_file_id,
             )?
         };
@@ -330,7 +330,7 @@ impl GlslCompiler {
         temp_module: &mut dyn Module,
         isa: &dyn cranelift_codegen::isa::TargetIsa,
         source_loc_manager: &mut crate::frontend::src_loc_manager::SourceLocManager,
-        source_map: &crate::frontend::src_loc::GlSourceMap,
+        source_map: &mut crate::frontend::src_loc::GlSourceMap,
         file_id: crate::frontend::src_loc::GlFileId,
     ) -> Result<Function, GlslError> {
         use crate::error::{ErrorCode, GlslError};
@@ -505,7 +505,7 @@ impl GlslCompiler {
         isa: &dyn cranelift_codegen::isa::TargetIsa,
         source_text: &str,
         source_loc_manager: &mut crate::frontend::src_loc_manager::SourceLocManager,
-        source_map: &crate::frontend::src_loc::GlSourceMap,
+        source_map: &mut crate::frontend::src_loc::GlSourceMap,
         file_id: crate::frontend::src_loc::GlFileId,
     ) -> Result<Function, GlslError> {
         use crate::error::{ErrorCode, GlslError};
