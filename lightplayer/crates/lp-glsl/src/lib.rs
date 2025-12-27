@@ -16,8 +16,7 @@ pub mod error;
 pub mod frontend;
 
 // Private modules
-mod backend;
-mod backend2;
+pub mod backend2;
 mod exec;
 
 // Re-exports
@@ -35,9 +34,6 @@ pub use frontend::{
 
 /// Type alias for convenience
 pub type Compiler = GlslCompiler;
-pub use backend::ir::ClifModule;
-pub use backend::transform::FixedPointFormat;
-pub use backend::transform::fixed32::transform_module;
 pub use error::{ErrorCode, GlslError};
 pub use frontend::semantic::type_check::inference::infer_expr_type_in_context;
 

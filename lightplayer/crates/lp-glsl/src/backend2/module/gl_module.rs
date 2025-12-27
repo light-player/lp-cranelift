@@ -3,6 +3,9 @@
 use crate::backend2::module::gl_func::GlFunc;
 use crate::backend2::target::Target;
 use crate::error::{ErrorCode, GlslError};
+use crate::frontend::semantic::functions::{FunctionRegistry, FunctionSignature};
+use crate::frontend::src_loc::GlSourceMap;
+use crate::frontend::src_loc_manager::SourceLocManager;
 use alloc::string::String;
 use cranelift_jit::JITModule;
 use cranelift_module::Module;
@@ -14,7 +17,12 @@ pub struct GlModule<M: Module> {
     pub target: Target, // Semantic target, not technical spec
     pub fns: HashMap<String, GlFunc>,
     module: M, // PRIVATE - only accessible via internal methods
-               // Note: source_map not needed for Phase 1
+    // Metadata fields
+    pub function_registry: FunctionRegistry,
+    pub glsl_signatures: HashMap<String, FunctionSignature>,
+    pub source_text: String,
+    pub source_loc_manager: SourceLocManager,
+    pub source_map: GlSourceMap,
 }
 
 // Separate constructors for each Module type (Rust needs concrete types)
@@ -34,6 +42,11 @@ impl GlModule<JITModule> {
                     target,
                     fns: HashMap::new(),
                     module,
+                    function_registry: FunctionRegistry::new(),
+                    glsl_signatures: HashMap::new(),
+                    source_text: String::new(),
+                    source_loc_manager: SourceLocManager::new(),
+                    source_map: GlSourceMap::new(),
                 })
             }
             _ => Err(GlslError::new(
@@ -65,6 +78,11 @@ impl GlModule<ObjectModule> {
                     target,
                     fns: HashMap::new(),
                     module,
+                    function_registry: FunctionRegistry::new(),
+                    glsl_signatures: HashMap::new(),
+                    source_text: String::new(),
+                    source_loc_manager: SourceLocManager::new(),
+                    source_map: GlSourceMap::new(),
                 })
             }
             _ => Err(GlslError::new(
@@ -188,7 +206,7 @@ impl<M: Module> GlModule<M> {
 
     /// Internal helper for apply_transform - contains common logic
     fn apply_transform_impl<T: crate::backend2::transform::pipeline::Transform>(
-        self,
+        fns: HashMap<String, GlFunc>,
         transform: T,
         mut new_module: Self,
     ) -> Result<Self, GlslError> {
@@ -198,7 +216,7 @@ impl<M: Module> GlModule<M> {
 
         // 1. Transform all function signatures and create FuncId mappings
         let mut func_id_map = hashbrown::HashMap::new();
-        for (name, gl_func) in &self.fns {
+        for (name, gl_func) in &fns {
             let new_sig = transform.transform_signature(&gl_func.clif_sig);
             // Determine linkage - for now, use Local (can be enhanced later)
             let linkage = Linkage::Local;
@@ -218,7 +236,7 @@ impl<M: Module> GlModule<M> {
         }
 
         // 2. Transform function bodies
-        for (name, gl_func) in self.fns {
+        for (name, gl_func) in fns {
             let mut transform_ctx = TransformContext {
                 module: &mut new_module,
                 func_id_map: func_id_map.clone(),
@@ -268,8 +286,20 @@ impl GlModule<JITModule> {
         transform: T,
     ) -> Result<Self, GlslError> {
         let target = self.target.clone();
-        let new_module = Self::new_with_target(target)?;
-        self.apply_transform_impl(transform, new_module)
+        let function_registry = self.function_registry;
+        let glsl_signatures = self.glsl_signatures;
+        let source_text = self.source_text;
+        let source_loc_manager = self.source_loc_manager;
+        let source_map = self.source_map;
+        let fns = self.fns;
+        let mut new_module = Self::new_with_target(target)?;
+        // Preserve metadata
+        new_module.function_registry = function_registry;
+        new_module.glsl_signatures = glsl_signatures;
+        new_module.source_text = source_text;
+        new_module.source_loc_manager = source_loc_manager;
+        new_module.source_map = source_map;
+        Self::apply_transform_impl(fns, transform, new_module)
     }
 }
 
@@ -302,8 +332,20 @@ impl GlModule<ObjectModule> {
         transform: T,
     ) -> Result<Self, GlslError> {
         let target = self.target.clone();
-        let new_module = Self::new_with_target(target)?;
-        self.apply_transform_impl(transform, new_module)
+        let function_registry = self.function_registry;
+        let glsl_signatures = self.glsl_signatures;
+        let source_text = self.source_text;
+        let source_loc_manager = self.source_loc_manager;
+        let source_map = self.source_map;
+        let fns = self.fns;
+        let mut new_module = Self::new_with_target(target)?;
+        // Preserve metadata
+        new_module.function_registry = function_registry;
+        new_module.glsl_signatures = glsl_signatures;
+        new_module.source_text = source_text;
+        new_module.source_loc_manager = source_loc_manager;
+        new_module.source_map = source_map;
+        Self::apply_transform_impl(fns, transform, new_module)
     }
 }
 

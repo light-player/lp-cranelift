@@ -71,14 +71,18 @@ pub fn build_emu_executable(
         }
     }
 
-    // 2. Build signatures before moving gl_module (minimal for Phase 1)
-    let signatures = HashMap::new();
+    // 2. Build signatures and extract metadata before moving gl_module
+    let signatures = gl_module.glsl_signatures.clone();
     let mut cranelift_signatures = HashMap::new();
     for (name, gl_func) in &gl_module.fns {
         cranelift_signatures.insert(name.clone(), gl_func.clif_sig.clone());
-        // Minimal GLSL signature for Phase 1
     }
-
+    let source_text = gl_module.source_text.clone();
+    // Extract source_loc_manager and source_map using mem::replace to avoid partial moves
+    use crate::frontend::src_loc_manager::SourceLocManager;
+    let source_loc_manager = core::mem::replace(&mut gl_module.source_loc_manager, SourceLocManager::new());
+    let source_map = core::mem::replace(&mut gl_module.source_map, GlSourceMap::new());
+    
     // 3. Finish module and get object file
     let product = gl_module.into_module().finish();
     let elf_bytes = product
@@ -118,8 +122,7 @@ pub fn build_emu_executable(
     emulator.set_pc(0);
 
     // 7. Create GlslEmulatorModule
-    // Note: Some fields are required by GlslEmulatorModule but not needed for Phase 1
-    // Use minimal/default values for now
+    // Preserve metadata from GlModule
     Ok(GlslEmulatorModule {
         emulator,
         signatures,
@@ -131,10 +134,10 @@ pub fn build_emu_executable(
         vcode: None,                  // Phase 1: not needed
         disassembly: None,            // Phase 1: not needed
         trap_source_info: Vec::new(), // Phase 1: empty
-        source_text: None,            // Phase 1: not needed
+        source_text: Some(source_text),
         source_file_path: None,       // Phase 1: not needed
-        source_loc_manager: SourceLocManager::new(),
-        source_map: GlSourceMap::new(),
+        source_loc_manager,
+        source_map,
         next_buffer_addr: 0x80000000, // Default RAM start
     })
 }

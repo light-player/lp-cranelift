@@ -15,8 +15,6 @@ pub mod src_loc_manager;
 
 // Re-exports used by crate root; suppress unused warnings within this module.
 #[allow(unused_imports)]
-pub use crate::backend::link::rebuild_function_for_module;
-#[allow(unused_imports)]
 pub use glsl_compiler::GlslCompiler;
 #[allow(unused_imports)]
 pub use pipeline::{
@@ -24,7 +22,7 @@ pub use pipeline::{
     parse_program_with_registry,
 };
 
-// Re-export create_minimal_module_for_declarations for internal use
+// Re-export create_minimal_module_for_declarations for internal use (may still be needed)
 #[allow(unused_imports)]
 pub(crate) use glsl_compiler::create_minimal_module_for_declarations;
 
@@ -32,35 +30,37 @@ pub(crate) use glsl_compiler::create_minimal_module_for_declarations;
 // Public API functions
 // ============================================================================
 
-use crate::backend::ir::ClifModule;
-use crate::backend::transform::fixed32::{FixedPointFormat, transform_module};
+use crate::backend2::codegen::emu::EmulatorOptions;
+use crate::backend2::module::gl_module::GlModule;
+use crate::backend2::target::Target;
+use crate::backend2::transform::fixed32::{Fixed32Transform, FixedPointFormat};
 use crate::error::GlslError;
 use crate::exec::executable::{GlslExecutable, GlslOptions, RunMode};
-use cranelift_codegen::isa::OwnedTargetIsa;
+use cranelift_jit::JITModule;
+use cranelift_object::ObjectModule;
 
-#[cfg(feature = "std")]
-use cranelift_native;
-
-use crate::backend::link;
 use alloc::boxed::Box;
 use alloc::format as alloc_format;
 use alloc::string::String;
 
-/// Compile GLSL to CLIF module (internal, reusable)
-/// This is the core compilation step that can be reused for different backends
-pub fn compile_glsl_to_clif(source: &str, options: &GlslOptions) -> Result<ClifModule, GlslError> {
+/// Compile GLSL to GlModule<JITModule> (internal, reusable)
+/// This is the core compilation step for JIT execution
+pub fn compile_glsl_to_gl_module_jit(
+    source: &str,
+    options: &GlslOptions,
+) -> Result<GlModule<JITModule>, GlslError> {
     use crate::exec::executable::DecimalFormat;
 
     options.validate()?;
 
     let mut compiler = GlslCompiler::new();
 
-    // Determine ISA based on run mode
-    let isa = match &options.run_mode {
+    // Determine target based on run mode
+    let target = match &options.run_mode {
         RunMode::HostJit => {
             #[cfg(feature = "std")]
             {
-                create_host_isa()?
+                Target::host_jit()?
             }
             #[cfg(not(feature = "std"))]
             {
@@ -71,27 +71,68 @@ pub fn compile_glsl_to_clif(source: &str, options: &GlslOptions) -> Result<ClifM
             }
         }
         RunMode::Emulator { .. } => {
-            #[cfg(feature = "emulator")]
-            {
-                create_riscv32_isa()?
-            }
-            #[cfg(not(feature = "emulator"))]
-            {
-                return Err(GlslError::new(
-                    crate::error::ErrorCode::E0400,
-                    "Emulator mode requires 'emulator' feature flag",
-                ));
-            }
+            return Err(GlslError::new(
+                crate::error::ErrorCode::E0400,
+                "Emulator mode not supported for JIT compilation",
+            ));
         }
     };
 
-    // Compile to CLIF
-    let mut module = compiler.compile_to_clif_module(source, isa)?;
+    // Compile to GlModule
+    let mut module = compiler.compile_to_gl_module_jit(source, target)?;
 
     // Apply transformations
     match options.decimal_format {
         DecimalFormat::Fixed32 => {
-            module = transform_module(&module, FixedPointFormat::Fixed16x16)?;
+            let transform = Fixed32Transform::new(FixedPointFormat::Fixed16x16);
+            module = module.apply_transform(transform)?;
+        }
+        DecimalFormat::Fixed64 => {
+            return Err(GlslError::new(
+                crate::error::ErrorCode::E0400,
+                "Fixed64 not yet supported",
+            ));
+        }
+        DecimalFormat::Float => {
+            // No transformation needed
+        }
+    }
+
+    Ok(module)
+}
+
+/// Compile GLSL to GlModule<ObjectModule> (internal, reusable)
+/// This is the core compilation step for emulator execution
+#[cfg(feature = "emulator")]
+pub fn compile_glsl_to_gl_module_object(
+    source: &str,
+    options: &GlslOptions,
+) -> Result<GlModule<ObjectModule>, GlslError> {
+    use crate::exec::executable::DecimalFormat;
+
+    options.validate()?;
+
+    let mut compiler = GlslCompiler::new();
+
+    // Determine target based on run mode
+    let target = match &options.run_mode {
+        RunMode::Emulator { .. } => Target::riscv32_emulator()?,
+        RunMode::HostJit => {
+            return Err(GlslError::new(
+                crate::error::ErrorCode::E0400,
+                "HostJit mode not supported for object compilation",
+            ));
+        }
+    };
+
+    // Compile to GlModule
+    let mut module = compiler.compile_to_gl_module_object(source, target)?;
+
+    // Apply transformations
+    match options.decimal_format {
+        DecimalFormat::Fixed32 => {
+            let transform = Fixed32Transform::new(FixedPointFormat::Fixed16x16);
+            module = module.apply_transform(transform)?;
         }
         DecimalFormat::Fixed64 => {
             return Err(GlslError::new(
@@ -110,9 +151,8 @@ pub fn compile_glsl_to_clif(source: &str, options: &GlslOptions) -> Result<ClifM
 /// Compile and JIT execute GLSL
 /// Works in both std and no_std environments
 pub fn glsl_jit(source: &str, options: GlslOptions) -> Result<Box<dyn GlslExecutable>, GlslError> {
-    let module = compile_glsl_to_clif(source, &options)?;
-    let jit_module = link::link_glsl_for_jit(module)?;
-    Ok(Box::new(jit_module))
+    let module = compile_glsl_to_gl_module_jit(source, &options)?;
+    module.build_executable()
 }
 
 /// Compile and execute GLSL in RISC-V 32-bit emulator
@@ -133,34 +173,10 @@ pub fn glsl_emu_riscv32_with_metadata(
     options: GlslOptions,
     source_file_path: Option<String>,
 ) -> Result<Box<dyn GlslExecutable>, GlslError> {
-    use crate::backend::link::EmulatorOptions;
     use crate::exec::executable::DecimalFormat;
 
-    let mut compiler = GlslCompiler::new();
-    let isa = match &options.run_mode {
-        RunMode::Emulator { .. } => create_riscv32_isa()?,
-        _ => {
-            return Err(GlslError::new(
-                crate::error::ErrorCode::E0400,
-                "Invalid run mode for emulator",
-            ));
-        }
-    };
-
-    // Compile to CLIF (before transformation)
-    let original_module = compiler.compile_to_clif_module(source, isa.clone())?;
-
-    // Apply transformations if needed
-    let transformed_module = match options.decimal_format {
-        DecimalFormat::Fixed32 => transform_module(&original_module, FixedPointFormat::Fixed16x16)?,
-        DecimalFormat::Fixed64 => {
-            return Err(GlslError::new(
-                crate::error::ErrorCode::E0400,
-                "Fixed64 not yet supported",
-            ));
-        }
-        DecimalFormat::Float => original_module.clone(),
-    };
+    // Compile to GlModule (transformations already applied)
+    let module = compile_glsl_to_gl_module_object(source, &options)?;
 
     let emulator_options = match &options.run_mode {
         RunMode::Emulator {
@@ -181,107 +197,9 @@ pub fn glsl_emu_riscv32_with_metadata(
         }
     };
 
-    let emu_module = link::link_glsl_for_emulator(
-        original_module,
-        transformed_module,
-        &emulator_options,
-        Some(String::from(source)),
-        source_file_path,
-    )?;
-    Ok(Box::new(emu_module))
-}
+    // Note: source_file_path is stored in GlModule but not currently used in build_emu_executable
+    // This can be added later if needed
+    let _ = source_file_path;
 
-/// Create host ISA for JIT compilation
-#[cfg(feature = "std")]
-fn create_host_isa() -> Result<OwnedTargetIsa, GlslError> {
-    use cranelift_codegen::settings::{self, Configurable};
-
-    let mut flag_builder = settings::builder();
-    flag_builder.set("is_pic", "false").map_err(|e| {
-        GlslError::new(
-            crate::error::ErrorCode::E0400,
-            alloc_format!("failed to set is_pic: {}", e),
-        )
-    })?;
-    flag_builder
-        .set("use_colocated_libcalls", "false")
-        .map_err(|e| {
-            GlslError::new(
-                crate::error::ErrorCode::E0400,
-                alloc_format!("failed to set use_colocated_libcalls: {}", e),
-            )
-        })?;
-    flag_builder
-        .set("enable_multi_ret_implicit_sret", "true")
-        .map_err(|e| {
-            GlslError::new(
-                crate::error::ErrorCode::E0400,
-                alloc_format!("failed to set enable_multi_ret_implicit_sret: {}", e),
-            )
-        })?;
-
-    let flags = settings::Flags::new(flag_builder);
-    let isa_builder = cranelift_native::builder().map_err(|e| {
-        GlslError::new(
-            crate::error::ErrorCode::E0400,
-            format!("host machine is not supported: {}", e),
-        )
-    })?;
-    isa_builder.finish(flags).map_err(|e| {
-        GlslError::new(
-            crate::error::ErrorCode::E0400,
-            alloc_format!("failed to create host ISA: {}", e),
-        )
-    })
-}
-
-/// Create RISC-V 32-bit ISA for emulator compilation
-#[cfg(feature = "emulator")]
-fn create_riscv32_isa() -> Result<OwnedTargetIsa, GlslError> {
-    use cranelift_codegen::isa::riscv32::isa_builder;
-    use cranelift_codegen::settings::{self, Configurable};
-    use target_lexicon::{
-        Architecture, BinaryFormat, Environment, OperatingSystem, Riscv32Architecture, Triple,
-        Vendor,
-    };
-
-    let mut flag_builder = settings::builder();
-    flag_builder.set("is_pic", "false").map_err(|e| {
-        GlslError::new(
-            crate::error::ErrorCode::E0400,
-            alloc_format!("failed to set is_pic: {}", e),
-        )
-    })?;
-    flag_builder
-        .set("use_colocated_libcalls", "false")
-        .map_err(|e| {
-            GlslError::new(
-                crate::error::ErrorCode::E0400,
-                alloc_format!("failed to set use_colocated_libcalls: {}", e),
-            )
-        })?;
-    flag_builder
-        .set("enable_multi_ret_implicit_sret", "true")
-        .map_err(|e| {
-            GlslError::new(
-                crate::error::ErrorCode::E0400,
-                alloc_format!("failed to set enable_multi_ret_implicit_sret: {}", e),
-            )
-        })?;
-
-    let flags = settings::Flags::new(flag_builder);
-    let triple = Triple {
-        architecture: Architecture::Riscv32(Riscv32Architecture::Riscv32imac),
-        vendor: Vendor::Unknown,
-        operating_system: OperatingSystem::None_,
-        environment: Environment::Unknown,
-        binary_format: BinaryFormat::Elf,
-    };
-
-    isa_builder(triple).finish(flags).map_err(|e| {
-        GlslError::new(
-            crate::error::ErrorCode::E0400,
-            alloc_format!("failed to create riscv32 ISA: {}", e),
-        )
-    })
+    module.build_executable(&emulator_options)
 }

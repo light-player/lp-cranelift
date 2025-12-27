@@ -70,12 +70,10 @@ pub fn build_jit_executable(
         function_ptrs.insert(name.clone(), ptr);
     }
 
-    // 3. Build signatures map (minimal for Phase 1)
-    let signatures = HashMap::new();
+    // 3. Build signatures map from GlModule metadata
+    let signatures = gl_module.glsl_signatures.clone();
     let mut cranelift_signatures = HashMap::new();
     for (name, gl_func) in &gl_module.fns {
-        // For Phase 1, create minimal GLSL signature
-        // Full signature support comes later
         cranelift_signatures.insert(name.clone(), gl_func.clif_sig.clone());
     }
 

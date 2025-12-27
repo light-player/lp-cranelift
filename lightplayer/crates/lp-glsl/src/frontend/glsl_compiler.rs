@@ -1,20 +1,22 @@
-//! GLSL compiler that compiles GLSL source to ClifModule
+//! GLSL compiler that compiles GLSL source to GlModule
 
-use crate::backend::ir::ClifModule;
+use crate::backend2::module::gl_module::GlModule;
+use crate::backend2::target::Target;
 use crate::error::GlslError;
 use crate::frontend::pipeline::CompilationPipeline;
 use crate::frontend::src_loc::GlSourceMap;
 use cranelift_codegen::ir::Function;
-use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
+use cranelift_jit::JITModule;
 use cranelift_module::{FuncId, Linkage, Module, ModuleDeclarations, ModuleError, ModuleResult};
+use cranelift_object::ObjectModule;
 use hashbrown::HashMap;
 
 use alloc::string::String;
 use alloc::{boxed::Box, vec::Vec};
 
 use alloc::format;
-/// GLSL compiler that compiles GLSL source to ClifModule
+/// GLSL compiler that compiles GLSL source to GlModule
 pub struct GlslCompiler {
     #[allow(dead_code)]
     builder_context: FunctionBuilderContext,
@@ -27,13 +29,13 @@ impl GlslCompiler {
         }
     }
 
-    /// Compile GLSL source to a ClifModule
+    /// Compile GLSL source to a GlModule<JITModule>
     /// All functions are compiled with float types initially (no fixed-point conversion)
-    pub fn compile_to_clif_module(
+    pub fn compile_to_gl_module_jit(
         &mut self,
         source: &str,
-        isa: OwnedTargetIsa,
-    ) -> Result<ClifModule, GlslError> {
+        target: Target,
+    ) -> Result<GlModule<JITModule>, GlslError> {
         use crate::error::{ErrorCode, GlslError};
         use crate::frontend::codegen::signature::SignatureBuilder;
 
@@ -41,25 +43,28 @@ impl GlslCompiler {
         let semantic_result = CompilationPipeline::parse_and_analyze(source)?;
         let typed_ast = semantic_result.typed_ast;
 
-        // 2. Create a shared source location manager for all functions
+        // 2. Create ISA for signature building (before creating gl_module to avoid borrow conflicts)
+        let mut target_for_isa = target.clone();
+        let isa_ref = target_for_isa.create_isa()?;
+        let pointer_type = isa_ref.pointer_type();
+        let triple = isa_ref.triple();
+
+        // 3. Create GlModule
+        let mut gl_module = GlModule::new_jit(target)?;
+
+        // 4. Create a shared source location manager for all functions
         use crate::frontend::src_loc_manager::SourceLocManager;
         let mut source_loc_manager = SourceLocManager::new();
 
-        // 2b. Create a source map and add the main source file
+        // 4b. Create a source map and add the main source file
         let mut source_map = GlSourceMap::new();
         let main_file_id = source_map.add_file(
             crate::frontend::src_loc::GlFileSource::Synthetic(String::from("main.glsl")),
             String::from(source),
         );
 
-        // 3. Create a temporary minimal module for function declarations
-        //    This is needed to get FuncIds for cross-function calls
-        let mut temp_module = create_minimal_module_for_declarations(isa.as_ref())?;
-
-        // 3. Declare all user functions with FLOAT signatures (no conversion)
+        // 5. Declare all user functions with FLOAT signatures (no conversion)
         let mut func_ids: HashMap<String, FuncId> = HashMap::new();
-        let pointer_type = isa.pointer_type();
-        let triple = isa.triple();
 
         for user_func in &typed_ast.user_functions {
             let sig = SignatureBuilder::build_with_triple(
@@ -68,8 +73,8 @@ impl GlslCompiler {
                 pointer_type,
                 triple,
             );
-            let func_id = temp_module
-                .declare_function(&user_func.name, Linkage::Local, &sig)
+            let func_id = gl_module
+                .declare_function(&user_func.name, Linkage::Local, sig)
                 .map_err(|e| {
                     GlslError::new(
                         ErrorCode::E0400,
@@ -79,54 +84,79 @@ impl GlslCompiler {
             func_ids.insert(user_func.name.clone(), func_id);
         }
 
-        // 4. Compile all user functions to CLIF with FLOAT types
-        let mut user_functions = HashMap::new();
-        let mut glsl_signatures = HashMap::new();
-        let mut func_id_to_name = HashMap::new();
+        // 6. Compile all user functions to CLIF with FLOAT types
+        // Collect compiled functions first to avoid borrow conflicts
+        let mut compiled_user_functions: Vec<(
+            String,
+            Function,
+            cranelift_codegen::ir::Signature,
+            crate::frontend::semantic::functions::FunctionSignature,
+        )> = Vec::new();
         for user_func in &typed_ast.user_functions {
             let func_id = func_ids[&user_func.name];
-            let func = self.compile_function_to_clif(
-                user_func,
-                func_id,
+            let sig = SignatureBuilder::build_with_triple(
+                &user_func.return_type,
+                &user_func.parameters,
+                pointer_type,
+                triple,
+            );
+            let func = {
+                // Borrow module only for compilation
+                let module_ref = gl_module.module_mut_internal();
+                self.compile_function_to_clif(
+                    user_func,
+                    func_id,
+                    &func_ids,
+                    &typed_ast.function_registry,
+                    module_ref,
+                    isa_ref.as_ref(),
+                    &mut source_loc_manager,
+                    &source_map,
+                    main_file_id,
+                )?
+            };
+            let glsl_sig = crate::frontend::semantic::functions::FunctionSignature {
+                name: user_func.name.clone(),
+                return_type: user_func.return_type.clone(),
+                parameters: user_func.parameters.clone(),
+            };
+            compiled_user_functions.push((user_func.name.clone(), func, sig, glsl_sig));
+        }
+
+        // 7. Add compiled user functions to GlModule
+        for (name, func, sig, glsl_sig) in compiled_user_functions {
+            gl_module.add_function(&name, Linkage::Local, sig, func)?;
+            gl_module.glsl_signatures.insert(name, glsl_sig);
+        }
+
+        // 8. Compile main function to CLIF with FLOAT types
+        let main_sig = SignatureBuilder::build_with_triple(
+            &typed_ast.main_function.return_type,
+            &typed_ast.main_function.parameters,
+            pointer_type,
+            triple,
+        );
+        let main_func = {
+            // Borrow module only for compilation
+            let module_ref = gl_module.module_mut_internal();
+            self.compile_main_function_to_clif(
+                &typed_ast.main_function,
                 &func_ids,
                 &typed_ast.function_registry,
-                &mut temp_module,
-                isa.as_ref(),
+                module_ref,
+                isa_ref.as_ref(),
+                semantic_result.source,
                 &mut source_loc_manager,
                 &source_map,
                 main_file_id,
-            )?;
-            user_functions.insert(user_func.name.clone(), func);
+            )?
+        };
 
-            // Store GLSL signature
-            glsl_signatures.insert(
-                user_func.name.clone(),
-                crate::frontend::semantic::functions::FunctionSignature {
-                    name: user_func.name.clone(),
-                    return_type: user_func.return_type.clone(),
-                    parameters: user_func.parameters.clone(),
-                },
-            );
-
-            // Store FuncId -> name mapping for linking
-            func_id_to_name.insert(func_id.as_u32(), user_func.name.clone());
-        }
-
-        // 5. Compile main function to CLIF with FLOAT types
-        let main_func = self.compile_main_function_to_clif(
-            &typed_ast.main_function,
-            &func_ids,
-            &typed_ast.function_registry,
-            &mut temp_module,
-            isa.as_ref(),
-            semantic_result.source,
-            &mut source_loc_manager,
-            &source_map,
-            main_file_id,
-        )?;
+        // Add main function to GlModule
+        gl_module.add_function("main", Linkage::Export, main_sig, main_func)?;
 
         // Store main function's GLSL signature
-        glsl_signatures.insert(
+        gl_module.glsl_signatures.insert(
             String::from("main"),
             crate::frontend::semantic::functions::FunctionSignature {
                 name: String::from("main"),
@@ -135,60 +165,158 @@ impl GlslCompiler {
             },
         );
 
-        // Store main's FuncId -> name mapping (main is declared separately, but we need to track it)
-        // Note: main doesn't have a FuncId in func_ids, but we can infer it if needed
-        // For now, we'll handle main separately in link_into
+        // 9. Set metadata
+        gl_module.function_registry = typed_ast.function_registry;
+        gl_module.source_text = String::from(source);
+        gl_module.source_loc_manager = source_loc_manager;
+        gl_module.source_map = source_map;
 
-        // 6. Build and return ClifModule
-        Ok(ClifModule::builder()
-            .set_function_registry(typed_ast.function_registry)
-            .set_source_text(String::from(source))
-            .set_isa(isa)
-            .add_user_functions(user_functions)
-            .set_main_function(main_func)
-            .add_glsl_signatures(glsl_signatures)
-            .add_func_id_mappings(func_id_to_name)
-            .set_source_loc_manager(source_loc_manager)
-            .set_source_map(source_map)
-            .build()?)
+        Ok(gl_module)
     }
 
-    /// Compile GLSL source to machine code bytes
-    /// This is a convenience method for embedded targets that need raw machine code
-    pub fn compile_to_code(
+    /// Compile GLSL source to a GlModule<ObjectModule>
+    /// All functions are compiled with float types initially (no fixed-point conversion)
+    pub fn compile_to_gl_module_object(
         &mut self,
         source: &str,
-        isa: &dyn cranelift_codegen::isa::TargetIsa,
-    ) -> Result<Vec<u8>, GlslError> {
+        target: Target,
+    ) -> Result<GlModule<ObjectModule>, GlslError> {
         use crate::error::{ErrorCode, GlslError};
-        use cranelift_codegen::Context;
-        use cranelift_control::ControlPlane;
+        use crate::frontend::codegen::signature::SignatureBuilder;
 
-        // Compile to CLIF module
-        let isa_owned = {
-            let isa_builder = cranelift_codegen::isa::Builder::from_target_isa(isa);
-            let flags = isa.flags().clone();
-            isa_builder.finish(flags).map_err(|e| {
-                GlslError::new(ErrorCode::E0400, format!("failed to recreate ISA: {:?}", e))
-            })?
+        // 1. Parse and analyze GLSL
+        let semantic_result = CompilationPipeline::parse_and_analyze(source)?;
+        let typed_ast = semantic_result.typed_ast;
+
+        // 2. Create ISA for signature building (before creating gl_module to avoid borrow conflicts)
+        let mut target_for_isa = target.clone();
+        let isa_ref = target_for_isa.create_isa()?;
+        let pointer_type = isa_ref.pointer_type();
+        let triple = isa_ref.triple();
+
+        // 3. Create GlModule
+        let mut gl_module = GlModule::new_object(target)?;
+
+        // 4. Create a shared source location manager for all functions
+        use crate::frontend::src_loc_manager::SourceLocManager;
+        let mut source_loc_manager = SourceLocManager::new();
+
+        // 4b. Create a source map and add the main source file
+        let mut source_map = GlSourceMap::new();
+        let main_file_id = source_map.add_file(
+            crate::frontend::src_loc::GlFileSource::Synthetic(String::from("main.glsl")),
+            String::from(source),
+        );
+
+        // 5. Declare all user functions with FLOAT signatures (no conversion)
+        let mut func_ids: HashMap<String, FuncId> = HashMap::new();
+
+        for user_func in &typed_ast.user_functions {
+            let sig = SignatureBuilder::build_with_triple(
+                &user_func.return_type,
+                &user_func.parameters,
+                pointer_type,
+                triple,
+            );
+            let func_id = gl_module
+                .declare_function(&user_func.name, Linkage::Local, sig)
+                .map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("failed to declare function '{}': {}", user_func.name, e),
+                    )
+                })?;
+            func_ids.insert(user_func.name.clone(), func_id);
+        }
+
+        // 6. Compile all user functions to CLIF with FLOAT types
+        // Collect compiled functions first to avoid borrow conflicts
+        let mut compiled_user_functions: Vec<(
+            String,
+            Function,
+            cranelift_codegen::ir::Signature,
+            crate::frontend::semantic::functions::FunctionSignature,
+        )> = Vec::new();
+        for user_func in &typed_ast.user_functions {
+            let func_id = func_ids[&user_func.name];
+            let sig = SignatureBuilder::build_with_triple(
+                &user_func.return_type,
+                &user_func.parameters,
+                pointer_type,
+                triple,
+            );
+            let func = {
+                // Borrow module only for compilation
+                let module_ref = gl_module.module_mut_internal();
+                self.compile_function_to_clif(
+                    user_func,
+                    func_id,
+                    &func_ids,
+                    &typed_ast.function_registry,
+                    module_ref,
+                    isa_ref.as_ref(),
+                    &mut source_loc_manager,
+                    &source_map,
+                    main_file_id,
+                )?
+            };
+            let glsl_sig = crate::frontend::semantic::functions::FunctionSignature {
+                name: user_func.name.clone(),
+                return_type: user_func.return_type.clone(),
+                parameters: user_func.parameters.clone(),
+            };
+            compiled_user_functions.push((user_func.name.clone(), func, sig, glsl_sig));
+        }
+
+        // 7. Add compiled user functions to GlModule
+        for (name, func, sig, glsl_sig) in compiled_user_functions {
+            gl_module.add_function(&name, Linkage::Local, sig, func)?;
+            gl_module.glsl_signatures.insert(name, glsl_sig);
+        }
+
+        // 8. Compile main function to CLIF with FLOAT types
+        let main_sig = SignatureBuilder::build_with_triple(
+            &typed_ast.main_function.return_type,
+            &typed_ast.main_function.parameters,
+            pointer_type,
+            triple,
+        );
+        let main_func = {
+            // Borrow module only for compilation
+            let module_ref = gl_module.module_mut_internal();
+            self.compile_main_function_to_clif(
+                &typed_ast.main_function,
+                &func_ids,
+                &typed_ast.function_registry,
+                module_ref,
+                isa_ref.as_ref(),
+                semantic_result.source,
+                &mut source_loc_manager,
+                &source_map,
+                main_file_id,
+            )?
         };
-        let module = self.compile_to_clif_module(source, isa_owned)?;
 
-        // Compile the main function to machine code
-        let main_func = module.main_function();
-        let mut ctx = Context::for_function(main_func.clone());
-        let mut ctrl_plane = ControlPlane::default();
-        let compiled_code = ctx.compile(isa, &mut ctrl_plane).map_err(|e| {
-            GlslError::new(
-                ErrorCode::E0400,
-                format!("failed to compile function: {:?}", e),
-            )
-        })?;
+        // Add main function to GlModule
+        gl_module.add_function("main", Linkage::Export, main_sig, main_func)?;
 
-        // Get the machine code bytes
-        let mut code = Vec::new();
-        code.extend_from_slice(compiled_code.buffer.data());
-        Ok(code)
+        // Store main function's GLSL signature
+        gl_module.glsl_signatures.insert(
+            String::from("main"),
+            crate::frontend::semantic::functions::FunctionSignature {
+                name: String::from("main"),
+                return_type: typed_ast.main_function.return_type.clone(),
+                parameters: typed_ast.main_function.parameters.clone(),
+            },
+        );
+
+        // 9. Set metadata
+        gl_module.function_registry = typed_ast.function_registry;
+        gl_module.source_text = String::from(source);
+        gl_module.source_loc_manager = source_loc_manager;
+        gl_module.source_map = source_map;
+
+        Ok(gl_module)
     }
 
     fn compile_function_to_clif(
