@@ -11,6 +11,7 @@ extern crate alloc;
 #[macro_use]
 extern crate std;
 
+pub mod debug;
 pub mod error;
 pub mod frontend;
 
