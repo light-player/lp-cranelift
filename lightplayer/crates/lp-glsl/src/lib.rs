@@ -16,7 +16,7 @@ pub mod error;
 pub mod frontend;
 
 // Private modules
-pub mod backend2;
+pub mod backend;
 mod exec;
 
 // Re-exports

@@ -1,7 +1,7 @@
 //! GLSL compiler that compiles GLSL source to GlModule
 
-use crate::backend2::module::gl_module::GlModule;
-use crate::backend2::target::Target;
+use crate::backend::module::gl_module::GlModule;
+use crate::backend::target::Target;
 use crate::error::GlslError;
 use crate::frontend::pipeline::CompilationPipeline;
 use crate::frontend::src_loc::GlSourceMap;

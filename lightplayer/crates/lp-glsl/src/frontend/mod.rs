@@ -30,10 +30,10 @@ pub(crate) use glsl_compiler::create_minimal_module_for_declarations;
 // Public API functions
 // ============================================================================
 
-use crate::backend2::codegen::emu::EmulatorOptions;
-use crate::backend2::module::gl_module::GlModule;
-use crate::backend2::target::Target;
-use crate::backend2::transform::fixed32::{Fixed32Transform, FixedPointFormat};
+use crate::backend::codegen::emu::EmulatorOptions;
+use crate::backend::module::gl_module::GlModule;
+use crate::backend::target::Target;
+use crate::backend::transform::fixed32::{Fixed32Transform, FixedPointFormat};
 use crate::error::GlslError;
 use crate::exec::executable::{GlslExecutable, GlslOptions, RunMode};
 use cranelift_jit::JITModule;
