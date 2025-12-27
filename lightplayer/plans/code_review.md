@@ -6,8 +6,11 @@ Plan any needed changes to the code. Be specific about the changes.
 
 ## Plan contents
 
+The generated plan should follow this pattern:
+
 - Commit current work
 - Perform needed changes
+- Run 'cd lightplayer/ && cargo +nightly fmt'
 - Run tests for current module (implies a build)
 - Fix any problems
 
