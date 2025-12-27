@@ -32,7 +32,7 @@ bvec2 test_bvec2_from_bvec2_variable() {
     return bvec2(x);
 }
 
-// run: test_bvec2_from_bvec2_variable() == bvec2(x)
+// run: test_bvec2_from_bvec2_variable() == bvec2(true, false)
 
 bvec2 test_bvec2_from_bvec2_expression() {
     return bvec2(not(bvec2(false, true)));

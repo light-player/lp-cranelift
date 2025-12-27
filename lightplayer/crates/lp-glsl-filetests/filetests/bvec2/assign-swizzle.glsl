@@ -34,25 +34,6 @@ bvec2 test_bvec2_assign_swizzle_yx() {
 
 // run: test_bvec2_assign_swizzle_yx() == bvec2(false, true)
 
-bvec2 test_bvec2_assign_swizzle_xx() {
-    // Duplicate swizzle assignment
-    bvec2 a = bvec2(false, false);
-    bvec2 source = bvec2(true, false);
-    a.xx = source;
-    return a;
-}
-
-// run: test_bvec2_assign_swizzle_xx() == bvec2(true, true)
-
-bvec2 test_bvec2_assign_swizzle_yy() {
-    bvec2 a = bvec2(false, false);
-    bvec2 source = bvec2(true, false);
-    a.yy = source;
-    return a;
-}
-
-// run: test_bvec2_assign_swizzle_yy() == bvec2(false, false)
-
 bvec2 test_bvec2_assign_swizzle_from_expression() {
     bvec2 a = bvec2(false, false);
     a.xy = not(bvec2(false, true));

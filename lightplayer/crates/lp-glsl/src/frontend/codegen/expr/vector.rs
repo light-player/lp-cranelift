@@ -126,11 +126,12 @@ pub fn translate_vector_binary(
         
         // For ==, return all_equal; for !=, return NOT(all_equal)
         if matches!(op, glsl::syntax::BinaryOp::Equal) {
+            // ==: return one if all equal, zero otherwise
             let result = ctx.builder.ins().select(all_equal, one, zero);
             return Ok((vec![result], GlslType::Bool));
         } else {
-            let not_all_equal = ctx.builder.ins().bnot(all_equal);
-            let result = ctx.builder.ins().select(not_all_equal, one, zero);
+            // !=: return zero if all equal, one otherwise (swapped arguments)
+            let result = ctx.builder.ins().select(all_equal, zero, one);
             return Ok((vec![result], GlslType::Bool));
         }
     }
