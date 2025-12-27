@@ -4,14 +4,12 @@
 //! across all transforms. Transforms only need to provide instruction transformation
 //! and type mapping callbacks.
 
+use crate::backend2::transform::shared::{copy_stack_slots, create_blocks, map_entry_block_params};
 use crate::error::{ErrorCode, GlslError};
-use crate::backend2::transform::shared::{
-    copy_stack_slots, create_blocks, map_entry_block_params,
-};
+use alloc::vec::Vec;
 use cranelift_codegen::ir::{Block, Function, Inst, Signature, StackSlot, Type, Value};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use hashbrown::HashMap;
-use alloc::vec::Vec;
 
 /// Transform a function body using the provided callbacks.
 ///
@@ -71,7 +69,13 @@ pub fn transform_function_body(
     let new_entry_block = block_map[&entry_block];
 
     // Verify entry block params
-    map_entry_block_params(old_func, entry_block, new_entry_block, &mut builder, &value_map)?;
+    map_entry_block_params(
+        old_func,
+        entry_block,
+        new_entry_block,
+        &mut builder,
+        &value_map,
+    )?;
 
     // 7. Transform/copy all instructions
     for old_block in old_func.layout.blocks() {
@@ -100,4 +104,3 @@ pub fn transform_function_body(
 
     Ok(new_func)
 }
-

@@ -4,6 +4,16 @@ Format the code with `cd lightplayer/ && cargo +nightly fmt` (only format lightp
 Build the code and the tests.
 Plan any needed changes to the code. Be specific about the changes.
 
+## Code style
+
+- Fix most warnings.
+- Unused code warnings for new code that will be used in the future can be ignored.
+- Long files (more than about 200 lines) should be split into modules and separate files.
+- Most general function / type should be at the top. Utilities at the bottom.
+- Functions have short, desrcpitive doc comments.
+- There should be no unnecessary train-of-thought comments.
+- Comments should be used to explain the code, not to think out loud.
+
 ## Plan contents
 
 The generated plan should follow this pattern:
@@ -13,19 +23,6 @@ The generated plan should follow this pattern:
 - Run 'cd lightplayer/ && cargo +nightly fmt'
 - Run tests for current module (implies a build)
 - Fix any problems
-
-## Warnings
-
-- Fix most warnings.
-- Unused code warnings for new code that will be used in the future can be ignored.
-
-## Code style
-
-- Long files (more than about 200 lines) should be split into modules and separate files.
-- Most general function / type should be at the top. Utilities at the bottom.
-- Functions have short, desrcpitive doc comments.
-- There should be no unnecessary train-of-thought comments.
-- Comments should be used to explain the code, not to think out loud.
 
 ## Testing
 

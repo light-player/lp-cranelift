@@ -4,15 +4,16 @@
 //! from one function to another, mapping values through a value_map.
 //! Used by all transforms.
 
-use crate::error::{ErrorCode, GlslError};
 use crate::backend2::transform::shared::blocks::ensure_block_params;
+use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::{
-    Block, BlockArg, Function, Inst, InstBuilder, InstructionData, JumpTableData, StackSlot, Value, types,
+    Block, BlockArg, ExternalName, FuncRef, Function, Inst, InstBuilder, InstructionData,
+    JumpTableData, StackSlot, Value, types,
 };
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 
-use alloc::{format, vec::Vec};
+use alloc::{format, string::String, vec::Vec};
 
 /// Inline map_value utility
 fn map_value(value_map: &HashMap<Value, Value>, old_value: Value) -> Value {
@@ -25,20 +26,26 @@ fn map_value(value_map: &HashMap<Value, Value>, old_value: Value) -> Value {
 /// calls (Call, CallIndirect), and all other instruction types.
 ///
 /// Also copies source location from the old instruction to the new instruction.
+///
+/// # Parameters
+///
+/// * `func_ref_map` - Optional mapping from function names to FuncRefs (currently unused,
+///   kept for API compatibility with TransformContext).
 pub fn copy_instruction(
-    old_func: & Function,
+    old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
     value_map: &mut HashMap<Value, Value>,
-    stack_slot_map: Option<& HashMap<StackSlot, StackSlot>>,
+    stack_slot_map: Option<&HashMap<StackSlot, StackSlot>>,
     block_map: &HashMap<Block, Block>,
+    _func_ref_map: Option<&HashMap<String, FuncRef>>,
 ) -> Result<(), GlslError> {
     // Copy source location from old instruction
     let srcloc = old_func.srcloc(old_inst);
     if !srcloc.is_default() {
         builder.set_srcloc(srcloc);
     }
-    
+
     let opcode = old_func.dfg.insts[old_inst].opcode();
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -228,10 +235,8 @@ pub fn copy_instruction(
             if opcode.is_return() {
                 // Map return arguments
                 let old_args = args.as_slice(&old_func.dfg.value_lists);
-                let new_args: Vec<Value> = old_args
-                    .iter()
-                    .map(|&v| map_value(value_map, v))
-                    .collect();
+                let new_args: Vec<Value> =
+                    old_args.iter().map(|&v| map_value(value_map, v)).collect();
 
                 // Emit return
                 builder.ins().return_(&new_args);
@@ -245,15 +250,61 @@ pub fn copy_instruction(
     // Handle Call and CallIndirect
     match inst_data {
         InstructionData::Call { func_ref, args, .. } => {
-            // For identity transform, copy FuncRef as-is (no mapping needed)
             let old_args = args.as_slice(&old_func.dfg.value_lists);
-            let new_args: Vec<Value> = old_args
-                .iter()
-                .map(|&v| map_value(value_map, v))
-                .collect();
+            let new_args: Vec<Value> = old_args.iter().map(|&v| map_value(value_map, v)).collect();
 
-            // Emit call
-            let call_inst = builder.ins().call(*func_ref, &new_args);
+            // Map FuncRef: import the external function into the builder's function context
+            // Similar to fixed32 transform: import signature first, then handle external names
+            let old_ext_func = &old_func.dfg.ext_funcs[*func_ref];
+            let old_sig_ref = old_ext_func.signature;
+
+            // Import the signature into the new function's context
+            let old_sig = &old_func.dfg.signatures[old_sig_ref];
+            let new_sig_ref = builder.func.import_signature(old_sig.clone());
+
+            // Create new ExtFuncData with proper external name handling
+            // For User external names, we need to declare the imported user function first
+            use cranelift_codegen::ir::ExtFuncData;
+            let new_name = match &old_ext_func.name {
+                ExternalName::User(old_user_ref) => {
+                    // Get the user name from the old function
+                    let user_name = old_func
+                        .params
+                        .user_named_funcs()
+                        .get(*old_user_ref)
+                        .ok_or_else(|| {
+                            GlslError::new(
+                                ErrorCode::E0301,
+                                format!(
+                                    "UserExternalNameRef {} not found in function's user_named_funcs",
+                                    old_user_ref
+                                ),
+                            )
+                        })?;
+                    // Declare the imported user function in the new function
+                    let new_user_ref = builder
+                        .func
+                        .declare_imported_user_function(user_name.clone());
+                    ExternalName::User(new_user_ref)
+                }
+                _ => {
+                    // For TestCase, LibCall, KnownSymbol - can clone directly
+                    old_ext_func.name.clone()
+                }
+            };
+
+            let new_ext_func = ExtFuncData {
+                name: new_name,
+                signature: new_sig_ref,
+                colocated: old_ext_func.colocated,
+            };
+
+            // Import the external function into the builder's function context
+            // This creates a new FuncRef scoped to the builder's function
+            let new_func_ref = builder.func.import_function(new_ext_func);
+
+            // Emit call with mapped FuncRef
+            let call_inst = builder.ins().call(new_func_ref, &new_args);
 
             // Map results
             let old_results: Vec<Value> = old_func.dfg.inst_results(old_inst).to_vec();
@@ -274,7 +325,10 @@ pub fn copy_instruction(
             return Ok(());
         }
         InstructionData::CallIndirect { sig_ref, args, .. } => {
-            // For identity transform, copy signature reference as-is
+            // Import the signature into the new function's context (SigRefs are scoped to functions)
+            let old_sig = &old_func.dfg.signatures[*sig_ref];
+            let new_sig_ref = builder.func.import_signature(old_sig.clone());
+
             let old_args = args.as_slice(&old_func.dfg.value_lists);
             let func_addr = map_value(value_map, old_args[0]);
             let call_args: Vec<Value> = old_args[1..]
@@ -282,8 +336,10 @@ pub fn copy_instruction(
                 .map(|&v| map_value(value_map, v))
                 .collect();
 
-            // Emit indirect call (sig_ref, func_addr, call_args)
-            let call_inst = builder.ins().call_indirect(*sig_ref, func_addr, &call_args);
+            // Emit indirect call with imported signature reference
+            let call_inst = builder
+                .ins()
+                .call_indirect(new_sig_ref, func_addr, &call_args);
 
             // Map results
             let old_results: Vec<Value> = old_func.dfg.inst_results(old_inst).to_vec();
@@ -337,10 +393,7 @@ pub fn copy_instruction(
             opcode,
             arg: mapped_args[0],
         },
-        InstructionData::UnaryImm { imm, .. } => InstructionData::UnaryImm {
-            opcode,
-            imm: *imm,
-        },
+        InstructionData::UnaryImm { imm, .. } => InstructionData::UnaryImm { opcode, imm: *imm },
         InstructionData::Binary { .. } => {
             if mapped_args.len() != 2 {
                 return Err(GlslError::new(
@@ -404,14 +457,12 @@ pub fn copy_instruction(
                 args: [mapped_args[0], mapped_args[1]],
             }
         }
-        InstructionData::UnaryIeee32 { imm, .. } => InstructionData::UnaryIeee32 {
-            opcode,
-            imm: *imm,
-        },
-        InstructionData::UnaryIeee64 { imm, .. } => InstructionData::UnaryIeee64 {
-            opcode,
-            imm: *imm,
-        },
+        InstructionData::UnaryIeee32 { imm, .. } => {
+            InstructionData::UnaryIeee32 { opcode, imm: *imm }
+        }
+        InstructionData::UnaryIeee64 { imm, .. } => {
+            InstructionData::UnaryIeee64 { opcode, imm: *imm }
+        }
         InstructionData::UnaryConst {
             constant_handle, ..
         } => InstructionData::UnaryConst {
@@ -567,4 +618,3 @@ pub fn copy_instruction(
 
     Ok(())
 }
-

@@ -32,7 +32,8 @@ pub fn copy_stack_slots(
                 ErrorCode::E0301,
                 alloc::format!(
                     "Failed to create stack slot {:?} in new function (copied from {:?})",
-                    new_slot_idx, old_slot_idx
+                    new_slot_idx,
+                    old_slot_idx
                 ),
             ));
         }
@@ -40,4 +41,3 @@ pub fn copy_stack_slots(
 
     Ok(stack_slot_map)
 }
-

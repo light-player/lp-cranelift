@@ -186,4 +186,3 @@ pub fn ensure_block_params(
 
     Ok(())
 }
-
