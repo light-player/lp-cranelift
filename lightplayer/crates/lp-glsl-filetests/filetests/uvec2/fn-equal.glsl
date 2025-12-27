@@ -60,12 +60,12 @@ bvec2 test_uvec2_equal_function_expressions() {
 
 // run: test_uvec2_equal_function_expressions() == bvec2(true, false)
 
-bvec2 test_uvec2_equal_function_in_expression() {
+bool test_uvec2_equal_function_in_expression() {
     uvec2 a = uvec2(1u, 3u);
     uvec2 b = uvec2(1u, 4u);
     uvec2 c = uvec2(2u, 3u);
     return equal(a, b) == equal(b, c);
-    // (true,false) == (false,false) = (false,false)
+    // (true,false) == (false,false) = false
 }
 
-// run: test_uvec2_equal_function_in_expression() == bvec2(false, false)
+// run: test_uvec2_equal_function_in_expression() == false
