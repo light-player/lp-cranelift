@@ -6,7 +6,7 @@
 use crate::run_filetest_with_line_filter;
 use std::panic::catch_unwind;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 

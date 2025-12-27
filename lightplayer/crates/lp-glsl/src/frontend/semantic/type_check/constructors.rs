@@ -1,7 +1,7 @@
 //! Constructor validation for vector and matrix types
 //! Implements GLSL spec: variables.adoc:72-97
 
-use crate::error::{ErrorCode, GlslError, source_span_to_location};
+use crate::error::{source_span_to_location, ErrorCode, GlslError};
 use crate::frontend::semantic::types::Type;
 use glsl::syntax::SourceSpan;
 

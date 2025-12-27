@@ -3,7 +3,7 @@ use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::rvalue::RValue;
 use crate::semantic::type_check::operators::infer_unary_result_type;
 use crate::semantic::types::Type as GlslType;
-use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
+use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, Value};
 use glsl::syntax::Expr;
 
 use super::incdec;

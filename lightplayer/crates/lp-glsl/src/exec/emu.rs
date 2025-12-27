@@ -9,7 +9,7 @@ use crate::exec::glsl_value::GlslValue;
 use crate::frontend::semantic::functions::FunctionSignature;
 use crate::frontend::src_loc::GlSourceMap;
 use hashbrown::HashMap;
-use lp_riscv_tools::emu::error::{EmulatorError, trap_code_to_string};
+use lp_riscv_tools::emu::error::{trap_code_to_string, EmulatorError};
 
 use alloc::{format, string::String, vec::Vec};
 
@@ -40,9 +40,8 @@ pub struct GlslEmulatorModule {
         String,
     )>,
     // Store original GLSL source text for error reporting
+    // TODO: Remove this in favor of source_map which has the source text
     pub(crate) source_text: Option<String>,
-    // Store source file path for error reporting
-    pub(crate) source_file_path: Option<String>,
     // Source location manager for mapping SourceLoc to GLSL source positions
     pub(crate) source_loc_manager: crate::frontend::src_loc_manager::SourceLocManager,
     // Source map for managing file locations
@@ -934,7 +933,7 @@ impl GlslExecutable for GlslEmulatorModule {
 #[cfg(feature = "emulator")]
 #[cfg(test)]
 mod tests {
-    use crate::{GlslOptions, glsl_emu_riscv32};
+    use crate::{glsl_emu_riscv32, GlslOptions};
 
     /// Convert float to 16.16 fixed-point for comparison
     fn float_to_fixed32(f: f32) -> i32 {

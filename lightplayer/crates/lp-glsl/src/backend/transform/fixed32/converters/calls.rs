@@ -260,7 +260,6 @@ pub(crate) fn convert_call_indirect(
 #[cfg(test)]
 #[cfg(feature = "std")]
 mod tests {
-    use super::*;
     use crate::backend::transform::fixed32::fixed32_test_util;
 
     /// Test function calls: add(f32, f32) -> f32

@@ -1,8 +1,8 @@
 //! Constant conversion functions.
 
-use crate::backend::transform::fixed32::types::{FixedPointFormat, float_to_fixed16x16};
+use crate::backend::transform::fixed32::types::{float_to_fixed16x16, FixedPointFormat};
 use crate::error::{ErrorCode, GlslError};
-use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData, types};
+use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 
@@ -57,7 +57,6 @@ pub(crate) fn convert_f32const(
 #[cfg(test)]
 #[cfg(feature = "std")]
 mod tests {
-    use super::*;
     use crate::backend::transform::fixed32::fixed32_test_util;
 
     /// Test fconst: constant conversion

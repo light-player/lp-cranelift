@@ -295,7 +295,6 @@ impl Default for GlSourceMap {
 mod tests {
     use super::*;
 
-    use alloc::vec::Vec;
     // Mock SourceSpan for testing (since we can't import glsl-parser in tests easily)
     struct MockSourceSpan {
         pub line: usize,

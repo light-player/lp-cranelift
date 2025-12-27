@@ -17,5 +17,5 @@ mod run_loops;
 mod state;
 mod types;
 
-pub use state::{DEFAULT_RAM_START, Riscv32Emulator};
+pub use state::{Riscv32Emulator, DEFAULT_RAM_START};
 pub use types::{StepResult, SyscallInfo};

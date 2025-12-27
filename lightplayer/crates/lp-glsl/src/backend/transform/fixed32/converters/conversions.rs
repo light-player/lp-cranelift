@@ -5,7 +5,7 @@ use crate::backend::transform::fixed32::converters::{
 };
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::error::GlslError;
-use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, types};
+use cranelift_codegen::ir::{types, Function, Inst, InstBuilder, Value};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 

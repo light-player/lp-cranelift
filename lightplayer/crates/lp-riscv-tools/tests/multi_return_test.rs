@@ -3,7 +3,7 @@
 //! These tests verify that functions returning 3+ values correctly use
 //! stack slots for extra return values when enable_multi_ret_implicit_sret is enabled.
 
-use cranelift_codegen::ir::{AbiParam, Signature, types};
+use cranelift_codegen::ir::{types, AbiParam, Signature};
 use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::settings::{self, Configurable, Flags};
 use lp_riscv_tools::emu::abi_helper;

@@ -1,9 +1,9 @@
 //! Memory operation conversion functions.
 
-use crate::backend::transform::fixed32::converters::{get_first_result, map_value};
+use crate::backend::transform::fixed32::converters::map_value;
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::error::{ErrorCode, GlslError};
-use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData, Value, types};
+use cranelift_codegen::ir::{types, Function, Inst, InstBuilder, InstructionData, Value};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 

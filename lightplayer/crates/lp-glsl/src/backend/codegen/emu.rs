@@ -9,8 +9,6 @@ use crate::exec::emu::GlslEmulatorModule;
 #[cfg(feature = "emulator")]
 use crate::frontend::src_loc::GlSourceMap;
 #[cfg(feature = "emulator")]
-use crate::frontend::src_loc_manager::SourceLocManager;
-#[cfg(feature = "emulator")]
 use alloc::string::String;
 #[cfg(feature = "emulator")]
 use alloc::vec::Vec;
@@ -146,7 +144,6 @@ pub fn build_emu_executable(
         disassembly: None,            // Phase 1: not needed
         trap_source_info: Vec::new(), // Phase 1: empty
         source_text: Some(source_text),
-        source_file_path: None, // Phase 1: not needed
         source_loc_manager,
         source_map,
         next_buffer_addr: 0x80000000, // Default RAM start
@@ -159,7 +156,7 @@ mod tests {
     use crate::backend::module::gl_module::GlModule;
     use crate::backend::module::test_helpers::test_helpers::build_simple_function;
     use crate::backend::target::Target;
-    use cranelift_codegen::ir::{AbiParam, InstBuilder, Signature, types};
+    use cranelift_codegen::ir::{types, AbiParam, InstBuilder, Signature};
     use cranelift_codegen::isa::CallConv;
     use cranelift_module::Linkage;
 

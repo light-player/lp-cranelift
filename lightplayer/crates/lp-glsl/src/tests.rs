@@ -2,12 +2,12 @@
 
 #[cfg(feature = "std")]
 mod backend2_phase1 {
-    use crate::backend2::target::TargetSpec;
-    use crate::backend2::module::GlJitModule;
-    use crate::backend2::module::builder::build_simple_function_jit;
     use crate::backend2::codegen::build_jit_executable;
+    use crate::backend2::module::builder::build_simple_function_jit;
+    use crate::backend2::module::GlJitModule;
+    use crate::backend2::target::TargetSpec;
     use crate::exec::executable::GlslExecutable;
-    use cranelift_codegen::ir::{types, AbiParam, Signature, InstBuilder};
+    use cranelift_codegen::ir::{types, AbiParam, InstBuilder, Signature};
     use cranelift_codegen::isa::CallConv;
     use cranelift_module::{Linkage, Module};
 

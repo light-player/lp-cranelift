@@ -1,6 +1,6 @@
 use glsl::syntax::Expr;
 
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 
 use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;

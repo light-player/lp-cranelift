@@ -2,8 +2,8 @@
 //!
 //! This module provides shared execution logic used by both filetests and runtime tests.
 
-use crate::exec::GlslExecutable;
 use crate::exec::glsl_value::GlslValue;
+use crate::exec::GlslExecutable;
 use crate::frontend::semantic::types::Type;
 #[cfg(feature = "std")]
 use anyhow::Result;

@@ -6,7 +6,7 @@
 use crate::backend::module::gl_module::GlModule;
 use crate::error::GlslError;
 use alloc::string::String;
-use cranelift_codegen::ir::{FuncRef, Function, Signature};
+use cranelift_codegen::ir::{Function, Signature};
 use cranelift_module::{FuncId, Module};
 use hashbrown::HashMap;
 
@@ -48,7 +48,7 @@ mod tests {
     use super::*;
     use crate::backend::module::gl_module::GlModule;
     use crate::backend::target::Target;
-    use cranelift_codegen::ir::{AbiParam, Signature, types};
+    use cranelift_codegen::ir::{types, AbiParam, Signature};
     use cranelift_codegen::isa::CallConv;
 
     /// Identity transform for testing

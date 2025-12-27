@@ -1,7 +1,7 @@
 //! Operator type inference for binary and unary operations
 //! Implements GLSL spec: operators.adoc:775-855
 
-use crate::error::{ErrorCode, GlslError, source_span_to_location};
+use crate::error::{source_span_to_location, ErrorCode, GlslError};
 use crate::frontend::semantic::types::Type;
 use glsl::syntax::{BinaryOp, SourceSpan, UnaryOp};
 

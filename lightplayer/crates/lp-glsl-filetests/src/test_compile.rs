@@ -3,15 +3,14 @@
 //! Tests CLIF IR output before any transformations (arch-agnostic).
 
 use crate::file_update::FileUpdate;
-use crate::test_utils;
 use crate::validation::validate_clif_module;
 use anyhow::{Context, Result};
 use cranelift_codegen::ir::{ExternalName, UserFuncName};
 use cranelift_codegen::write_function;
 use cranelift_object::ObjectModule;
-use lp_glsl::GlslCompiler;
 use lp_glsl::backend::module::gl_module::GlModule;
 use lp_glsl::backend::target::Target;
+use lp_glsl::GlslCompiler;
 use std::collections::HashMap;
 use std::env;
 use std::path::Path;

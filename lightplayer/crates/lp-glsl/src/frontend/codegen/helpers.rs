@@ -3,7 +3,7 @@
 use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
-use cranelift_codegen::ir::{ArgumentPurpose, InstBuilder, MemFlags, types};
+use cranelift_codegen::ir::{types, ArgumentPurpose, InstBuilder, MemFlags};
 
 use alloc::{format, vec::Vec};
 

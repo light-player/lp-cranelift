@@ -3,11 +3,11 @@
 //! These tests verify that functions with many arguments correctly handle
 //! stack arguments when registers are exhausted.
 
-use cranelift_codegen::Context;
 use cranelift_codegen::data_value::DataValue;
-use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, Signature, UserFuncName, types};
-use cranelift_codegen::isa::{CallConv, lookup};
+use cranelift_codegen::ir::{types, AbiParam, Function, InstBuilder, Signature, UserFuncName};
+use cranelift_codegen::isa::{lookup, CallConv};
 use cranelift_codegen::settings::{self, Configurable, Flags};
+use cranelift_codegen::Context;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use lp_riscv_tools::Riscv32Emulator;
 

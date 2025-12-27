@@ -18,13 +18,9 @@ pub mod src_loc_manager;
 pub use glsl_compiler::GlslCompiler;
 #[allow(unused_imports)]
 pub use pipeline::{
-    Backend, CompilationPipeline, CompiledShader, ParseResult, SemanticResult, TransformationPass,
-    parse_program_with_registry,
+    parse_program_with_registry, Backend, CompilationPipeline, CompiledShader, ParseResult, SemanticResult,
+    TransformationPass,
 };
-
-// Re-export create_minimal_module_for_declarations for internal use (may still be needed)
-#[allow(unused_imports)]
-pub(crate) use glsl_compiler::create_minimal_module_for_declarations;
 
 // ============================================================================
 // Public API functions
@@ -42,7 +38,6 @@ use cranelift_jit::JITModule;
 use cranelift_object::ObjectModule;
 
 use alloc::boxed::Box;
-use alloc::format as alloc_format;
 use alloc::string::String;
 
 /// Compile GLSL to GlModule<JITModule> (internal, reusable)
@@ -175,8 +170,6 @@ pub fn glsl_emu_riscv32_with_metadata(
     options: GlslOptions,
     source_file_path: Option<String>,
 ) -> Result<Box<dyn GlslExecutable>, GlslError> {
-    use crate::exec::executable::DecimalFormat;
-
     // Compile to GlModule (transformations already applied)
     let module = compile_glsl_to_gl_module_object(source, &options)?;
 

@@ -1,4 +1,4 @@
-use crate::error::{ErrorCode, GlslError, source_span_to_location};
+use crate::error::{source_span_to_location, ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::rvalue::RValue;
 use crate::semantic::type_check::{is_matrix_type_name, is_scalar_type_name, is_vector_type_name};

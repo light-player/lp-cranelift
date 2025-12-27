@@ -1,6 +1,6 @@
 //! Type parsing utilities for converting GLSL AST types to our Type enum
 
-use crate::error::{GlslError, source_span_to_location};
+use crate::error::{source_span_to_location, GlslError};
 use crate::frontend::semantic::types;
 
 /// Parse GLSL type specifier into our Type enum

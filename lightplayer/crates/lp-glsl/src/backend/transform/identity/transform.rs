@@ -16,7 +16,7 @@ impl Transform for IdentityTransform {
     fn transform_function<M: cranelift_module::Module>(
         &self,
         old_func: &Function,
-        ctx: &mut TransformContext<'_, M>,
+        _ctx: &mut TransformContext<'_, M>,
     ) -> Result<Function, GlslError> {
         // Get transformed signature
         let new_sig = self.transform_signature(&old_func.signature);
@@ -38,7 +38,6 @@ impl Transform for IdentityTransform {
                 )
             },
             // Type mapping: identity (no conversion)
-            |t| t,
         )
     }
 }

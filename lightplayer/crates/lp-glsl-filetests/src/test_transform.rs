@@ -3,14 +3,11 @@
 //! Tests CLIF IR output after fixed32 transformation.
 
 use crate::test_compile::{compare_clif, format_clif_module};
-use crate::test_utils;
 use crate::validation::validate_clif_module;
 use anyhow::{Context, Result};
-use cranelift_object::ObjectModule;
-use lp_glsl::GlslCompiler;
-use lp_glsl::backend::module::gl_module::GlModule;
 use lp_glsl::backend::target::Target;
 use lp_glsl::backend::transform::fixed32::{Fixed32Transform, FixedPointFormat};
+use lp_glsl::GlslCompiler;
 use std::path::Path;
 
 /// Run a transform test: verify CLIF IR after fixed32 transformation.

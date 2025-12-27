@@ -1,6 +1,6 @@
 use cranelift_codegen::ir::types;
 use cranelift_codegen::isa::CallConv;
-use lp_jit_util::{StructReturnWrapper, wrap_structreturn_function};
+use lp_jit_util::{wrap_structreturn_function, StructReturnWrapper};
 
 #[test]
 fn test_wrapper_creation() {

@@ -4,7 +4,7 @@
 //! and post-decrement (i--) operations on scalars, vectors, matrices, and vector components.
 //! Implements GLSL spec: operators.adoc:856-869
 
-use crate::error::{ErrorCode, GlslError, source_span_to_location};
+use crate::error::{source_span_to_location, ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::lvalue::{read_lvalue, resolve_lvalue, write_lvalue};
 use crate::frontend::codegen::rvalue::RValue;
@@ -13,7 +13,7 @@ use crate::semantic::type_check::{
     infer_preinc_result_type,
 };
 use crate::semantic::types::Type as GlslType;
-use cranelift_codegen::ir::{InstBuilder, Value, types};
+use cranelift_codegen::ir::{types, InstBuilder, Value};
 use glsl::syntax::Expr;
 
 use alloc::{format, vec::Vec};

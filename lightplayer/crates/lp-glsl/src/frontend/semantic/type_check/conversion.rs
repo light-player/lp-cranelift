@@ -1,7 +1,7 @@
 //! Type promotion and conversion rules for GLSL
 //! Implements GLSL spec: variables.adoc:1182-1229
 
-use crate::error::{ErrorCode, GlslError, source_span_to_location};
+use crate::error::{source_span_to_location, ErrorCode, GlslError};
 use crate::frontend::semantic::types::Type;
 use glsl::syntax::SourceSpan;
 

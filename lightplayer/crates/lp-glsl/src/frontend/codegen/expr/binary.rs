@@ -4,9 +4,9 @@ use crate::frontend::codegen::rvalue::RValue;
 use crate::semantic::type_check::{infer_binary_result_type, promote_numeric};
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::{
-    InstBuilder, Value,
-    condcodes::{FloatCC, IntCC},
-    types,
+    condcodes::{FloatCC, IntCC}, types,
+    InstBuilder,
+    Value,
 };
 use glsl::syntax::Expr;
 

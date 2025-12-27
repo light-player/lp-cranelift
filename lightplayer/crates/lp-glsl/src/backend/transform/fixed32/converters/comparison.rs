@@ -6,8 +6,8 @@ use crate::backend::transform::fixed32::converters::{
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::error::GlslError;
 use cranelift_codegen::ir::{
-    Function, Inst, InstBuilder, InstructionData, Value,
-    condcodes::{FloatCC, IntCC},
+    condcodes::{FloatCC, IntCC}, Function, Inst, InstBuilder, InstructionData,
+    Value,
 };
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
@@ -130,7 +130,6 @@ pub(crate) fn convert_fmin(
 #[cfg(test)]
 #[cfg(feature = "std")]
 mod tests {
-    use super::*;
     use crate::backend::transform::fixed32::fixed32_test_util;
 
     /// Test fcmp: equal comparison

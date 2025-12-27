@@ -16,7 +16,7 @@ pub struct GlFunc {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cranelift_codegen::ir::{AbiParam, types};
+    use cranelift_codegen::ir::{types, AbiParam};
     use cranelift_codegen::isa::CallConv;
 
     #[test]

@@ -4,13 +4,12 @@
 
 #![no_std]
 
+// Always declare alloc so we can use alloc::string::String etc. in both std and no_std modes
+
+extern crate alloc;
 #[cfg(feature = "std")]
 #[macro_use]
 extern crate std;
-
-// Always declare alloc so we can use alloc::string::String etc. in both std and no_std modes
-#[macro_use]
-extern crate alloc;
 
 pub mod error;
 pub mod frontend;
@@ -28,8 +27,8 @@ pub use frontend::codegen;
 pub use frontend::intrinsics;
 pub use frontend::semantic;
 pub use frontend::{
-    Backend, CompilationPipeline, CompiledShader, GlslCompiler, ParseResult, SemanticResult,
-    TransformationPass, parse_program_with_registry,
+    parse_program_with_registry, Backend, CompilationPipeline, CompiledShader, GlslCompiler, ParseResult,
+    SemanticResult, TransformationPass,
 };
 
 /// Type alias for convenience

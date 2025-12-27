@@ -3,9 +3,9 @@
 //! This module provides a unified compilation pipeline that can be used
 //! by different backends (JIT, code generation, CLIF output).
 
-use crate::error::{ErrorCode, GlslError, extract_source_line, source_span_to_location};
-use crate::frontend::semantic::TypedShader;
+use crate::error::{extract_source_line, source_span_to_location, ErrorCode, GlslError};
 use crate::frontend::semantic::functions::FunctionRegistry;
+use crate::frontend::semantic::TypedShader;
 
 use alloc::{boxed::Box, format};
 

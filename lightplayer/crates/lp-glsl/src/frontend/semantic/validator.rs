@@ -4,7 +4,7 @@
 //! and return statements to ensure they are semantically correct before codegen.
 
 use crate::error::{
-    ErrorCode, GlslError, extract_source_line, extract_span_from_expr, source_span_to_location,
+    extract_source_line, extract_span_from_expr, source_span_to_location, ErrorCode, GlslError,
 };
 use crate::frontend::semantic::functions::FunctionRegistry;
 use crate::frontend::semantic::scope::{StorageClass, SymbolTable};

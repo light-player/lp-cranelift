@@ -5,7 +5,7 @@ use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
 use cranelift_codegen::ir::{InstBuilder, Value};
 
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 
 impl<'a> CodegenContext<'a> {
     /// mix(x, y, a) = x * (1-a) + y * a (linear interpolation)

@@ -2,8 +2,8 @@
 //! Implements GLSL spec type rules for Phase 3
 
 use crate::error::{
-    ErrorCode, GlslError, extract_span_from_expr, extract_span_from_identifier,
-    source_span_to_location,
+    extract_span_from_expr, extract_span_from_identifier, source_span_to_location, ErrorCode,
+    GlslError,
 };
 use crate::frontend::semantic::functions::FunctionRegistry;
 use crate::frontend::semantic::scope::SymbolTable;

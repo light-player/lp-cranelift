@@ -3,9 +3,9 @@
 use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
-use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
+use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, Value};
 
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 
 impl<'a> CodegenContext<'a> {
     /// min(x, y) - component-wise for vectors

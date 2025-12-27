@@ -6,7 +6,7 @@ use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::backend::transform::pipeline::{Transform, TransformContext};
 use crate::backend::transform::shared::transform_function_body;
 use crate::error::GlslError;
-use cranelift_codegen::ir::{Function, Signature, Type};
+use cranelift_codegen::ir::{Function, Signature};
 use cranelift_module::Module;
 
 /// Fixed32 transform - converts F32 to fixed-point representation
@@ -24,12 +24,6 @@ impl Fixed32Transform {
     pub fn default() -> Self {
         Self::new(FixedPointFormat::Fixed16x16)
     }
-
-    /// Map F32 type to I32 (fixed-point), other types unchanged
-    fn map_type(&self, ty: Type) -> Type {
-        use cranelift_codegen::ir::types;
-        if ty == types::F32 { types::I32 } else { ty }
-    }
 }
 
 impl Transform for Fixed32Transform {
@@ -44,16 +38,7 @@ impl Transform for Fixed32Transform {
     ) -> Result<Function, GlslError> {
         // 1. Convert signature (happens before transform_function_body)
         let new_sig = convert_signature(&old_func.signature, self.format);
-
-        // 2. Create type mapping function for block parameters
         let format = self.format;
-        let map_param_type = move |ty: Type| -> Type {
-            if ty == cranelift_codegen::ir::types::F32 {
-                cranelift_codegen::ir::types::I32
-            } else {
-                ty
-            }
-        };
 
         // 3. Capture func_id_map and module reference from context
         let func_id_map = ctx.func_id_map.clone();
@@ -85,7 +70,6 @@ impl Transform for Fixed32Transform {
                 )
             },
             // Type mapping callback for block parameters
-            map_param_type,
         )
     }
 }
@@ -94,8 +78,7 @@ impl Transform for Fixed32Transform {
 #[cfg(feature = "std")]
 mod tests {
     use super::*;
-    use crate::backend::transform::fixed32::fixed32_test_util;
-    use cranelift_codegen::ir::{AbiParam, Signature, types};
+    use cranelift_codegen::ir::{types, AbiParam, Signature};
     use cranelift_codegen::isa::CallConv;
 
     /// Test signature conversion: F32 params → I32 params

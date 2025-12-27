@@ -522,7 +522,7 @@ impl GlslExecutable for GlslJitModule {
 #[cfg(test)]
 #[cfg(feature = "std")]
 mod tests {
-    use crate::{DecimalFormat, GlslOptions, RunMode, glsl_jit};
+    use crate::{glsl_jit, DecimalFormat, GlslOptions, RunMode};
 
     #[test]
     fn test_jit_int_literal() {

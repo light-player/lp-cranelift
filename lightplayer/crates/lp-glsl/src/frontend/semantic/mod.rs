@@ -2,7 +2,7 @@ use crate::error::GlslError;
 use glsl::syntax::TranslationUnit;
 use passes::SemanticPass;
 
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 
 use alloc::string::String;
 pub mod builtins;

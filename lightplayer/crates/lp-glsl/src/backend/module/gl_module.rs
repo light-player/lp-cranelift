@@ -212,8 +212,7 @@ impl<M: Module> GlModule<M> {
         transform: T,
         mut new_module: Self,
     ) -> Result<Self, GlslError> {
-        use crate::backend::transform::pipeline::{Transform, TransformContext};
-        use cranelift_codegen::ir::FuncRef;
+        use crate::backend::transform::pipeline::TransformContext;
         use cranelift_module::Linkage;
 
         // 1. Transform all function signatures and create FuncId mappings

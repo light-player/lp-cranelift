@@ -2,7 +2,6 @@
 
 use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::Type;
-use cranelift_codegen::ir::types;
 use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_codegen::settings::{self, Configurable, Flags};

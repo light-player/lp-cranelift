@@ -5,7 +5,7 @@ use crate::backend::transform::fixed32::converters::{
 };
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::error::GlslError;
-use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, condcodes::IntCC, types};
+use cranelift_codegen::ir::{condcodes::IntCC, types, Function, Inst, InstBuilder, Value};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 
@@ -174,7 +174,6 @@ pub(crate) fn convert_sqrt(
 #[cfg(test)]
 #[cfg(feature = "std")]
 mod tests {
-    use super::*;
     use crate::backend::transform::fixed32::fixed32_test_util;
 
     /// Test sqrt: square root

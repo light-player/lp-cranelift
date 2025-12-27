@@ -1,7 +1,7 @@
 //! Function signature conversion for fixed-point transformation.
 
 use crate::backend::transform::fixed32::types::FixedPointFormat;
-use cranelift_codegen::ir::{AbiParam, Signature, types};
+use cranelift_codegen::ir::{types, AbiParam, Signature};
 
 /// Convert function signature: F32 params/returns → I32
 pub fn convert_signature(old_sig: &Signature, format: FixedPointFormat) -> Signature {

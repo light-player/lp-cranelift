@@ -1,4 +1,4 @@
-use crate::error::{GlslError, extract_span_from_identifier, source_span_to_location};
+use crate::error::{extract_span_from_identifier, source_span_to_location, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::lvalue::emit_lvalue_as_rvalue;
 use crate::frontend::codegen::rvalue::RValue;

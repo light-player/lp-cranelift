@@ -1,9 +1,10 @@
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
 use core::fmt;
 use cranelift_codegen::ir::Type;
 use cranelift_codegen::isa::CallConv;
-
-#[cfg(not(feature = "std"))]
-extern crate alloc;
 
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
@@ -61,9 +62,6 @@ impl fmt::Display for JitCallError {
         }
     }
 }
-
-#[cfg(feature = "std")]
-extern crate std;
 
 #[cfg(feature = "std")]
 impl std::error::Error for JitCallError {}

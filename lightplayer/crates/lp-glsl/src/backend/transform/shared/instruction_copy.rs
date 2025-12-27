@@ -8,7 +8,7 @@ use crate::backend::transform::shared::blocks::ensure_block_params;
 use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::{
     Block, BlockArg, ExternalName, FuncRef, Function, Inst, InstBuilder, InstructionData,
-    JumpTableData, StackSlot, Type, Value, types,
+    JumpTableData, StackSlot, Type, Value,
 };
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;

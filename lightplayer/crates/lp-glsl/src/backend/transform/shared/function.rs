@@ -7,7 +7,7 @@
 use crate::backend::transform::shared::{copy_stack_slots, create_blocks, map_entry_block_params};
 use crate::error::{ErrorCode, GlslError};
 use alloc::vec::Vec;
-use cranelift_codegen::ir::{Block, Function, Inst, Signature, StackSlot, Type, Value};
+use cranelift_codegen::ir::{Block, Function, Inst, Signature, StackSlot, Value};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use hashbrown::HashMap;
 
@@ -42,7 +42,6 @@ pub fn transform_function_body(
         Option<&HashMap<StackSlot, StackSlot>>,
         &HashMap<Block, Block>,
     ) -> Result<(), GlslError>,
-    map_param_type: impl Fn(Type) -> Type,
 ) -> Result<Function, GlslError> {
     // 1. Create new function with transformed signature
     let mut new_func = Function::with_name_signature(old_func.name.clone(), new_sig);

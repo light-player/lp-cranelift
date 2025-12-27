@@ -1,4 +1,4 @@
-use crate::error::{ErrorCode, GlslError, source_span_to_location};
+use crate::error::{source_span_to_location, ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::type_check::{check_matrix_constructor, check_vector_constructor_with_span};
 use crate::semantic::types::Type as GlslType;

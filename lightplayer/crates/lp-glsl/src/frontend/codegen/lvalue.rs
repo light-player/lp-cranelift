@@ -5,8 +5,8 @@
 //! eliminating code duplication across assignment, increment, and decrement operations.
 
 use crate::error::{
-    ErrorCode, GlslError, extract_span_from_expr, extract_span_from_identifier,
-    source_span_to_location,
+    extract_span_from_expr, extract_span_from_identifier, source_span_to_location, ErrorCode,
+    GlslError,
 };
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::rvalue::RValue;

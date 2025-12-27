@@ -16,7 +16,7 @@ pub mod test_utils;
 pub mod validation;
 
 use anyhow::Result;
-use glob::{MatchOptions, glob_with};
+use glob::{glob_with, MatchOptions};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use walkdir::WalkDir;

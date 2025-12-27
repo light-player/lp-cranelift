@@ -1,6 +1,6 @@
 //! Assignment expression code generation
 
-use crate::error::{ErrorCode, GlslError, source_span_to_location};
+use crate::error::{source_span_to_location, ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::lvalue::write_lvalue;
 use crate::frontend::codegen::rvalue::RValue;

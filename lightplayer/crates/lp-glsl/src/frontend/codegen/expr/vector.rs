@@ -1,4 +1,4 @@
-use crate::error::{ErrorCode, GlslError, source_span_to_location};
+use crate::error::{source_span_to_location, ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::Value;

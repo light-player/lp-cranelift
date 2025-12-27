@@ -3,7 +3,7 @@
 //! This module provides a helper struct to update test files in-place when
 //! expectations don't match, matching Cranelift's FileUpdate semantics.
 
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use std::cell::Cell;
 use std::fs;
 use std::path::{Path, PathBuf};

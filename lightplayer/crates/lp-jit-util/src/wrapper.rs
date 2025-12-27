@@ -1,11 +1,10 @@
+#[cfg(not(feature = "std"))]
+extern crate alloc;
 use crate::call::call_structreturn;
 use crate::error::JitCallError;
 use core::marker::PhantomData;
 use cranelift_codegen::ir::Type;
 use cranelift_codegen::isa::CallConv;
-
-#[cfg(not(feature = "std"))]
-extern crate alloc;
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};

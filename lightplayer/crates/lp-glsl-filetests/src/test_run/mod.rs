@@ -8,8 +8,8 @@ pub mod value_ops;
 use crate::file_update::FileUpdate;
 use crate::filetest::TestFile;
 use anyhow::{Context, Result};
-use lp_glsl::GlslOptions;
 use lp_glsl::glsl_emu_riscv32_with_metadata;
+use lp_glsl::GlslOptions;
 use std::env;
 use std::path::Path;
 

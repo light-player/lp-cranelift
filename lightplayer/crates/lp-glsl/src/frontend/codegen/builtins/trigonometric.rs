@@ -5,7 +5,7 @@ use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
 use cranelift_codegen::ir::{InstBuilder, Value};
 
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 
 impl<'a> CodegenContext<'a> {
     /// radians(degrees) - Convert degrees to radians

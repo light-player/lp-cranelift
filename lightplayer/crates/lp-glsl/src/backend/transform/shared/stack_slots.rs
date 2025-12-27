@@ -1,7 +1,7 @@
 //! Stack slot copying utilities
 
 use crate::error::{ErrorCode, GlslError};
-use cranelift_codegen::ir::{Function, StackSlot, Type};
+use cranelift_codegen::ir::{Function, StackSlot};
 use hashbrown::HashMap;
 
 /// Copy all stack slots from old function to new function.

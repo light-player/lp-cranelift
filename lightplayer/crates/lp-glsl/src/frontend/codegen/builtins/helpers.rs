@@ -2,7 +2,7 @@
 
 use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
-use cranelift_codegen::ir::{AbiParam, FuncRef, Signature, types};
+use cranelift_codegen::ir::{types, AbiParam, FuncRef, Signature};
 use cranelift_codegen::isa::CallConv;
 use cranelift_module::Linkage;
 
