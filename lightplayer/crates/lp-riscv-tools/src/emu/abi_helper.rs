@@ -8,11 +8,11 @@ use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use std::vec::Vec;
 
+use cranelift_codegen::CodegenResult;
 use cranelift_codegen::ir::types;
 use cranelift_codegen::ir::{AbiParam, Signature, Type};
 use cranelift_codegen::isa::riscv32::abi;
 use cranelift_codegen::settings::Flags;
-use cranelift_codegen::CodegenResult;
 
 /// Location where a return value slot is stored.
 /// A return value may span multiple slots (e.g., i64 uses 2 slots).
@@ -228,8 +228,8 @@ pub fn compute_arg_locations(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cranelift_codegen::ir::types;
     use cranelift_codegen::ir::AbiParam;
+    use cranelift_codegen::ir::types;
     use cranelift_codegen::settings;
 
     fn create_flags() -> Flags {

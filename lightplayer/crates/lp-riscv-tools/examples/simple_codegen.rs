@@ -1,10 +1,10 @@
 //! Simple example demonstrating cranelift riscv32 codegen + emulator.
 
+use cranelift_codegen::Context;
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, Signature, UserFuncName};
 use cranelift_codegen::isa::lookup;
 use cranelift_codegen::settings::{self, Configurable};
-use cranelift_codegen::Context;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use lp_riscv_tools::{Gpr, Riscv32Emulator};
 

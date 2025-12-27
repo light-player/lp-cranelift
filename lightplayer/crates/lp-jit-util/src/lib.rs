@@ -16,4 +16,4 @@ pub mod wrapper;
 
 pub use call::call_structreturn;
 pub use error::JitCallError;
-pub use wrapper::{wrap_structreturn_function, StructReturnWrapper};
+pub use wrapper::{StructReturnWrapper, wrap_structreturn_function};

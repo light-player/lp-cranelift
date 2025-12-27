@@ -9,8 +9,8 @@ use alloc::vec::Vec;
 use cranelift_codegen::isa::riscv32::isa_builder;
 use cranelift_codegen::settings::{self, Configurable};
 use cranelift_codegen::{
-    ir::{types, AbiParam, InstBuilder},
     Context,
+    ir::{AbiParam, InstBuilder, types},
 };
 use cranelift_control::ControlPlane;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};

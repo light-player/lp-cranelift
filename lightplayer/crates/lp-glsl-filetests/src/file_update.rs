@@ -3,7 +3,7 @@
 //! This module provides a helper struct to update test files in-place when
 //! expectations don't match, matching Cranelift's FileUpdate semantics.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::cell::Cell;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -249,8 +249,25 @@ pub fn format_glsl_value(value: &GlslValue) -> String {
         }
         GlslValue::Bool(b) => b.to_string(),
         GlslValue::Vec2(v) => format!("vec2({}, {})", format_float(v[0]), format_float(v[1])),
-        GlslValue::Vec3(v) => format!("vec3({}, {}, {})", format_float(v[0]), format_float(v[1]), format_float(v[2])),
-        GlslValue::Vec4(v) => format!("vec4({}, {}, {}, {})", format_float(v[0]), format_float(v[1]), format_float(v[2]), format_float(v[3])),
+        GlslValue::Vec3(v) => format!(
+            "vec3({}, {}, {})",
+            format_float(v[0]),
+            format_float(v[1]),
+            format_float(v[2])
+        ),
+        GlslValue::Vec4(v) => format!(
+            "vec4({}, {}, {}, {})",
+            format_float(v[0]),
+            format_float(v[1]),
+            format_float(v[2]),
+            format_float(v[3])
+        ),
+        GlslValue::IVec2(v) => format!("ivec2({}, {})", v[0], v[1]),
+        GlslValue::IVec3(v) => format!("ivec3({}, {}, {})", v[0], v[1], v[2]),
+        GlslValue::IVec4(v) => format!("ivec4({}, {}, {}, {})", v[0], v[1], v[2], v[3]),
+        GlslValue::UVec2(v) => format!("uvec2({}u, {}u)", v[0], v[1]),
+        GlslValue::UVec3(v) => format!("uvec3({}u, {}u, {}u)", v[0], v[1], v[2]),
+        GlslValue::UVec4(v) => format!("uvec4({}u, {}u, {}u, {}u)", v[0], v[1], v[2], v[3]),
         GlslValue::BVec2(v) => format!("bvec2({}, {})", v[0], v[1]),
         GlslValue::BVec3(v) => format!("bvec3({}, {}, {})", v[0], v[1], v[2]),
         GlslValue::BVec4(v) => format!("bvec4({}, {}, {}, {})", v[0], v[1], v[2], v[3]),

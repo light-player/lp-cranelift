@@ -14,8 +14,8 @@ pub struct BootstrapResult {
 
 /// Known GLSL return types that can be inferred.
 const KNOWN_TYPES: &[&str] = &[
-    "float", "int", "uint", "bool", "vec2", "vec3", "vec4", "ivec2", "ivec3", "ivec4", "bvec2", "bvec3",
-    "bvec4", "uvec2", "uvec3", "uvec4", "mat2", "mat3", "mat4",
+    "float", "int", "uint", "bool", "vec2", "vec3", "vec4", "ivec2", "ivec3", "ivec4", "bvec2",
+    "bvec3", "bvec4", "uvec2", "uvec3", "uvec4", "mat2", "mat3", "mat4",
 ];
 
 /// Generate bootstrap GLSL code that wraps the expression in a main() function.

@@ -6,7 +6,7 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 use crate::error::JitCallError;
-use cranelift_codegen::ir::{types, Type};
+use cranelift_codegen::ir::{Type, types};
 use cranelift_codegen::isa::CallConv;
 
 #[cfg(not(feature = "std"))]

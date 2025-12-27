@@ -65,7 +65,7 @@ use crate::filetest::TrapExpectation;
 /// Supports `// EXPECT_TRAP: <message>` or `// EXPECT_TRAP_CODE: <code>`
 pub fn parse_trap_expectation(line: &str, line_number: usize) -> Result<Option<TrapExpectation>> {
     let trimmed = line.trim();
-    
+
     if let Some(message) = trimmed.strip_prefix("// EXPECT_TRAP:") {
         Ok(Some(TrapExpectation {
             trap_code: None,
@@ -73,7 +73,9 @@ pub fn parse_trap_expectation(line: &str, line_number: usize) -> Result<Option<T
             line_number,
         }))
     } else if let Some(code_str) = trimmed.strip_prefix("// EXPECT_TRAP_CODE:") {
-        let code = code_str.trim().parse::<u8>()
+        let code = code_str
+            .trim()
+            .parse::<u8>()
             .map_err(|e| anyhow::anyhow!("invalid trap code at line {}: {}", line_number, e))?;
         Ok(Some(TrapExpectation {
             trap_code: Some(code),

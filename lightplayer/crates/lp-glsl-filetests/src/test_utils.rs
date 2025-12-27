@@ -1,8 +1,8 @@
 //! Shared utilities for test modules.
 
 use anyhow::Result;
-use cranelift_codegen::isa::riscv32::isa_builder;
 use cranelift_codegen::isa::OwnedTargetIsa;
+use cranelift_codegen::isa::riscv32::isa_builder;
 use cranelift_codegen::settings::{self, Configurable};
 use target_lexicon::{
     Architecture, BinaryFormat, Environment, OperatingSystem, Riscv32Architecture, Triple, Vendor,

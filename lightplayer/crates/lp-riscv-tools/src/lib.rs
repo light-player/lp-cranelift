@@ -37,8 +37,8 @@ pub use decode::decode_instruction;
 pub use emu::{
     EmulatorError, InstLog, LogLevel, MemoryAccessKind, Riscv32Emulator, StepResult, SyscallInfo,
 };
-pub use inst::{format_instruction, Inst};
+pub use inst::{Inst, format_instruction};
 pub use regs::Gpr;
 
 #[cfg(feature = "std")]
-pub use elf_loader::{find_symbol_address, load_elf, ElfLoadInfo};
+pub use elf_loader::{ElfLoadInfo, find_symbol_address, load_elf};

@@ -133,8 +133,8 @@ pub fn parse_test_file(path: &Path) -> Result<TestFile> {
 
 #[cfg(test)]
 mod tests {
-    use super::directives;
     use super::ComparisonOp;
+    use super::directives;
 
     #[test]
     fn test_parse_run_directive() {

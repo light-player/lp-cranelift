@@ -2,7 +2,7 @@
 //!
 //! These tests verify individual instruction decoding, encoding, and execution.
 
-use lp_riscv_tools::{decode_instruction, encode, Gpr, Inst, Riscv32Emulator};
+use lp_riscv_tools::{Gpr, Inst, Riscv32Emulator, decode_instruction, encode};
 
 #[test]
 fn test_fence_i_decode_encode() {

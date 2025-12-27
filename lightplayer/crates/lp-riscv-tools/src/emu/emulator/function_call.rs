@@ -987,7 +987,7 @@ fn extract_struct_return_value(
 mod tests {
     use super::*;
     use alloc::vec;
-    use cranelift_codegen::ir::{types, AbiParam};
+    use cranelift_codegen::ir::{AbiParam, types};
     use cranelift_codegen::isa::CallConv;
 
     fn create_test_emulator() -> Riscv32Emulator {
