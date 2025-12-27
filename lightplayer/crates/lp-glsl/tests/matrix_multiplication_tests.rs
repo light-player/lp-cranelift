@@ -6,7 +6,7 @@ use lp_glsl::GlslValue;
 fn test_matrix_multiplication_expected_result() {
     // Test case from the plan:
     // mat2(vec2(1,2), vec2(3,4)) * mat2(vec2(5,6), vec2(7,8))
-    // 
+    //
     // Standard matrix multiplication:
     // [[1, 3],   [[5, 7],   [[1*5+3*6, 1*7+3*8],   [[23, 31],
     //  [2, 4]] *  [6, 8]] =  [2*5+4*6, 2*7+4*8]] =  [34, 46]]
@@ -16,22 +16,22 @@ fn test_matrix_multiplication_expected_result() {
 
     // Create the matrices
     let mat_a = GlslValue::Mat2x2([
-        [1.0, 2.0],  // col 0: row0=1.0, row1=2.0
-        [3.0, 4.0],  // col 1: row0=3.0, row1=4.0
+        [1.0, 2.0], // col 0: row0=1.0, row1=2.0
+        [3.0, 4.0], // col 1: row0=3.0, row1=4.0
     ]);
 
     let mat_b = GlslValue::Mat2x2([
-        [5.0, 6.0],  // col 0: row0=5.0, row1=6.0
-        [7.0, 8.0],  // col 1: row0=7.0, row1=8.0
+        [5.0, 6.0], // col 0: row0=5.0, row1=6.0
+        [7.0, 8.0], // col 1: row0=7.0, row1=8.0
     ]);
 
     // Expected result: Column 0: [23, 34], Column 1: [31, 46]
     // Internal representation: [[23, 34], [31, 46]] (m[col][row])
     let expected = GlslValue::Mat2x2([
-        [23.0, 34.0],  // col 0: [23.0, 34.0]
-        [31.0, 46.0],  // col 1: [31.0, 46.0]
+        [23.0, 34.0], // col 0: [23.0, 34.0]
+        [31.0, 46.0], // col 1: [31.0, 46.0]
     ]);
-    
+
     // Note: This test verifies the expected result format.
     // Actual multiplication is tested in integration tests that compile and execute GLSL code.
     match (mat_a, mat_b, expected) {
@@ -60,4 +60,3 @@ fn test_matrix_multiplication_expected_result() {
         _ => panic!("Expected Mat2x2"),
     }
 }
-

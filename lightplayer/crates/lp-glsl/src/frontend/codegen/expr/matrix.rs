@@ -1,8 +1,8 @@
-use crate::frontend::codegen::context::CodegenContext;
-use crate::semantic::types::Type as GlslType;
-use crate::semantic::type_check::operators::infer_binary_result_type;
 use crate::error::{ErrorCode, GlslError, source_span_to_location};
-use cranelift_codegen::ir::{Value, InstBuilder};
+use crate::frontend::codegen::context::CodegenContext;
+use crate::semantic::type_check::operators::infer_binary_result_type;
+use crate::semantic::types::Type as GlslType;
+use cranelift_codegen::ir::{InstBuilder, Value};
 
 use super::coercion;
 
@@ -26,8 +26,11 @@ pub fn translate_matrix_binary(
         // Matrix + Matrix: component-wise addition
         Add => {
             if lhs_ty != rhs_ty {
-                return Err(GlslError::new(ErrorCode::E0106, "matrix addition requires matching types")
-                    .with_location(source_span_to_location(&span)));
+                return Err(GlslError::new(
+                    ErrorCode::E0106,
+                    "matrix addition requires matching types",
+                )
+                .with_location(source_span_to_location(&span)));
             }
             let mut result_vals = Vec::new();
             for (lhs_val, rhs_val) in lhs_vals.iter().zip(rhs_vals.iter()) {
@@ -40,8 +43,11 @@ pub fn translate_matrix_binary(
         // Matrix - Matrix: component-wise subtraction
         Sub => {
             if lhs_ty != rhs_ty {
-                return Err(GlslError::new(ErrorCode::E0106, "matrix subtraction requires matching types")
-                    .with_location(source_span_to_location(&span)));
+                return Err(GlslError::new(
+                    ErrorCode::E0106,
+                    "matrix subtraction requires matching types",
+                )
+                .with_location(source_span_to_location(&span)));
             }
             let mut result_vals = Vec::new();
             for (lhs_val, rhs_val) in lhs_vals.iter().zip(rhs_vals.iter()) {
@@ -78,7 +84,7 @@ pub fn translate_matrix_binary(
             if lhs_ty.is_matrix() && rhs_ty.is_vector() {
                 let (rows, cols) = lhs_ty.matrix_dims().unwrap();
                 let vec_size = rhs_ty.component_count().unwrap();
-                
+
                 if cols != vec_size {
                     return Err(GlslError::new(ErrorCode::E0106, 
                         format!("matrix × vector dimension mismatch: {}×{} matrix requires {}-component vector", rows, cols, cols))
@@ -91,12 +97,12 @@ pub fn translate_matrix_binary(
                 for row in 0..rows {
                     let mut sum = ctx.builder.ins().fmul(
                         lhs_vals[0 * rows + row], // First element of row
-                        rhs_vals[0]
+                        rhs_vals[0],
                     );
                     for col in 1..cols {
                         let product = ctx.builder.ins().fmul(
                             lhs_vals[col * rows + row], // Element at (row, col)
-                            rhs_vals[col]
+                            rhs_vals[col],
                         );
                         sum = ctx.builder.ins().fadd(sum, product);
                     }
@@ -109,7 +115,7 @@ pub fn translate_matrix_binary(
             if lhs_ty.is_vector() && rhs_ty.is_matrix() {
                 let vec_size = lhs_ty.component_count().unwrap();
                 let (rows, cols) = rhs_ty.matrix_dims().unwrap();
-                
+
                 if vec_size != rows {
                     return Err(GlslError::new(ErrorCode::E0106,
                         format!("vector × matrix dimension mismatch: {}-component vector requires {}×{} matrix", vec_size, rows, cols))
@@ -122,12 +128,12 @@ pub fn translate_matrix_binary(
                 for col in 0..cols {
                     let mut sum = ctx.builder.ins().fmul(
                         lhs_vals[0],
-                        rhs_vals[col * rows + 0] // First element of column
+                        rhs_vals[col * rows + 0], // First element of column
                     );
                     for row in 1..rows {
                         let product = ctx.builder.ins().fmul(
                             lhs_vals[row],
-                            rhs_vals[col * rows + row] // Element at (row, col)
+                            rhs_vals[col * rows + row], // Element at (row, col)
                         );
                         sum = ctx.builder.ins().fadd(sum, product);
                     }
@@ -140,12 +146,16 @@ pub fn translate_matrix_binary(
             if lhs_ty.is_matrix() && rhs_ty.is_matrix() {
                 let (lhs_rows, lhs_cols) = lhs_ty.matrix_dims().unwrap();
                 let (rhs_rows, rhs_cols) = rhs_ty.matrix_dims().unwrap();
-                
+
                 if lhs_cols != rhs_rows {
-                    return Err(GlslError::new(ErrorCode::E0106,
-                        format!("matrix × matrix dimension mismatch: {}×{} × {}×{} requires {} == {}", 
-                            lhs_rows, lhs_cols, rhs_rows, rhs_cols, lhs_cols, rhs_rows))
-                        .with_location(source_span_to_location(&span)));
+                    return Err(GlslError::new(
+                        ErrorCode::E0106,
+                        format!(
+                            "matrix × matrix dimension mismatch: {}×{} × {}×{} requires {} == {}",
+                            lhs_rows, lhs_cols, rhs_rows, rhs_cols, lhs_cols, rhs_rows
+                        ),
+                    )
+                    .with_location(source_span_to_location(&span)));
                 }
 
                 // Result is lhs_rows × rhs_cols matrix
@@ -163,12 +173,12 @@ pub fn translate_matrix_binary(
                         // rhs element (k, j): rhs_vals[j * rhs_rows + k]
                         let mut sum = ctx.builder.ins().fmul(
                             lhs_vals[0 * lhs_rows + i], // Element at (i, 0) of lhs
-                            rhs_vals[j * rhs_rows + 0]  // Element at (0, j) of rhs
+                            rhs_vals[j * rhs_rows + 0], // Element at (0, j) of rhs
                         );
                         for k in 1..lhs_cols {
                             let product = ctx.builder.ins().fmul(
                                 lhs_vals[k * lhs_rows + i], // Element at (i, k) of lhs
-                                rhs_vals[j * rhs_rows + k]  // Element at (k, j) of rhs
+                                rhs_vals[j * rhs_rows + k], // Element at (k, j) of rhs
                             );
                             sum = ctx.builder.ins().fadd(sum, product);
                         }
@@ -178,8 +188,11 @@ pub fn translate_matrix_binary(
                 return Ok((result_vals, result_ty));
             }
 
-            Err(GlslError::new(ErrorCode::E0106, "matrix multiplication requires matrix and scalar/vector/matrix operands")
-                .with_location(source_span_to_location(&span)))
+            Err(GlslError::new(
+                ErrorCode::E0106,
+                "matrix multiplication requires matrix and scalar/vector/matrix operands",
+            )
+            .with_location(source_span_to_location(&span)))
         }
 
         // Matrix / Scalar: component-wise division
@@ -193,12 +206,17 @@ pub fn translate_matrix_binary(
                 }
                 return Ok((result_vals, result_ty));
             }
-            Err(GlslError::new(ErrorCode::E0106, "matrix division only supports matrix / scalar")
-                .with_location(source_span_to_location(&span)))
+            Err(GlslError::new(
+                ErrorCode::E0106,
+                "matrix division only supports matrix / scalar",
+            )
+            .with_location(source_span_to_location(&span)))
         }
 
-        _ => Err(GlslError::new(ErrorCode::E0106, format!("operator {:?} not supported for matrices", op))
-            .with_location(source_span_to_location(&span))),
+        _ => Err(GlslError::new(
+            ErrorCode::E0106,
+            format!("operator {:?} not supported for matrices", op),
+        )
+        .with_location(source_span_to_location(&span))),
     }
 }
-

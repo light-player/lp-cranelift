@@ -1,7 +1,7 @@
 use glsl::syntax::CompoundStatement;
 
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::GlslError;
+use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit compound statement (block of statements in { ... })
 pub fn emit_compound_stmt(

@@ -44,8 +44,3 @@ pub fn parse_return_type(
 ) -> Result<types::Type, GlslError> {
     parse_type_specifier(&ty.ty, span)
 }
-
-
-
-
-

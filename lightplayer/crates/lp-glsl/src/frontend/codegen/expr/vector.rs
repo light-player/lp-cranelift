@@ -1,5 +1,5 @@
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError, source_span_to_location};
+use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::Value;
 
@@ -93,7 +93,12 @@ pub fn translate_vector_binary(
                 let lhs_comp = lhs_vals[i];
                 let rhs_comp = rhs_vals[i];
                 let result_comp = binary::translate_scalar_binary_op_internal(
-                    ctx, op, lhs_comp, rhs_comp, &base_ty, span.clone(),
+                    ctx,
+                    op,
+                    lhs_comp,
+                    rhs_comp,
+                    &base_ty,
+                    span.clone(),
                 )?;
                 result_vals.push(result_comp);
             }
@@ -104,8 +109,14 @@ pub fn translate_vector_binary(
             // Coerce scalar to vector base type if needed
             let scalar = coercion::coerce_to_type(ctx, scalar, rhs_ty, &base_ty)?;
             for &comp in &lhs_vals {
-                let result_comp =
-                    binary::translate_scalar_binary_op_internal(ctx, op, comp, scalar, &base_ty, span.clone())?;
+                let result_comp = binary::translate_scalar_binary_op_internal(
+                    ctx,
+                    op,
+                    comp,
+                    scalar,
+                    &base_ty,
+                    span.clone(),
+                )?;
                 result_vals.push(result_comp);
             }
         }
@@ -115,8 +126,14 @@ pub fn translate_vector_binary(
             // Coerce scalar to vector base type if needed
             let scalar = coercion::coerce_to_type(ctx, scalar, lhs_ty, &base_ty)?;
             for &comp in &rhs_vals {
-                let result_comp =
-                    binary::translate_scalar_binary_op_internal(ctx, op, scalar, comp, &base_ty, span.clone())?;
+                let result_comp = binary::translate_scalar_binary_op_internal(
+                    ctx,
+                    op,
+                    scalar,
+                    comp,
+                    &base_ty,
+                    span.clone(),
+                )?;
                 result_vals.push(result_comp);
             }
         }

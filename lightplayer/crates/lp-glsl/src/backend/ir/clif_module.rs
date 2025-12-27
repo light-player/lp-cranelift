@@ -1,10 +1,10 @@
 //! Immutable CLIF module representation holding all functions before linking/compilation.
 
-use crate::frontend::src_loc_manager::SourceLocManager;
-use crate::frontend::src_loc::GlSourceMap;
 use crate::backend::link::rebuild_function_for_module;
 use crate::error::{ErrorCode, GlslError};
 use crate::frontend::semantic::functions::FunctionRegistry;
+use crate::frontend::src_loc::GlSourceMap;
+use crate::frontend::src_loc_manager::SourceLocManager;
 use cranelift_codegen::CodegenError;
 use cranelift_codegen::ir::{Function, SourceLoc, TrapCode};
 use cranelift_codegen::isa::OwnedTargetIsa;
@@ -127,7 +127,14 @@ impl ClifModule {
         &self,
         module: &mut M,
         main_linkage: Linkage,
-    ) -> Result<(HashMap<String, FuncId>, String, Vec<(String, Vec<TrapInfo>)>), GlslError> {
+    ) -> Result<
+        (
+            HashMap<String, FuncId>,
+            String,
+            Vec<(String, Vec<TrapInfo>)>,
+        ),
+        GlslError,
+    > {
         use crate::error::{ErrorCode, GlslError};
 
         let mut name_to_id = HashMap::new();
@@ -368,19 +375,12 @@ impl ClifModule {
             }
 
             // If no exact match, search backwards to find the nearest source location before the trap
-            if let Some(loc) = srclocs
-                .iter()
-                .rev()
-                .find(|loc| loc.end <= trap_offset)
-            {
+            if let Some(loc) = srclocs.iter().rev().find(|loc| loc.end <= trap_offset) {
                 return loc.loc;
             }
 
             // If still not found, search forwards to find the nearest source location after the trap
-            if let Some(loc) = srclocs
-                .iter()
-                .find(|loc| loc.start > trap_offset)
-            {
+            if let Some(loc) = srclocs.iter().find(|loc| loc.start > trap_offset) {
                 return loc.loc;
             }
 
@@ -401,7 +401,7 @@ impl ClifModule {
         // Define all user functions, remapping FuncRefs
         for (name, old_func) in &self.user_functions {
             let new_func_id = name_to_id[name];
-            
+
             // Rebuild function with proper block params and function name preservation
             let rebuilt_func = rebuild_function_for_module(
                 old_func,
@@ -505,7 +505,9 @@ impl ClifModule {
     /// Build an ObjectModule from this CLIF module and extract both ELF bytes and CLIF IR
     /// Returns (ELF bytes, formatted CLIF IR string, trap information)
     #[cfg(feature = "emulator")]
-    pub fn build_object_module(&self) -> Result<(Vec<u8>, String, Vec<(String, Vec<TrapInfo>)>), GlslError> {
+    pub fn build_object_module(
+        &self,
+    ) -> Result<(Vec<u8>, String, Vec<(String, Vec<TrapInfo>)>), GlslError> {
         use cranelift_module::Linkage;
         use cranelift_object::{ObjectBuilder, ObjectModule};
 
@@ -723,7 +725,9 @@ impl ClifModuleBuilder {
             isa,
             glsl_signatures: self.glsl_signatures,
             func_id_to_name: self.func_id_to_name,
-            source_loc_manager: self.source_loc_manager.unwrap_or_else(SourceLocManager::new),
+            source_loc_manager: self
+                .source_loc_manager
+                .unwrap_or_else(SourceLocManager::new),
             source_map,
         })
     }

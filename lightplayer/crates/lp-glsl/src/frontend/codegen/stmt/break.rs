@@ -1,5 +1,5 @@
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError};
+use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit break statement
 pub fn emit_break_stmt(ctx: &mut CodegenContext) -> Result<(), GlslError> {

@@ -1,11 +1,12 @@
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError};
+use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit continue statement
 pub fn emit_continue_stmt(ctx: &mut CodegenContext) -> Result<(), GlslError> {
-    let loop_ctx = ctx.loop_stack.last().ok_or_else(|| {
-        GlslError::new(ErrorCode::E0400, "continue statement outside of loop")
-    })?;
+    let loop_ctx = ctx
+        .loop_stack
+        .last()
+        .ok_or_else(|| GlslError::new(ErrorCode::E0400, "continue statement outside of loop"))?;
 
     ctx.emit_branch(loop_ctx.continue_target)?;
 

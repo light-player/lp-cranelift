@@ -15,13 +15,13 @@ pub mod src_loc_manager;
 
 // Re-exports used by crate root; suppress unused warnings within this module.
 #[allow(unused_imports)]
-pub use glsl_compiler::GlslCompiler;
-#[allow(unused_imports)]
 pub use crate::backend::link::rebuild_function_for_module;
 #[allow(unused_imports)]
+pub use glsl_compiler::GlslCompiler;
+#[allow(unused_imports)]
 pub use pipeline::{
-    parse_program_with_registry, Backend, CompilationPipeline, CompiledShader, ParseResult, SemanticResult,
-    TransformationPass,
+    Backend, CompilationPipeline, CompiledShader, ParseResult, SemanticResult, TransformationPass,
+    parse_program_with_registry,
 };
 
 // Re-export create_minimal_module_for_declarations for internal use
@@ -32,19 +32,19 @@ pub(crate) use glsl_compiler::create_minimal_module_for_declarations;
 // Public API functions
 // ============================================================================
 
-use crate::exec::executable::{GlslExecutable, GlslOptions, RunMode};
-use crate::error::GlslError;
 use crate::backend::ir::ClifModule;
-use crate::backend::transform::fixed32::{transform_module, FixedPointFormat};
+use crate::backend::transform::fixed32::{FixedPointFormat, transform_module};
+use crate::error::GlslError;
+use crate::exec::executable::{GlslExecutable, GlslOptions, RunMode};
 use cranelift_codegen::isa::OwnedTargetIsa;
 
 #[cfg(feature = "std")]
 use cranelift_native;
 
-use alloc::format as alloc_format;
-use alloc::boxed::Box;
-use alloc::string::String;
 use crate::backend::link;
+use alloc::boxed::Box;
+use alloc::format as alloc_format;
+use alloc::string::String;
 
 /// Compile GLSL to CLIF module (internal, reusable)
 /// This is the core compilation step that can be reused for different backends
@@ -133,8 +133,8 @@ pub fn glsl_emu_riscv32_with_metadata(
     options: GlslOptions,
     source_file_path: Option<String>,
 ) -> Result<Box<dyn GlslExecutable>, GlslError> {
-    use crate::exec::executable::DecimalFormat;
     use crate::backend::link::EmulatorOptions;
+    use crate::exec::executable::DecimalFormat;
 
     let mut compiler = GlslCompiler::new();
     let isa = match &options.run_mode {

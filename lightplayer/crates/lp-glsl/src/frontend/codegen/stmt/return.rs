@@ -2,8 +2,8 @@ use glsl::syntax::Expr;
 
 use alloc::{format, vec::Vec};
 
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::GlslError;
+use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit return statement
 pub fn emit_return_stmt(ctx: &mut CodegenContext, expr: Option<&Expr>) -> Result<(), GlslError> {
@@ -63,12 +63,9 @@ pub fn emit_return_stmt(ctx: &mut CodegenContext, expr: Option<&Expr>) -> Result
                         )?
                     };
                     let offset = (i * crate::frontend::codegen::constants::F32_SIZE_BYTES) as i32;
-                    ctx.builder.ins().store(
-                        MemFlags::trusted(),
-                        coerced,
-                        struct_ret_ptr,
-                        offset,
-                    );
+                    ctx.builder
+                        .ins()
+                        .store(MemFlags::trusted(), coerced, struct_ret_ptr, offset);
                 }
 
                 // Return void for StructReturn functions

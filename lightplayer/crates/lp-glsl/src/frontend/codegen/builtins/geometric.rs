@@ -1,20 +1,26 @@
 //! Geometric built-in functions
 
+use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
-use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::{InstBuilder, Value};
 
 use alloc::{format, vec::Vec};
 
 impl<'a> CodegenContext<'a> {
     /// Dot product: x·y = x₀y₀ + x₁y₁ + x₂y₂ + ...
-    pub fn builtin_dot(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+    pub fn builtin_dot(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, _) = &args[0];
         let (y_vals, _) = &args[1];
 
         if x_vals.len() != y_vals.len() {
-            return Err(GlslError::new(ErrorCode::E0104, "dot() requires matching vector sizes"));
+            return Err(GlslError::new(
+                ErrorCode::E0104,
+                "dot() requires matching vector sizes",
+            ));
         }
 
         let mut sum = self.builder.ins().fmul(x_vals[0], y_vals[0]);
@@ -35,7 +41,10 @@ impl<'a> CodegenContext<'a> {
         let (y_vals, _) = &args[1];
 
         if x_vals.len() != 3 || y_vals.len() != 3 {
-            return Err(GlslError::new(ErrorCode::E0104, "cross() requires vec3 arguments"));
+            return Err(GlslError::new(
+                ErrorCode::E0104,
+                "cross() requires vec3 arguments",
+            ));
         }
 
         // cross(x, y) = (x.y*y.z - x.z*y.y, x.z*y.x - x.x*y.z, x.x*y.y - x.y*y.x)
@@ -114,7 +123,10 @@ impl<'a> CodegenContext<'a> {
         let (p1_vals, _) = &args[1];
 
         if p0_vals.len() != p1_vals.len() {
-            return Err(GlslError::new(ErrorCode::E0104, "distance() requires matching vector sizes"));
+            return Err(GlslError::new(
+                ErrorCode::E0104,
+                "distance() requires matching vector sizes",
+            ));
         }
 
         // Compute p0 - p1
@@ -127,8 +139,3 @@ impl<'a> CodegenContext<'a> {
         self.builtin_length(vec![(diff_vals, p0_ty.clone())])
     }
 }
-
-
-
-
-

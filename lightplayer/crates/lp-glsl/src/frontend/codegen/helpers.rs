@@ -1,7 +1,7 @@
 //! Helper functions for code generation
 
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError};
+use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
 use cranelift_codegen::ir::{ArgumentPurpose, InstBuilder, MemFlags, types};
 
@@ -186,4 +186,3 @@ fn generate_default_matrix_return(
     }
     Ok(())
 }
-

@@ -1,12 +1,12 @@
 //! Assignment expression code generation
 
-use crate::frontend::codegen::context::CodegenContext;
-use crate::frontend::codegen::rvalue::RValue;
-use crate::frontend::codegen::lvalue::write_lvalue;
 use crate::error::{ErrorCode, GlslError, source_span_to_location};
+use crate::frontend::codegen::context::CodegenContext;
+use crate::frontend::codegen::lvalue::write_lvalue;
+use crate::frontend::codegen::rvalue::RValue;
 use crate::semantic::types::Type as GlslType;
-use glsl::syntax::Expr;
 use cranelift_codegen::ir::Value;
+use glsl::syntax::Expr;
 
 use alloc::{format, vec::Vec};
 
@@ -31,11 +31,11 @@ pub fn translate_assignment_typed(
     op: &glsl::syntax::AssignmentOp,
     rhs: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
-    use crate::frontend::codegen::lvalue::resolve_lvalue;
+    use super::component;
     use crate::error::extract_span_from_expr;
     use crate::error::extract_span_from_identifier;
+    use crate::frontend::codegen::lvalue::resolve_lvalue;
     use crate::semantic::type_check::conversion::check_assignment;
-    use super::component;
 
     // Handle compound assignment operators (+=, -=, *=, /=)
     if !matches!(op, glsl::syntax::AssignmentOp::Equal) {
@@ -55,7 +55,10 @@ pub fn translate_assignment_typed(
                 let span = extract_span_from_identifier(field);
                 let error = GlslError::new(
                     ErrorCode::E0113,
-                    format!("swizzle `{}` contains duplicate components (illegal in assignment)", field.name)
+                    format!(
+                        "swizzle `{}` contains duplicate components (illegal in assignment)",
+                        field.name
+                    ),
                 )
                 .with_location(source_span_to_location(&span));
                 return Err(ctx.add_span_to_error(error, &span));
@@ -92,10 +95,14 @@ pub fn translate_assignment_typed(
     };
 
     if expected_count != rhs_vals.len() {
-        return Err(GlslError::new(ErrorCode::E0400, format!(
-            "component count mismatch in assignment: {} vs {}",
-            expected_count, rhs_vals.len()
-        ))
+        return Err(GlslError::new(
+            ErrorCode::E0400,
+            format!(
+                "component count mismatch in assignment: {} vs {}",
+                expected_count,
+                rhs_vals.len()
+            ),
+        )
         .with_location(source_span_to_location(&rhs_span)));
     }
 
@@ -127,7 +134,9 @@ pub fn translate_assignment_typed(
     // For component assignment, return all current values (read other components)
     // For other assignments, return the assigned values
     let result_vals = match &lvalue {
-        crate::frontend::codegen::lvalue::LValue::Component { base_vars, base_ty, .. } => {
+        crate::frontend::codegen::lvalue::LValue::Component {
+            base_vars, base_ty, ..
+        } => {
             // Component assignment returns the whole vector/matrix
             let mut result_vals = Vec::new();
             for &var in base_vars {
@@ -151,12 +160,12 @@ fn translate_compound_assignment_typed(
     op: &glsl::syntax::AssignmentOp,
     rhs: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
-    use crate::frontend::codegen::lvalue::{write_lvalue, read_lvalue, resolve_lvalue};
-    use crate::error::extract_span_from_expr;
-    use crate::semantic::type_check::conversion::check_assignment;
+    use super::binary;
     use super::matrix;
     use super::vector;
-    use super::binary;
+    use crate::error::extract_span_from_expr;
+    use crate::frontend::codegen::lvalue::{read_lvalue, resolve_lvalue, write_lvalue};
+    use crate::semantic::type_check::conversion::check_assignment;
     use glsl::syntax::BinaryOp;
 
     // Resolve LHS to an LValue
@@ -199,13 +208,26 @@ fn translate_compound_assignment_typed(
         glsl::syntax::AssignmentOp::Sub => BinaryOp::Sub,
         glsl::syntax::AssignmentOp::Mult => BinaryOp::Mult,
         glsl::syntax::AssignmentOp::Div => BinaryOp::Div,
-        _ => return Err(GlslError::new(ErrorCode::E0400, format!("unsupported compound assignment operator: {:?}", op))),
+        _ => {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!("unsupported compound assignment operator: {:?}", op),
+            ));
+        }
     };
 
     // Perform the compound operation
     let (operation_result_vals, operation_result_ty) = if lhs_ty.is_matrix() || rhs_ty.is_matrix() {
         // Use matrix operations for matrix compound assignments
-        matrix::translate_matrix_binary(ctx, &binary_op, lhs_vals, &lhs_ty, rhs_vals, &rhs_ty, rhs_span.clone())?
+        matrix::translate_matrix_binary(
+            ctx,
+            &binary_op,
+            lhs_vals,
+            &lhs_ty,
+            rhs_vals,
+            &rhs_ty,
+            rhs_span.clone(),
+        )?
     } else if lhs_ty.is_vector() || rhs_ty.is_vector() {
         // Use vector operations
         vector::translate_vector_binary(
@@ -249,7 +271,9 @@ fn translate_compound_assignment_typed(
 
     // Return the result (same as simple assignment)
     let final_result = match &lvalue {
-        crate::frontend::codegen::lvalue::LValue::Component { base_vars, base_ty, .. } => {
+        crate::frontend::codegen::lvalue::LValue::Component {
+            base_vars, base_ty, ..
+        } => {
             // Component assignment returns the whole vector/matrix
             let mut result_vals = Vec::new();
             for &var in base_vars {

@@ -1,7 +1,7 @@
 use glsl::syntax::SelectionStatement;
 
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError};
+use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit if statement (selection statement)
 pub fn emit_if_stmt(

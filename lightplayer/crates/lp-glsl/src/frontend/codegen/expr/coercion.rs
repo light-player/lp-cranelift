@@ -1,7 +1,11 @@
+use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type as GlslType;
-use crate::error::{ErrorCode, GlslError, source_span_to_location};
-use cranelift_codegen::ir::{types, Value, InstBuilder, condcodes::{IntCC, FloatCC}};
+use cranelift_codegen::ir::{
+    InstBuilder, Value,
+    condcodes::{FloatCC, IntCC},
+    types,
+};
 
 pub fn coerce_to_type(
     ctx: &mut CodegenContext,
@@ -68,7 +72,6 @@ pub fn coerce_to_type_with_location(
                 error = error.with_location(source_span_to_location(&s));
             }
             Err(error)
-        },
+        }
     }
 }
-

@@ -3,12 +3,12 @@
 //! This module provides a pure functional transformation that converts all functions
 //! in a ClifModule from float to fixed-point representation atomically.
 
-use crate::frontend::glsl_compiler::create_minimal_module_for_declarations;
-use crate::error::{ErrorCode, GlslError};
 use crate::backend::ir::ClifModule;
 use crate::backend::transform::fixed32::function::rewrite_function;
 use crate::backend::transform::fixed32::signature::convert_signature;
 use crate::backend::transform::fixed32::types::FixedPointFormat;
+use crate::error::{ErrorCode, GlslError};
+use crate::frontend::glsl_compiler::create_minimal_module_for_declarations;
 use cranelift_codegen::ir::{FuncRef, Function, Signature};
 use cranelift_module::{Linkage, Module};
 use hashbrown::HashMap;

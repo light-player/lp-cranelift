@@ -3,8 +3,8 @@
 //! This module provides a trait-based API for executing GLSL functions that
 //! abstracts away JIT vs Emulator implementations.
 
-use crate::exec::glsl_value::GlslValue;
 use crate::error::GlslError;
+use crate::exec::glsl_value::GlslValue;
 use crate::frontend::semantic::functions::FunctionSignature;
 
 use alloc::{format, string::String, vec::Vec};

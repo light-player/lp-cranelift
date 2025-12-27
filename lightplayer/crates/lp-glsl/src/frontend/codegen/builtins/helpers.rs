@@ -1,7 +1,7 @@
 //! Helper functions for built-in function code generation
 
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError};
+use crate::frontend::codegen::context::CodegenContext;
 use cranelift_codegen::ir::{AbiParam, FuncRef, Signature, types};
 use cranelift_codegen::isa::CallConv;
 use cranelift_module::Linkage;
@@ -19,12 +19,12 @@ impl<'a> CodegenContext<'a> {
                 use crate::intrinsics::loader::IntrinsicCache;
                 self.intrinsic_cache = Some(IntrinsicCache::new());
             }
-            
+
             // Use intrinsic implementation
             use crate::intrinsics::loader::get_or_create_intrinsic;
             get_or_create_intrinsic(func_name, self)
         }
-        
+
         #[cfg(not(feature = "intrinsic-math"))]
         {
             // Create signature: f32 -> f32

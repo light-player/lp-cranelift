@@ -1,7 +1,7 @@
 //! Intrinsic function loader - manages compilation and caching of intrinsic functions.
 
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError};
+use crate::frontend::codegen::context::CodegenContext;
 use cranelift_codegen::{
     Context,
     ir::{FuncRef, Function},

@@ -30,10 +30,8 @@ pub fn rebuild_function_for_module<M: Module>(
     use cranelift_codegen::ir::{ExternalName, FuncRef};
 
     // 1. Create new function with same signature, preserving the original function name
-    let mut new_func = Function::with_name_signature(
-        old_func.name.clone(),
-        old_func.signature.clone(),
-    );
+    let mut new_func =
+        Function::with_name_signature(old_func.name.clone(), old_func.signature.clone());
 
     // 2. Build mapping from old FuncRef to new FuncRef BEFORE creating builder
     // (to avoid borrow conflicts with new_func)
@@ -145,7 +143,7 @@ pub fn rebuild_function_for_module<M: Module>(
     // 4. Clone the function and remap FuncRefs directly
     // This is simpler than using the instruction copying pipeline
     let mut func_clone = old_func.clone();
-    
+
     // Remap FuncRefs in call instructions
     let blocks: Vec<_> = func_clone.layout.blocks().collect();
     let mut insts_to_update: Vec<(cranelift_codegen::ir::Inst, FuncRef)> = Vec::new();
@@ -163,7 +161,8 @@ pub fn rebuild_function_for_module<M: Module>(
     // Update the instructions
     for (inst, new_func_ref) in insts_to_update {
         let inst_data = &mut func_clone.dfg.insts[inst];
-        if let cranelift_codegen::ir::InstructionData::Call { opcode, args, .. } = inst_data.clone() {
+        if let cranelift_codegen::ir::InstructionData::Call { opcode, args, .. } = inst_data.clone()
+        {
             *inst_data = cranelift_codegen::ir::InstructionData::Call {
                 opcode,
                 func_ref: new_func_ref,
@@ -302,8 +301,8 @@ fn format_clif_from_module(module: &ClifModule) -> Result<String, crate::error::
 pub fn link_glsl_for_jit(
     module: ClifModule,
 ) -> Result<crate::exec::jit::GlslJitModule, crate::error::GlslError> {
-    use crate::exec::jit::GlslJitModule;
     use crate::error::GlslError;
+    use crate::exec::jit::GlslJitModule;
     // JITModule supports no_std, so we can use it unconditionally
     use cranelift_jit::{JITBuilder, JITModule};
     use cranelift_module::Linkage;
@@ -503,8 +502,8 @@ pub fn link_glsl_for_emulator(
     source_text: Option<String>,
     source_file_path: Option<String>,
 ) -> Result<crate::exec::emu::GlslEmulatorModule, crate::error::GlslError> {
-    use crate::exec::emu::GlslEmulatorModule;
     use crate::error::GlslError;
+    use crate::exec::emu::GlslEmulatorModule;
     use hashbrown::HashMap;
     use lp_riscv_tools::Gpr;
     use lp_riscv_tools::elf_loader::{find_symbol_address, load_elf};

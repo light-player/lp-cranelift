@@ -1,7 +1,7 @@
+use crate::error::{ErrorCode, GlslError, source_span_to_location};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::rvalue::RValue;
-use crate::error::{ErrorCode, GlslError, source_span_to_location};
-use crate::semantic::type_check::{is_matrix_type_name, is_vector_type_name, is_scalar_type_name};
+use crate::semantic::type_check::{is_matrix_type_name, is_scalar_type_name, is_vector_type_name};
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::InstBuilder;
 use glsl::syntax::Expr;
@@ -18,7 +18,7 @@ pub fn emit_function_call_rvalue(
 ) -> Result<RValue, GlslError> {
     // Ensure we're in a block before evaluating
     ctx.ensure_block()?;
-    
+
     let (vals, ty) = translate_function_call(ctx, expr)?;
     Ok(RValue::from_aggregate(vals, ty))
 }
@@ -191,7 +191,10 @@ fn validate_function_call(
         };
 
         if arg_base != param_base
-            && !crate::frontend::semantic::type_check::can_implicitly_convert(&arg_base, &param_base)
+            && !crate::frontend::semantic::type_check::can_implicitly_convert(
+                &arg_base,
+                &param_base,
+            )
         {
             let expected_count: usize = func_sig
                 .parameters

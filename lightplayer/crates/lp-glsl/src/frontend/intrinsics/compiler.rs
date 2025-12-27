@@ -1,8 +1,8 @@
 //! Compiler for intrinsic GLSL functions.
 
+use crate::error::{ErrorCode, GlslError};
 use crate::frontend::pipeline::CompilationPipeline;
 use crate::frontend::src_loc::GlSourceMap;
-use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::Function;
 use cranelift_codegen::isa::TargetIsa;
 
@@ -226,7 +226,8 @@ pub fn compile_intrinsic_functions(
         builder.seal_block(entry_block);
 
         {
-            let mut codegen_ctx = CodegenContext::new(builder, &mut module, &source_map, intrinsic_file_id);
+            let mut codegen_ctx =
+                CodegenContext::new(builder, &mut module, &source_map, intrinsic_file_id);
             codegen_ctx.set_function_ids(&func_ids);
             codegen_ctx.set_function_registry(&typed_ast.function_registry);
             codegen_ctx.set_return_type(user_func.return_type.clone());

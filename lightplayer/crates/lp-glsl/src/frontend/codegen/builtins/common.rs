@@ -1,15 +1,18 @@
 //! Common built-in functions
 
+use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
-use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
 
 use alloc::{format, vec::Vec};
 
 impl<'a> CodegenContext<'a> {
     /// min(x, y) - component-wise for vectors
-    pub fn builtin_min(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+    pub fn builtin_min(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
         let (y_vals, _) = &args[1];
 
@@ -32,7 +35,12 @@ impl<'a> CodegenContext<'a> {
                         let cmp = self.builder.ins().icmp(IntCC::SignedLessThan, x, y_scalar);
                         self.builder.ins().select(cmp, x, y_scalar)
                     }
-                    _ => return Err(GlslError::new(ErrorCode::E0105, "min() not supported for this type")),
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0105,
+                            "min() not supported for this type",
+                        ));
+                    }
                 };
                 result_vals.push(min_val);
             }
@@ -48,7 +56,12 @@ impl<'a> CodegenContext<'a> {
                                 .icmp(IntCC::SignedLessThan, x_vals[i], y_vals[i]);
                         self.builder.ins().select(cmp, x_vals[i], y_vals[i])
                     }
-                    _ => return Err(GlslError::new(ErrorCode::E0105, "min() not supported for this type")),
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0105,
+                            "min() not supported for this type",
+                        ));
+                    }
                 };
                 result_vals.push(min_val);
             }
@@ -58,7 +71,10 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// max(x, y) - component-wise for vectors
-    pub fn builtin_max(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+    pub fn builtin_max(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
         let (y_vals, _) = &args[1];
 
@@ -84,7 +100,12 @@ impl<'a> CodegenContext<'a> {
                             .icmp(IntCC::SignedGreaterThan, x, y_scalar);
                         self.builder.ins().select(cmp, x, y_scalar)
                     }
-                    _ => return Err(GlslError::new(ErrorCode::E0105, "max() not supported for this type")),
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0105,
+                            "max() not supported for this type",
+                        ));
+                    }
                 };
                 result_vals.push(max_val);
             }
@@ -100,7 +121,12 @@ impl<'a> CodegenContext<'a> {
                                 .icmp(IntCC::SignedGreaterThan, x_vals[i], y_vals[i]);
                         self.builder.ins().select(cmp, x_vals[i], y_vals[i])
                     }
-                    _ => return Err(GlslError::new(ErrorCode::E0105, "max() not supported for this type")),
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0105,
+                            "max() not supported for this type",
+                        ));
+                    }
                 };
                 result_vals.push(max_val);
             }
@@ -126,7 +152,10 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// abs(x) - absolute value
-    pub fn builtin_abs(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+    pub fn builtin_abs(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
 
         let base_ty = if x_ty.is_vector() {
@@ -146,7 +175,12 @@ impl<'a> CodegenContext<'a> {
                     let neg_val = self.builder.ins().ineg(val);
                     self.builder.ins().select(is_neg, neg_val, val)
                 }
-                _ => return Err(GlslError::new(ErrorCode::E0105, "abs() not supported for this type")),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0105,
+                        "abs() not supported for this type",
+                    ));
+                }
             };
             result_vals.push(abs_val);
         }
@@ -200,17 +234,26 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// pow(x, y) = x^y (component-wise)
-    pub fn builtin_pow(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+    pub fn builtin_pow(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, _x_ty) = &args[0];
         let (y_vals, _) = &args[1];
 
         if x_vals.len() != y_vals.len() {
-            return Err(GlslError::new(ErrorCode::E0104, "pow() requires matching sizes"));
+            return Err(GlslError::new(
+                ErrorCode::E0104,
+                "pow() requires matching sizes",
+            ));
         }
 
         // TODO: Cranelift doesn't have fpow instruction - need to implement via exp/log
         // For now, return error
-        Err(GlslError::new(ErrorCode::E0400, "pow() builtin not yet implemented (needs exp/log)"))
+        Err(GlslError::new(
+            ErrorCode::E0400,
+            "pow() builtin not yet implemented (needs exp/log)",
+        ))
     }
 
     /// fract(x) = x - floor(x) (fractional part)
@@ -230,7 +273,10 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// mod(x, y) = x - y * floor(x/y)
-    pub fn builtin_mod(&mut self, args: Vec<(Vec<Value>, Type)>) -> Result<(Vec<Value>, Type), GlslError> {
+    pub fn builtin_mod(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
         let (y_vals, _) = &args[1];
 
@@ -326,14 +372,14 @@ impl<'a> CodegenContext<'a> {
                     result_vals.push(result);
                 }
             }
-            _ => return Err(GlslError::new(ErrorCode::E0105, "sign() not supported for this type")),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0105,
+                    "sign() not supported for this type",
+                ));
+            }
         }
 
         Ok((result_vals, x_ty.clone()))
     }
 }
-
-
-
-
-

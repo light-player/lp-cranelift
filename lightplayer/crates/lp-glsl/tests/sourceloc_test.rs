@@ -2,9 +2,9 @@
 
 use cranelift_codegen::isa::OwnedTargetIsa;
 use lp_glsl::frontend::src_loc_manager::SourceLocManager;
-use lp_glsl::{GlslCompiler, GlslError, GlslOptions, RunMode};
 #[cfg(feature = "emulator")]
 use lp_glsl::glsl_emu_riscv32_with_metadata;
+use lp_glsl::{GlslCompiler, GlslError, GlslOptions, RunMode};
 
 #[cfg(feature = "emulator")]
 #[test]
@@ -41,14 +41,18 @@ float main() {
     let result = executable.call_f32("main", &[]);
 
     // Verify that we got a successful result (saturated value)
-    assert!(result.is_ok(), "Expected successful result, got error: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "Expected successful result, got error: {:?}",
+        result
+    );
 
     let result_value = result.unwrap();
 
     // Check that the result is a saturated value (should be very large positive for 0.1 / 0.0)
     // In fixed-point arithmetic, positive division by zero saturates to maximum representable value
     assert!(
-        result_value > 30000.0,  // Should be close to max fixed-point value (32767.0)
+        result_value > 30000.0, // Should be close to max fixed-point value (32767.0)
         "Division by zero should saturate to large positive value, got: {}",
         result_value
     );
@@ -189,4 +193,3 @@ fn create_test_isa() -> Result<OwnedTargetIsa, GlslError> {
             )
         })
 }
-

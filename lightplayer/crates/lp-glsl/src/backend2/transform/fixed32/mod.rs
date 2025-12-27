@@ -8,4 +8,3 @@ mod transform;
 pub use transform::Fixed32Transform;
 // Re-export FixedPointFormat - use the public re-export from backend::transform::fixed32
 pub use crate::backend::transform::fixed32::FixedPointFormat;
-

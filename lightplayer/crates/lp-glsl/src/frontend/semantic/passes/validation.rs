@@ -23,4 +23,3 @@ impl ValidationPass {
 
 // Note: ValidationPass doesn't implement SemanticPass because it operates on TypedShader,
 // not TranslationUnit. This is a design decision - validation happens after extraction.
-

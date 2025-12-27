@@ -297,10 +297,7 @@ pub fn check_condition(cond_ty: &Type) -> Result<(), GlslError> {
 
 /// Infer result type of post-increment operation
 /// Implements GLSL spec: operators.adoc:856-869
-pub fn infer_postinc_result_type(
-    operand_ty: &Type,
-    span: SourceSpan,
-) -> Result<Type, GlslError> {
+pub fn infer_postinc_result_type(operand_ty: &Type, span: SourceSpan) -> Result<Type, GlslError> {
     // Post-increment requires numeric operand (int, float, or vector/matrix of these)
     if !operand_ty.is_numeric() {
         return Err(GlslError::new(
@@ -317,10 +314,7 @@ pub fn infer_postinc_result_type(
 
 /// Infer result type of pre-increment operation
 /// Implements GLSL spec: operators.adoc:856-869
-pub fn infer_preinc_result_type(
-    operand_ty: &Type,
-    span: SourceSpan,
-) -> Result<Type, GlslError> {
+pub fn infer_preinc_result_type(operand_ty: &Type, span: SourceSpan) -> Result<Type, GlslError> {
     // Pre-increment requires numeric operand (int, float, or vector/matrix of these)
     if !operand_ty.is_numeric() {
         return Err(GlslError::new(
@@ -337,10 +331,7 @@ pub fn infer_preinc_result_type(
 
 /// Infer result type of pre-decrement operation
 /// Implements GLSL spec: operators.adoc:856-869
-pub fn infer_predec_result_type(
-    operand_ty: &Type,
-    span: SourceSpan,
-) -> Result<Type, GlslError> {
+pub fn infer_predec_result_type(operand_ty: &Type, span: SourceSpan) -> Result<Type, GlslError> {
     // Pre-decrement requires numeric operand (int, float, or vector/matrix of these)
     if !operand_ty.is_numeric() {
         return Err(GlslError::new(
@@ -355,13 +346,9 @@ pub fn infer_predec_result_type(
     Ok(operand_ty.clone())
 }
 
-
 /// Infer result type of post-decrement operation
 /// Implements GLSL spec: operators.adoc:856-869
-pub fn infer_postdec_result_type(
-    operand_ty: &Type,
-    span: SourceSpan,
-) -> Result<Type, GlslError> {
+pub fn infer_postdec_result_type(operand_ty: &Type, span: SourceSpan) -> Result<Type, GlslError> {
     // Post-decrement requires numeric operand (int, float, or vector/matrix of these)
     if !operand_ty.is_numeric() {
         return Err(GlslError::new(

@@ -8,36 +8,47 @@ pub fn parse_swizzle_length(swizzle: &str, max_components: usize) -> Result<usiz
     if swizzle.is_empty() {
         return Err(GlslError::new(ErrorCode::E0113, "empty swizzle"));
     }
-    
+
     if swizzle.len() > 4 {
         return Err(GlslError::new(
             ErrorCode::E0113,
-            format!("swizzle can have at most 4 components, got {}", swizzle.len())
+            format!(
+                "swizzle can have at most 4 components, got {}",
+                swizzle.len()
+            ),
         ));
     }
-    
+
     // Determine naming set and validate consistency
     let mut xyzw_count = 0;
     let mut rgba_count = 0;
     let mut stpq_count = 0;
-    
+
     for ch in swizzle.chars() {
         match ch {
             'x' | 'y' | 'z' | 'w' => xyzw_count += 1,
             'r' | 'g' | 'b' | 'a' => rgba_count += 1,
             's' | 't' | 'p' | 'q' => stpq_count += 1,
-            _ => return Err(GlslError::new(ErrorCode::E0113, format!("invalid swizzle character: '{}'", ch))),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0113,
+                    format!("invalid swizzle character: '{}'", ch),
+                ));
+            }
         }
     }
-    
+
     let sets_used = (xyzw_count > 0) as u32 + (rgba_count > 0) as u32 + (stpq_count > 0) as u32;
     if sets_used > 1 {
         return Err(GlslError::new(
             ErrorCode::E0113,
-            format!("swizzle '{}' mixes component naming sets (xyzw/rgba/stpq)", swizzle)
+            format!(
+                "swizzle '{}' mixes component naming sets (xyzw/rgba/stpq)",
+                swizzle
+            ),
         ));
     }
-    
+
     // Validate each component is within bounds
     let _naming_set = if xyzw_count > 0 {
         ('x', 'y', 'z', 'w')
@@ -46,24 +57,31 @@ pub fn parse_swizzle_length(swizzle: &str, max_components: usize) -> Result<usiz
     } else {
         ('s', 't', 'p', 'q')
     };
-    
+
     for ch in swizzle.chars() {
         let idx = match ch {
             'x' | 'r' | 's' => 0,
             'y' | 'g' | 't' => 1,
             'z' | 'b' | 'p' => 2,
             'w' | 'a' | 'q' => 3,
-            _ => return Err(GlslError::new(ErrorCode::E0113, format!("invalid component '{}'", ch))),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0113,
+                    format!("invalid component '{}'", ch),
+                ));
+            }
         };
-        
+
         if idx >= max_components {
             return Err(GlslError::new(
                 ErrorCode::E0111,
-                format!("component '{}' not valid for vector with {} components", ch, max_components)
+                format!(
+                    "component '{}' not valid for vector with {} components",
+                    ch, max_components
+                ),
             ));
         }
     }
-    
+
     Ok(swizzle.len())
 }
-

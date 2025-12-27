@@ -89,7 +89,12 @@ impl GlSourceLoc {
     /// Returns a string like "filename:line:column" or "line:column" if file not found.
     pub fn format_with_map(&self, map: &GlSourceMap) -> String {
         if let Some(file) = map.get_file(self.file_id) {
-            format!("{}:{}:{}", file.source.display_name(), self.line, self.column)
+            format!(
+                "{}:{}:{}",
+                file.source.display_name(),
+                self.line,
+                self.column
+            )
         } else {
             format!("{}:{}", self.line, self.column)
         }
@@ -199,10 +204,9 @@ impl GlSourceMap {
 
     /// Find an intrinsic file by name.
     pub fn find_intrinsic(&self, name: &str) -> Option<GlFileId> {
-        self.files.iter()
-            .find(|(_, file)| {
-                matches!(&file.source, GlFileSource::Intrinsic(n) if n == name)
-            })
+        self.files
+            .iter()
+            .find(|(_, file)| matches!(&file.source, GlFileSource::Intrinsic(n) if n == name))
             .map(|(id, _)| *id)
     }
 
@@ -219,16 +223,12 @@ impl GlSourceMap {
     /// Convert glsl-parser SourceSpan to GlSourceSpan.
     ///
     /// Requires the file_id context since glsl-parser spans don't include file info.
-    pub fn convert_span(
-        &self,
-        file_id: GlFileId,
-        span: &glsl::syntax::SourceSpan,
-    ) -> GlSourceSpan {
+    pub fn convert_span(&self, file_id: GlFileId, span: &glsl::syntax::SourceSpan) -> GlSourceSpan {
         GlSourceSpan {
             file_id,
             start_line: span.line,
             start_column: span.column,
-            end_line: span.line,  // glsl-parser spans are single positions
+            end_line: span.line, // glsl-parser spans are single positions
             end_column: span.column,
         }
     }
@@ -253,7 +253,11 @@ impl GlSourceMap {
     /// Extract source lines around a span for error context display.
     ///
     /// Returns formatted text showing the span location with surrounding context lines.
-    pub fn extract_lines_around(&self, span: &GlSourceSpan, context_lines: usize) -> Option<String> {
+    pub fn extract_lines_around(
+        &self,
+        span: &GlSourceSpan,
+        context_lines: usize,
+    ) -> Option<String> {
         let file = self.get_file(span.file_id)?;
         let lines: Vec<&str> = file.contents.lines().collect();
 
@@ -272,10 +276,7 @@ impl GlSourceMap {
                 source_display.push_str(&format!("{:>4} | {}\n", line_num, line));
                 // Point to the column if it's valid
                 let col_pos = span.start_column.saturating_sub(1).min(line.len()).min(200);
-                source_display.push_str(&format!(
-                    "     | {}^ here\n",
-                    " ".repeat(col_pos)
-                ));
+                source_display.push_str(&format!("     | {}^ here\n", " ".repeat(col_pos)));
             } else {
                 source_display.push_str(&format!("{:>4} | {}\n", line_num, line));
             }
@@ -465,10 +466,8 @@ mod tests {
     fn test_extract_line() {
         let mut source_map = GlSourceMap::new();
         let content = "line 1\nline 2\nline 3\nline 4\nline 5";
-        let file_id = source_map.add_file(
-            GlFileSource::Synthetic("test.glsl".into()),
-            content.into(),
-        );
+        let file_id =
+            source_map.add_file(GlFileSource::Synthetic("test.glsl".into()), content.into());
 
         // Test valid line extraction
         let span = GlSourceSpan::point(file_id, 3, 1);
@@ -495,10 +494,8 @@ mod tests {
     fn test_extract_lines_around() {
         let mut source_map = GlSourceMap::new();
         let content = "line 1\nline 2\nline 3\nline 4\nline 5";
-        let file_id = source_map.add_file(
-            GlFileSource::Synthetic("test.glsl".into()),
-            content.into(),
-        );
+        let file_id =
+            source_map.add_file(GlFileSource::Synthetic("test.glsl".into()), content.into());
 
         // Test extracting around line 3 with context 1
         let span = GlSourceSpan::point(file_id, 3, 1);

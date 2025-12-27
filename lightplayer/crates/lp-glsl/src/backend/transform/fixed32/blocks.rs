@@ -1,7 +1,7 @@
 //! Block creation and parameter management for fixed-point transformation.
 
-use crate::error::{ErrorCode, GlslError};
 use crate::backend::transform::fixed32::types::FixedPointFormat;
+use crate::error::{ErrorCode, GlslError};
 
 use alloc::{format, vec::Vec};
 
@@ -35,7 +35,7 @@ pub(crate) fn create_and_map_blocks(
     let mut previous_new_block: Option<Block> = None;
     for old_block in &old_blocks_layout {
         let new_block = block_map[old_block];
-        
+
         // Insert block into layout in the same order as the original function
         // Use insert_block_after to maintain order, or append_block for the first block
         if let Some(prev) = previous_new_block {
@@ -208,4 +208,3 @@ pub(crate) fn ensure_block_params(
 
     Ok(())
 }
-

@@ -1,20 +1,20 @@
 //! GLSL Module - owns the actual Cranelift Module
 
-use crate::backend2::target::Target;
 use crate::backend2::module::gl_func::GlFunc;
+use crate::backend2::target::Target;
 use crate::error::{ErrorCode, GlslError};
-use cranelift_jit::JITModule;
-use cranelift_object::ObjectModule;
-use cranelift_module::Module;
-use hashbrown::HashMap;
 use alloc::string::String;
+use cranelift_jit::JITModule;
+use cranelift_module::Module;
+use cranelift_object::ObjectModule;
+use hashbrown::HashMap;
 
 /// GLSL Module - owns the actual Cranelift Module
 pub struct GlModule<M: Module> {
-    pub target: Target,  // Semantic target, not technical spec
+    pub target: Target, // Semantic target, not technical spec
     pub fns: HashMap<String, GlFunc>,
     module: M, // PRIVATE - only accessible via internal methods
-    // Note: source_map not needed for Phase 1
+               // Note: source_map not needed for Phase 1
 }
 
 // Separate constructors for each Module type (Rust needs concrete types)
@@ -25,7 +25,9 @@ impl GlModule<JITModule> {
             Target::HostJit { .. } => {
                 let builder = target.create_module_builder()?;
                 let module = match builder {
-                    crate::backend2::target::builder::ModuleBuilder::JIT(jit_builder) => JITModule::new(jit_builder),
+                    crate::backend2::target::builder::ModuleBuilder::JIT(jit_builder) => {
+                        JITModule::new(jit_builder)
+                    }
                     _ => return Err(GlslError::new(ErrorCode::E0400, "Expected JIT builder")),
                 };
                 Ok(Self {
@@ -34,7 +36,10 @@ impl GlModule<JITModule> {
                     module,
                 })
             }
-            _ => Err(GlslError::new(ErrorCode::E0400, "Target is not a JIT target")),
+            _ => Err(GlslError::new(
+                ErrorCode::E0400,
+                "Target is not a JIT target",
+            )),
         }
     }
 
@@ -51,7 +56,9 @@ impl GlModule<ObjectModule> {
             Target::Rv32Emu { .. } => {
                 let builder = target.create_module_builder()?;
                 let module = match builder {
-                    crate::backend2::target::builder::ModuleBuilder::Object(obj_builder) => ObjectModule::new(obj_builder),
+                    crate::backend2::target::builder::ModuleBuilder::Object(obj_builder) => {
+                        ObjectModule::new(obj_builder)
+                    }
                     _ => return Err(GlslError::new(ErrorCode::E0400, "Expected Object builder")),
                 };
                 Ok(Self {
@@ -60,7 +67,10 @@ impl GlModule<ObjectModule> {
                     module,
                 })
             }
-            _ => Err(GlslError::new(ErrorCode::E0400, "Target is not an object target")),
+            _ => Err(GlslError::new(
+                ErrorCode::E0400,
+                "Target is not an object target",
+            )),
         }
     }
 
@@ -98,20 +108,26 @@ impl<M: Module> GlModule<M> {
         }
 
         // Declare in Module
-        let func_id = self.module
+        let func_id = self
+            .module
             .declare_function(name, linkage, &sig)
-            .map_err(|e| GlslError::new(
-                ErrorCode::E0400,
-                format!("Failed to declare function '{}': {}", name, e),
-            ))?;
+            .map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("Failed to declare function '{}': {}", name, e),
+                )
+            })?;
 
         // Store Function IR
-        self.fns.insert(String::from(name), GlFunc {
-            name: String::from(name),
-            clif_sig: sig,
-            func_id,
-            function: func,
-        });
+        self.fns.insert(
+            String::from(name),
+            GlFunc {
+                name: String::from(name),
+                clif_sig: sig,
+                func_id,
+                function: func,
+            },
+        );
 
         Ok(func_id)
     }
@@ -127,24 +143,30 @@ impl<M: Module> GlModule<M> {
         sig: cranelift_codegen::ir::Signature,
     ) -> Result<cranelift_module::FuncId, GlslError> {
         // Declare in Module
-        let func_id = self.module
+        let func_id = self
+            .module
             .declare_function(name, linkage, &sig)
-            .map_err(|e| GlslError::new(
-                ErrorCode::E0400,
-                format!("Failed to declare function '{}': {}", name, e),
-            ))?;
+            .map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("Failed to declare function '{}': {}", name, e),
+                )
+            })?;
 
         // Create placeholder Function with signature
         let mut placeholder_func = cranelift_codegen::ir::Function::new();
         placeholder_func.signature = sig.clone();
 
         // Store placeholder
-        self.fns.insert(String::from(name), GlFunc {
-            name: String::from(name),
-            clif_sig: sig,
-            func_id,
-            function: placeholder_func,
-        });
+        self.fns.insert(
+            String::from(name),
+            GlFunc {
+                name: String::from(name),
+                clif_sig: sig,
+                func_id,
+                function: placeholder_func,
+            },
+        );
 
         Ok(func_id)
     }
@@ -180,16 +202,23 @@ impl<M: Module> GlModule<M> {
             let new_sig = transform.transform_signature(&gl_func.clif_sig);
             // Determine linkage - for now, use Local (can be enhanced later)
             let linkage = Linkage::Local;
-            let func_id = new_module.module_mut_internal()
+            let func_id = new_module
+                .module_mut_internal()
                 .declare_function(name, linkage, &new_sig)
-                .map_err(|e| GlslError::new(
-                    ErrorCode::E0400,
-                    format!("Failed to declare function '{}' in transformed module: {}", name, e),
-                ))?;
+                .map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!(
+                            "Failed to declare function '{}' in transformed module: {}",
+                            name, e
+                        ),
+                    )
+                })?;
             // Create FuncRef for cross-function calls
             let mut temp_func = cranelift_codegen::ir::Function::new();
             temp_func.signature = new_sig.clone();
-            let func_ref = new_module.module_mut_internal()
+            let func_ref = new_module
+                .module_mut_internal()
                 .declare_func_in_func(func_id, &mut temp_func);
             func_ref_map.insert(name.clone(), func_ref);
         }
@@ -200,10 +229,8 @@ impl<M: Module> GlModule<M> {
                 module: &mut new_module,
                 func_ref_map: func_ref_map.clone(),
             };
-            let transformed_func = transform.transform_function(
-                &gl_func.function,
-                &mut transform_ctx,
-            )?;
+            let transformed_func =
+                transform.transform_function(&gl_func.function, &mut transform_ctx)?;
 
             // Use public API to add transformed function
             let new_sig = transform.transform_signature(&gl_func.clif_sig);
@@ -223,8 +250,13 @@ impl GlModule<JITModule> {
     /// Build executable from JIT module
     /// Returns a boxed GlslExecutable trait object for generic code
     #[allow(unused)]
-    pub fn build_executable(self) -> Result<alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>, GlslError> {
-        crate::backend2::codegen::jit::build_jit_executable(self).map(|jit| alloc::boxed::Box::new(jit) as alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>)
+    pub fn build_executable(
+        self,
+    ) -> Result<alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>, GlslError> {
+        crate::backend2::codegen::jit::build_jit_executable(self).map(|jit| {
+            alloc::boxed::Box::new(jit)
+                as alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>
+        })
     }
 
     /// Extract the module (consumes self)
@@ -251,8 +283,14 @@ impl GlModule<ObjectModule> {
     /// Build executable from Object module (for emulator)
     /// Returns a boxed GlslExecutable trait object for generic code
     #[allow(unused)]
-    pub fn build_executable(self, options: &crate::backend2::codegen::emu::EmulatorOptions) -> Result<alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>, GlslError> {
-        crate::backend2::codegen::emu::build_emu_executable(self, options).map(|emu| alloc::boxed::Box::new(emu) as alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>)
+    pub fn build_executable(
+        self,
+        options: &crate::backend2::codegen::emu::EmulatorOptions,
+    ) -> Result<alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>, GlslError> {
+        crate::backend2::codegen::emu::build_emu_executable(self, options).map(|emu| {
+            alloc::boxed::Box::new(emu)
+                as alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>
+        })
     }
 
     /// Extract the module (consumes self)

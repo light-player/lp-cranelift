@@ -1,8 +1,8 @@
 //! Angle and trigonometry built-in functions
 
+use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
-use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::{InstBuilder, Value};
 
 use alloc::{format, vec::Vec};
@@ -16,11 +16,11 @@ impl<'a> CodegenContext<'a> {
         let (deg_vals, deg_ty) = &args[0];
         let pi_over_180 = self.builder.ins().f32const(0.017453292519943295); // π/180
         let mut result_vals = Vec::new();
-        
+
         for &deg in deg_vals {
             result_vals.push(self.builder.ins().fmul(deg, pi_over_180));
         }
-        
+
         Ok((result_vals, deg_ty.clone()))
     }
 
@@ -32,11 +32,11 @@ impl<'a> CodegenContext<'a> {
         let (rad_vals, rad_ty) = &args[0];
         let _180_over_pi = self.builder.ins().f32const(57.29577951308232); // 180/π
         let mut result_vals = Vec::new();
-        
+
         for &rad in rad_vals {
             result_vals.push(self.builder.ins().fmul(rad, _180_over_pi));
         }
-        
+
         Ok((result_vals, rad_ty.clone()))
     }
 
@@ -48,12 +48,12 @@ impl<'a> CodegenContext<'a> {
         let (x_vals, x_ty) = &args[0];
         let func_ref = self.get_math_libcall("sinf")?;
         let mut result_vals = Vec::new();
-        
+
         for &val in x_vals {
             let call_inst = self.builder.ins().call(func_ref, &[val]);
             result_vals.push(self.builder.inst_results(call_inst)[0]);
         }
-        
+
         Ok((result_vals, x_ty.clone()))
     }
 
@@ -65,12 +65,12 @@ impl<'a> CodegenContext<'a> {
         let (x_vals, x_ty) = &args[0];
         let func_ref = self.get_math_libcall("cosf")?;
         let mut result_vals = Vec::new();
-        
+
         for &val in x_vals {
             let call_inst = self.builder.ins().call(func_ref, &[val]);
             result_vals.push(self.builder.inst_results(call_inst)[0]);
         }
-        
+
         Ok((result_vals, x_ty.clone()))
     }
 
@@ -82,12 +82,12 @@ impl<'a> CodegenContext<'a> {
         let (x_vals, x_ty) = &args[0];
         let func_ref = self.get_math_libcall("tanf")?;
         let mut result_vals = Vec::new();
-        
+
         for &val in x_vals {
             let call_inst = self.builder.ins().call(func_ref, &[val]);
             result_vals.push(self.builder.inst_results(call_inst)[0]);
         }
-        
+
         Ok((result_vals, x_ty.clone()))
     }
 
@@ -97,14 +97,14 @@ impl<'a> CodegenContext<'a> {
         args: Vec<(Vec<Value>, Type)>,
     ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
-        let func_ref = self.get_math_libcall( "asinf")?;
+        let func_ref = self.get_math_libcall("asinf")?;
         let mut result_vals = Vec::new();
-        
+
         for &val in x_vals {
             let call_inst = self.builder.ins().call(func_ref, &[val]);
             result_vals.push(self.builder.inst_results(call_inst)[0]);
         }
-        
+
         Ok((result_vals, x_ty.clone()))
     }
 
@@ -114,14 +114,14 @@ impl<'a> CodegenContext<'a> {
         args: Vec<(Vec<Value>, Type)>,
     ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
-        let func_ref = self.get_math_libcall( "acosf")?;
+        let func_ref = self.get_math_libcall("acosf")?;
         let mut result_vals = Vec::new();
-        
+
         for &val in x_vals {
             let call_inst = self.builder.ins().call(func_ref, &[val]);
             result_vals.push(self.builder.inst_results(call_inst)[0]);
         }
-        
+
         Ok((result_vals, x_ty.clone()))
     }
 
@@ -131,34 +131,37 @@ impl<'a> CodegenContext<'a> {
         args: Vec<(Vec<Value>, Type)>,
     ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
-        
+
         if args.len() == 1 {
             // 1-arg version: atan(x)
-            let func_ref = self.get_math_libcall( "atanf")?;
+            let func_ref = self.get_math_libcall("atanf")?;
             let mut result_vals = Vec::new();
-            
+
             for &val in x_vals {
                 let call_inst = self.builder.ins().call(func_ref, &[val]);
                 result_vals.push(self.builder.inst_results(call_inst)[0]);
             }
-            
+
             Ok((result_vals, x_ty.clone()))
         } else {
             // 2-arg version: atan(y, x)
             let (y_vals, _) = &args[1];
-            
+
             if x_vals.len() != y_vals.len() {
-                return Err(GlslError::new(ErrorCode::E0104, "atan() 2-arg version requires matching vector sizes"));
+                return Err(GlslError::new(
+                    ErrorCode::E0104,
+                    "atan() 2-arg version requires matching vector sizes",
+                ));
             }
-            
+
             let func_ref = self.get_atan2_libcall()?;
             let mut result_vals = Vec::new();
-            
+
             for i in 0..x_vals.len() {
                 let call_inst = self.builder.ins().call(func_ref, &[y_vals[i], x_vals[i]]);
                 result_vals.push(self.builder.inst_results(call_inst)[0]);
             }
-            
+
             Ok((result_vals, x_ty.clone()))
         }
     }
@@ -169,14 +172,14 @@ impl<'a> CodegenContext<'a> {
         args: Vec<(Vec<Value>, Type)>,
     ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
-        let func_ref = self.get_math_libcall( "sinhf")?;
+        let func_ref = self.get_math_libcall("sinhf")?;
         let mut result_vals = Vec::new();
-        
+
         for &val in x_vals {
             let call_inst = self.builder.ins().call(func_ref, &[val]);
             result_vals.push(self.builder.inst_results(call_inst)[0]);
         }
-        
+
         Ok((result_vals, x_ty.clone()))
     }
 
@@ -186,14 +189,14 @@ impl<'a> CodegenContext<'a> {
         args: Vec<(Vec<Value>, Type)>,
     ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
-        let func_ref = self.get_math_libcall( "coshf")?;
+        let func_ref = self.get_math_libcall("coshf")?;
         let mut result_vals = Vec::new();
-        
+
         for &val in x_vals {
             let call_inst = self.builder.ins().call(func_ref, &[val]);
             result_vals.push(self.builder.inst_results(call_inst)[0]);
         }
-        
+
         Ok((result_vals, x_ty.clone()))
     }
 
@@ -203,14 +206,14 @@ impl<'a> CodegenContext<'a> {
         args: Vec<(Vec<Value>, Type)>,
     ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
-        let func_ref = self.get_math_libcall( "tanhf")?;
+        let func_ref = self.get_math_libcall("tanhf")?;
         let mut result_vals = Vec::new();
-        
+
         for &val in x_vals {
             let call_inst = self.builder.ins().call(func_ref, &[val]);
             result_vals.push(self.builder.inst_results(call_inst)[0]);
         }
-        
+
         Ok((result_vals, x_ty.clone()))
     }
 
@@ -220,14 +223,14 @@ impl<'a> CodegenContext<'a> {
         args: Vec<(Vec<Value>, Type)>,
     ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
-        let func_ref = self.get_math_libcall( "asinhf")?;
+        let func_ref = self.get_math_libcall("asinhf")?;
         let mut result_vals = Vec::new();
-        
+
         for &val in x_vals {
             let call_inst = self.builder.ins().call(func_ref, &[val]);
             result_vals.push(self.builder.inst_results(call_inst)[0]);
         }
-        
+
         Ok((result_vals, x_ty.clone()))
     }
 
@@ -237,14 +240,14 @@ impl<'a> CodegenContext<'a> {
         args: Vec<(Vec<Value>, Type)>,
     ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
-        let func_ref = self.get_math_libcall( "acoshf")?;
+        let func_ref = self.get_math_libcall("acoshf")?;
         let mut result_vals = Vec::new();
-        
+
         for &val in x_vals {
             let call_inst = self.builder.ins().call(func_ref, &[val]);
             result_vals.push(self.builder.inst_results(call_inst)[0]);
         }
-        
+
         Ok((result_vals, x_ty.clone()))
     }
 
@@ -254,15 +257,14 @@ impl<'a> CodegenContext<'a> {
         args: Vec<(Vec<Value>, Type)>,
     ) -> Result<(Vec<Value>, Type), GlslError> {
         let (x_vals, x_ty) = &args[0];
-        let func_ref = self.get_math_libcall( "atanhf")?;
+        let func_ref = self.get_math_libcall("atanhf")?;
         let mut result_vals = Vec::new();
-        
+
         for &val in x_vals {
             let call_inst = self.builder.ins().call(func_ref, &[val]);
             result_vals.push(self.builder.inst_results(call_inst)[0]);
         }
-        
+
         Ok((result_vals, x_ty.clone()))
     }
 }
-

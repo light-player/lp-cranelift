@@ -1,6 +1,6 @@
 //! Integration tests for matrix operations (parse → compile → execute → verify)
 
-use lp_glsl::{DecimalFormat, GlslOptions, RunMode, GlslValue, glsl_jit, execute_main};
+use lp_glsl::{DecimalFormat, GlslOptions, GlslValue, RunMode, execute_main, glsl_jit};
 
 #[test]
 fn test_mat2_constructor_round_trip() {
@@ -10,15 +10,15 @@ mat2 main() {
     return mat2(vec2(1.0, 2.0), vec2(3.0, 4.0));
 }
 "#;
-    
+
     let options = GlslOptions {
         run_mode: RunMode::HostJit,
         decimal_format: DecimalFormat::Float,
     };
-    
+
     let mut executable = glsl_jit(source, options).unwrap();
     let result = execute_main(&mut *executable).unwrap();
-    
+
     match result {
         GlslValue::Mat2x2(m) => {
             // Column 0: [1.0, 2.0], Column 1: [3.0, 4.0]
@@ -43,15 +43,15 @@ mat2 main() {
     return a * b;
 }
 "#;
-    
+
     let options = GlslOptions {
         run_mode: RunMode::HostJit,
         decimal_format: DecimalFormat::Float,
     };
-    
+
     let mut executable = glsl_jit(source, options).unwrap();
     let result = execute_main(&mut *executable).unwrap();
-    
+
     match result {
         GlslValue::Mat2x2(m) => {
             // Expected: Column 0: [23.0, 34.0], Column 1: [31.0, 46.0]
@@ -74,15 +74,15 @@ vec2 main() {
     return m[0];
 }
 "#;
-    
+
     let options = GlslOptions {
         run_mode: RunMode::HostJit,
         decimal_format: DecimalFormat::Float,
     };
-    
+
     let mut executable = glsl_jit(source, options).unwrap();
     let result = execute_main(&mut *executable).unwrap();
-    
+
     match result {
         GlslValue::Vec2(v) => {
             // First column should be [1.0, 2.0]
@@ -102,15 +102,15 @@ float main() {
     return m[0][0];
 }
 "#;
-    
+
     let options = GlslOptions {
         run_mode: RunMode::HostJit,
         decimal_format: DecimalFormat::Float,
     };
-    
+
     let mut executable = glsl_jit(source, options).unwrap();
     let result = execute_main(&mut *executable).unwrap();
-    
+
     match result {
         GlslValue::F32(f) => {
             // First element (col0_row0) should be 1.0
@@ -130,15 +130,15 @@ mat3 main() {
     return a * b;
 }
 "#;
-    
+
     let options = GlslOptions {
         run_mode: RunMode::HostJit,
         decimal_format: DecimalFormat::Float,
     };
-    
+
     let mut executable = glsl_jit(source, options).unwrap();
     let result = execute_main(&mut *executable).unwrap();
-    
+
     match result {
         GlslValue::Mat3x3(m) => {
             // Result should be: mat3(vec3(2.0, 0.0, 0.0), vec3(0.0, 2.0, 0.0), vec3(0.0, 0.0, 2.0))
@@ -158,4 +158,3 @@ mat3 main() {
         _ => panic!("Expected Mat3x3"),
     }
 }
-

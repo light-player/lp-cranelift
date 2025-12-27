@@ -1,15 +1,15 @@
 //! Instruction conversion routing for fixed-point transformation.
 
-use crate::error::GlslError;
 use crate::backend::transform::fixed32::types::FixedPointFormat;
+use crate::error::GlslError;
 
 use alloc::{format, vec::Vec};
 
+use super::converters;
+use crate::backend::util::instruction_copy::copy_instruction;
 use cranelift_codegen::ir::{Block, FuncRef, Function, Inst, Opcode, SigRef, Value};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
-use crate::backend::util::instruction_copy::copy_instruction;
-use super::converters;
 
 /// Traverse all instructions and convert them.
 pub(crate) fn convert_all_instructions(

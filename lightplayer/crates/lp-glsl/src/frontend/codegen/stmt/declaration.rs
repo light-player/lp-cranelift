@@ -2,8 +2,8 @@ use glsl::syntax::Declaration;
 
 use alloc::{format, vec::Vec};
 
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError};
+use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit variable declaration statement
 pub fn emit_declaration(ctx: &mut CodegenContext, decl: &Declaration) -> Result<(), GlslError> {
@@ -34,9 +34,9 @@ pub fn emit_declaration(ctx: &mut CodegenContext, decl: &Declaration) -> Result<
                         Ok(()) => {}
                         Err(mut error) => {
                             if error.location.is_none() {
-                                error = error.with_location(
-                                    crate::error::source_span_to_location(&init_span),
-                                );
+                                error = error.with_location(crate::error::source_span_to_location(
+                                    &init_span,
+                                ));
                             }
                             return Err(ctx.add_span_to_error(error, &init_span));
                         }
@@ -80,8 +80,7 @@ pub fn emit_declaration(ctx: &mut CodegenContext, decl: &Declaration) -> Result<
 
             // Handle tail declarations (same type, different names)
             for declarator in &list.tail {
-                let vars =
-                    ctx.declare_variable(declarator.ident.ident.name.clone(), ty.clone())?;
+                let vars = ctx.declare_variable(declarator.ident.ident.name.clone(), ty.clone())?;
 
                 if let Some(init) = &declarator.initializer {
                     let (init_vals, init_ty) = emit_initializer(ctx, init)?;

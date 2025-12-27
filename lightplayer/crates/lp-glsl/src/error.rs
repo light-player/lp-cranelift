@@ -254,26 +254,23 @@ impl GlslError {
     /// Create an undefined variable error.
     pub fn undefined_variable(name: impl Into<String>) -> Self {
         let name = name.into();
-        Self::new(
-            ErrorCode::E0100,
-            format!("undefined variable `{}`", name),
-        )
+        Self::new(ErrorCode::E0100, format!("undefined variable `{}`", name))
     }
 
     /// Create an undefined function error.
     pub fn undefined_function(name: impl Into<String>) -> Self {
         let name = name.into();
-        Self::new(
-            ErrorCode::E0101,
-            format!("undefined function `{}`", name),
-        )
+        Self::new(ErrorCode::E0101, format!("undefined function `{}`", name))
     }
 
     /// Create a type mismatch error.
     pub fn type_mismatch(expected: impl fmt::Debug, found: impl fmt::Debug) -> Self {
         Self::new(
             ErrorCode::E0102,
-            format!("type mismatch: expected `{:?}`, found `{:?}`", expected, found),
+            format!(
+                "type mismatch: expected `{:?}`, found `{:?}`",
+                expected, found
+            ),
         )
     }
 
@@ -302,12 +299,16 @@ impl GlslError {
 
 /// Convert glsl::syntax::SourceSpan to our SourceLocation
 pub fn source_span_to_location(span: &glsl::syntax::SourceSpan) -> GlSourceLoc {
-    GlSourceLoc::new(crate::frontend::src_loc::GlFileId(0), span.line, span.column)
+    GlSourceLoc::new(
+        crate::frontend::src_loc::GlFileId(0),
+        span.line,
+        span.column,
+    )
 }
 
 // Re-export SourceSpan for convenience
-pub use glsl::syntax::SourceSpan;
 use crate::frontend::src_loc::GlSourceLoc;
+pub use glsl::syntax::SourceSpan;
 
 /// Extract span from an expression
 pub fn extract_span_from_expr(expr: &glsl::syntax::Expr) -> glsl::syntax::SourceSpan {
@@ -342,7 +343,10 @@ pub fn extract_source_line(source: &str, span: &glsl::syntax::SourceSpan) -> Opt
     if span.is_unknown() {
         return None;
     }
-    source.lines().nth(span.line.saturating_sub(1)).map(|s| s.into())
+    source
+        .lines()
+        .nth(span.line.saturating_sub(1))
+        .map(|s| s.into())
 }
 
 /// Helper to add span_text to an error if source is available
@@ -390,9 +394,9 @@ mod tests {
     #[test]
     fn test_glsl_error_with_location() {
         let file_id = crate::frontend::src_loc::GlFileId(1);
-        let err = GlslError::undefined_variable("foo")
-            .with_location(GlSourceLoc::new(file_id, 5, 10));
-        
+        let err =
+            GlslError::undefined_variable("foo").with_location(GlSourceLoc::new(file_id, 5, 10));
+
         let display = err.to_string();
         assert!(display.contains("E0100"));
         assert!(display.contains("5:10"));
@@ -400,9 +404,8 @@ mod tests {
 
     #[test]
     fn test_glsl_error_with_note() {
-        let err = GlslError::undefined_variable("foo")
-            .with_note("did you mean `bar`?");
-        
+        let err = GlslError::undefined_variable("foo").with_note("did you mean `bar`?");
+
         assert_eq!(err.notes.len(), 1);
         let display = err.to_string();
         assert!(display.contains("note:"));

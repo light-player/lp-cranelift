@@ -1,7 +1,7 @@
 use glsl::syntax::{Expr, Statement};
 
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::GlslError;
+use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit do-while loop statement
 pub fn emit_loop_do_while_stmt(
@@ -14,10 +14,11 @@ pub fn emit_loop_do_while_stmt(
     let cond_block = ctx.builder.create_block();
     let exit_block = ctx.builder.create_block();
 
-    ctx.loop_stack.push(crate::frontend::codegen::context::LoopContext {
-        continue_target: cond_block,
-        exit_block,
-    });
+    ctx.loop_stack
+        .push(crate::frontend::codegen::context::LoopContext {
+            continue_target: cond_block,
+            exit_block,
+        });
 
     // Branch directly to body (do-while always executes once)
     ctx.emit_branch(body_block)?;
@@ -27,7 +28,7 @@ pub fn emit_loop_do_while_stmt(
     ctx.enter_scope(); // Enter scope for body variables
     ctx.emit_statement(body)?;
     ctx.exit_scope(); // Exit scope for body variables
-    
+
     // Create jump to cond_block. The jump instruction internally declares the predecessor
     // via FunctionBuilder's declare_successor method, matching the test case pattern.
     // We capture the instruction to ensure it's created before switching blocks.
@@ -44,7 +45,7 @@ pub fn emit_loop_do_while_stmt(
     //   will create block parameters to merge values from all predecessors
     ctx.switch_to_block(cond_block);
     ctx.seal_block(cond_block);
-    
+
     // Now translate the condition expression, which may use variables from body_block
     // or from continue statements. Since cond_block is sealed with all predecessors
     // declared, Cranelift will correctly handle SSA construction whether there's
@@ -52,7 +53,7 @@ pub fn emit_loop_do_while_stmt(
     let condition_value = ctx.translate_expr(condition)?;
     // This brif creates the back edge to body_block
     ctx.emit_cond_branch(condition_value, body_block, exit_block)?;
-    
+
     // Seal body_block after cond_block is sealed and has appended arguments
     // to body_block's jump. body_block can now be sealed because:
     // - The back edge from cond_block has been declared (via emit_cond_branch above)

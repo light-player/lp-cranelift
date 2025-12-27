@@ -1,7 +1,7 @@
-use crate::frontend::codegen::context::CodegenContext;
-use crate::frontend::codegen::rvalue::RValue;
-use crate::frontend::codegen::lvalue::emit_lvalue_as_rvalue;
 use crate::error::{ErrorCode, GlslError, extract_span_from_expr, source_span_to_location};
+use crate::frontend::codegen::context::CodegenContext;
+use crate::frontend::codegen::lvalue::emit_lvalue_as_rvalue;
+use crate::frontend::codegen::rvalue::RValue;
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::Value;
 use glsl::syntax::Expr;
@@ -23,7 +23,7 @@ pub fn translate_component_access(
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
     // Ensure we're in a block before evaluating
     ctx.ensure_block()?;
-    
+
     let Expr::Dot(base_expr, field, dot_span) = expr else {
         unreachable!("translate_component_access called on non-dot expr");
     };
@@ -66,7 +66,7 @@ pub fn translate_matrix_indexing(
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
     // Ensure we're in a block before evaluating
     ctx.ensure_block()?;
-    
+
     let Expr::Bracket(array_expr, array_spec, span) = expr else {
         unreachable!("translate_matrix_indexing called on non-bracket expr");
     };
@@ -334,13 +334,19 @@ pub fn has_duplicates(indices: &[usize]) -> bool {
 /// Emit component access expression as RValue
 ///
 /// Handles dot notation (e.g., `vec.x`, `vec.xy`) by resolving as LValue then loading.
-pub fn emit_component_access_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_component_access_rvalue(
+    ctx: &mut CodegenContext,
+    expr: &Expr,
+) -> Result<RValue, GlslError> {
     emit_lvalue_as_rvalue(ctx, expr)
 }
 
 /// Emit matrix/vector indexing expression as RValue
 ///
 /// Handles bracket notation (e.g., `vec[0]`, `mat[0][1]`) by resolving as LValue then loading.
-pub fn emit_matrix_indexing_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_matrix_indexing_rvalue(
+    ctx: &mut CodegenContext,
+    expr: &Expr,
+) -> Result<RValue, GlslError> {
     emit_lvalue_as_rvalue(ctx, expr)
 }

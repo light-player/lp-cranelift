@@ -1,15 +1,15 @@
 //! Code generation for GLSL built-in functions
 
-mod geometric;
 mod common;
-mod trigonometric;
+mod geometric;
+mod helpers;
 mod interpolation;
 mod matrix;
-mod helpers;
+mod trigonometric;
 
+use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
-use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::Value;
 
 use alloc::vec::Vec;
@@ -31,7 +31,7 @@ impl<'a> CodegenContext<'a> {
             "length" => self.builtin_length(args),
             "normalize" => self.builtin_normalize(args),
             "distance" => self.builtin_distance(args),
-            
+
             // Common Functions
             "min" => self.builtin_min(args),
             "max" => self.builtin_max(args),
@@ -44,7 +44,7 @@ impl<'a> CodegenContext<'a> {
             "mod" => self.builtin_mod(args),
             "sign" => self.builtin_sign(args),
             "pow" => self.builtin_pow(args),
-            
+
             // Angle and Trigonometry Functions
             "radians" => self.builtin_radians(args),
             "degrees" => self.builtin_degrees(args),
@@ -60,25 +60,23 @@ impl<'a> CodegenContext<'a> {
             "asinh" => self.builtin_asinh(args),
             "acosh" => self.builtin_acosh(args),
             "atanh" => self.builtin_atanh(args),
-            
+
             // Interpolation Functions
             "mix" => self.builtin_mix(args),
             "step" => self.builtin_step(args),
             "smoothstep" => self.builtin_smoothstep(args),
-            
+
             // Matrix Functions
             "matrixCompMult" => self.builtin_matrixCompMult(args),
             "outerProduct" => self.builtin_outerProduct(args),
             "transpose" => self.builtin_transpose(args),
             "determinant" => self.builtin_determinant(args),
             "inverse" => self.builtin_inverse(args),
-            
-            _ => Err(GlslError::new(ErrorCode::E0400, format!("built-in function not implemented: {}", name))),
+
+            _ => Err(GlslError::new(
+                ErrorCode::E0400,
+                format!("built-in function not implemented: {}", name),
+            )),
         }
     }
 }
-
-
-
-
-

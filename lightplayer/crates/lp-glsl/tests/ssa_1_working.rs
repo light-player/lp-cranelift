@@ -7,7 +7,7 @@ use cranelift_codegen::cursor::{Cursor, FuncCursor};
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::types::I32;
 use cranelift_codegen::ir::{Block, Function, InstBuilder};
-use cranelift_frontend::{Variable, SSABuilder};
+use cranelift_frontend::{SSABuilder, Variable};
 
 /// Test 2: Working Cranelift Pattern
 ///
@@ -31,8 +31,13 @@ fn test_do_while_loop_ssa_working() {
         cur.insert_block(block2);
         cur.insert_block(block3);
     }
-    
-    let print_debug_info = |line_number: u32, func: &Function, block0: Block, block1: Block, block2: Block, block3: Block| {
+
+    let print_debug_info = |line_number: u32,
+                            func: &Function,
+                            block0: Block,
+                            block1: Block,
+                            block2: Block,
+                            block3: Block| {
         eprintln!("--------------------------------");
         eprintln!("DEBUG line {}", line_number);
         eprintln!("block0: {:?}", func.dfg.block_params(block0));
@@ -42,7 +47,7 @@ fn test_do_while_loop_ssa_working() {
     };
 
     print_debug_info(line!(), &func, block0, block1, block2, block3);
-    
+
     // Here is the pseudo-program we want to translate:
     // block0:
     //    x = 1;
@@ -132,7 +137,7 @@ fn test_do_while_loop_ssa_working() {
         let mut cur = FuncCursor::new(&mut func).at_bottom(block2);
         cur.ins().return_(&[y5])
     };
-    print_debug_info(line!(), &func, block0, block1, block2, block3);    
+    print_debug_info(line!(), &func, block0, block1, block2, block3);
     // block3
     ssa.declare_block(block3);
     ssa.declare_block_predecessor(block3, brif_block1_block3_block2);
@@ -158,9 +163,8 @@ fn test_do_while_loop_ssa_working() {
     assert_eq!(func.dfg.block_params(block1)[0], z2);
     assert_eq!(func.dfg.block_params(block1)[1], y3);
     assert_eq!(func.dfg.resolve_aliases(x3), x1);
-    
+
     // Print the generated CLIF code
     eprintln!("\n=== Generated CLIF IR ===");
     eprintln!("{}", func);
 }
-

@@ -1,6 +1,6 @@
+use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::rvalue::RValue;
-use crate::error::{ErrorCode, GlslError};
 use crate::semantic::type_check::{infer_binary_result_type, promote_numeric};
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::{
@@ -17,13 +17,10 @@ use super::vector;
 use alloc::{format, vec::Vec};
 
 /// Emit code to compute a binary expression as an RValue
-pub fn emit_binary_rvalue(
-    ctx: &mut CodegenContext,
-    expr: &Expr,
-) -> Result<RValue, GlslError> {
+pub fn emit_binary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
     // Ensure we're in a block before evaluating
     ctx.ensure_block()?;
-    
+
     let Expr::Binary(op, lhs, rhs, span) = expr else {
         unreachable!("emit_binary_rvalue called on non-binary expr");
     };
@@ -37,7 +34,15 @@ pub fn emit_binary_rvalue(
 
     // Delegate to matrix/vector/scalar handlers
     if lhs_ty.is_matrix() || rhs_ty.is_matrix() {
-        let (vals, ty) = matrix::translate_matrix_binary(ctx, op, lhs_vals, &lhs_ty, rhs_vals, &rhs_ty, span.clone())?;
+        let (vals, ty) = matrix::translate_matrix_binary(
+            ctx,
+            op,
+            lhs_vals,
+            &lhs_ty,
+            rhs_vals,
+            &rhs_ty,
+            span.clone(),
+        )?;
         Ok(RValue::from_aggregate(vals, ty))
     } else if lhs_ty.is_vector() || rhs_ty.is_vector() {
         let (vals, ty) = vector::translate_vector_binary(
@@ -191,7 +196,7 @@ fn translate_scalar_binary_op(
                     ));
                 }
             }
-        },
+        }
         Mod => {
             // Set source location for trap-able modulo operations
             let srcloc = ctx.source_loc_manager().create_srcloc(&span);
@@ -208,7 +213,7 @@ fn translate_scalar_binary_op(
                     ));
                 }
             }
-        },
+        }
 
         // Comparison operators - dispatch based on type
         // icmp/fcmp return I1, but GLSL bool is I8, so convert

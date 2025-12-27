@@ -6,7 +6,6 @@
 use cranelift_codegen::ir::SourceLoc;
 use hashbrown::HashMap;
 
-
 /// Manages the mapping from Cranelift SourceLoc to GLSL source positions.
 ///
 /// SourceLoc values are opaque u32 identifiers. This manager creates
@@ -78,4 +77,3 @@ impl Default for SourceLocManager {
         Self::new()
     }
 }
-

@@ -1,7 +1,7 @@
 //! Memory operation conversion functions.
 
-use crate::error::{ErrorCode, GlslError};
 use crate::backend::transform::fixed32::types::FixedPointFormat;
+use crate::error::{ErrorCode, GlslError};
 
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData, Value, types};
 use cranelift_frontend::FunctionBuilder;

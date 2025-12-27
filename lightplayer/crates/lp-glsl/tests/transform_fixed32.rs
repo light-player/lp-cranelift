@@ -4,24 +4,33 @@
 //! when transforming CLIF IR. Since i32 types don't need conversion, the transform should
 //! produce identical output.
 
-use cranelift_reader::parse_functions;
-use lp_glsl::{ClifModule, FixedPointFormat, transform_module, error::{ErrorCode, GlslError}};
 use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_codegen::settings::{self, Configurable};
+use cranelift_reader::parse_functions;
+use lp_glsl::{
+    ClifModule, FixedPointFormat,
+    error::{ErrorCode, GlslError},
+    transform_module,
+};
 
 #[cfg(feature = "std")]
 fn create_test_isa() -> Result<OwnedTargetIsa, GlslError> {
     use cranelift_native;
-    
+
     let mut flag_builder = settings::builder();
-    flag_builder.set("opt_level", "none").map_err(|e| {
-        GlslError::new(ErrorCode::E0400, format!("failed to set opt_level: {}", e))
-    })?;
+    flag_builder
+        .set("opt_level", "none")
+        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("failed to set opt_level: {}", e)))?;
     let flags = settings::Flags::new(flag_builder);
-    
+
     // Use host ISA - this works for transform tests since we're not actually compiling
     cranelift_native::builder()
-        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("failed to create native builder: {}", e)))?
+        .map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("failed to create native builder: {}", e),
+            )
+        })?
         .finish(flags)
         .map_err(|e| {
             GlslError::new(
@@ -98,16 +107,17 @@ block7:
 "#;
 
     // Parse the CLIF IR
-    let functions = parse_functions(clif_input)
-        .expect("Failed to parse CLIF IR");
-    
+    let functions = parse_functions(clif_input).expect("Failed to parse CLIF IR");
+
     assert_eq!(functions.len(), 1, "Expected exactly one function");
     let original_func = functions.into_iter().next().unwrap();
     let original_func_clone = original_func.clone();
 
     // Verify block5 has parameters before transform
     // Find block5 by checking block parameters (it should have 2 params)
-    let block5 = original_func_clone.layout.blocks()
+    let block5 = original_func_clone
+        .layout
+        .blocks()
         .find(|&b| {
             let params = original_func_clone.dfg.block_params(b);
             params.len() == 2 && {
@@ -117,10 +127,14 @@ block7:
             }
         })
         .expect("Could not find block5");
-    
+
     let block5_params_before = original_func_clone.dfg.block_params(block5);
-    assert_eq!(block5_params_before.len(), 2, 
-        "block5 should have 2 parameters before transform: {:?}", block5_params_before);
+    assert_eq!(
+        block5_params_before.len(),
+        2,
+        "block5 should have 2 parameters before transform: {:?}",
+        block5_params_before
+    );
 
     // Create a minimal ClifModule with the parsed function
     let isa = create_test_isa().expect("Failed to create ISA");
@@ -142,7 +156,9 @@ block7:
 
     // Find block5 in the transformed function
     // It should still have 2 parameters after transform
-    let transformed_block5 = transformed_func.layout.blocks()
+    let transformed_block5 = transformed_func
+        .layout
+        .blocks()
         .find(|&b| {
             let params = transformed_func.dfg.block_params(b);
             params.len() == 2
@@ -151,60 +167,64 @@ block7:
 
     // Verify block5 still has parameters after transform
     let block5_params_after = transformed_func.dfg.block_params(transformed_block5);
-    assert_eq!(block5_params_after.len(), 2,
-        "block5 should still have 2 parameters after transform: {:?}", block5_params_after);
+    assert_eq!(
+        block5_params_after.len(),
+        2,
+        "block5 should still have 2 parameters after transform: {:?}",
+        block5_params_after
+    );
 
     // Format both functions for comparison
     use cranelift_codegen::write_function;
     let mut before_buf = String::new();
     write_function(&mut before_buf, &original_func_clone).unwrap();
-    
+
     let mut after_buf = String::new();
     write_function(&mut after_buf, transformed_func).unwrap();
-    
+
     // Print CLIF for debugging
     eprintln!("\n=== BEFORE Transform ===");
     eprintln!("{}", before_buf);
     eprintln!("\n=== AFTER Transform ===");
     eprintln!("{}", after_buf);
-    
+
     // Find the block5 line in both outputs
-    let before_block5_line = before_buf.lines()
+    let before_block5_line = before_buf
+        .lines()
         .find(|l| l.contains("block5"))
         .expect("Could not find block5 in BEFORE transform");
-    let after_block5_lines: Vec<_> = after_buf.lines()
-        .filter(|l| l.contains("block5"))
-        .collect();
-    
+    let after_block5_lines: Vec<_> = after_buf.lines().filter(|l| l.contains("block5")).collect();
+
     eprintln!("\nBEFORE block5: {}", before_block5_line);
     eprintln!("AFTER block5 lines: {:?}", after_block5_lines);
-    
+
     // Check that block5 in the transformed function has parameters
     // The BEFORE transformation shows: "block5(v13: i32, v22: i32):"
     // The AFTER transformation should also show parameters, not "block5:"
-    let block5_has_params_after = after_block5_lines.iter()
+    let block5_has_params_after = after_block5_lines
+        .iter()
         .any(|line| line.contains("block5(") && line.contains(":"));
-    
-    assert!(block5_has_params_after,
+
+    assert!(
+        block5_has_params_after,
         "block5 should have parameters in transformed function.\n\
          BEFORE transform block5: {}\n\
          AFTER transform block5 lines: {:?}\n\
-         Full AFTER CLIF:\n{}", 
-         before_block5_line,
-         after_block5_lines,
-         after_buf);
-    
+         Full AFTER CLIF:\n{}",
+        before_block5_line, after_block5_lines, after_buf
+    );
+
     // Check for @0001 source location labels - these shouldn't appear if they weren't in the original
     // The BEFORE transformation has NO @0001 labels, so AFTER should also have none (or we need to investigate why they appear)
     let before_has_srcloc_labels = before_buf.contains("@0001") || before_buf.contains("@0000");
     let after_has_srcloc_labels = after_buf.contains("@0001");
-    
+
     if !before_has_srcloc_labels && after_has_srcloc_labels {
         eprintln!("\nWARNING: @0001 source location labels appear after transform but not before!");
         eprintln!("This indicates a bug in source location handling during transform.");
         // Don't fail the test for this, but log it for investigation
     }
-    
+
     // Verify SSA form: block5 should use its block parameters, not values from other blocks
     // Check that block5 doesn't use v6 directly (which would violate SSA)
     // v6 is computed in block1, so it shouldn't be used in block5 without proper phi nodes
@@ -221,9 +241,12 @@ block7:
             eprintln!("Found v6 usage in block5: {}", line);
         }
     }
-    
-    assert!(!block5_uses_v6_directly,
-        "block5 should not use v6 directly (SSA violation). Transformed CLIF:\n{}", after_buf);
+
+    assert!(
+        !block5_uses_v6_directly,
+        "block5 should not use v6 directly (SSA violation). Transformed CLIF:\n{}",
+        after_buf
+    );
 }
 
 /// Test that the fixed32 transform produces identical CLIF output for i32-only functions.
@@ -282,9 +305,8 @@ block7:
 "#;
 
     // Parse the CLIF IR
-    let functions = parse_functions(clif_input)
-        .expect("Failed to parse CLIF IR");
-    
+    let functions = parse_functions(clif_input).expect("Failed to parse CLIF IR");
+
     assert_eq!(functions.len(), 1, "Expected exactly one function");
     let original_func = functions.into_iter().next().unwrap();
     let original_func_clone = original_func.clone();
@@ -311,7 +333,7 @@ block7:
     use cranelift_codegen::write_function;
     let mut before_buf = String::new();
     write_function(&mut before_buf, &original_func_clone).unwrap();
-    
+
     let mut after_buf = String::new();
     write_function(&mut after_buf, transformed_func).unwrap();
 
@@ -354,10 +376,10 @@ block7:
             })
             .collect()
     }
-    
+
     let before_blocks = extract_block_order(&normalized_before);
     let after_blocks = extract_block_order(&normalized_after);
-    
+
     // Verify block order matches - this is the key check for block ordering preservation
     assert_eq!(
         before_blocks, after_blocks,
@@ -368,7 +390,7 @@ block7:
          AFTER (normalized):\n{}",
         before_blocks, after_blocks, normalized_before, normalized_after
     );
-    
+
     // Also compare the full normalized CLIF - they should be identical for i32-only functions
     // Note: Value numbers may differ due to entity ID assignment, but block order and structure should match
     assert_eq!(
@@ -381,4 +403,3 @@ block7:
         normalized_before, normalized_after, before_buf, after_buf
     );
 }
-

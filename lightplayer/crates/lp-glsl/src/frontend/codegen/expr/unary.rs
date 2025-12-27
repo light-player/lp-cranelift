@@ -1,10 +1,10 @@
+use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::rvalue::RValue;
-use crate::semantic::types::Type as GlslType;
 use crate::semantic::type_check::operators::infer_unary_result_type;
-use crate::error::{ErrorCode, GlslError};
+use crate::semantic::types::Type as GlslType;
+use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
 use glsl::syntax::Expr;
-use cranelift_codegen::ir::{types, Value, condcodes::IntCC, InstBuilder};
 
 use super::incdec;
 
@@ -89,27 +89,45 @@ fn translate_unary_op(
             match base_ty {
                 GlslType::Int => ctx.builder.ins().ineg(val),
                 GlslType::Float => ctx.builder.ins().fneg(val),
-                _ => return Err(GlslError::new(ErrorCode::E0400, format!("unary minus not supported for {:?}", operand_ty))),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("unary minus not supported for {:?}", operand_ty),
+                    ));
+                }
             }
-        },
+        }
         Not => {
             if operand_ty != &GlslType::Bool {
-                return Err(GlslError::new(ErrorCode::E0107, format!("logical NOT requires bool, got {:?}", operand_ty)));
+                return Err(GlslError::new(
+                    ErrorCode::E0107,
+                    format!("logical NOT requires bool, got {:?}", operand_ty),
+                ));
             }
             let zero = ctx.builder.ins().iconst(types::I8, 0);
             ctx.builder.ins().icmp(IntCC::Equal, val, zero)
         }
         Inc => {
             // Handle pre-increment directly here since dispatch isn't working
-            return Err(GlslError::new(ErrorCode::E0400, "pre-increment should be handled by dispatch, but dispatch failed"));
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                "pre-increment should be handled by dispatch, but dispatch failed",
+            ));
         }
         Dec => {
             // Handle pre-decrement directly here since dispatch isn't working
-            return Err(GlslError::new(ErrorCode::E0400, "pre-decrement should be handled by dispatch, but dispatch failed"));
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                "pre-decrement should be handled by dispatch, but dispatch failed",
+            ));
         }
-        _ => return Err(GlslError::new(ErrorCode::E0400, format!("unary operator not supported yet: {:?}", op))),
+        _ => {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!("unary operator not supported yet: {:?}", op),
+            ));
+        }
     };
 
     Ok(result)
 }
-

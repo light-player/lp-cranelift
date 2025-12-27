@@ -1,13 +1,12 @@
 //! Function call conversion functions.
 
-use crate::error::{ErrorCode, GlslError};
 use crate::backend::transform::fixed32::types::FixedPointFormat;
+use crate::error::{ErrorCode, GlslError};
 
 use alloc::{format, vec::Vec};
 
 use cranelift_codegen::ir::{
-    ExtFuncData, ExternalName, FuncRef, Function, Inst, InstBuilder, InstructionData, SigRef,
-    Value,
+    ExtFuncData, ExternalName, FuncRef, Function, Inst, InstBuilder, InstructionData, SigRef, Value,
 };
 use cranelift_frontend::FunctionBuilder;
 

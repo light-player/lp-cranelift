@@ -3,9 +3,9 @@ use cranelift_frontend::{FunctionBuilder, Variable};
 use cranelift_module::{FuncId, Module};
 use hashbrown::HashMap;
 
-use crate::frontend::src_loc_manager::SourceLocManager;
-use crate::frontend::src_loc::{GlSourceMap, GlFileId};
 use crate::error::{ErrorCode, GlslError};
+use crate::frontend::src_loc::{GlFileId, GlSourceMap};
+use crate::frontend::src_loc_manager::SourceLocManager;
 use crate::semantic::functions::FunctionRegistry;
 use crate::semantic::types::Type as GlslType;
 use crate::semantic::types::Type;
@@ -62,7 +62,12 @@ pub struct LoopContext {
 }
 
 impl<'a> CodegenContext<'a> {
-    pub fn new(builder: FunctionBuilder<'a>, module: &'a mut dyn Module, source_map: &'a GlSourceMap, current_file_id: GlFileId) -> Self {
+    pub fn new(
+        builder: FunctionBuilder<'a>,
+        module: &'a mut dyn Module,
+        source_map: &'a GlSourceMap,
+        current_file_id: GlFileId,
+    ) -> Self {
         Self {
             builder,
             module,
@@ -108,16 +113,28 @@ impl<'a> CodegenContext<'a> {
     }
 
     /// Add span_text to an error if source is available
-    pub fn add_span_to_error(&self, error: crate::error::GlslError, span: &glsl::syntax::SourceSpan) -> crate::error::GlslError {
+    pub fn add_span_to_error(
+        &self,
+        error: crate::error::GlslError,
+        span: &glsl::syntax::SourceSpan,
+    ) -> crate::error::GlslError {
         use crate::error::{add_span_text_to_error, source_span_to_location};
         let location = source_span_to_location(span);
         // Update the location to include the correct file_id
-        let location = crate::frontend::src_loc::GlSourceLoc::new(self.current_file_id, location.line, location.column);
+        let location = crate::frontend::src_loc::GlSourceLoc::new(
+            self.current_file_id,
+            location.line,
+            location.column,
+        );
         let error = error.with_location(location);
         add_span_text_to_error(error, self.source_text, span)
     }
 
-    pub fn declare_variable(&mut self, name: String, glsl_ty: GlslType) -> Result<Vec<Variable>, crate::error::GlslError> {
+    pub fn declare_variable(
+        &mut self,
+        name: String,
+        glsl_ty: GlslType,
+    ) -> Result<Vec<Variable>, crate::error::GlslError> {
         let component_count = if glsl_ty.is_vector() {
             glsl_ty.component_count().unwrap()
         } else if glsl_ty.is_matrix() {
@@ -134,11 +151,12 @@ impl<'a> CodegenContext<'a> {
             glsl_ty.clone()
         };
 
-        let cranelift_ty = base_ty.to_cranelift_type()
-            .map_err(|e| crate::error::GlslError::new(
+        let cranelift_ty = base_ty.to_cranelift_type().map_err(|e| {
+            crate::error::GlslError::new(
                 crate::error::ErrorCode::E0400,
-                format!("Failed to convert type to Cranelift type: {}", e.message)
-            ))?;
+                format!("Failed to convert type to Cranelift type: {}", e.message),
+            )
+        })?;
 
         let mut vars = Vec::new();
         for _ in 0..component_count {
@@ -328,7 +346,7 @@ impl<'a> CodegenContext<'a> {
     pub fn emit_branch(&mut self, target: Block) -> Result<Inst, GlslError> {
         self.ensure_block()?;
         let jump_inst = self.builder.ins().jump(target, &[]);
-        
+
         Ok(jump_inst)
     }
 
@@ -341,7 +359,9 @@ impl<'a> CodegenContext<'a> {
         else_block: Block,
     ) -> Result<(), GlslError> {
         self.ensure_block()?;
-        self.builder.ins().brif(cond, then_block, &[], else_block, &[]);
+        self.builder
+            .ins()
+            .brif(cond, then_block, &[], else_block, &[]);
         Ok(())
     }
 }

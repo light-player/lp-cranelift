@@ -8,10 +8,7 @@ use glsl::syntax::SourceSpan;
 use super::conversion::can_implicitly_convert;
 
 /// Check vector constructor arguments and infer result type
-pub fn check_vector_constructor(
-    type_name: &str,
-    args: &[Type],
-) -> Result<Type, GlslError> {
+pub fn check_vector_constructor(type_name: &str, args: &[Type]) -> Result<Type, GlslError> {
     check_vector_constructor_with_span(type_name, args, None)
 }
 
@@ -22,10 +19,12 @@ pub fn check_vector_constructor_with_span(
     span: Option<SourceSpan>,
 ) -> Result<Type, GlslError> {
     let result_type = parse_vector_type_name(type_name)?;
-    let component_count = result_type.component_count()
-        .ok_or_else(|| {
-            GlslError::new(ErrorCode::E0112, format!("`{}` is not a vector type", type_name))
-        })?;
+    let component_count = result_type.component_count().ok_or_else(|| {
+        GlslError::new(
+            ErrorCode::E0112,
+            format!("`{}` is not a vector type", type_name),
+        )
+    })?;
     let base_type = result_type.vector_base_type().unwrap();
 
     // Helper to add location to error if span is available
@@ -43,11 +42,13 @@ pub fn check_vector_constructor_with_span(
     if args.len() == 1 && args[0].is_scalar() {
         // Check implicit conversion is allowed
         if !can_implicitly_convert(&args[0], &base_type) {
-            return Err(add_location(GlslError::new(
-                ErrorCode::E0103,
-                format!("cannot construct `{}` from `{:?}`", type_name, args[0])
-            )
-            .with_note("type cannot be implicitly converted")));
+            return Err(add_location(
+                GlslError::new(
+                    ErrorCode::E0103,
+                    format!("cannot construct `{}` from `{:?}`", type_name, args[0]),
+                )
+                .with_note("type cannot be implicitly converted"),
+            ));
         }
         return Ok(result_type);
     }
@@ -55,20 +56,28 @@ pub fn check_vector_constructor_with_span(
     // Case 2: Single vector - type conversion
     if args.len() == 1 && args[0].is_vector() {
         if args[0].component_count() != Some(component_count) {
-            return Err(add_location(GlslError::new(
-                ErrorCode::E0115,
-                format!("cannot construct `{}` from `{:?}`", type_name, args[0])
-            )
-            .with_note(format!("expected {} components, found {}", component_count, args[0].component_count().unwrap()))));
+            return Err(add_location(
+                GlslError::new(
+                    ErrorCode::E0115,
+                    format!("cannot construct `{}` from `{:?}`", type_name, args[0]),
+                )
+                .with_note(format!(
+                    "expected {} components, found {}",
+                    component_count,
+                    args[0].component_count().unwrap()
+                )),
+            ));
         }
         // Check base type conversion is allowed
         let src_base = args[0].vector_base_type().unwrap();
         if !can_implicitly_convert(&src_base, &base_type) {
-            return Err(add_location(GlslError::new(
-                ErrorCode::E0103,
-                format!("cannot construct `{}` from `{:?}`", type_name, args[0])
-            )
-            .with_note("component type cannot be implicitly converted")));
+            return Err(add_location(
+                GlslError::new(
+                    ErrorCode::E0103,
+                    format!("cannot construct `{}` from `{:?}`", type_name, args[0]),
+                )
+                .with_note("component type cannot be implicitly converted"),
+            ));
         }
         return Ok(result_type);
     }
@@ -76,11 +85,16 @@ pub fn check_vector_constructor_with_span(
     // Case 3: Multiple arguments - concatenation
     let total_components = count_total_components(args)?;
     if total_components != component_count {
-        return Err(add_location(GlslError::new(
-            ErrorCode::E0115,
-            format!("`{}` constructor has wrong number of components", type_name)
-        )
-        .with_note(format!("expected {} components, found {}", component_count, total_components))));
+        return Err(add_location(
+            GlslError::new(
+                ErrorCode::E0115,
+                format!("`{}` constructor has wrong number of components", type_name),
+            )
+            .with_note(format!(
+                "expected {} components, found {}",
+                component_count, total_components
+            )),
+        ));
     }
 
     // Validate each argument can convert to base type
@@ -90,13 +104,15 @@ pub fn check_vector_constructor_with_span(
         } else {
             arg.clone()
         };
-        
+
         if !can_implicitly_convert(&arg_base, &base_type) {
-            return Err(add_location(GlslError::new(
-                ErrorCode::E0103,
-                format!("cannot use `{:?}` in `{}` constructor", arg, type_name)
-            )
-            .with_note("component type cannot be implicitly converted")));
+            return Err(add_location(
+                GlslError::new(
+                    ErrorCode::E0103,
+                    format!("cannot use `{:?}` in `{}` constructor", arg, type_name),
+                )
+                .with_note("component type cannot be implicitly converted"),
+            ));
         }
     }
 
@@ -128,7 +144,7 @@ fn count_total_components(args: &[Type]) -> Result<usize, GlslError> {
         } else {
             return Err(GlslError::new(
                 ErrorCode::E0112,
-                format!("invalid constructor argument: `{:?}`", arg)
+                format!("invalid constructor argument: `{:?}`", arg),
             ));
         }
     }
@@ -137,10 +153,9 @@ fn count_total_components(args: &[Type]) -> Result<usize, GlslError> {
 
 /// Check if a name is a vector type constructor
 pub fn is_vector_type_name(name: &str) -> bool {
-    matches!(name, 
-        "vec2" | "vec3" | "vec4" |
-        "ivec2" | "ivec3" | "ivec4" |
-        "bvec2" | "bvec3" | "bvec4"
+    matches!(
+        name,
+        "vec2" | "vec3" | "vec4" | "ivec2" | "ivec3" | "ivec4" | "bvec2" | "bvec3" | "bvec4"
     )
 }
 
@@ -223,15 +238,14 @@ fn parse_matrix_type_name(name: &str) -> Result<Type, GlslError> {
 
 /// Check matrix constructor arguments and infer result type
 /// Implements GLSL spec: variables.adoc:72-97
-pub fn check_matrix_constructor(
-    type_name: &str,
-    args: &[Type],
-) -> Result<Type, GlslError> {
+pub fn check_matrix_constructor(type_name: &str, args: &[Type]) -> Result<Type, GlslError> {
     let result_type = parse_matrix_type_name(type_name)?;
-    let (rows, cols) = result_type.matrix_dims()
-        .ok_or_else(|| {
-            GlslError::new(ErrorCode::E0112, format!("`{}` is not a matrix type", type_name))
-        })?;
+    let (rows, cols) = result_type.matrix_dims().ok_or_else(|| {
+        GlslError::new(
+            ErrorCode::E0112,
+            format!("`{}` is not a matrix type", type_name),
+        )
+    })?;
     let element_count = rows * cols;
 
     // Case 1: Single scalar - identity matrix (diagonal = scalar, rest = 0.0)
@@ -239,7 +253,7 @@ pub fn check_matrix_constructor(
         if !can_implicitly_convert(&args[0], &Type::Float) {
             return Err(GlslError::new(
                 ErrorCode::E0103,
-                format!("cannot construct `{}` from `{:?}`", type_name, args[0])
+                format!("cannot construct `{}` from `{:?}`", type_name, args[0]),
             )
             .with_note("matrix constructor requires float scalar for identity"));
         }
@@ -261,8 +275,12 @@ pub fn check_matrix_constructor(
                 if arg.component_count() != Some(rows) {
                     return Err(GlslError::new(
                         ErrorCode::E0115,
-                        format!("matrix column {} has wrong size: expected {} components, got {}", 
-                            i, rows, arg.component_count().unwrap_or(0))
+                        format!(
+                            "matrix column {} has wrong size: expected {} components, got {}",
+                            i,
+                            rows,
+                            arg.component_count().unwrap_or(0)
+                        ),
                     ));
                 }
                 // Check base type can convert to float
@@ -270,7 +288,10 @@ pub fn check_matrix_constructor(
                 if !can_implicitly_convert(&arg_base, &Type::Float) {
                     return Err(GlslError::new(
                         ErrorCode::E0103,
-                        format!("matrix column {} has incompatible base type: `{:?}`", i, arg_base)
+                        format!(
+                            "matrix column {} has incompatible base type: `{:?}`",
+                            i, arg_base
+                        ),
                     ));
                 }
             }
@@ -302,7 +323,10 @@ pub fn check_matrix_constructor(
                 if !can_implicitly_convert(arg, &Type::Float) {
                     return Err(GlslError::new(
                         ErrorCode::E0103,
-                        format!("matrix element {} cannot be converted to float: `{:?}`", i, arg)
+                        format!(
+                            "matrix element {} cannot be converted to float: `{:?}`",
+                            i, arg
+                        ),
                     ));
                 }
             }
@@ -323,14 +347,20 @@ pub fn check_matrix_constructor(
             } else {
                 return Err(GlslError::new(
                     ErrorCode::E0103,
-                    format!("matrix constructor argument {} must be a scalar or vector, got `{:?}`", i, arg)
+                    format!(
+                        "matrix constructor argument {} must be a scalar or vector, got `{:?}`",
+                        i, arg
+                    ),
                 ));
             };
-            
+
             if !can_implicitly_convert(&arg_base, &Type::Float) {
                 return Err(GlslError::new(
                     ErrorCode::E0103,
-                    format!("matrix constructor argument {} cannot be converted to float: `{:?}`", i, arg_base)
+                    format!(
+                        "matrix constructor argument {} cannot be converted to float: `{:?}`",
+                        i, arg_base
+                    ),
                 ));
             }
         }
@@ -345,4 +375,3 @@ pub fn check_matrix_constructor(
     .with_note(format!("expected 1 (identity/matrix), {} (columns), {} (scalars), or {} total elements (mixed), found {}",
         cols, element_count, element_count, args.len())))
 }
-

@@ -5,10 +5,10 @@
 
 use crate::backend2::module::gl_module::GlModule;
 use crate::error::GlslError;
-use cranelift_codegen::ir::{Function, FuncRef, Signature};
+use alloc::string::String;
+use cranelift_codegen::ir::{FuncRef, Function, Signature};
 use cranelift_module::Module;
 use hashbrown::HashMap;
-use alloc::string::String;
 
 /// Context for transformations
 ///
@@ -46,9 +46,9 @@ pub trait Transform {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend2::target::Target;
     use crate::backend2::module::gl_module::GlModule;
-    use cranelift_codegen::ir::{types, AbiParam, Signature};
+    use crate::backend2::target::Target;
+    use cranelift_codegen::ir::{AbiParam, Signature, types};
     use cranelift_codegen::isa::CallConv;
 
     /// Identity transform for testing
@@ -81,7 +81,8 @@ mod tests {
         // Add a function
         let mut func = cranelift_codegen::ir::Function::new();
         func.signature = sig.clone();
-        gl_module.add_function("test", cranelift_module::Linkage::Local, sig.clone(), func)
+        gl_module
+            .add_function("test", cranelift_module::Linkage::Local, sig.clone(), func)
             .unwrap();
 
         // Apply identity transform
@@ -94,4 +95,3 @@ mod tests {
         assert_eq!(transformed_func.clif_sig, sig);
     }
 }
-

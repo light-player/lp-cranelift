@@ -32,9 +32,9 @@ pub enum GlslValue {
     Vec2([f32; 2]),
     Vec3([f32; 3]),
     Vec4([f32; 4]),
-    Mat2x2([[f32; 2]; 2]),  // [[col0_row0, col0_row1], [col1_row0, col1_row1]]
-    Mat3x3([[f32; 3]; 3]),  // [[col0_row0, col0_row1, col0_row2], [col1_row0, ...], ...]
-    Mat4x4([[f32; 4]; 4]),  // [[col0_row0, col0_row1, col0_row2, col0_row3], [col1_row0, ...], ...]
+    Mat2x2([[f32; 2]; 2]), // [[col0_row0, col0_row1], [col1_row0, col1_row1]]
+    Mat3x3([[f32; 3]; 3]), // [[col0_row0, col0_row1, col0_row2], [col1_row0, ...], ...]
+    Mat4x4([[f32; 4]; 4]), // [[col0_row0, col0_row1, col0_row2, col0_row3], [col1_row0, ...], ...]
 }
 
 impl GlslValue {

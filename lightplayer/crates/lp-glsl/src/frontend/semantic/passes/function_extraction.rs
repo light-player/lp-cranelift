@@ -1,11 +1,10 @@
 //! Pass for extracting function bodies from the AST
 
-use crate::error::GlslError;
-use crate::frontend::semantic::{TypedFunction, MAIN_FUNCTION_NAME};
 use super::{SemanticPass, function_signature};
+use crate::error::GlslError;
+use crate::frontend::semantic::{MAIN_FUNCTION_NAME, TypedFunction};
 
 use alloc::vec::Vec;
-
 
 pub struct FunctionExtractionPass {
     main_func: Option<TypedFunction>,
@@ -26,7 +25,11 @@ impl FunctionExtractionPass {
 }
 
 impl SemanticPass for FunctionExtractionPass {
-    fn run(&mut self, shader: &glsl::syntax::TranslationUnit, _source: &str) -> Result<(), GlslError> {
+    fn run(
+        &mut self,
+        shader: &glsl::syntax::TranslationUnit,
+        _source: &str,
+    ) -> Result<(), GlslError> {
         // Extract function bodies (second pass logic)
         for decl in &shader.0 {
             if let glsl::syntax::ExternalDeclaration::FunctionDefinition(func) = decl {
@@ -46,7 +49,9 @@ impl SemanticPass for FunctionExtractionPass {
     }
 }
 
-fn extract_function_body(func: &glsl::syntax::FunctionDefinition) -> Result<TypedFunction, GlslError> {
+fn extract_function_body(
+    func: &glsl::syntax::FunctionDefinition,
+) -> Result<TypedFunction, GlslError> {
     let sig = function_signature::extract_function_signature(&func.prototype)?;
     let body = func.statement.statement_list.clone();
 
@@ -57,4 +62,3 @@ fn extract_function_body(func: &glsl::syntax::FunctionDefinition) -> Result<Type
         body,
     })
 }
-

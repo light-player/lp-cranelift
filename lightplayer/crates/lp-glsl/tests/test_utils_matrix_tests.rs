@@ -14,8 +14,8 @@ fn test_flat_array_to_mat2x2_conversion() {
 
     // Simulate the conversion from test_utils.rs
     let mat = GlslValue::Mat2x2([
-        [flat_array[0], flat_array[1]],  // [1.0, 2.0] - col 0
-        [flat_array[2], flat_array[3]],  // [3.0, 4.0] - col 1
+        [flat_array[0], flat_array[1]], // [1.0, 2.0] - col 0
+        [flat_array[2], flat_array[3]], // [3.0, 4.0] - col 1
     ]);
 
     // Verify the matrix represents the correct values
@@ -46,9 +46,9 @@ fn test_flat_array_to_mat3x3_conversion() {
 
     // Simulate the conversion from test_utils.rs
     let mat = GlslValue::Mat3x3([
-        [flat_array[0], flat_array[1], flat_array[2]],  // col 0
-        [flat_array[3], flat_array[4], flat_array[5]],  // col 1
-        [flat_array[6], flat_array[7], flat_array[8]],  // col 2
+        [flat_array[0], flat_array[1], flat_array[2]], // col 0
+        [flat_array[3], flat_array[4], flat_array[5]], // col 1
+        [flat_array[6], flat_array[7], flat_array[8]], // col 2
     ]);
 
     // Verify columns are correct
@@ -79,18 +79,23 @@ fn test_flat_array_to_mat4x4_conversion() {
 
     // Identity matrix
     let flat_array = vec![
-        1.0, 0.0, 0.0, 0.0,  // column 0
-        0.0, 1.0, 0.0, 0.0,  // column 1
-        0.0, 0.0, 1.0, 0.0,  // column 2
-        0.0, 0.0, 0.0, 1.0,  // column 3
+        1.0, 0.0, 0.0, 0.0, // column 0
+        0.0, 1.0, 0.0, 0.0, // column 1
+        0.0, 0.0, 1.0, 0.0, // column 2
+        0.0, 0.0, 0.0, 1.0, // column 3
     ];
 
     // Simulate the conversion from test_utils.rs
     let mat = GlslValue::Mat4x4([
-        [flat_array[0], flat_array[1], flat_array[2], flat_array[3]],   // col 0
-        [flat_array[4], flat_array[5], flat_array[6], flat_array[7]],   // col 1
+        [flat_array[0], flat_array[1], flat_array[2], flat_array[3]], // col 0
+        [flat_array[4], flat_array[5], flat_array[6], flat_array[7]], // col 1
         [flat_array[8], flat_array[9], flat_array[10], flat_array[11]], // col 2
-        [flat_array[12], flat_array[13], flat_array[14], flat_array[15]], // col 3
+        [
+            flat_array[12],
+            flat_array[13],
+            flat_array[14],
+            flat_array[15],
+        ], // col 3
     ]);
 
     // Verify columns are correct
@@ -120,4 +125,3 @@ fn test_flat_array_to_mat4x4_conversion() {
         _ => panic!("Expected Mat4x4"),
     }
 }
-

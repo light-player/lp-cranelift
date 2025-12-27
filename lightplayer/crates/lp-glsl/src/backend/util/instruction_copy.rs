@@ -4,8 +4,8 @@
 //! from one function to another, mapping values through a value_map.
 //! Used by both the fixed-point transformation and function linking.
 
-use crate::error::{ErrorCode, GlslError};
 use crate::backend::ir_utils::value_map::map_value;
+use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::{Function, Inst, InstructionData, StackSlot, Value, types};
 use cranelift_frontend::FunctionBuilder;
 

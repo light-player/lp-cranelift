@@ -128,4 +128,3 @@ fn test_do_while_loop() {
         10
     ); // sum of 0+1+2+3+4 = 10
 }
-

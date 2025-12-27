@@ -1,8 +1,8 @@
 use glsl::syntax::{ForInitStatement, ForRestStatement, Statement};
 
+use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::stmt::loops::translate_condition;
-use crate::error::GlslError;
 use cranelift_codegen::ir::InstBuilder;
 
 /// Emit for loop statement
@@ -19,10 +19,11 @@ pub fn emit_loop_for_stmt(
     let exit_block = ctx.builder.create_block();
 
     // For loops: continue should jump to update block, not header
-    ctx.loop_stack.push(crate::frontend::codegen::context::LoopContext {
-        continue_target: update_block,
-        exit_block,
-    });
+    ctx.loop_stack
+        .push(crate::frontend::codegen::context::LoopContext {
+            continue_target: update_block,
+            exit_block,
+        });
 
     // Enter scope for loop variables
     ctx.enter_scope();

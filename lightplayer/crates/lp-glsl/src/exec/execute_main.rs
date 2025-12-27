@@ -2,11 +2,11 @@
 //!
 //! This module provides shared execution logic used by both filetests and runtime tests.
 
-#[cfg(feature = "std")]
-use anyhow::Result;
 use crate::exec::GlslExecutable;
 use crate::exec::glsl_value::GlslValue;
 use crate::frontend::semantic::types::Type;
+#[cfg(feature = "std")]
+use anyhow::Result;
 
 /// Execute main() and return the result as a GlslValue.
 ///
@@ -20,10 +20,7 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
         .ok_or_else(|| anyhow::anyhow!("main function not found"))?;
 
     // Helper to add emulator state to error if available
-    fn format_error(
-        e: crate::error::GlslError,
-        executable: &dyn GlslExecutable,
-    ) -> anyhow::Error {
+    fn format_error(e: crate::error::GlslError, executable: &dyn GlslExecutable) -> anyhow::Error {
         // Use {:#} format to preserve location and span_text formatting
         let mut error_msg = format!("{:#}", e);
         // Include notes if present (these contain CLIF IR and other debug info)
@@ -144,4 +141,3 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
         _ => anyhow::bail!("unsupported return type: {:?}", sig.return_type),
     }
 }
-

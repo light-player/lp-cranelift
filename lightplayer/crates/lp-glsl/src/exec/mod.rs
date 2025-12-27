@@ -6,10 +6,10 @@
 #[cfg(feature = "emulator")]
 pub(crate) mod emu;
 pub(crate) mod executable;
-pub(crate) mod glsl_value;
-pub(crate) mod jit;
 #[cfg(feature = "std")]
 pub mod execute_main;
+pub(crate) mod glsl_value;
+pub(crate) mod jit;
 
 #[cfg(feature = "emulator")]
 pub use emu::GlslEmulatorModule;

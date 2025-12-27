@@ -13,7 +13,7 @@ use hashbrown::HashMap;
 /// Map an old value to its new equivalent.
 ///
 /// If the value is not in the map, returns the value unchanged.
-/// 
+///
 /// Note: This does NOT resolve aliases. If you need alias resolution,
 /// use `map_value_with_alias_resolution` instead.
 pub fn map_value(value_map: &HashMap<Value, Value>, old_value: Value) -> Value {
@@ -33,7 +33,7 @@ pub fn map_value_with_alias_resolution(
     if let Some(&mapped) = value_map.get(&old_value) {
         return mapped;
     }
-    
+
     // If not in map, check if it's an alias and resolve it
     if let Some(old_dest) = old_func.dfg.value_alias_dest_for_serialization(old_value) {
         // Resolve to the destination value
@@ -41,7 +41,7 @@ pub fn map_value_with_alias_resolution(
             return mapped_dest;
         }
     }
-    
+
     // Not in map and not an alias (or alias destination not mapped) - return unchanged
     old_value
 }

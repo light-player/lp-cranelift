@@ -23,23 +23,22 @@ pub fn can_implicitly_convert(from: &Type, to: &Type) -> bool {
     if from == to {
         return true;
     }
-    
+
     // Scalar conversions
     if matches!((from, to), (Type::Int, Type::Float)) {
         return true;
     }
-    
+
     // Matrix conversions: same dimensions, exact type match
     if from.is_matrix() && to.is_matrix() {
-        if let (Some((from_rows, from_cols)), Some((to_rows, to_cols))) = (
-            from.matrix_dims(),
-            to.matrix_dims(),
-        ) {
+        if let (Some((from_rows, from_cols)), Some((to_rows, to_cols))) =
+            (from.matrix_dims(), to.matrix_dims())
+        {
             // Matrices can only be converted if dimensions match exactly
             return from_rows == to_rows && from_cols == to_cols;
         }
     }
-    
+
     // Vector conversions: same size, compatible base types
     if let (Some(from_base), Some(to_base), Some(from_count), Some(to_count)) = (
         from.vector_base_type(),
@@ -51,7 +50,7 @@ pub fn can_implicitly_convert(from: &Type, to: &Type) -> bool {
             return can_implicitly_convert(&from_base, &to_base);
         }
     }
-    
+
     false
 }
 
@@ -61,21 +60,24 @@ pub fn check_assignment(lhs_ty: &Type, rhs_ty: &Type) -> Result<(), GlslError> {
 }
 
 /// Validate assignment types with optional span for error location
-pub fn check_assignment_with_span(lhs_ty: &Type, rhs_ty: &Type, span: Option<SourceSpan>) -> Result<(), GlslError> {
+pub fn check_assignment_with_span(
+    lhs_ty: &Type,
+    rhs_ty: &Type,
+    span: Option<SourceSpan>,
+) -> Result<(), GlslError> {
     if !can_implicitly_convert(rhs_ty, lhs_ty) {
-        let mut error = GlslError::new(
-            ErrorCode::E0102,
-            "type mismatch in assignment"
-        )
-        .with_note(format!("cannot assign value of type `{:?}` to variable of type `{:?}`", rhs_ty, lhs_ty))
-        .with_note("help: consider using an explicit type conversion");
-        
+        let mut error = GlslError::new(ErrorCode::E0102, "type mismatch in assignment")
+            .with_note(format!(
+                "cannot assign value of type `{:?}` to variable of type `{:?}`",
+                rhs_ty, lhs_ty
+            ))
+            .with_note("help: consider using an explicit type conversion");
+
         if let Some(span) = span {
             error = error.with_location(source_span_to_location(&span));
         }
-        
+
         return Err(error);
     }
     Ok(())
 }
-

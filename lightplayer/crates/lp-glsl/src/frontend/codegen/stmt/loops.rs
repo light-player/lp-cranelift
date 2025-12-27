@@ -1,7 +1,7 @@
 use glsl::syntax::IterationStatement;
 
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError};
+use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit iteration statement (dispatch to specific loop types)
 pub fn emit_iteration_stmt(

@@ -1,7 +1,7 @@
 //! Comparison operation conversion functions.
 
-use crate::error::GlslError;
 use crate::backend::transform::fixed32::types::FixedPointFormat;
+use crate::error::GlslError;
 
 use cranelift_codegen::ir::{
     Function, Inst, InstBuilder, InstructionData, Value,
@@ -26,10 +26,7 @@ pub(crate) fn convert_fcmp(
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
     _format: FixedPointFormat,
-    _block_map: &hashbrown::HashMap<
-        cranelift_codegen::ir::Block,
-        cranelift_codegen::ir::Block,
-    >,
+    _block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -48,7 +45,7 @@ pub(crate) fn convert_fcmp(
             FloatCC::GreaterThanOrEqual => IntCC::SignedGreaterThanOrEqual,
             // Note: Ordered/Unordered conditions are approximated since fixed-point
             // doesn't have NaN. These approximations may not match float behavior exactly.
-            FloatCC::Ordered => IntCC::Equal,      // Approximate: always true for fixed-point
+            FloatCC::Ordered => IntCC::Equal, // Approximate: always true for fixed-point
             FloatCC::Unordered => IntCC::NotEqual, // Approximate: always false for fixed-point
             FloatCC::OrderedNotEqual => IntCC::NotEqual,
             FloatCC::UnorderedOrEqual => IntCC::Equal,
@@ -86,10 +83,7 @@ pub(crate) fn convert_fmax(
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
     _format: FixedPointFormat,
-    _block_map: &hashbrown::HashMap<
-        cranelift_codegen::ir::Block,
-        cranelift_codegen::ir::Block,
-    >,
+    _block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let (arg1_old, arg2_old) = extract_binary_operands(old_func, old_inst)?;
     let arg1 = map_operand(value_map, arg1_old);
@@ -112,10 +106,7 @@ pub(crate) fn convert_fmin(
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
     _format: FixedPointFormat,
-    _block_map: &hashbrown::HashMap<
-        cranelift_codegen::ir::Block,
-        cranelift_codegen::ir::Block,
-    >,
+    _block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let (arg1_old, arg2_old) = extract_binary_operands(old_func, old_inst)?;
     let arg1 = map_operand(value_map, arg1_old);

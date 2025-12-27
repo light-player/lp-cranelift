@@ -1,9 +1,9 @@
-use crate::frontend::codegen::context::CodegenContext;
-use crate::semantic::types::Type as GlslType;
-use crate::semantic::type_check::{check_vector_constructor_with_span, check_matrix_constructor};
 use crate::error::{ErrorCode, GlslError, source_span_to_location};
-use glsl::syntax::Expr;
+use crate::frontend::codegen::context::CodegenContext;
+use crate::semantic::type_check::{check_matrix_constructor, check_vector_constructor_with_span};
+use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::InstBuilder;
+use glsl::syntax::Expr;
 
 use super::coercion;
 
@@ -17,11 +17,11 @@ pub fn translate_vector_constructor(
 ) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {
     // Ensure we're in a block before evaluating
     ctx.ensure_block()?;
-    
+
     // Translate all arguments
     let mut arg_vals: Vec<Vec<cranelift_codegen::ir::Value>> = Vec::new();
     let mut arg_types: Vec<GlslType> = Vec::new();
-    
+
     for arg in args {
         let (vals, ty) = ctx.translate_expr_typed(arg)?;
         arg_vals.push(vals);
@@ -29,16 +29,17 @@ pub fn translate_vector_constructor(
     }
 
     // Type check constructor
-    let result_type = match check_vector_constructor_with_span(type_name, &arg_types, Some(span.clone())) {
-        Ok(ty) => ty,
-        Err(mut error) => {
-            // Ensure error has location and span_text
-            if error.location.is_none() {
-                error = error.with_location(source_span_to_location(&span));
+    let result_type =
+        match check_vector_constructor_with_span(type_name, &arg_types, Some(span.clone())) {
+            Ok(ty) => ty,
+            Err(mut error) => {
+                // Ensure error has location and span_text
+                if error.location.is_none() {
+                    error = error.with_location(source_span_to_location(&span));
+                }
+                return Err(ctx.add_span_to_error(error, &span));
             }
-            return Err(ctx.add_span_to_error(error, &span));
-        }
-    };
+        };
     let base_type = result_type.vector_base_type().unwrap();
     let component_count = result_type.component_count().unwrap();
 
@@ -68,7 +69,7 @@ pub fn translate_vector_constructor(
             } else {
                 ty.clone()
             };
-            
+
             for &val in vals {
                 components.push(coercion::coerce_to_type(ctx, val, &arg_base, &base_type)?);
             }
@@ -87,11 +88,11 @@ pub fn translate_matrix_constructor(
 ) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {
     // Ensure we're in a block before evaluating
     ctx.ensure_block()?;
-    
+
     // Translate all arguments
     let mut arg_vals: Vec<Vec<cranelift_codegen::ir::Value>> = Vec::new();
     let mut arg_types: Vec<GlslType> = Vec::new();
-    
+
     for arg in args {
         let (vals, ty) = ctx.translate_expr_typed(arg)?;
         arg_vals.push(vals);
@@ -115,7 +116,7 @@ pub fn translate_matrix_constructor(
         let scalar = arg_vals[0][0];
         let scalar_float = coercion::coerce_to_type(ctx, scalar, &arg_types[0], &GlslType::Float)?;
         let zero = ctx.builder.ins().f32const(0.0);
-        
+
         for row in 0..rows {
             for col in 0..cols {
                 let value = if row == col { scalar_float } else { zero };
@@ -129,7 +130,8 @@ pub fn translate_matrix_constructor(
             let vec_base = ty.vector_base_type().unwrap();
             for (row, &val) in vals.iter().enumerate() {
                 let float_val = coercion::coerce_to_type(ctx, val, &vec_base, &GlslType::Float)?;
-                ctx.builder.def_var(matrix_vars[col * rows + row], float_val);
+                ctx.builder
+                    .def_var(matrix_vars[col * rows + row], float_val);
             }
         }
     }
@@ -171,7 +173,8 @@ pub fn translate_matrix_constructor(
                     }
                     let col = element_index / rows;
                     let row = element_index % rows;
-                    let float_val = coercion::coerce_to_type(ctx, val, &vec_base, &GlslType::Float)?;
+                    let float_val =
+                        coercion::coerce_to_type(ctx, val, &vec_base, &GlslType::Float)?;
                     let var_idx = col * rows + row;
                     ctx.builder.def_var(matrix_vars[var_idx], float_val);
                     element_index += 1;
@@ -183,7 +186,8 @@ pub fn translate_matrix_constructor(
                 }
                 let col = element_index / rows;
                 let row = element_index % rows;
-                let float_val = coercion::coerce_to_type(ctx, arg_val[0], arg_ty, &GlslType::Float)?;
+                let float_val =
+                    coercion::coerce_to_type(ctx, arg_val[0], arg_ty, &GlslType::Float)?;
                 let var_idx = col * rows + row;
                 ctx.builder.def_var(matrix_vars[var_idx], float_val);
                 element_index += 1;
@@ -259,4 +263,3 @@ pub fn translate_scalar_constructor(
 
     Ok((vec![result_val], result_ty))
 }
-

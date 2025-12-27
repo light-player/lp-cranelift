@@ -1,8 +1,8 @@
 //! Control flow instruction conversion functions.
 
-use crate::error::{ErrorCode, GlslError};
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::backend::util::clif_copy::ensure_block_params;
+use crate::error::{ErrorCode, GlslError};
 
 use alloc::{format, vec::Vec};
 

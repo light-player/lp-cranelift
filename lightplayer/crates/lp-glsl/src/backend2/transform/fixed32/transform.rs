@@ -1,7 +1,7 @@
 //! Fixed32 transform implementation for backend2
 
+use crate::backend::transform::fixed32::{convert_signature, rewrite_function};
 use crate::backend2::transform::pipeline::{Transform, TransformContext};
-use crate::backend::transform::fixed32::{rewrite_function, convert_signature};
 use crate::error::GlslError;
 use cranelift_codegen::ir::{Function, Signature};
 
@@ -41,4 +41,3 @@ impl Transform for Fixed32Transform {
         rewrite_function(func, self.format)
     }
 }
-

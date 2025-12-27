@@ -1,8 +1,8 @@
 use glsl::syntax::{Condition, Statement};
 
+use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::stmt::loops::translate_condition;
-use crate::error::GlslError;
 
 /// Emit while loop statement
 pub fn emit_loop_while_stmt(
@@ -15,10 +15,11 @@ pub fn emit_loop_while_stmt(
     let exit_block = ctx.builder.create_block();
 
     // Push loop context for break/continue
-    ctx.loop_stack.push(crate::frontend::codegen::context::LoopContext {
-        continue_target: header_block,
-        exit_block,
-    });
+    ctx.loop_stack
+        .push(crate::frontend::codegen::context::LoopContext {
+            continue_target: header_block,
+            exit_block,
+        });
 
     // Jump to header
     ctx.emit_branch(header_block)?;

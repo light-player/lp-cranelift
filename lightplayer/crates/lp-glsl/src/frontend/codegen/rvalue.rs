@@ -33,10 +33,7 @@ impl RValue {
 
     /// Create an RValue from multiple values (aggregate)
     pub fn from_aggregate(vals: Vec<Value>, ty: GlslType) -> Self {
-        RValue {
-            values: vals,
-            ty,
-        }
+        RValue { values: vals, ty }
     }
 
     /// Get the type of this RValue
@@ -73,4 +70,3 @@ impl RValue {
         self.values.len()
     }
 }
-

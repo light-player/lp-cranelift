@@ -1,9 +1,9 @@
-use crate::frontend::semantic::types::Type;
 use crate::error::{ErrorCode, GlslError};
+use crate::frontend::semantic::types::Type;
 use hashbrown::HashMap;
 
-use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::vec::Vec;
 
 pub struct SymbolTable {
     scopes: Vec<Scope>,
@@ -42,7 +42,10 @@ impl SymbolTable {
     ) -> Result<(), GlslError> {
         let scope = self.scopes.last_mut().unwrap();
         if scope.variables.contains_key(&name) {
-            return Err(GlslError::new(ErrorCode::E0400, format!("variable `{}` already declared", name)));
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!("variable `{}` already declared", name),
+            ));
         }
         scope.variables.insert(
             name.clone(),
@@ -80,4 +83,3 @@ impl Default for SymbolTable {
         Self::new()
     }
 }
-

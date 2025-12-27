@@ -4,14 +4,17 @@
 //! and post-decrement (i--) operations on scalars, vectors, matrices, and vector components.
 //! Implements GLSL spec: operators.adoc:856-869
 
-use crate::frontend::codegen::context::CodegenContext;
-use crate::frontend::codegen::lvalue::{resolve_lvalue, read_lvalue, write_lvalue};
-use crate::frontend::codegen::rvalue::RValue;
-use crate::semantic::types::Type as GlslType;
-use crate::semantic::type_check::{infer_postinc_result_type, infer_postdec_result_type, infer_preinc_result_type, infer_predec_result_type};
 use crate::error::{ErrorCode, GlslError, source_span_to_location};
+use crate::frontend::codegen::context::CodegenContext;
+use crate::frontend::codegen::lvalue::{read_lvalue, resolve_lvalue, write_lvalue};
+use crate::frontend::codegen::rvalue::RValue;
+use crate::semantic::type_check::{
+    infer_postdec_result_type, infer_postinc_result_type, infer_predec_result_type,
+    infer_preinc_result_type,
+};
+use crate::semantic::types::Type as GlslType;
+use cranelift_codegen::ir::{InstBuilder, Value, types};
 use glsl::syntax::Expr;
-use cranelift_codegen::ir::{types, Value, InstBuilder};
 
 use alloc::{format, vec::Vec};
 
@@ -62,10 +65,10 @@ fn translate_incdec(
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
     // Resolve the operand to an LValue
     let lvalue = resolve_lvalue(ctx, operand)?;
-    
+
     // Get the type of the LValue for type checking
     let lvalue_ty = lvalue.ty();
-    
+
     // Type check the operation
     let result_ty = match (is_increment, is_decrement, is_pre) {
         (true, false, true) => infer_preinc_result_type(&lvalue_ty, span.clone())?,
@@ -74,10 +77,10 @@ fn translate_incdec(
         (false, true, false) => infer_postdec_result_type(&lvalue_ty, span.clone())?,
         _ => unreachable!(),
     };
-    
+
     // Read current values
     let (old_values, _) = read_lvalue(ctx, &lvalue)?;
-    
+
     // Determine base type for arithmetic operations
     let base_ty = if lvalue_ty.is_matrix() {
         GlslType::Float // Matrices are always float
@@ -86,13 +89,16 @@ fn translate_incdec(
     } else {
         lvalue_ty.clone()
     };
-    
+
     // Compute new values (add or subtract 1 from each component)
     let mut new_values = Vec::new();
     for old_value in &old_values {
         let new_value = match base_ty {
             GlslType::Int => {
-                let one = ctx.builder.ins().iconst(types::I32, if is_increment { 1 } else { -1 });
+                let one = ctx
+                    .builder
+                    .ins()
+                    .iconst(types::I32, if is_increment { 1 } else { -1 });
                 ctx.builder.ins().iadd(*old_value, one)
             }
             GlslType::Float => {
@@ -105,18 +111,20 @@ fn translate_incdec(
                     unreachable!()
                 }
             }
-            _ => return Err(GlslError::new(
-                ErrorCode::E0400,
-                format!("increment/decrement not supported for type {:?}", base_ty)
-            )
-            .with_location(source_span_to_location(&span))),
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!("increment/decrement not supported for type {:?}", base_ty),
+                )
+                .with_location(source_span_to_location(&span)));
+            }
         };
         new_values.push(new_value);
     }
-    
+
     // Write new values back
     write_lvalue(ctx, &lvalue, &new_values)?;
-    
+
     // Return values based on pre vs post semantics
     let return_values = if is_pre {
         // Pre-increment/decrement: return new values
@@ -125,7 +133,7 @@ fn translate_incdec(
         // Post-increment/decrement: return old values
         old_values
     };
-    
+
     Ok((return_values, result_ty))
 }
 
@@ -150,5 +158,3 @@ pub fn emit_postdec_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
     let (vals, ty) = translate_postdec(ctx, operand, span.clone())?;
     Ok(RValue::from_aggregate(vals, ty))
 }
-
-

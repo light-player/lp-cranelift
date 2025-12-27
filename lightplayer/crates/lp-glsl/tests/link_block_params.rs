@@ -3,24 +3,32 @@
 //! NOTE: This test uses the old ClifModule backend, not backend2.
 //! Any failures here are unrelated to backend2 changes.
 
-use cranelift_reader::parse_functions;
-use lp_glsl::{ClifModule, error::{ErrorCode, GlslError}};
 use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_codegen::settings;
+use cranelift_reader::parse_functions;
+use lp_glsl::{
+    ClifModule,
+    error::{ErrorCode, GlslError},
+};
 
 #[cfg(feature = "std")]
 fn create_test_isa() -> Result<OwnedTargetIsa, GlslError> {
-    use cranelift_native;
     use cranelift_codegen::settings::{self, Configurable};
+    use cranelift_native;
 
     let mut flag_builder = settings::builder();
-    flag_builder.set("opt_level", "none").map_err(|e| {
-        GlslError::new(ErrorCode::E0400, format!("failed to set opt_level: {}", e))
-    })?;
+    flag_builder
+        .set("opt_level", "none")
+        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("failed to set opt_level: {}", e)))?;
     let flags = settings::Flags::new(flag_builder);
 
     cranelift_native::builder()
-        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("failed to create native builder: {}", e)))?
+        .map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("failed to create native builder: {}", e),
+            )
+        })?
         .finish(flags)
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("failed to create ISA: {}", e)))
 }
@@ -74,8 +82,7 @@ block3:
 "#;
 
     // Parse the function
-    let mut functions = parse_functions(clif_input)
-        .expect("Failed to parse CLIF IR");
+    let mut functions = parse_functions(clif_input).expect("Failed to parse CLIF IR");
 
     assert_eq!(functions.len(), 1, "Expected exactly one function");
     let old_func = functions.remove(0);
@@ -89,9 +96,12 @@ block3:
     let entry_block = old_func.layout.entry_block().unwrap();
     let mut old_block1 = None;
     for inst in old_func.layout.block_insts(entry_block) {
-        if let cranelift_codegen::ir::InstructionData::Jump { destination, .. } = &old_func.dfg.insts[inst] {
+        if let cranelift_codegen::ir::InstructionData::Jump { destination, .. } =
+            &old_func.dfg.insts[inst]
+        {
             let target = destination.block(&old_func.dfg.value_lists);
-            let args: Vec<_> = destination.args(&old_func.dfg.value_lists)
+            let args: Vec<_> = destination
+                .args(&old_func.dfg.value_lists)
                 .filter_map(|arg| arg.as_value())
                 .collect();
             if args.len() == 2 {
@@ -111,10 +121,13 @@ block3:
         let mut jump_count = 0;
         for &other_block in &old_blocks {
             for inst in old_func.layout.block_insts(other_block) {
-                if let cranelift_codegen::ir::InstructionData::Jump { destination, .. } = &old_func.dfg.insts[inst] {
+                if let cranelift_codegen::ir::InstructionData::Jump { destination, .. } =
+                    &old_func.dfg.insts[inst]
+                {
                     let target = destination.block(&old_func.dfg.value_lists);
                     if target == block {
-                        let args: Vec<_> = destination.args(&old_func.dfg.value_lists)
+                        let args: Vec<_> = destination
+                            .args(&old_func.dfg.value_lists)
                             .filter_map(|arg| arg.as_value())
                             .collect();
                         if args.len() == 2 {
@@ -132,7 +145,12 @@ block3:
 
     let old_block1 = old_block1.expect("block1 should exist");
     let old_block1_params = old_func.dfg.block_params(old_block1);
-    assert_eq!(old_block1_params.len(), 2, "block1 should have 2 parameters. Got: {}", old_block1_params.len());
+    assert_eq!(
+        old_block1_params.len(),
+        2,
+        "block1 should have 2 parameters. Got: {}",
+        old_block1_params.len()
+    );
 
     let old_block2 = old_block2.expect("block2 should exist");
     let old_block2_params = old_func.dfg.block_params(old_block2);
@@ -156,13 +174,20 @@ block3:
     let mut jumps_to_block2_with_args = 0;
     for &block in &old_blocks {
         for inst in old_func.layout.block_insts(block) {
-            if let cranelift_codegen::ir::InstructionData::Jump { destination, .. } = &old_func.dfg.insts[inst] {
+            if let cranelift_codegen::ir::InstructionData::Jump { destination, .. } =
+                &old_func.dfg.insts[inst]
+            {
                 let target = destination.block(&old_func.dfg.value_lists);
                 if target == old_block2 {
-                    let args: Vec<_> = destination.args(&old_func.dfg.value_lists)
+                    let args: Vec<_> = destination
+                        .args(&old_func.dfg.value_lists)
                         .filter_map(|arg| arg.as_value())
                         .collect();
-                    println!("Jump to block2 from block{:?} has {} arguments", block, args.len());
+                    println!(
+                        "Jump to block2 from block{:?} has {} arguments",
+                        block,
+                        args.len()
+                    );
                     if args.len() == 2 {
                         jumps_to_block2_with_args += 1;
                     }
@@ -171,7 +196,10 @@ block3:
         }
     }
 
-    println!("Found {} jumps to block2 with 2 arguments", jumps_to_block2_with_args);
+    println!(
+        "Found {} jumps to block2 with 2 arguments",
+        jumps_to_block2_with_args
+    );
 
     // The key test: after linking, block2 should have 2 parameters
     // (because the original CLIF shows block2(v12: i32, v21: i32) and jumps to it with 2 args)
@@ -190,15 +218,15 @@ block3:
     // Link the module to a JITModule (this is what tests block param preservation)
     use cranelift_jit::{JITBuilder, JITModule};
     use cranelift_module::Linkage;
-    
+
     let isa_for_jit = module.isa();
     let isa_builder = cranelift_codegen::isa::Builder::from_target_isa(isa_for_jit);
     let flags = isa_for_jit.flags().clone();
     let owned_isa = isa_builder.finish(flags).expect("Failed to recreate ISA");
-    
+
     let builder = JITBuilder::with_isa(owned_isa, cranelift_module::default_libcall_names());
     let mut jit_module = JITModule::new(builder);
-    
+
     let (_name_to_id, linked_clif, _traps) = module
         .link_into(&mut jit_module, Linkage::Export)
         .expect("Failed to link into JIT module");
@@ -207,10 +235,14 @@ block3:
     println!("Linked CLIF:\n{}", linked_clif);
 
     // Parse the linked CLIF to verify block parameters
-    let mut linked_functions = parse_functions(&linked_clif)
-        .expect("Failed to parse linked CLIF IR");
+    let mut linked_functions =
+        parse_functions(&linked_clif).expect("Failed to parse linked CLIF IR");
 
-    assert_eq!(linked_functions.len(), 1, "Expected exactly one function in linked output");
+    assert_eq!(
+        linked_functions.len(),
+        1,
+        "Expected exactly one function in linked output"
+    );
     let linked_func = linked_functions.remove(0);
 
     // Verify block parameters are preserved
@@ -238,4 +270,3 @@ block3:
         &linked_clif
     );
 }
-

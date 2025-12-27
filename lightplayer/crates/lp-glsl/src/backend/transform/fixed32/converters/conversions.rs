@@ -1,7 +1,7 @@
 //! Type conversion instruction conversion functions.
 
-use crate::error::GlslError;
 use crate::backend::transform::fixed32::types::FixedPointFormat;
+use crate::error::GlslError;
 
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, types};
 use cranelift_frontend::FunctionBuilder;
@@ -16,10 +16,7 @@ pub(crate) fn convert_fcvt_from_sint(
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    _block_map: &hashbrown::HashMap<
-        cranelift_codegen::ir::Block,
-        cranelift_codegen::ir::Block,
-    >,
+    _block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     // Check if result is F32
     let old_result = get_first_result(old_func, old_inst);
@@ -61,10 +58,7 @@ pub(crate) fn convert_fcvt_from_uint(
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    _block_map: &hashbrown::HashMap<
-        cranelift_codegen::ir::Block,
-        cranelift_codegen::ir::Block,
-    >,
+    _block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     // Check if result is F32
     let old_result = get_first_result(old_func, old_inst);
@@ -98,5 +92,3 @@ pub(crate) fn convert_fcvt_from_uint(
 
     Ok(())
 }
-
-

@@ -1,15 +1,12 @@
+use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::rvalue::RValue;
 use crate::semantic::types::Type as GlslType;
-use crate::error::GlslError;
+use cranelift_codegen::ir::{InstBuilder, types};
 use glsl::syntax::Expr;
-use cranelift_codegen::ir::{types, InstBuilder};
 
 /// Emit code to compute a literal as an RValue
-pub fn emit_literal_rvalue(
-    ctx: &mut CodegenContext,
-    expr: &Expr,
-) -> Result<RValue, GlslError> {
+pub fn emit_literal_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
     match expr {
         Expr::IntConst(n, _) => {
             let val = ctx.builder.ins().iconst(types::I32, *n as i64);
@@ -38,4 +35,3 @@ pub fn translate_literal(
     let ty = rvalue.ty().clone();
     Ok((rvalue.into_values(), ty))
 }
-

@@ -3,12 +3,14 @@
 //! This module implements a complete rewrite of functions using FunctionBuilder,
 //! creating a new function from scratch rather than mutating in place.
 
-use crate::error::GlslError;
-use crate::backend::util::clif_copy::{copy_stack_slots, copy_value_aliases, create_blocks, map_entry_block_params};
 use crate::backend::transform::fixed32::blocks::map_function_params;
 use crate::backend::transform::fixed32::instructions::convert_all_instructions;
 use crate::backend::transform::fixed32::signature::convert_signature;
 use crate::backend::transform::fixed32::types::FixedPointFormat;
+use crate::backend::util::clif_copy::{
+    copy_stack_slots, copy_value_aliases, create_blocks, map_entry_block_params,
+};
+use crate::error::GlslError;
 
 use alloc::{format, vec::Vec};
 
@@ -46,20 +48,17 @@ pub fn rewrite_function(
     let mut sig_map = HashMap::new();
 
     // 7. Build blocks and map parameters using shared utility
-    create_blocks(
-        old_func,
-        &mut builder,
-        &mut block_map,
-        &mut value_map,
-    )?;
+    create_blocks(old_func, &mut builder, &mut block_map, &mut value_map)?;
 
     // 8. Get entry block and verify function parameters
-    let entry_block = old_func
-        .layout
-        .entry_block()
-        .ok_or_else(|| GlslError::new(crate::error::ErrorCode::E0301, "Function has no entry block"))?;
+    let entry_block = old_func.layout.entry_block().ok_or_else(|| {
+        GlslError::new(
+            crate::error::ErrorCode::E0301,
+            "Function has no entry block",
+        )
+    })?;
     let new_entry_block = block_map[&entry_block];
-    
+
     // Verify entry block parameters are correctly mapped (basic check)
     map_entry_block_params(
         old_func,
@@ -68,7 +67,7 @@ pub fn rewrite_function(
         &mut builder,
         &value_map,
     )?;
-    
+
     // Also verify types are correct for transform (this is transform-specific)
     map_function_params(
         old_func,
@@ -102,4 +101,3 @@ pub fn rewrite_function(
     // 13. Return new function (builder is dropped, so we can return new_func)
     Ok(new_func)
 }
-

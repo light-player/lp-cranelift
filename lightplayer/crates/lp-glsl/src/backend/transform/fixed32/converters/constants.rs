@@ -1,7 +1,7 @@
 //! Constant conversion functions.
 
-use crate::error::GlslError;
 use crate::backend::transform::fixed32::types::{FixedPointFormat, float_to_fixed16x16};
+use crate::error::GlslError;
 
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, InstructionData, Value};
 use cranelift_frontend::FunctionBuilder;

@@ -1,9 +1,9 @@
 //! Module builder creation from Target
 
-use crate::error::{ErrorCode, GlslError};
 use crate::backend2::target::target::Target;
-use cranelift_module::default_libcall_names;
+use crate::error::{ErrorCode, GlslError};
 use cranelift_jit::JITBuilder;
+use cranelift_module::default_libcall_names;
 use cranelift_object::ObjectBuilder;
 
 /// Module builder enum (wraps different builder types)
@@ -21,12 +21,20 @@ impl Target {
             Target::Rv32Emu { .. } => {
                 // Internally knows: ObjectModule, riscv32 triple, etc.
                 ObjectBuilder::new(isa, b"module", default_libcall_names())
-                    .map_err(|e| GlslError::new(ErrorCode::E0400, format!("ObjectBuilder creation failed: {}", e)))
+                    .map_err(|e| {
+                        GlslError::new(
+                            ErrorCode::E0400,
+                            format!("ObjectBuilder creation failed: {}", e),
+                        )
+                    })
                     .map(|b| ModuleBuilder::Object(b))
             }
             Target::HostJit { .. } => {
                 // Internally knows: JITModule, host triple, etc.
-                Ok(ModuleBuilder::JIT(JITBuilder::with_isa(isa, default_libcall_names())))
+                Ok(ModuleBuilder::JIT(JITBuilder::with_isa(
+                    isa,
+                    default_libcall_names(),
+                )))
             }
         }
     }
@@ -59,4 +67,3 @@ mod tests {
         }
     }
 }
-

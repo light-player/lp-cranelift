@@ -74,8 +74,10 @@ impl CompilationPipeline {
 
     /// Perform semantic analysis on parsed shader
     pub fn analyze<'a>(parse_result: ParseResult<'a>) -> Result<SemanticResult<'a>, GlslError> {
-        let typed_ast =
-            crate::frontend::semantic::analyze_with_source(&parse_result.shader, parse_result.source)?;
+        let typed_ast = crate::frontend::semantic::analyze_with_source(
+            &parse_result.shader,
+            parse_result.source,
+        )?;
 
         Ok(SemanticResult {
             typed_ast,

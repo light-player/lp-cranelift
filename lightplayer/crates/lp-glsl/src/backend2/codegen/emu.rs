@@ -1,15 +1,15 @@
 //! Emulator codegen - build executable from GlModule<ObjectModule>
 
 use crate::backend2::module::gl_module::GlModule;
-use crate::exec::emu::GlslEmulatorModule;
 use crate::error::{ErrorCode, GlslError};
+use crate::exec::emu::GlslEmulatorModule;
 use crate::frontend::src_loc::GlSourceMap;
 use crate::frontend::src_loc_manager::SourceLocManager;
-use cranelift_object::ObjectModule;
-use cranelift_module::Module;
-use hashbrown::HashMap;
-use alloc::vec::Vec;
 use alloc::string::String;
+use alloc::vec::Vec;
+use cranelift_module::Module;
+use cranelift_object::ObjectModule;
+use hashbrown::HashMap;
 
 /// Emulator execution options
 #[derive(Debug, Clone)]
@@ -30,18 +30,23 @@ pub fn build_emu_executable(
     mut gl_module: GlModule<ObjectModule>,
     options: &EmulatorOptions,
 ) -> Result<GlslEmulatorModule, GlslError> {
-    use lp_riscv_tools::emu::emulator::Riscv32Emulator;
     use lp_riscv_tools::Gpr;
     use lp_riscv_tools::elf_loader::{find_symbol_address, load_elf};
+    use lp_riscv_tools::emu::emulator::Riscv32Emulator;
     use object::{Object, ObjectSection};
-    
+
     // 1. Define all functions (compile them)
     // Collect function data first to avoid borrowing conflicts
-    let funcs: Vec<(String, cranelift_codegen::ir::Function, cranelift_module::FuncId)> = gl_module.fns
+    let funcs: Vec<(
+        String,
+        cranelift_codegen::ir::Function,
+        cranelift_module::FuncId,
+    )> = gl_module
+        .fns
         .iter()
         .map(|(name, gl_func)| (name.clone(), gl_func.function.clone(), gl_func.func_id))
         .collect();
-    
+
     for (name, func, func_id) in funcs {
         // Create context using immutable borrow
         let mut ctx = {
@@ -50,8 +55,15 @@ pub fn build_emu_executable(
         };
         ctx.func = func;
         // Define function using mutable borrow
-        gl_module.module_mut_internal().define_function(func_id, &mut ctx)
-            .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to define function '{}': {}", name, e)))?;
+        gl_module
+            .module_mut_internal()
+            .define_function(func_id, &mut ctx)
+            .map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("Failed to define function '{}': {}", name, e),
+                )
+            })?;
         // Clear context using immutable borrow
         {
             let module_ref = gl_module.module_internal();
@@ -69,7 +81,8 @@ pub fn build_emu_executable(
 
     // 3. Finish module and get object file
     let product = gl_module.into_module().finish();
-    let elf_bytes = product.emit()
+    let elf_bytes = product
+        .emit()
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to emit ELF: {}", e)))?;
 
     // 4. Load ELF and find main address
@@ -77,7 +90,7 @@ pub fn build_emu_executable(
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to load ELF: {}", e)))?;
     let obj = object::File::parse(&elf_bytes[..])
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to parse ELF: {}", e)))?;
-    
+
     // Find text section base address
     let mut text_section_base = 0u64;
     for section in obj.sections() {
@@ -86,10 +99,14 @@ pub fn build_emu_executable(
             break;
         }
     }
-    
+
     // Find main function address
-    let main_address = find_symbol_address(&obj, "main", text_section_base)
-        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to find main address: {}", e)))?;
+    let main_address = find_symbol_address(&obj, "main", text_section_base).map_err(|e| {
+        GlslError::new(
+            ErrorCode::E0400,
+            format!("Failed to find main address: {}", e),
+        )
+    })?;
 
     // 5. Create emulator
     let binary = load_info.code;
@@ -109,26 +126,26 @@ pub fn build_emu_executable(
         cranelift_signatures,
         binary,
         main_address,
-        transformed_clif: None,  // Phase 1: not needed
-        original_clif: None,     // Phase 1: not needed
-        vcode: None,             // Phase 1: not needed
-        disassembly: None,       // Phase 1: not needed
-        trap_source_info: Vec::new(),  // Phase 1: empty
-        source_text: None,       // Phase 1: not needed
-        source_file_path: None,  // Phase 1: not needed
+        transformed_clif: None,       // Phase 1: not needed
+        original_clif: None,          // Phase 1: not needed
+        vcode: None,                  // Phase 1: not needed
+        disassembly: None,            // Phase 1: not needed
+        trap_source_info: Vec::new(), // Phase 1: empty
+        source_text: None,            // Phase 1: not needed
+        source_file_path: None,       // Phase 1: not needed
         source_loc_manager: SourceLocManager::new(),
         source_map: GlSourceMap::new(),
-        next_buffer_addr: 0x80000000,  // Default RAM start
+        next_buffer_addr: 0x80000000, // Default RAM start
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend2::target::Target;
     use crate::backend2::module::gl_module::GlModule;
     use crate::backend2::module::test_helpers::test_helpers::build_simple_function;
-    use cranelift_codegen::ir::{types, AbiParam, Signature, InstBuilder};
+    use crate::backend2::target::Target;
+    use cranelift_codegen::ir::{AbiParam, InstBuilder, Signature, types};
     use cranelift_codegen::isa::CallConv;
     use cranelift_module::Linkage;
 
@@ -136,31 +153,32 @@ mod tests {
     #[cfg(feature = "emulator")]
     fn test_build_emu_executable() {
         use crate::exec::executable::GlslExecutable;
-        
+
         let target = Target::riscv32_emulator().unwrap();
         let mut gl_module = GlModule::new_object(target).unwrap();
-        
+
         // Build a simple function that returns 42
         let mut sig = Signature::new(CallConv::SystemV);
         sig.returns.push(AbiParam::new(types::I32));
-        
+
         build_simple_function(&mut gl_module, "main", Linkage::Export, sig, |builder| {
             let val = builder.ins().iconst(types::I32, 42);
             builder.ins().return_(&[val]);
             Ok(())
-        }).unwrap();
-        
+        })
+        .unwrap();
+
         // Build executable
         let options = EmulatorOptions {
             max_memory: 1024 * 1024,
             stack_size: 64 * 1024,
             max_instructions: 10000,
         };
-        
+
         let mut executable = build_emu_executable(gl_module, &options).unwrap();
         // main_address will be set by find_symbol_address
         // Note: main_address can be 0 if the function is at the start of the text section
-        
+
         // Actually call the function and verify it returns 42
         let result = executable.call_i32("main", &[]).unwrap();
         assert_eq!(result, 42);

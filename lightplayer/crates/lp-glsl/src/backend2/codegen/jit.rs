@@ -1,13 +1,13 @@
 //! JIT codegen - build executable from GlModule<JITModule>
 
 use crate::backend2::module::gl_module::GlModule;
-use crate::exec::jit::GlslJitModule;
 use crate::error::{ErrorCode, GlslError};
+use crate::exec::jit::GlslJitModule;
+use alloc::string::String;
+use alloc::vec::Vec;
 use cranelift_jit::JITModule;
 use cranelift_module::Module;
 use hashbrown::HashMap;
-use alloc::vec::Vec;
-use alloc::string::String;
 
 /// Build JIT executable from GlModule<JITModule>
 /// Called by GlModule<JITModule>::build_executable()
@@ -16,11 +16,16 @@ pub fn build_jit_executable(
 ) -> Result<GlslJitModule, GlslError> {
     // 1. Define all functions (compile them)
     // Collect function data first to avoid borrowing conflicts
-    let funcs: Vec<(String, cranelift_codegen::ir::Function, cranelift_module::FuncId)> = gl_module.fns
+    let funcs: Vec<(
+        String,
+        cranelift_codegen::ir::Function,
+        cranelift_module::FuncId,
+    )> = gl_module
+        .fns
         .iter()
         .map(|(name, gl_func)| (name.clone(), gl_func.function.clone(), gl_func.func_id))
         .collect();
-    
+
     for (name, func, func_id) in funcs {
         // Create context using immutable borrow
         let mut ctx = {
@@ -29,8 +34,15 @@ pub fn build_jit_executable(
         };
         ctx.func = func;
         // Define function using mutable borrow
-        gl_module.module_mut_internal().define_function(func_id, &mut ctx)
-            .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to define function '{}': {}", name, e)))?;
+        gl_module
+            .module_mut_internal()
+            .define_function(func_id, &mut ctx)
+            .map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("Failed to define function '{}': {}", name, e),
+                )
+            })?;
         // Clear context using immutable borrow
         {
             let module_ref = gl_module.module_internal();
@@ -39,13 +51,22 @@ pub fn build_jit_executable(
     }
 
     // 2. Finalize definitions
-    gl_module.module_mut_internal().finalize_definitions()
-        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to finalize definitions: {}", e)))?;
+    gl_module
+        .module_mut_internal()
+        .finalize_definitions()
+        .map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("Failed to finalize definitions: {}", e),
+            )
+        })?;
 
     // 3. Extract function pointers
     let mut function_ptrs = HashMap::new();
     for (name, gl_func) in &gl_module.fns {
-        let ptr = gl_module.module_internal().get_finalized_function(gl_func.func_id);
+        let ptr = gl_module
+            .module_internal()
+            .get_finalized_function(gl_func.func_id);
         function_ptrs.insert(name.clone(), ptr);
     }
 
@@ -59,10 +80,16 @@ pub fn build_jit_executable(
     }
 
     // 4. Get target properties (requires mutable reference for ISA caching)
-    let call_conv = gl_module.target.default_call_conv()
+    let call_conv = gl_module
+        .target
+        .default_call_conv()
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to get call conv: {}", e)))?;
-    let pointer_type = gl_module.target.pointer_type()
-        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to get pointer type: {}", e)))?;
+    let pointer_type = gl_module.target.pointer_type().map_err(|e| {
+        GlslError::new(
+            ErrorCode::E0400,
+            format!("Failed to get pointer type: {}", e),
+        )
+    })?;
 
     // 5. Create GlslJitModule
     Ok(GlslJitModule {
@@ -78,10 +105,10 @@ pub fn build_jit_executable(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend2::target::Target;
     use crate::backend2::module::gl_module::GlModule;
     use crate::backend2::module::test_helpers::test_helpers::build_simple_function;
-    use cranelift_codegen::ir::{types, AbiParam, Signature, InstBuilder};
+    use crate::backend2::target::Target;
+    use cranelift_codegen::ir::{AbiParam, InstBuilder, Signature, types};
     use cranelift_codegen::isa::CallConv;
     use cranelift_module::Linkage;
 
@@ -89,24 +116,25 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_build_jit_executable() {
         use crate::exec::executable::GlslExecutable;
-        
+
         let target = Target::host_jit().unwrap();
         let mut gl_module = GlModule::new_jit(target).unwrap();
-        
+
         // Build a simple function that returns 42
         let mut sig = Signature::new(CallConv::SystemV);
         sig.returns.push(AbiParam::new(types::I32));
-        
+
         build_simple_function(&mut gl_module, "main", Linkage::Export, sig, |builder| {
             let val = builder.ins().iconst(types::I32, 42);
             builder.ins().return_(&[val]);
             Ok(())
-        }).unwrap();
-        
+        })
+        .unwrap();
+
         // Build executable
         let mut executable = build_jit_executable(gl_module).unwrap();
         assert!(executable.function_ptrs.contains_key("main"));
-        
+
         // Actually call the function and verify it returns 42
         let result = executable.call_i32("main", &[]).unwrap();
         assert_eq!(result, 42);

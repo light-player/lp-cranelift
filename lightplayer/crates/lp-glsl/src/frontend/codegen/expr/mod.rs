@@ -13,25 +13,25 @@
 //! - `component`: Component access and swizzling
 //! - `coercion`: Type coercion and implicit conversions
 
-pub mod literal;
-pub mod variable;
-pub mod binary;
-pub mod unary;
-pub mod function;
-pub mod constructor;
-pub mod vector;
-pub mod matrix;
-pub mod component;
-pub mod coercion;
-pub mod incdec;
 pub mod assignment;
+pub mod binary;
+pub mod coercion;
+pub mod component;
+pub mod constructor;
+pub mod function;
+pub mod incdec;
+pub mod literal;
+pub mod matrix;
+pub mod unary;
+pub mod variable;
+pub mod vector;
 
+use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::rvalue::RValue;
 use crate::semantic::types::Type as GlslType;
-use crate::error::{ErrorCode, GlslError};
-use glsl::syntax::Expr;
 use cranelift_codegen::ir::Value;
+use glsl::syntax::Expr;
 
 use alloc::{format, vec::Vec};
 
@@ -65,14 +65,20 @@ impl<'a> CodegenContext<'a> {
             Expr::PostInc(..) => incdec::emit_postinc_rvalue(self, expr),
             Expr::PostDec(..) => incdec::emit_postdec_rvalue(self, expr),
 
-            _ => Err(GlslError::new(ErrorCode::E0400, format!("expression not supported yet: {:?}", expr))),
+            _ => Err(GlslError::new(
+                ErrorCode::E0400,
+                format!("expression not supported yet: {:?}", expr),
+            )),
         }
     }
 
     /// Emit code to compute an LValue (left-hand value - modifiable location)
     ///
     /// This resolves an expression to a modifiable location, following Clang's pattern.
-    pub fn emit_lvalue(&mut self, expr: &Expr) -> Result<crate::frontend::codegen::lvalue::LValue, GlslError> {
+    pub fn emit_lvalue(
+        &mut self,
+        expr: &Expr,
+    ) -> Result<crate::frontend::codegen::lvalue::LValue, GlslError> {
         use crate::frontend::codegen::lvalue::resolve_lvalue;
         resolve_lvalue(self, expr)
     }
@@ -80,22 +86,23 @@ impl<'a> CodegenContext<'a> {
     /// Load an LValue to get its RValue
     ///
     /// This reads the current value(s) from a modifiable location.
-    pub fn load_lvalue(&mut self, lvalue: crate::frontend::codegen::lvalue::LValue) -> Result<RValue, GlslError> {
+    pub fn load_lvalue(
+        &mut self,
+        lvalue: crate::frontend::codegen::lvalue::LValue,
+    ) -> Result<RValue, GlslError> {
         use crate::frontend::codegen::lvalue::read_lvalue;
         let (vals, ty) = read_lvalue(self, &lvalue)?;
         Ok(RValue::from_aggregate(vals, ty))
     }
 
-
-
-
-
-
     /// Main entry point for expression translation (legacy - use emit_rvalue instead)
     ///
     /// This method is kept for backwards compatibility during the transition.
     /// New code should use `emit_rvalue` instead.
-    pub fn translate_expr_typed(&mut self, expr: &Expr) -> Result<(Vec<Value>, GlslType), GlslError> {
+    pub fn translate_expr_typed(
+        &mut self,
+        expr: &Expr,
+    ) -> Result<(Vec<Value>, GlslType), GlslError> {
         let rvalue = self.emit_rvalue(expr)?;
         let ty = rvalue.ty().clone();
         Ok((rvalue.into_values(), ty))
@@ -104,9 +111,10 @@ impl<'a> CodegenContext<'a> {
     /// Legacy wrapper for compatibility - returns just the first value (for scalars)
     pub fn translate_expr(&mut self, expr: &Expr) -> Result<Value, GlslError> {
         let (vals, _ty) = self.translate_expr_typed(expr)?;
-        vals.into_iter().next().ok_or_else(|| GlslError::new(ErrorCode::E0400, "expression produced no values"))
+        vals.into_iter()
+            .next()
+            .ok_or_else(|| GlslError::new(ErrorCode::E0400, "expression produced no values"))
     }
-
 
     /// Coerce a value from one type to another (implements GLSL implicit conversions)
     pub fn coerce_to_type(
@@ -128,4 +136,3 @@ impl<'a> CodegenContext<'a> {
         coercion::coerce_to_type_with_location(self, val, from_ty, to_ty, span)
     }
 }
-

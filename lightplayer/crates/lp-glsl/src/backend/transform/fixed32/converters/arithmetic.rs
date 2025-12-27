@@ -1,7 +1,7 @@
 //! Arithmetic operation conversion functions.
 
-use crate::error::GlslError;
 use crate::backend::transform::fixed32::types::FixedPointFormat;
+use crate::error::GlslError;
 
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, condcodes::IntCC, types};
 use cranelift_frontend::FunctionBuilder;
@@ -144,7 +144,9 @@ pub(crate) fn convert_fdiv(
     let infinity_value = builder.ins().select(is_negative, min_fixed, max_fixed);
 
     // saturation_value = numerator_is_zero ? zero : infinity_value
-    let saturation_value = builder.ins().select(numerator_is_zero, zero, infinity_value);
+    let saturation_value = builder
+        .ins()
+        .select(numerator_is_zero, zero, infinity_value);
 
     // Perform division if divisor is non-zero
     let shift_const = builder.ins().iconst(target_type, shift_amount);
@@ -156,7 +158,9 @@ pub(crate) fn convert_fdiv(
 
     // Use a safe divisor for the shifted case to avoid division by zero
     let one = builder.ins().iconst(target_type, 1);
-    let safe_divisor_shifted = builder.ins().select(divisor_shifted_is_zero, one, divisor_shifted);
+    let safe_divisor_shifted = builder
+        .ins()
+        .select(divisor_shifted_is_zero, one, divisor_shifted);
 
     // For normal case: arg1 / safe_divisor_shifted
     let div_by_shifted_divisor = builder.ins().sdiv(arg1, safe_divisor_shifted);
@@ -168,7 +172,11 @@ pub(crate) fn convert_fdiv(
     let div_by_full_divisor = builder.ins().sdiv(arg1_shifted, safe_arg2);
 
     // Select the result: if divisor_shifted_is_zero then div_by_full_divisor else div_by_shifted_divisor
-    let div_result = builder.ins().select(divisor_shifted_is_zero, div_by_full_divisor, div_by_shifted_divisor);
+    let div_result = builder.ins().select(
+        divisor_shifted_is_zero,
+        div_by_full_divisor,
+        div_by_shifted_divisor,
+    );
 
     // Final result: if divisor was zero, use saturation_value, else use div_result
     let new_result = builder.ins().select(is_zero, saturation_value, div_result);

@@ -1,7 +1,7 @@
 //! Matrix built-in functions
 
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::{ErrorCode, GlslError};
+use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
 use cranelift_codegen::ir::{InstBuilder, Value};
 
@@ -74,8 +74,10 @@ impl<'a> CodegenContext<'a> {
         // Compute outer product: result[col][row] = vec1[col] * vec2[row]
         // Result matrix is stored column-major
         let mut result_vals = Vec::new();
-        for col in 0..vec1_size {  // Columns come from vec1
-            for row in 0..vec2_size {  // Rows come from vec2
+        for col in 0..vec1_size {
+            // Columns come from vec1
+            for row in 0..vec2_size {
+                // Rows come from vec2
                 // result[col][row] = c[col] * r[row]
                 let product = self.builder.ins().fmul(vec1_vals[col], vec2_vals[row]);
                 result_vals.push(product);
@@ -276,7 +278,11 @@ impl<'a> CodegenContext<'a> {
                         // Original columns are [0,1,2,3] with j removed
                         // If minor_col < j: original column = minor_col
                         // If minor_col >= j: original column = minor_col + 1 (skip j)
-                        let orig_col = if minor_col < j { minor_col } else { minor_col + 1 };
+                        let orig_col = if minor_col < j {
+                            minor_col
+                        } else {
+                            minor_col + 1
+                        };
                         // Extract rows 1, 2, 3 (skip row 0)
                         for minor_row in 0..3 {
                             let orig_row = minor_row + 1; // Skip row 0
@@ -430,10 +436,18 @@ impl<'a> CodegenContext<'a> {
                         let mut minor_vals = Vec::new();
                         for minor_col in 0..2 {
                             // Map minor column index to original column index
-                            let orig_col = if minor_col < j { minor_col } else { minor_col + 1 };
+                            let orig_col = if minor_col < j {
+                                minor_col
+                            } else {
+                                minor_col + 1
+                            };
                             for minor_row in 0..2 {
                                 // Map minor row index to original row index
-                                let orig_row = if minor_row < i { minor_row } else { minor_row + 1 };
+                                let orig_row = if minor_row < i {
+                                    minor_row
+                                } else {
+                                    minor_row + 1
+                                };
                                 minor_vals.push(get(orig_row, orig_col));
                             }
                         }
@@ -487,7 +501,11 @@ impl<'a> CodegenContext<'a> {
                         // Extract 3x3 minor matrix by removing row 0 and column j
                         let mut minor_vals = Vec::new();
                         for minor_col in 0..3 {
-                            let orig_col = if minor_col < j { minor_col } else { minor_col + 1 };
+                            let orig_col = if minor_col < j {
+                                minor_col
+                            } else {
+                                minor_col + 1
+                            };
                             for minor_row in 0..3 {
                                 let orig_row = minor_row + 1; // Skip row 0
                                 minor_vals.push(get(orig_row, orig_col));
@@ -524,10 +542,18 @@ impl<'a> CodegenContext<'a> {
                         let mut minor_vals = Vec::new();
                         for minor_col in 0..3 {
                             // Map minor column index to original column index
-                            let orig_col = if minor_col < j { minor_col } else { minor_col + 1 };
+                            let orig_col = if minor_col < j {
+                                minor_col
+                            } else {
+                                minor_col + 1
+                            };
                             for minor_row in 0..3 {
                                 // Map minor row index to original row index
-                                let orig_row = if minor_row < i { minor_row } else { minor_row + 1 };
+                                let orig_row = if minor_row < i {
+                                    minor_row
+                                } else {
+                                    minor_row + 1
+                                };
                                 minor_vals.push(get(orig_row, orig_col));
                             }
                         }
@@ -568,4 +594,3 @@ impl<'a> CodegenContext<'a> {
         }
     }
 }
-

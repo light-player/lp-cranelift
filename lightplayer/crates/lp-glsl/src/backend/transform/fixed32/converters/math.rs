@@ -1,7 +1,7 @@
 //! Math function conversion functions.
 
-use crate::error::GlslError;
 use crate::backend::transform::fixed32::types::FixedPointFormat;
+use crate::error::GlslError;
 
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, types};
 use cranelift_frontend::FunctionBuilder;
@@ -17,10 +17,7 @@ pub(crate) fn convert_ceil(
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    _block_map: &hashbrown::HashMap<
-        cranelift_codegen::ir::Block,
-        cranelift_codegen::ir::Block,
-    >,
+    _block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let arg = extract_unary_operand(old_func, old_inst)?;
     let mapped_arg = map_operand(value_map, arg);
@@ -49,10 +46,7 @@ pub(crate) fn convert_floor(
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    _block_map: &hashbrown::HashMap<
-        cranelift_codegen::ir::Block,
-        cranelift_codegen::ir::Block,
-    >,
+    _block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     let arg = extract_unary_operand(old_func, old_inst)?;
     let mapped_arg = map_operand(value_map, arg);
@@ -84,10 +78,7 @@ pub(crate) fn convert_sqrt(
     builder: &mut FunctionBuilder,
     value_map: &mut hashbrown::HashMap<Value, Value>,
     format: FixedPointFormat,
-    _block_map: &hashbrown::HashMap<
-        cranelift_codegen::ir::Block,
-        cranelift_codegen::ir::Block,
-    >,
+    _block_map: &hashbrown::HashMap<cranelift_codegen::ir::Block, cranelift_codegen::ir::Block>,
 ) -> Result<(), GlslError> {
     use cranelift_codegen::ir::condcodes::IntCC;
 

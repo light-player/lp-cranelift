@@ -3,9 +3,9 @@
 //! This module provides the RISC-V 32-bit emulator execution backend for GLSL functions.
 //! Requires `emulator` feature flag to be enabled.
 
+use crate::error::GlslError;
 use crate::exec::executable::GlslExecutable;
 use crate::exec::glsl_value::GlslValue;
-use crate::error::GlslError;
 use crate::frontend::semantic::functions::FunctionSignature;
 use crate::frontend::src_loc::GlSourceMap;
 use hashbrown::HashMap;
@@ -265,7 +265,8 @@ impl GlslEmulatorModule {
             // Found exact match
             // Use the first file in the source map (should be the main source file)
             let file_id = crate::frontend::src_loc::GlFileId(1); // Main file is typically ID 1
-            let trap_location = crate::frontend::src_loc::GlSourceLoc::new(file_id, trap_line, trap_column);
+            let trap_location =
+                crate::frontend::src_loc::GlSourceLoc::new(file_id, trap_line, trap_column);
             found_location = Some(trap_location);
 
             // Extract source lines
@@ -286,7 +287,11 @@ impl GlslEmulatorModule {
                     {
                         // Use the first file in the source map (should be the main source file)
                         let file_id = crate::frontend::src_loc::GlFileId(1); // Main file is typically ID 1
-                        let trap_location = crate::frontend::src_loc::GlSourceLoc::new(file_id, trap_line, trap_column);
+                        let trap_location = crate::frontend::src_loc::GlSourceLoc::new(
+                            file_id,
+                            trap_line,
+                            trap_column,
+                        );
                         found_location = Some(trap_location);
 
                         // Extract source lines
@@ -529,7 +534,11 @@ impl GlslEmulatorModule {
             if line.contains(&pattern) {
                 // Found the function - return 1-indexed line number
                 let file_id = crate::frontend::src_loc::GlFileId(1); // Main file is typically ID 1
-                return Some(crate::frontend::src_loc::GlSourceLoc::new(file_id, line_idx + 1, 1));
+                return Some(crate::frontend::src_loc::GlSourceLoc::new(
+                    file_id,
+                    line_idx + 1,
+                    1,
+                ));
             }
         }
 
@@ -737,7 +746,8 @@ impl GlslExecutable for GlslEmulatorModule {
             let buffer_size = dim * 4;
 
             // Call main via emulator with struct return (buffer allocation handled internally)
-            let results = self.emulator
+            let results = self
+                .emulator
                 .call_function_with_struct_return(self.main_address, &[], &sig, buffer_size)
                 .map_err(|e| match e {
                     EmulatorError::Trap { code, pc, regs } => {
@@ -755,7 +765,9 @@ impl GlslExecutable for GlslEmulatorModule {
             for result in results.iter().take(dim) {
                 match result {
                     cranelift_codegen::data_value::DataValue::I32(v) => {
-                        vec_result.push(*v as f32 / crate::frontend::codegen::constants::FIXED16X16_SCALE);
+                        vec_result.push(
+                            *v as f32 / crate::frontend::codegen::constants::FIXED16X16_SCALE,
+                        );
                     }
                     _ => {
                         return Err(GlslError::new(
@@ -783,9 +795,8 @@ impl GlslExecutable for GlslEmulatorModule {
             let mut vec_result = Vec::with_capacity(dim);
             for result in results.iter().take(dim) {
                 match result {
-                    cranelift_codegen::data_value::DataValue::I32(v) => {
-                        vec_result.push(*v as f32 / crate::frontend::codegen::constants::FIXED16X16_SCALE)
-                    }
+                    cranelift_codegen::data_value::DataValue::I32(v) => vec_result
+                        .push(*v as f32 / crate::frontend::codegen::constants::FIXED16X16_SCALE),
                     _ => {
                         return Err(GlslError::new(
                             ErrorCode::E0400,
@@ -832,7 +843,8 @@ impl GlslExecutable for GlslEmulatorModule {
             let buffer_size = count * 4;
 
             // Call main via emulator with struct return (buffer allocation handled internally)
-            let results = self.emulator
+            let results = self
+                .emulator
                 .call_function_with_struct_return(self.main_address, &[], &sig, buffer_size)
                 .map_err(|e| match e {
                     EmulatorError::Trap { code, pc, regs } => {
@@ -850,7 +862,9 @@ impl GlslExecutable for GlslEmulatorModule {
             for result in results.iter().take(count) {
                 match result {
                     cranelift_codegen::data_value::DataValue::I32(v) => {
-                        mat_result.push(*v as f32 / crate::frontend::codegen::constants::FIXED16X16_SCALE);
+                        mat_result.push(
+                            *v as f32 / crate::frontend::codegen::constants::FIXED16X16_SCALE,
+                        );
                     }
                     _ => {
                         return Err(GlslError::new(
@@ -879,9 +893,8 @@ impl GlslExecutable for GlslEmulatorModule {
             let mut mat_result = Vec::with_capacity(count);
             for result in results.iter().take(count) {
                 match result {
-                    cranelift_codegen::data_value::DataValue::I32(v) => {
-                        mat_result.push(*v as f32 / crate::frontend::codegen::constants::FIXED16X16_SCALE)
-                    }
+                    cranelift_codegen::data_value::DataValue::I32(v) => mat_result
+                        .push(*v as f32 / crate::frontend::codegen::constants::FIXED16X16_SCALE),
                     _ => {
                         return Err(GlslError::new(
                             ErrorCode::E0400,

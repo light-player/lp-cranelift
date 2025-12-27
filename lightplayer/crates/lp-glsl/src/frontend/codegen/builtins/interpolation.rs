@@ -1,7 +1,7 @@
 //! Interpolation built-in functions
 
-use crate::frontend::codegen::context::CodegenContext;
 use crate::error::GlslError;
+use crate::frontend::codegen::context::CodegenContext;
 use crate::semantic::types::Type;
 use cranelift_codegen::ir::{InstBuilder, Value};
 
@@ -155,7 +155,3 @@ impl<'a> CodegenContext<'a> {
         Ok((result_vals, x_ty.clone()))
     }
 }
-
-
-
-

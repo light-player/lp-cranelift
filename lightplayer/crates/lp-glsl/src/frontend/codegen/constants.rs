@@ -14,4 +14,3 @@ pub const FIXED16X16_SCALE: f32 = 65536.0;
 
 /// Precision of fixed16x16 format (1/65536)
 pub const FIXED16X16_PRECISION: f32 = 1.0 / 65536.0;
-

@@ -22,16 +22,19 @@ pub fn infer_matrix_binary_result_type(
                 if lhs_ty != rhs_ty {
                     return Err(GlslError::new(
                         ErrorCode::E0106,
-                        "matrix addition requires matching matrix types"
+                        "matrix addition requires matching matrix types",
                     )
                     .with_location(source_span_to_location(&span))
-                    .with_note(format!("left operand: `{:?}`, right operand: `{:?}`", lhs_ty, rhs_ty)));
+                    .with_note(format!(
+                        "left operand: `{:?}`, right operand: `{:?}`",
+                        lhs_ty, rhs_ty
+                    )));
                 }
                 return Ok(lhs_ty.clone());
             }
             Err(GlslError::new(
                 ErrorCode::E0106,
-                "matrix addition requires both operands to be matrices"
+                "matrix addition requires both operands to be matrices",
             )
             .with_location(source_span_to_location(&span)))
         }
@@ -42,16 +45,19 @@ pub fn infer_matrix_binary_result_type(
                 if lhs_ty != rhs_ty {
                     return Err(GlslError::new(
                         ErrorCode::E0106,
-                        "matrix subtraction requires matching matrix types"
+                        "matrix subtraction requires matching matrix types",
                     )
                     .with_location(source_span_to_location(&span))
-                    .with_note(format!("left operand: `{:?}`, right operand: `{:?}`", lhs_ty, rhs_ty)));
+                    .with_note(format!(
+                        "left operand: `{:?}`, right operand: `{:?}`",
+                        lhs_ty, rhs_ty
+                    )));
                 }
                 return Ok(lhs_ty.clone());
             }
             Err(GlslError::new(
                 ErrorCode::E0106,
-                "matrix subtraction requires both operands to be matrices"
+                "matrix subtraction requires both operands to be matrices",
             )
             .with_location(source_span_to_location(&span)))
         }
@@ -63,7 +69,7 @@ pub fn infer_matrix_binary_result_type(
                 if !rhs_ty.is_numeric() {
                     return Err(GlslError::new(
                         ErrorCode::E0106,
-                        "matrix × scalar requires numeric scalar"
+                        "matrix × scalar requires numeric scalar",
                     )
                     .with_location(source_span_to_location(&span)));
                 }
@@ -75,7 +81,7 @@ pub fn infer_matrix_binary_result_type(
                 if !lhs_ty.is_numeric() {
                     return Err(GlslError::new(
                         ErrorCode::E0106,
-                        "scalar × matrix requires numeric scalar"
+                        "scalar × matrix requires numeric scalar",
                     )
                     .with_location(source_span_to_location(&span)));
                 }
@@ -86,7 +92,7 @@ pub fn infer_matrix_binary_result_type(
             if lhs_ty.is_matrix() && rhs_ty.is_vector() {
                 let (rows, cols) = lhs_ty.matrix_dims().unwrap();
                 let vec_size = rhs_ty.component_count().unwrap();
-                
+
                 if cols != vec_size {
                     return Err(GlslError::new(
                         ErrorCode::E0106,
@@ -104,7 +110,7 @@ pub fn infer_matrix_binary_result_type(
             if lhs_ty.is_vector() && rhs_ty.is_matrix() {
                 let vec_size = lhs_ty.component_count().unwrap();
                 let (rows, cols) = rhs_ty.matrix_dims().unwrap();
-                
+
                 if vec_size != rows {
                     return Err(GlslError::new(
                         ErrorCode::E0106,
@@ -124,12 +130,14 @@ pub fn infer_matrix_binary_result_type(
             if lhs_ty.is_matrix() && rhs_ty.is_matrix() {
                 let (lhs_rows, lhs_cols) = lhs_ty.matrix_dims().unwrap();
                 let (rhs_rows, rhs_cols) = rhs_ty.matrix_dims().unwrap();
-                
+
                 if lhs_cols != rhs_rows {
                     return Err(GlslError::new(
                         ErrorCode::E0106,
-                        format!("matrix × matrix dimension mismatch: {}×{} × {}×{} requires {} == {}", 
-                            lhs_rows, lhs_cols, rhs_rows, rhs_cols, lhs_cols, rhs_rows)
+                        format!(
+                            "matrix × matrix dimension mismatch: {}×{} × {}×{} requires {} == {}",
+                            lhs_rows, lhs_cols, rhs_rows, rhs_cols, lhs_cols, rhs_rows
+                        ),
                     )
                     .with_location(source_span_to_location(&span)));
                 }
@@ -141,14 +149,14 @@ pub fn infer_matrix_binary_result_type(
                 // Non-square not yet supported
                 return Err(GlslError::new(
                     ErrorCode::E0400,
-                    "non-square matrix multiplication not yet supported"
+                    "non-square matrix multiplication not yet supported",
                 )
                 .with_location(source_span_to_location(&span)));
             }
 
             Err(GlslError::new(
                 ErrorCode::E0106,
-                "matrix multiplication requires matrix and scalar/vector/matrix operands"
+                "matrix multiplication requires matrix and scalar/vector/matrix operands",
             )
             .with_location(source_span_to_location(&span)))
         }
@@ -159,7 +167,7 @@ pub fn infer_matrix_binary_result_type(
                 if !rhs_ty.is_numeric() {
                     return Err(GlslError::new(
                         ErrorCode::E0106,
-                        "matrix / scalar requires numeric scalar"
+                        "matrix / scalar requires numeric scalar",
                     )
                     .with_location(source_span_to_location(&span)));
                 }
@@ -167,16 +175,15 @@ pub fn infer_matrix_binary_result_type(
             }
             Err(GlslError::new(
                 ErrorCode::E0106,
-                "matrix division only supports matrix / scalar"
+                "matrix division only supports matrix / scalar",
             )
             .with_location(source_span_to_location(&span)))
         }
 
         _ => Err(GlslError::new(
             ErrorCode::E0106,
-            format!("operator {:?} not supported for matrices", op)
+            format!("operator {:?} not supported for matrices", op),
         )
         .with_location(source_span_to_location(&span))),
     }
 }
-

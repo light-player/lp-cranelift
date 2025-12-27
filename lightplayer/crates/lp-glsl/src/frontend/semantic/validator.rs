@@ -3,13 +3,17 @@
 //! This module validates function bodies, variable declarations, expressions,
 //! and return statements to ensure they are semantically correct before codegen.
 
-use crate::error::{ErrorCode, GlslError, extract_span_from_expr, extract_source_line, source_span_to_location};
-use crate::frontend::semantic::types::Type;
-use crate::frontend::semantic::scope::{SymbolTable, StorageClass};
-use crate::frontend::semantic::type_check::{infer_expr_type_with_registry, check_assignment_with_span, check_condition};
+use crate::error::{
+    ErrorCode, GlslError, extract_source_line, extract_span_from_expr, source_span_to_location,
+};
 use crate::frontend::semantic::functions::FunctionRegistry;
+use crate::frontend::semantic::scope::{StorageClass, SymbolTable};
+use crate::frontend::semantic::type_check::{
+    check_assignment_with_span, check_condition, infer_expr_type_with_registry,
+};
 use crate::frontend::semantic::type_resolver;
-use glsl::syntax::{Statement, SimpleStatement, JumpStatement};
+use crate::frontend::semantic::types::Type;
+use glsl::syntax::{JumpStatement, SimpleStatement, Statement};
 
 /// Helper function to add span text to an error if source is available
 fn add_span_text_to_error(
@@ -32,14 +36,10 @@ pub fn validate_function(
     source: &str,
 ) -> Result<(), GlslError> {
     let mut symbols = SymbolTable::new();
-    
+
     // Add function parameters to symbol table
     for param in &func.parameters {
-        symbols.declare_variable(
-            param.name.clone(),
-            param.ty.clone(),
-            StorageClass::Local,
-        )?;
+        symbols.declare_variable(param.name.clone(), param.ty.clone(), StorageClass::Local)?;
     }
 
     // Validate all statements
@@ -84,18 +84,19 @@ fn validate_simple_statement(
     use glsl::syntax::SimpleStatement;
 
     match stmt {
-        SimpleStatement::Declaration(decl) => validate_declaration(decl, symbols, func_registry, source),
+        SimpleStatement::Declaration(decl) => {
+            validate_declaration(decl, symbols, func_registry, source)
+        }
         SimpleStatement::Expression(Some(expr)) => {
             // Expression statement - just validate the expression
             let expr_span = extract_span_from_expr(expr);
-            infer_expr_type_with_registry(expr, symbols, Some(func_registry))
-                .map_err(|e| {
-                    if e.span_text.is_none() {
-                        add_span_text_to_error(e, source, &expr_span)
-                    } else {
-                        e
-                    }
-                })?;
+            infer_expr_type_with_registry(expr, symbols, Some(func_registry)).map_err(|e| {
+                if e.span_text.is_none() {
+                    add_span_text_to_error(e, source, &expr_span)
+                } else {
+                    e
+                }
+            })?;
             Ok(())
         }
         SimpleStatement::Expression(None) => Ok(()), // Empty statement
@@ -105,7 +106,9 @@ fn validate_simple_statement(
         SimpleStatement::Iteration(iteration) => {
             validate_iteration(iteration, symbols, return_type, func_registry, source)
         }
-        SimpleStatement::Jump(jump) => validate_jump(jump, symbols, return_type, func_registry, source),
+        SimpleStatement::Jump(jump) => {
+            validate_jump(jump, symbols, return_type, func_registry, source)
+        }
         _ => Err(GlslError::new(
             ErrorCode::E0400,
             format!("unsupported statement type in validation: {:?}", stmt),
@@ -125,38 +128,36 @@ fn validate_declaration(
             // Get type from type specifier
             // Note: TypeSpecifier doesn't have a span, so we pass None
             let ty = type_resolver::parse_return_type(&list.head.ty, None)?;
-            
+
             // Handle the head declaration
             if let Some(name) = &list.head.name {
                 let name_span = name.span.clone();
-                symbols.declare_variable(name.name.clone(), ty.clone(), StorageClass::Local)
-                    .map_err(|e| {
-                        e.with_location(source_span_to_location(&name_span))
-                    })?;
-                
+                symbols
+                    .declare_variable(name.name.clone(), ty.clone(), StorageClass::Local)
+                    .map_err(|e| e.with_location(source_span_to_location(&name_span)))?;
+
                 // Validate initializer if present
                 if let Some(init) = &list.head.initializer {
                     validate_initializer(init, &ty, symbols, func_registry, source)?;
                 }
             }
-            
+
             // Handle tail declarations (same type, different names)
             for declarator in &list.tail {
                 let name_span = declarator.ident.ident.span.clone();
-                symbols.declare_variable(
-                    declarator.ident.ident.name.clone(),
-                    ty.clone(),
-                    StorageClass::Local,
-                )
-                .map_err(|e| {
-                    e.with_location(source_span_to_location(&name_span))
-                })?;
-                
+                symbols
+                    .declare_variable(
+                        declarator.ident.ident.name.clone(),
+                        ty.clone(),
+                        StorageClass::Local,
+                    )
+                    .map_err(|e| e.with_location(source_span_to_location(&name_span)))?;
+
                 if let Some(init) = &declarator.initializer {
                     validate_initializer(init, &ty, symbols, func_registry, source)?;
                 }
             }
-            
+
             Ok(())
         }
         glsl::syntax::Declaration::Precision(_, _) => {
@@ -187,18 +188,19 @@ fn validate_initializer(
     source: &str,
 ) -> Result<(), GlslError> {
     use glsl::syntax::Initializer;
-    
+
     match init {
         Initializer::Simple(expr) => {
             let init_span = extract_span_from_expr(expr.as_ref());
-            let init_type = infer_expr_type_with_registry(expr.as_ref(), symbols, Some(func_registry))
-                .map_err(|e| {
-                    if e.span_text.is_none() {
-                        add_span_text_to_error(e, source, &init_span)
-                    } else {
-                        e
-                    }
-                })?;
+            let init_type =
+                infer_expr_type_with_registry(expr.as_ref(), symbols, Some(func_registry))
+                    .map_err(|e| {
+                        if e.span_text.is_none() {
+                            add_span_text_to_error(e, source, &init_span)
+                        } else {
+                            e
+                        }
+                    })?;
             check_assignment_with_span(declared_type, &init_type, Some(init_span.clone()))
                 .map_err(|e| add_span_text_to_error(e, source, &init_span))?;
             Ok(())
@@ -219,7 +221,7 @@ fn validate_selection(
     source: &str,
 ) -> Result<(), GlslError> {
     use glsl::syntax::SelectionRestStatement;
-    
+
     // Validate condition
     let cond_span = extract_span_from_expr(&selection.cond);
     let cond_type = infer_expr_type_with_registry(&selection.cond, symbols, Some(func_registry))
@@ -230,12 +232,11 @@ fn validate_selection(
                 e
             }
         })?;
-    check_condition(&cond_type)
-        .map_err(|e| {
-            let error = e.with_location(source_span_to_location(&cond_span));
-            add_span_text_to_error(error, source, &cond_span)
-        })?;
-    
+    check_condition(&cond_type).map_err(|e| {
+        let error = e.with_location(source_span_to_location(&cond_span));
+        add_span_text_to_error(error, source, &cond_span)
+    })?;
+
     // Validate then/else branches
     match &selection.rest {
         SelectionRestStatement::Statement(then_stmt) => {
@@ -246,7 +247,7 @@ fn validate_selection(
             validate_statement(else_stmt, symbols, return_type, func_registry, source)?;
         }
     }
-    
+
     Ok(())
 }
 
@@ -259,7 +260,7 @@ fn validate_iteration(
     source: &str,
 ) -> Result<(), GlslError> {
     use glsl::syntax::IterationStatement;
-    
+
     match iteration {
         IterationStatement::While(condition, stmt) => {
             // Validate condition
@@ -274,7 +275,7 @@ fn validate_iteration(
             let cond_type = infer_expr_type_with_registry(cond_expr, symbols, Some(func_registry))?;
             check_condition(&cond_type)
                 .map_err(|e| e.with_location(source_span_to_location(&cond_span)))?;
-            
+
             // Validate body
             symbols.push_scope();
             validate_statement(stmt, symbols, return_type, func_registry, source)?;
@@ -286,10 +287,11 @@ fn validate_iteration(
             symbols.push_scope();
             validate_statement(stmt, symbols, return_type, func_registry, source)?;
             symbols.pop_scope();
-            
+
             // Validate condition (DoWhile takes Expr directly)
             let cond_span = extract_span_from_expr(cond_expr.as_ref());
-                let cond_type = infer_expr_type_with_registry(cond_expr.as_ref(), symbols, Some(func_registry))?;
+            let cond_type =
+                infer_expr_type_with_registry(cond_expr.as_ref(), symbols, Some(func_registry))?;
             check_condition(&cond_type)
                 .map_err(|e| e.with_location(source_span_to_location(&cond_span)))?;
             Ok(())
@@ -308,7 +310,7 @@ fn validate_iteration(
                     // Empty init
                 }
             }
-            
+
             // Validate condition (if present)
             if let Some(condition) = &rest.condition {
                 let cond_expr = match condition {
@@ -319,16 +321,17 @@ fn validate_iteration(
                     }
                 };
                 let cond_span = extract_span_from_expr(cond_expr);
-                let cond_type = infer_expr_type_with_registry(cond_expr, symbols, Some(func_registry))?;
+                let cond_type =
+                    infer_expr_type_with_registry(cond_expr, symbols, Some(func_registry))?;
                 check_condition(&cond_type)
                     .map_err(|e| e.with_location(source_span_to_location(&cond_span)))?;
             }
-            
+
             // Validate update (if present)
             if let Some(update_expr) = &rest.post_expr {
                 infer_expr_type_with_registry(update_expr, symbols, Some(func_registry))?;
             }
-            
+
             // Validate body
             validate_statement(body, symbols, return_type, func_registry, source)?;
             symbols.pop_scope();
@@ -345,9 +348,9 @@ fn validate_jump(
     func_registry: &FunctionRegistry,
     source: &str,
 ) -> Result<(), GlslError> {
-    use glsl::syntax::JumpStatement;
     use crate::frontend::semantic::type_check::can_implicitly_convert;
-    
+    use glsl::syntax::JumpStatement;
+
     match jump {
         JumpStatement::Return(Some(expr)) => {
             // Validate return expression type matches function return type
@@ -360,14 +363,20 @@ fn validate_jump(
                         e
                     }
                 })?;
-            
+
             if !can_implicitly_convert(&expr_type, return_type) {
                 let error = GlslError::new(
                     ErrorCode::E0116,
-                    format!("return type mismatch: expected `{:?}`, found `{:?}`", return_type, expr_type),
+                    format!(
+                        "return type mismatch: expected `{:?}`, found `{:?}`",
+                        return_type, expr_type
+                    ),
                 )
                 .with_location(source_span_to_location(&expr_span))
-                .with_note(format!("function returns `{:?}` but expression has type `{:?}`", return_type, expr_type));
+                .with_note(format!(
+                    "function returns `{:?}` but expression has type `{:?}`",
+                    return_type, expr_type
+                ));
                 return Err(add_span_text_to_error(error, source, &expr_span));
             }
             Ok(())
@@ -377,7 +386,10 @@ fn validate_jump(
             if *return_type != Type::Void {
                 return Err(GlslError::new(
                     ErrorCode::E0116,
-                    format!("return type mismatch: expected `{:?}`, found `Void`", return_type),
+                    format!(
+                        "return type mismatch: expected `{:?}`, found `Void`",
+                        return_type
+                    ),
                 ));
             }
             Ok(())
@@ -392,5 +404,3 @@ fn validate_jump(
         }
     }
 }
-
-

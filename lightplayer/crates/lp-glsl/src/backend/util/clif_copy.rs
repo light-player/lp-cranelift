@@ -260,9 +260,10 @@ pub fn copy_value_aliases(
     for (new_dest, new_alias) in aliases_to_create {
         // Create the alias in the new function: new_alias -> new_dest
         // Note: make_value_alias_for_serialization takes (src, dest) where dest is the alias
-        new_func.dfg.make_value_alias_for_serialization(new_dest, new_alias);
+        new_func
+            .dfg
+            .make_value_alias_for_serialization(new_dest, new_alias);
     }
 
     Ok(())
 }
-

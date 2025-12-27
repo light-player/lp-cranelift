@@ -11,7 +11,7 @@ pub use crate::backend::ir_utils::fixed_point::{
     min_fixed_value,
 };
 pub use crate::backend::ir_utils::instruction::{
-    extract_binary_operands, extract_unary_operand, get_first_result,
-    unexpected_format_error, verify_converted_type,
+    extract_binary_operands, extract_unary_operand, get_first_result, unexpected_format_error,
+    verify_converted_type,
 };
 pub use crate::backend::ir_utils::value_map::{map_operand, map_operands, map_value};

@@ -33,7 +33,9 @@ fn test_parse_mat2_from_column_vectors() {
 #[test]
 fn test_parse_mat3_from_column_vectors() {
     // mat3(vec3(1.0, 2.0, 3.0), vec3(4.0, 5.0, 6.0), vec3(7.0, 8.0, 9.0))
-    let result = GlslValue::parse("mat3(vec3(1.0, 2.0, 3.0), vec3(4.0, 5.0, 6.0), vec3(7.0, 8.0, 9.0))").unwrap();
+    let result =
+        GlslValue::parse("mat3(vec3(1.0, 2.0, 3.0), vec3(4.0, 5.0, 6.0), vec3(7.0, 8.0, 9.0))")
+            .unwrap();
     match result {
         GlslValue::Mat3x3(m) => {
             // m[col][row] format
@@ -85,4 +87,3 @@ fn test_parse_mat4_from_column_vectors() {
         _ => panic!("Expected Mat4x4"),
     }
 }
-
