@@ -9,7 +9,7 @@ use crate::exec::glsl_value::GlslValue;
 use crate::frontend::semantic::functions::FunctionSignature;
 use crate::frontend::src_loc::GlSourceMap;
 use hashbrown::HashMap;
-use lp_riscv_tools::emu::error::{trap_code_to_string, EmulatorError};
+use lp_riscv_tools::emu::error::{EmulatorError, trap_code_to_string};
 
 use alloc::{format, string::String, vec::Vec};
 
@@ -39,9 +39,6 @@ pub struct GlslEmulatorModule {
         cranelift_codegen::ir::SourceLoc,
         String,
     )>,
-    // Store original GLSL source text for error reporting
-    // TODO: Remove this in favor of source_map which has the source text
-    pub(crate) source_text: Option<String>,
     // Source location manager for mapping SourceLoc to GLSL source positions
     pub(crate) source_loc_manager: crate::frontend::src_loc_manager::SourceLocManager,
     // Source map for managing file locations
@@ -53,6 +50,26 @@ pub struct GlslEmulatorModule {
 
 #[cfg(feature = "emulator")]
 impl GlslEmulatorModule {
+    /// Get the main file ID from the source map (typically the first file added)
+    fn get_main_file_id(&self) -> Option<crate::frontend::src_loc::GlFileId> {
+        // The main file is typically the first file added, which gets GlFileId(1)
+        // Check if GlFileId(1) exists, otherwise try to find the first available file
+        let main_file_id = crate::frontend::src_loc::GlFileId(1);
+        if self.source_map.get_file(main_file_id).is_some() {
+            Some(main_file_id)
+        } else {
+            // Fallback: try to find any file (shouldn't happen in normal cases)
+            // Since we can't iterate files directly, we'll try a few IDs
+            for i in 1..=10 {
+                let file_id = crate::frontend::src_loc::GlFileId(i);
+                if self.source_map.get_file(file_id).is_some() {
+                    return Some(file_id);
+                }
+            }
+            None
+        }
+    }
+
     /// Validate that only "main" function is being called
     fn validate_main_only(name: &str) -> Result<(), GlslError> {
         use crate::error::ErrorCode;
@@ -185,10 +202,12 @@ impl GlslEmulatorModule {
     /// Format source lines around a trap location for error display
     fn format_source_lines_around_trap(
         &self,
+        file_id: crate::frontend::src_loc::GlFileId,
         trap_line: usize,
         trap_column: usize,
     ) -> Option<String> {
-        let source_text = self.source_text.as_ref()?;
+        let source_file = self.source_map.get_file(file_id)?;
+        let source_text = &source_file.contents;
         let lines: Vec<&str> = source_text.lines().collect();
 
         if trap_line == 0 || trap_line > lines.len() {
@@ -260,16 +279,19 @@ impl GlslEmulatorModule {
         let mut found_location = None;
         let mut found_span_text = None;
 
+        // Get the main file ID once and reuse it
+        let file_id = self.get_main_file_id().unwrap_or_else(|| {
+            crate::frontend::src_loc::GlFileId(1) // Fallback to ID 1 if helper fails
+        });
+
         if let Some((trap_line, trap_column)) = self.source_loc_manager.lookup_srcloc(srcloc) {
             // Found exact match
-            // Use the first file in the source map (should be the main source file)
-            let file_id = crate::frontend::src_loc::GlFileId(1); // Main file is typically ID 1
             let trap_location =
                 crate::frontend::src_loc::GlSourceLoc::new(file_id, trap_line, trap_column);
             found_location = Some(trap_location);
 
             // Extract source lines
-            found_span_text = self.format_source_lines_around_trap(trap_line, trap_column);
+            found_span_text = self.format_source_lines_around_trap(file_id, trap_line, trap_column);
         }
 
         // Fallback: if location lookup failed, try closest trap_info entry
@@ -284,8 +306,6 @@ impl GlslEmulatorModule {
                     if let Some((trap_line, trap_column)) =
                         self.source_loc_manager.lookup_srcloc(*closest_srcloc)
                     {
-                        // Use the first file in the source map (should be the main source file)
-                        let file_id = crate::frontend::src_loc::GlFileId(1); // Main file is typically ID 1
                         let trap_location = crate::frontend::src_loc::GlSourceLoc::new(
                             file_id,
                             trap_line,
@@ -295,7 +315,7 @@ impl GlslEmulatorModule {
 
                         // Extract source lines
                         found_span_text =
-                            self.format_source_lines_around_trap(trap_line, trap_column);
+                            self.format_source_lines_around_trap(file_id, trap_line, trap_column);
                     }
                 }
             }
@@ -518,7 +538,9 @@ impl GlslEmulatorModule {
         &self,
         func_name: &str,
     ) -> Option<crate::frontend::src_loc::GlSourceLoc> {
-        let source_text = self.source_text.as_ref()?;
+        let file_id = self.get_main_file_id()?;
+        let source_file = self.source_map.get_file(file_id)?;
+        let source_text = &source_file.contents;
 
         // Search for function definition: "type func_name(" or "func_name("
         // This is a simple heuristic - we look for the function name followed by (
@@ -532,7 +554,6 @@ impl GlslEmulatorModule {
         for (line_idx, line) in source_text.lines().enumerate() {
             if line.contains(&pattern) {
                 // Found the function - return 1-indexed line number
-                let file_id = crate::frontend::src_loc::GlFileId(1); // Main file is typically ID 1
                 return Some(crate::frontend::src_loc::GlSourceLoc::new(
                     file_id,
                     line_idx + 1,
@@ -548,10 +569,12 @@ impl GlslEmulatorModule {
     #[allow(dead_code)] // Reserved for future use in error reporting
     fn extract_source_lines(
         &self,
+        file_id: crate::frontend::src_loc::GlFileId,
         line_num: usize,
         context_lines: usize,
     ) -> Option<(Vec<String>, usize)> {
-        let source_text = self.source_text.as_ref()?;
+        let source_file = self.source_map.get_file(file_id)?;
+        let source_text = &source_file.contents;
         let lines: Vec<&str> = source_text.lines().collect();
 
         if line_num == 0 || line_num > lines.len() {
@@ -933,7 +956,7 @@ impl GlslExecutable for GlslEmulatorModule {
 #[cfg(feature = "emulator")]
 #[cfg(test)]
 mod tests {
-    use crate::{glsl_emu_riscv32, GlslOptions};
+    use crate::{GlslOptions, glsl_emu_riscv32};
 
     /// Convert float to 16.16 fixed-point for comparison
     fn float_to_fixed32(f: f32) -> i32 {

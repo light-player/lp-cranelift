@@ -5,9 +5,9 @@
 use crate::test_compile::{compare_clif, format_clif_module};
 use crate::validation::validate_clif_module;
 use anyhow::{Context, Result};
+use lp_glsl::GlslCompiler;
 use lp_glsl::backend::target::Target;
 use lp_glsl::backend::transform::fixed32::{Fixed32Transform, FixedPointFormat};
-use lp_glsl::GlslCompiler;
 use std::path::Path;
 
 /// Run a transform test: verify CLIF IR after fixed32 transformation.

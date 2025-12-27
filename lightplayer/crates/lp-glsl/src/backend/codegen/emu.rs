@@ -85,7 +85,6 @@ pub fn build_emu_executable(
     for (name, gl_func) in &gl_module.fns {
         cranelift_signatures.insert(name.clone(), gl_func.clif_sig.clone());
     }
-    let source_text = gl_module.source_text.clone();
     // Extract source_loc_manager and source_map using mem::replace to avoid partial moves
     use crate::frontend::src_loc_manager::SourceLocManager;
     let source_loc_manager =
@@ -143,7 +142,6 @@ pub fn build_emu_executable(
         vcode: None,                  // Phase 1: not needed
         disassembly: None,            // Phase 1: not needed
         trap_source_info: Vec::new(), // Phase 1: empty
-        source_text: Some(source_text),
         source_loc_manager,
         source_map,
         next_buffer_addr: 0x80000000, // Default RAM start
