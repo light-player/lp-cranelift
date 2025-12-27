@@ -78,7 +78,7 @@ impl Transform for Fixed32Transform {
 #[cfg(feature = "std")]
 mod tests {
     use super::*;
-    use cranelift_codegen::ir::{types, AbiParam, Signature};
+    use cranelift_codegen::ir::{AbiParam, Signature, types};
     use cranelift_codegen::isa::CallConv;
 
     /// Test signature conversion: F32 params → I32 params
@@ -116,5 +116,42 @@ mod tests {
         assert_eq!(transformed.params[1].value_type, types::I32); // I32 unchanged
         assert_eq!(transformed.returns.len(), 1);
         assert_eq!(transformed.returns[0].value_type, types::I32); // F32 → I32
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn test_call_clif() {
+        // Test with multiple functions - parse each separately
+        // Fixed32 transform should preserve function calls correctly for integer-only code
+        use crate::backend::transform::shared::transform_test_util;
+        transform_test_util::assert_nop_fixed32_transform(
+            "Fixed32 transform should preserve function calls for integer-only code",
+            r#"
+function %test_int_add_positive_positive() -> i32 system_v {
+block0:
+    v0 = iconst.i32 5
+    v1 = iconst.i32 3
+    v2 = iadd v0, v1  ; v0 = 5, v1 = 3
+    return v2
+
+block1:
+    v3 = iconst.i32 0
+    return v3  ; v3 = 0
+}
+
+function %main() -> i32 system_v {
+    sig0 = () -> i32 system_v
+    fn0 = colocated %test_int_add_positive_positive sig0
+
+block0:
+    v0 = call fn0()
+    return v0
+
+block1:
+    v1 = iconst.i32 0
+    return v1  ; v1 = 0
+}
+"#,
+        );
     }
 }

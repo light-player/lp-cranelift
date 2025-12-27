@@ -1,7 +1,8 @@
 use crate::backend::transform::identity::IdentityTransform;
+use crate::backend::transform::pipeline::Transform;
 use cranelift_codegen::write_function;
 use cranelift_module::Linkage;
-use cranelift_reader::{parse_test, ParseOptions};
+use cranelift_reader::{ParseOptions, parse_test};
 use std::prelude::rust_2015::{String, Vec};
 
 /// Normalize CLIF strings for comparison
@@ -36,7 +37,7 @@ fn format_module<M: cranelift_module::Module>(
 }
 
 /// Parse CLIF module input, transform it, and return CLIF strings for comparison
-fn parse_and_transform(clif_input: &str) -> (String, String) {
+fn parse_and_transform<T: Transform>(clif_input: &str, transform: T) -> (String, String) {
     // Parse the CLIF module
     let test_file =
         parse_test(clif_input, ParseOptions::default()).expect("Failed to parse CLIF module");
@@ -63,10 +64,9 @@ fn parse_and_transform(clif_input: &str) -> (String, String) {
     let parsed_buf = format_module(&original_module);
 
     // Transform the whole module
-    let transform = IdentityTransform;
     let transformed_module = original_module
         .apply_transform(transform)
-        .expect("Failed to apply identity transform");
+        .expect("Failed to apply transform");
 
     // Format the transformed module
     let transformed_buf = format_module(&transformed_module);
@@ -76,7 +76,27 @@ fn parse_and_transform(clif_input: &str) -> (String, String) {
 
 /// Assert that identity transform produces identical CLIF output
 pub fn assert_identity_transform(message: &str, clif_input: &str) {
-    let (parsed_buf, transformed_buf) = parse_and_transform(clif_input);
+    let (parsed_buf, transformed_buf) = parse_and_transform(clif_input, IdentityTransform);
+
+    let normalized_parsed = normalize_clif(&parsed_buf);
+    let normalized_transformed = normalize_clif(&transformed_buf);
+
+    assert_eq!(
+        normalized_parsed, normalized_transformed,
+        "{}\n\
+     PARSED:\n{}\n\n\
+     TRANSFORMED:\n{}",
+        message, parsed_buf, transformed_buf
+    );
+}
+
+/// Assert that fixed32 transform produces identical CLIF output for code without floats
+/// (i.e., fixed32 should be a no-op for integer-only code)
+pub fn assert_nop_fixed32_transform(message: &str, clif_input: &str) {
+    use crate::backend::transform::fixed32::{Fixed32Transform, FixedPointFormat};
+
+    let transform = Fixed32Transform::new(FixedPointFormat::Fixed16x16);
+    let (parsed_buf, transformed_buf) = parse_and_transform(clif_input, transform);
 
     let normalized_parsed = normalize_clif(&parsed_buf);
     let normalized_transformed = normalize_clif(&transformed_buf);

@@ -87,7 +87,7 @@ pub(crate) fn convert_call(
     ext_func_map: &mut HashMap<FuncRef, FuncRef>,
     sig_map: &mut HashMap<SigRef, SigRef>,
     format: FixedPointFormat,
-    func_id_map: &HashMap<String, FuncId>,
+    _func_id_map: &HashMap<String, FuncId>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
 
@@ -99,28 +99,10 @@ pub(crate) fn convert_call(
     {
         // Check if this is a TestCase (colocated) function
         let old_ext_func = &old_func.dfg.ext_funcs[*func_ref];
-        let new_func_ref = if let ExternalName::TestCase(testcase) = &old_ext_func.name {
-            // Extract function name from testcase (remove leading % if present)
-            let name_bytes = testcase.raw();
-            let name_str = core::str::from_utf8(name_bytes).map_err(|_| {
-                GlslError::new(
-                    ErrorCode::E0301,
-                    alloc::format!("Invalid testcase name encoding"),
-                )
-            })?;
-            let func_name = name_str.strip_prefix('%').unwrap_or(name_str);
-
-            // Look up FuncId in func_id_map
-            let func_id = func_id_map.get(func_name).copied().ok_or_else(|| {
-                GlslError::new(
-                    ErrorCode::E0301,
-                    alloc::format!(
-                        "Function '{}' not found in func_id_map (colocated function)",
-                        func_name
-                    ),
-                )
-            })?;
-
+        let new_func_ref = if let ExternalName::TestCase(_) = &old_ext_func.name {
+            // For TestCase names, clone directly (like identity transform does)
+            // This preserves the function name correctly without needing FuncId lookup
+            // Don't cache TestCase functions - import fresh each time like identity transform
             // Get the old signature and transform it
             let old_sig_ref = old_ext_func.signature;
             let old_sig = &old_func.dfg.signatures[old_sig_ref];
@@ -135,25 +117,16 @@ pub(crate) fn convert_call(
                 imported_sig_ref
             };
 
-            // Convert FuncId to UserExternalName (like declare_func_in_func does)
-            // This is the correct way to reference colocated functions - TestCase names
-            // are only for test CLIF files, but at runtime we use UserExternalName with FuncId
-            let user_name_ref = builder.func.declare_imported_user_function(
-                cranelift_codegen::ir::UserExternalName {
-                    namespace: 0,
-                    index: func_id.as_u32(),
-                },
-            );
-
+            // Clone the TestCase name directly (like identity transform)
             let new_ext_func = ExtFuncData {
-                name: cranelift_codegen::ir::ExternalName::User(user_name_ref), // Use User, not TestCase!
+                name: old_ext_func.name.clone(), // Clone TestCase name directly
                 signature: new_sig_ref,
-                colocated: true,
+                colocated: old_ext_func.colocated,
             };
 
             builder.func.import_function(new_ext_func)
         } else {
-            // Use existing logic for external functions
+            // Use existing logic for external functions (with caching)
             map_external_function(old_func, *func_ref, builder, ext_func_map, sig_map, format)?
         };
 
