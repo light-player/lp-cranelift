@@ -7,7 +7,7 @@ use crate::backend2::module::gl_module::GlModule;
 use crate::error::GlslError;
 use alloc::string::String;
 use cranelift_codegen::ir::{FuncRef, Function, Signature};
-use cranelift_module::Module;
+use cranelift_module::{FuncId, Module};
 use hashbrown::HashMap;
 
 /// Context for transformations
@@ -17,8 +17,8 @@ use hashbrown::HashMap;
 pub struct TransformContext<'a, M: Module> {
     /// The new module being built
     pub module: &'a mut GlModule<M>,
-    /// Mapping from function names to their new FuncRefs
-    pub func_ref_map: HashMap<String, FuncRef>,
+    /// Mapping from function names to their new FuncIds (for creating FuncRefs per function)
+    pub func_id_map: HashMap<String, FuncId>,
 }
 
 /// Transform trait for module-level transformations

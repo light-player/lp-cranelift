@@ -3,8 +3,14 @@
 //! This module adapts the existing fixed32 transform to work with the new
 //! backend2 architecture using the Transform trait.
 
+mod converters;
+mod instructions;
+mod signature;
 mod transform;
+mod types;
+
+#[cfg(test)]
+mod fixed32_test_util;
 
 pub use transform::Fixed32Transform;
-// Re-export FixedPointFormat - use the public re-export from backend::transform::fixed32
-pub use crate::backend::transform::fixed32::FixedPointFormat;
+pub use types::FixedPointFormat;

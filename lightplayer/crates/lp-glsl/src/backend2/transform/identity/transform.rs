@@ -21,9 +21,6 @@ impl Transform for IdentityTransform {
         // Get transformed signature
         let new_sig = self.transform_signature(&old_func.signature);
 
-        // Capture func_ref_map from context for FuncRef mapping
-        let func_ref_map = ctx.func_ref_map.clone();
-
         transform_function_body(
             old_func,
             new_sig,
@@ -36,7 +33,8 @@ impl Transform for IdentityTransform {
                     value_map,
                     stack_slot_map,
                     block_map,
-                    Some(&func_ref_map),
+                    None,  // func_ref_map not used by copy_instruction
+                    |t| t, // Identity type mapping
                 )
             },
             // Type mapping: identity (no conversion)

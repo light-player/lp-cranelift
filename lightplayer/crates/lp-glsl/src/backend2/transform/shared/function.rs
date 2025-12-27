@@ -47,7 +47,7 @@ pub fn transform_function_body(
     // 1. Create new function with transformed signature
     let mut new_func = Function::with_name_signature(old_func.name.clone(), new_sig);
 
-    // 2. Copy stack slots
+    // 2. Copy stack slots (with type mapping)
     let stack_slot_map = copy_stack_slots(old_func, &mut new_func)?;
 
     // 3. Create builder

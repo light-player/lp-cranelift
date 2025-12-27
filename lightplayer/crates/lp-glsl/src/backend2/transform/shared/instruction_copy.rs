@@ -8,7 +8,7 @@ use crate::backend2::transform::shared::blocks::ensure_block_params;
 use crate::error::{ErrorCode, GlslError};
 use cranelift_codegen::ir::{
     Block, BlockArg, ExternalName, FuncRef, Function, Inst, InstBuilder, InstructionData,
-    JumpTableData, StackSlot, Value, types,
+    JumpTableData, StackSlot, Type, Value, types,
 };
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
@@ -31,6 +31,7 @@ fn map_value(value_map: &HashMap<Value, Value>, old_value: Value) -> Value {
 ///
 /// * `func_ref_map` - Optional mapping from function names to FuncRefs (currently unused,
 ///   kept for API compatibility with TransformContext).
+/// * `map_param_type` - Callback to map block parameter types (e.g., F32 → I32 for fixed32 transform)
 pub fn copy_instruction(
     old_func: &Function,
     old_inst: Inst,
@@ -39,6 +40,7 @@ pub fn copy_instruction(
     stack_slot_map: Option<&HashMap<StackSlot, StackSlot>>,
     block_map: &HashMap<Block, Block>,
     _func_ref_map: Option<&HashMap<String, FuncRef>>,
+    map_param_type: impl Fn(Type) -> Type,
 ) -> Result<(), GlslError> {
     // Copy source location from old instruction
     let srcloc = old_func.srcloc(old_inst);
@@ -65,7 +67,7 @@ pub fn copy_instruction(
                     new_dest_block,
                     builder,
                     value_map,
-                    |t| t, // Identity type mapping
+                    &map_param_type,
                 )?;
             }
 
@@ -108,7 +110,7 @@ pub fn copy_instruction(
                     new_then_block,
                     builder,
                     value_map,
-                    |t| t, // Identity type mapping
+                    &map_param_type,
                 )?;
             }
             {
@@ -118,7 +120,7 @@ pub fn copy_instruction(
                     new_else_block,
                     builder,
                     value_map,
-                    |t| t, // Identity type mapping
+                    &map_param_type,
                 )?;
             }
 
@@ -171,7 +173,7 @@ pub fn copy_instruction(
                     new_default_block,
                     builder,
                     value_map,
-                    |t| t, // Identity type mapping
+                    &map_param_type,
                 )?;
             }
 
@@ -203,7 +205,7 @@ pub fn copy_instruction(
                         new_block,
                         builder,
                         value_map,
-                        |t| t, // Identity type mapping
+                        &map_param_type,
                     )?;
                 }
 

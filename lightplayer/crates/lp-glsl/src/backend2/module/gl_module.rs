@@ -196,8 +196,8 @@ impl<M: Module> GlModule<M> {
         use cranelift_codegen::ir::FuncRef;
         use cranelift_module::Linkage;
 
-        // 1. Transform all function signatures and create FuncRef mappings
-        let mut func_ref_map = hashbrown::HashMap::new();
+        // 1. Transform all function signatures and create FuncId mappings
+        let mut func_id_map = hashbrown::HashMap::new();
         for (name, gl_func) in &self.fns {
             let new_sig = transform.transform_signature(&gl_func.clif_sig);
             // Determine linkage - for now, use Local (can be enhanced later)
@@ -214,20 +214,14 @@ impl<M: Module> GlModule<M> {
                         ),
                     )
                 })?;
-            // Create FuncRef for cross-function calls
-            let mut temp_func = cranelift_codegen::ir::Function::new();
-            temp_func.signature = new_sig.clone();
-            let func_ref = new_module
-                .module_mut_internal()
-                .declare_func_in_func(func_id, &mut temp_func);
-            func_ref_map.insert(name.clone(), func_ref);
+            func_id_map.insert(name.clone(), func_id);
         }
 
         // 2. Transform function bodies
         for (name, gl_func) in self.fns {
             let mut transform_ctx = TransformContext {
                 module: &mut new_module,
-                func_ref_map: func_ref_map.clone(),
+                func_id_map: func_id_map.clone(),
             };
             let transformed_func =
                 transform.transform_function(&gl_func.function, &mut transform_ctx)?;

@@ -1,8 +1,8 @@
-use std::prelude::rust_2015::{String, Vec};
+use crate::backend2::transform::identity::IdentityTransform;
 use cranelift_codegen::write_function;
 use cranelift_module::Linkage;
-use cranelift_reader::{parse_test, ParseOptions};
-use crate::backend2::transform::identity::IdentityTransform;
+use cranelift_reader::{ParseOptions, parse_test};
+use std::prelude::rust_2015::{String, Vec};
 
 /// Normalize CLIF strings for comparison
 fn normalize_clif(clif: &str) -> String {
