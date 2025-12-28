@@ -50,7 +50,8 @@ int test_bounds_negative_index_read() {
     arr[2] = 3;
 
     // This should trap at runtime
-    int bad = arr[-1];
+    int i=-1;
+    int bad = arr[i];
     return bad; // Should not reach here
 }
 // run: test_bounds_negative_index_read() == 0
@@ -64,7 +65,8 @@ int test_bounds_upper_bound_read() {
     arr[2] = 3;
 
     // This should trap at runtime (index 3 is out of bounds for array of size 3)
-    int bad = arr[3];
+    int i=3;
+    int bad = arr[i];
     return bad; // Should not reach here
 }
 // run: test_bounds_upper_bound_read() == 0
@@ -78,7 +80,8 @@ int test_bounds_large_index_read() {
     arr[2] = 3;
 
     // This should trap at runtime
-    int bad = arr[100];
+    int i=100;
+    int bad = arr[i];
     return bad; // Should not reach here
 }
 // run: test_bounds_large_index_read() == 0
@@ -92,7 +95,8 @@ int test_bounds_negative_index_write() {
     arr[2] = 3;
 
     // This should trap at runtime
-    arr[-1] = 999;
+    int i=-1;
+    arr[i] = 999;
     return arr[0]; // Should not reach here
 }
 // run: test_bounds_negative_index_write() == 0
@@ -106,7 +110,8 @@ int test_bounds_upper_bound_write() {
     arr[2] = 3;
 
     // This should trap at runtime (index 3 is out of bounds for array of size 3)
-    arr[3] = 999;
+    int i=3;
+    arr[i] = 999;
     return arr[0]; // Should not reach here
 }
 // run: test_bounds_upper_bound_write() == 0
@@ -120,7 +125,8 @@ int test_bounds_large_index_write() {
     arr[2] = 3;
 
     // This should trap at runtime
-    arr[100] = 999;
+    int i=100;
+    arr[i] = 999;
     return arr[0]; // Should not reach here
 }
 // run: test_bounds_large_index_write() == 0
