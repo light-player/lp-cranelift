@@ -346,27 +346,7 @@ pub fn resolve_lvalue<M: cranelift_module::Module>(
                         Some(idx)
                     } else {
                         // Runtime index - emit bounds check
-                        let zero = ctx
-                            .builder
-                            .ins()
-                            .iconst(cranelift_codegen::ir::types::I32, 0);
-                        let array_size_val = ctx
-                            .builder
-                            .ins()
-                            .iconst(cranelift_codegen::ir::types::I32, array_size as i64);
-                        let index_lt_zero = ctx.builder.ins().icmp(
-                            cranelift_codegen::ir::condcodes::IntCC::SignedLessThan,
-                            index_val,
-                            zero,
-                        );
-                        let index_ge_size = ctx.builder.ins().icmp(
-                            cranelift_codegen::ir::condcodes::IntCC::SignedGreaterThanOrEqual,
-                            index_val,
-                            array_size_val,
-                        );
-                        let out_of_bounds = ctx.builder.ins().bor(index_lt_zero, index_ge_size);
-                        let trap_code = cranelift_codegen::ir::TrapCode::user(1).unwrap();
-                        ctx.builder.ins().trapnz(out_of_bounds, trap_code);
+                        component::emit_bounds_check(ctx, index_val, array_size, span)?;
                         None
                     };
 
@@ -636,6 +616,7 @@ pub fn read_lvalue<M: cranelift_module::Module>(
 
         LValue::ArrayElement {
             array_ptr,
+            base_ty,
             element_ty,
             index,
             index_val,
@@ -643,6 +624,14 @@ pub fn read_lvalue<M: cranelift_module::Module>(
             component_indices,
             ..
         } => {
+            // Emit bounds check for runtime indices (compile-time constants are already validated)
+            if let Some(runtime_idx) = index_val {
+                let array_size = base_ty.array_dimensions()[0];
+                // Use unknown span for error reporting (runtime checks don't have exact span)
+                let dummy_span = glsl::syntax::SourceSpan::unknown();
+                component::emit_bounds_check(ctx, *runtime_idx, array_size, &dummy_span)?;
+            }
+
             // Calculate byte offset and final pointer
             // For runtime offsets, add offset to pointer and use offset 0
             let (final_ptr, base_offset) = if let Some(compile_idx) = index {
@@ -657,8 +646,13 @@ pub fn read_lvalue<M: cranelift_module::Module>(
                 );
                 let offset_val = ctx.builder.ins().imul(*runtime_idx, element_size_const);
                 let pointer_type = ctx.gl_module.module_internal().isa().pointer_type();
-                let offset_extended = ctx.builder.ins().uextend(pointer_type, offset_val);
-                let final_ptr = ctx.builder.ins().iadd(*array_ptr, offset_extended);
+                // If pointer type matches offset type, use offset directly; otherwise extend
+                let offset_for_ptr = if pointer_type == cranelift_codegen::ir::types::I32 {
+                    offset_val
+                } else {
+                    ctx.builder.ins().uextend(pointer_type, offset_val)
+                };
+                let final_ptr = ctx.builder.ins().iadd(*array_ptr, offset_for_ptr);
                 (final_ptr, 0)
             } else {
                 return Err(GlslError::new(
@@ -848,6 +842,7 @@ pub fn write_lvalue<M: cranelift_module::Module>(
 
         LValue::ArrayElement {
             array_ptr,
+            base_ty,
             element_ty,
             index,
             index_val,
@@ -855,6 +850,14 @@ pub fn write_lvalue<M: cranelift_module::Module>(
             component_indices,
             ..
         } => {
+            // Emit bounds check for runtime indices (compile-time constants are already validated)
+            if let Some(runtime_idx) = index_val {
+                let array_size = base_ty.array_dimensions()[0];
+                // Use unknown span for error reporting (runtime checks don't have exact span)
+                let dummy_span = glsl::syntax::SourceSpan::unknown();
+                component::emit_bounds_check(ctx, *runtime_idx, array_size, &dummy_span)?;
+            }
+
             // Calculate byte offset and final pointer
             // For runtime offsets, add offset to pointer and use offset 0
             let (final_ptr, base_offset) = if let Some(compile_idx) = index {
@@ -869,8 +872,13 @@ pub fn write_lvalue<M: cranelift_module::Module>(
                 );
                 let offset_val = ctx.builder.ins().imul(*runtime_idx, element_size_const);
                 let pointer_type = ctx.gl_module.module_internal().isa().pointer_type();
-                let offset_extended = ctx.builder.ins().uextend(pointer_type, offset_val);
-                let final_ptr = ctx.builder.ins().iadd(*array_ptr, offset_extended);
+                // If pointer type matches offset type, use offset directly; otherwise extend
+                let offset_for_ptr = if pointer_type == cranelift_codegen::ir::types::I32 {
+                    offset_val
+                } else {
+                    ctx.builder.ins().uextend(pointer_type, offset_val)
+                };
+                let final_ptr = ctx.builder.ins().iadd(*array_ptr, offset_for_ptr);
                 (final_ptr, 0)
             } else {
                 return Err(GlslError::new(

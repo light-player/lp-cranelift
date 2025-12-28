@@ -156,8 +156,13 @@ pub fn emit_indexing<M: cranelift_module::Module>(
                 let element_size_const = ctx.builder.ins().iconst(types::I32, element_size_bytes as i64);
                 let offset_val = ctx.builder.ins().imul(index_val, element_size_const);
                 let pointer_type = ctx.gl_module.module_internal().isa().pointer_type();
-                let offset_extended = ctx.builder.ins().uextend(pointer_type, offset_val);
-                let final_ptr = ctx.builder.ins().iadd(array_ptr, offset_extended);
+                // If pointer type matches offset type, use offset directly; otherwise extend
+                let offset_for_ptr = if pointer_type == types::I32 {
+                    offset_val
+                } else {
+                    ctx.builder.ins().uextend(pointer_type, offset_val)
+                };
+                let final_ptr = ctx.builder.ins().iadd(array_ptr, offset_for_ptr);
                 (final_ptr, 0)
             };
 
@@ -528,7 +533,7 @@ pub fn has_duplicates(indices: &[usize]) -> bool {
 /// Emit bounds checking code with trap for out-of-bounds indices
 ///
 /// Checks that `index_val` is in range [0, bound) and traps if not.
-/// Uses `TrapCode::user(1)` for "vector/matrix index out of bounds".
+/// Uses `TrapCode::user(1)` for "array/vector/matrix index out of bounds".
 ///
 /// Uses `trapnz` to trap when the out-of-bounds condition is non-zero (true).
 /// NOTE: The trap instruction is being generated correctly in the CLIF IR,
@@ -542,7 +547,7 @@ pub fn has_duplicates(indices: &[usize]) -> bool {
 /// - The emulator might not be handling trap instructions correctly
 /// - The trapnz lowering might not be implemented correctly for the target ISA
 /// - There might be an issue with how trap instructions are executed
-fn emit_bounds_check<M: cranelift_module::Module>(
+pub fn emit_bounds_check<M: cranelift_module::Module>(
     ctx: &mut CodegenContext<'_, M>,
     index_val: Value,
     bound: usize,
