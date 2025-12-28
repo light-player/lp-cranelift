@@ -39,7 +39,15 @@ pub fn extract_parameter(
     match param_decl {
         FunctionParameterDeclaration::Named(qualifier, decl) => {
             let param_span = decl.ident.ident.span.clone();
-            let ty = type_resolver::parse_type_specifier(&decl.ty, Some(param_span))?;
+            // Parse base type from TypeSpecifier
+            let base_ty = type_resolver::parse_type_specifier(&decl.ty, Some(param_span.clone()))?;
+            // Combine with array specifier from declarator if present
+            // For "int arr[5]", the [5] is in decl.ident.array_spec
+            let ty = type_resolver::parse_declaration_type(
+                &base_ty,
+                decl.ident.array_spec.as_ref(),
+                Some(param_span),
+            )?;
             let name = decl.ident.ident.name.clone();
 
             let param_qualifier = extract_param_qualifier(qualifier);

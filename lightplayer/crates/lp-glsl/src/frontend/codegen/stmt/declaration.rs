@@ -11,16 +11,13 @@ pub fn emit_declaration<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_
 
     match decl {
         Declaration::InitDeclaratorList(list) => {
-            // Get base type from type specifier
-            let mut ty = parse_type_specifier(ctx, &list.head.ty)?;
+            // Get base type from type specifier (for tail declarations)
+            let base_ty = parse_type_specifier(ctx, &list.head.ty)?;
 
             // Handle the head declaration
             if let Some(name) = &list.head.name {
-                // Combine array specifier from SingleDeclaration with base type
-                // For "int arr[5];", the [5] is in list.head.array_specifier
-                if let Some(array_spec) = &list.head.array_specifier {
-                    ty = crate::frontend::semantic::type_resolver::apply_array_specifier(&ty, array_spec, Some(name.span.clone()))?;
-                }
+                // Parse complete type including array specifier from SingleDeclaration
+                let ty = crate::frontend::semantic::type_resolver::parse_head_declarator_type(list, &name.span)?;
                 
                 let vars = ctx.declare_variable(name.name.clone(), ty.clone())?;
 
@@ -93,17 +90,14 @@ pub fn emit_declaration<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_
             }
 
             // Handle tail declarations (same type, different names)
-            // For tail declarations, array specifier is in ArrayedIdentifier.array_spec
             for declarator in &list.tail {
-                let mut declarator_ty = ty.clone();
-                if let Some(array_spec) = &declarator.ident.array_spec {
-                    declarator_ty = crate::frontend::semantic::type_resolver::apply_array_specifier(&ty, array_spec, Some(declarator.ident.ident.span.clone()))?;
-                }
+                // Parse complete type including array specifier from ArrayedIdentifier
+                let declarator_ty = crate::frontend::semantic::type_resolver::parse_tail_declarator_type(&base_ty, declarator)?;
                 
-                let vars = ctx.declare_variable(declarator.ident.ident.name.clone(), declarator_ty)?;
+                let vars = ctx.declare_variable(declarator.ident.ident.name.clone(), declarator_ty.clone())?;
 
                 // Skip initialization for arrays (Phase 1 doesn't support array initialization)
-                if ty.is_array() {
+                if declarator_ty.is_array() {
                     if declarator.initializer.is_some() {
                         return Err(GlslError::new(
                             ErrorCode::E0400,
@@ -114,15 +108,15 @@ pub fn emit_declaration<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_
                     let (init_vals, init_ty) = emit_initializer(ctx, init)?;
 
                     // Type check (allows implicit conversions)
-                    crate::frontend::semantic::type_check::check_assignment(&ty, &init_ty)?;
+                    crate::frontend::semantic::type_check::check_assignment(&declarator_ty, &init_ty)?;
 
                     // Coerce initializer values to match variable type
-                    let base_ty = if ty.is_vector() {
-                        ty.vector_base_type().unwrap()
-                    } else if ty.is_matrix() {
+                    let base_ty = if declarator_ty.is_vector() {
+                        declarator_ty.vector_base_type().unwrap()
+                    } else if declarator_ty.is_matrix() {
                         crate::frontend::semantic::types::Type::Float
                     } else {
-                        ty.clone()
+                        declarator_ty.clone()
                     };
                     let init_base = if init_ty.is_vector() {
                         init_ty.vector_base_type().unwrap()
