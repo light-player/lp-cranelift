@@ -7,7 +7,7 @@ use cranelift_codegen::ir::{InstBuilder, Value};
 
 use alloc::vec::Vec;
 
-impl<'a> CodegenContext<'a> {
+impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
     /// Dot product: x·y = x₀y₀ + x₁y₁ + x₂y₂ + ...
     pub fn builtin_dot(
         &mut self,

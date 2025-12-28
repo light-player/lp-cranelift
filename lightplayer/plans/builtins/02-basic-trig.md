@@ -2,6 +2,26 @@
 
 **Goal**: Implement and test `sin`, `cos`, `tan` with dependency tracking to only include needed functions.
 
+## Progress Report
+
+**Status**: Partially complete - blocked on array support
+
+**Completed**:
+- ✅ Dependency tracking implemented and working
+- ✅ Intrinsics compiler refactored to compile directly into GlModule
+- ✅ Intrinsic functions properly added to GlModule.fns for transformation
+- ✅ CodegenContext refactored to store GlModule instead of dyn Module
+- ✅ Trig intrinsics refactored to use loops (replacing 16 unrolled iterations)
+
+**Blocked**:
+- ⏸️ Trig intrinsics refactoring uses arrays (`float atan_vals[16]`) which are not yet supported
+- ⏸️ Current implementation will not compile until array support is added
+
+**Next Steps**:
+- Wait for array support implementation
+- Once arrays are available, verify trig intrinsics compile and work correctly
+- Test that the loop-based implementation produces correct results
+
 ## Tasks
 
 1. **Implement dependency tracking**

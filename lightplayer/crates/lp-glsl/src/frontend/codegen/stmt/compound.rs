@@ -4,8 +4,8 @@ use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit compound statement (block of statements in { ... })
-pub fn emit_compound_stmt(
-    ctx: &mut CodegenContext,
+pub fn emit_compound_stmt<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     compound: &CompoundStatement,
 ) -> Result<(), GlslError> {
     ctx.enter_scope(); // Enter scope for compound block

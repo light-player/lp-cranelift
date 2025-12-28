@@ -7,8 +7,8 @@ use cranelift_codegen::ir::{
     types,
 };
 
-pub fn coerce_to_type(
-    ctx: &mut CodegenContext,
+pub fn coerce_to_type<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     val: Value,
     from_ty: &GlslType,
     to_ty: &GlslType,
@@ -16,8 +16,8 @@ pub fn coerce_to_type(
     coerce_to_type_with_location(ctx, val, from_ty, to_ty, None)
 }
 
-pub fn coerce_to_type_with_location(
-    ctx: &mut CodegenContext,
+pub fn coerce_to_type_with_location<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     val: Value,
     from_ty: &GlslType,
     to_ty: &GlslType,

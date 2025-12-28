@@ -12,8 +12,8 @@ use super::constructor;
 use alloc::{format, vec::Vec};
 
 /// Emit code to compute a function call as an RValue
-pub fn emit_function_call_rvalue(
-    ctx: &mut CodegenContext,
+pub fn emit_function_call_rvalue<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     expr: &Expr,
 ) -> Result<RValue, GlslError> {
     // Ensure we're in a block before evaluating
@@ -24,8 +24,8 @@ pub fn emit_function_call_rvalue(
 }
 
 /// Legacy function for backwards compatibility
-pub fn emit_function_call(
-    ctx: &mut CodegenContext,
+pub fn emit_function_call<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     expr: &Expr,
 ) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {
     let Expr::FunCall(func_ident, args, span) = expr else {
@@ -65,8 +65,8 @@ pub fn emit_function_call(
     emit_user_function_call(ctx, func_name, args, span.clone())
 }
 
-fn emit_builtin_call_expr(
-    ctx: &mut CodegenContext,
+fn emit_builtin_call_expr<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     name: &str,
     args: &[glsl::syntax::Expr],
     call_span: glsl::syntax::SourceSpan,
@@ -108,8 +108,8 @@ fn emit_builtin_call_expr(
 }
 
 /// Prepare function call arguments by translating expressions
-fn prepare_function_arguments(
-    ctx: &mut CodegenContext,
+fn prepare_function_arguments<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     args: &[glsl::syntax::Expr],
 ) -> Result<(Vec<cranelift_codegen::ir::Value>, Vec<GlslType>), GlslError> {
     let mut arg_vals_flat = Vec::new();
@@ -125,8 +125,8 @@ fn prepare_function_arguments(
 }
 
 /// Lookup function ID and signature from registry
-fn lookup_function_signature(
-    ctx: &CodegenContext,
+fn lookup_function_signature<M: cranelift_module::Module>(
+    ctx: &CodegenContext<'_, M>,
     name: &str,
     arg_types: &[GlslType],
     call_span: &glsl::syntax::SourceSpan,
@@ -171,8 +171,8 @@ fn lookup_function_signature(
 }
 
 /// Validate that function call arguments can be coerced to parameter types
-fn validate_function_call(
-    ctx: &CodegenContext,
+fn validate_function_call<M: cranelift_module::Module>(
+    ctx: &CodegenContext<'_, M>,
     func_sig: &crate::frontend::semantic::functions::FunctionSignature,
     arg_types: &[GlslType],
     name: &str,
@@ -226,8 +226,8 @@ fn validate_function_call(
 }
 
 /// Setup StructReturn buffer if the function uses it
-fn setup_struct_return_buffer(
-    ctx: &mut CodegenContext,
+fn setup_struct_return_buffer<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     func_sig: &crate::frontend::semantic::functions::FunctionSignature,
     func_ref: cranelift_codegen::ir::FuncRef,
 ) -> Result<Option<cranelift_codegen::ir::Value>, GlslError> {
@@ -256,7 +256,7 @@ fn setup_struct_return_buffer(
     };
 
     let buffer_size = (element_count * crate::frontend::codegen::constants::F32_SIZE_BYTES) as u32;
-    let pointer_type = ctx.module.isa().pointer_type();
+    let pointer_type = ctx.gl_module.module_internal().isa().pointer_type();
 
     let slot = ctx
         .builder
@@ -271,8 +271,8 @@ fn setup_struct_return_buffer(
 }
 
 /// Prepare call arguments with coercion
-fn prepare_call_arguments(
-    ctx: &mut CodegenContext,
+fn prepare_call_arguments<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     func_sig: &crate::frontend::semantic::functions::FunctionSignature,
     arg_vals_flat: &[cranelift_codegen::ir::Value],
     arg_types: &[GlslType],
@@ -338,8 +338,8 @@ fn prepare_call_arguments(
 }
 
 /// Execute function call and get return values
-fn execute_function_call(
-    ctx: &mut CodegenContext,
+fn execute_function_call<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     func_ref: cranelift_codegen::ir::FuncRef,
     call_args: &[cranelift_codegen::ir::Value],
     func_sig: &crate::frontend::semantic::functions::FunctionSignature,
@@ -431,8 +431,8 @@ fn package_return_values(
     }
 }
 
-fn emit_user_function_call(
-    ctx: &mut CodegenContext,
+fn emit_user_function_call<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     name: &str,
     args: &[glsl::syntax::Expr],
     call_span: glsl::syntax::SourceSpan,
@@ -447,7 +447,7 @@ fn emit_user_function_call(
     validate_function_call(ctx, &func_sig, &arg_types, name, &call_span)?;
 
     // Step 4: Import function and setup StructReturn if needed
-    let func_ref = ctx.module.declare_func_in_func(func_id, ctx.builder.func);
+    let func_ref = ctx.gl_module.module_mut_internal().declare_func_in_func(func_id, ctx.builder.func);
     let return_buffer_ptr = setup_struct_return_buffer(ctx, &func_sig, func_ref)?;
 
     // Step 5: Prepare call arguments

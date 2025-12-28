@@ -2,7 +2,7 @@ use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit break statement
-pub fn emit_break_stmt(ctx: &mut CodegenContext) -> Result<(), GlslError> {
+pub fn emit_break_stmt<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>) -> Result<(), GlslError> {
     let loop_ctx = ctx
         .loop_stack
         .last()

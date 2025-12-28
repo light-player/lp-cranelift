@@ -8,8 +8,8 @@ use glsl::syntax::Expr;
 
 use alloc::{format, vec::Vec};
 
-pub fn emit_variable(
-    ctx: &mut CodegenContext,
+pub fn emit_variable<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     expr: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
     let Expr::Variable(ident, _span) = expr else {
@@ -62,6 +62,6 @@ pub fn emit_variable(
 /// Emit variable expression as RValue
 ///
 /// Reads a variable by resolving it as an LValue, then loading its value.
-pub fn emit_variable_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_variable_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
     emit_lvalue_as_rvalue(ctx, expr)
 }

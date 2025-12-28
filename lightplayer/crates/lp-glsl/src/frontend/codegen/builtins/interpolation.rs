@@ -7,7 +7,7 @@ use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
 
 use alloc::vec::Vec;
 
-impl<'a> CodegenContext<'a> {
+impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
     /// mix(x, y, a) = x * (1-a) + y * a (linear interpolation for floats)
     /// For boolean vectors: if selector is false, take from x; if true, take from y
     pub fn builtin_mix(

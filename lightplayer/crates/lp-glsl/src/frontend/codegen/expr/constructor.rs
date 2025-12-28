@@ -9,8 +9,8 @@ use super::coercion;
 
 use alloc::{format, vec::Vec};
 
-pub fn emit_vector_constructor(
-    ctx: &mut CodegenContext,
+pub fn emit_vector_constructor<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     type_name: &str,
     args: &[Expr],
     span: glsl::syntax::SourceSpan,
@@ -93,8 +93,8 @@ pub fn emit_vector_constructor(
 
 /// Translate matrix constructor
 /// Implements GLSL spec: variables.adoc:72-97
-pub fn emit_matrix_constructor(
-    ctx: &mut CodegenContext,
+pub fn emit_matrix_constructor<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     type_name: &str,
     args: &[Expr],
 ) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {
@@ -217,8 +217,8 @@ pub fn emit_matrix_constructor(
 }
 
 /// Translate scalar type constructor (bool(int), int(bool), etc.)
-pub fn emit_scalar_constructor(
-    ctx: &mut CodegenContext,
+pub fn emit_scalar_constructor<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     type_name: &str,
     args: &[Expr],
     span: glsl::syntax::SourceSpan,

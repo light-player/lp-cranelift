@@ -14,7 +14,7 @@ use alloc::{format, vec::Vec};
 ///
 /// Handles pre-increment/decrement specially, delegates other unary operations
 /// to translate_unary_op.
-pub fn emit_unary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_unary_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
     let Expr::Unary(op, operand, span) = expr else {
         unreachable!("emit_unary_rvalue called on non-unary expr");
     };
@@ -59,8 +59,8 @@ pub fn emit_unary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue
 }
 
 /// TODO Legacy function for backwards compatibility
-pub fn emit_unary(
-    ctx: &mut CodegenContext,
+pub fn emit_unary<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     expr: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
     let rvalue = emit_unary_rvalue(ctx, expr)?;
@@ -68,8 +68,8 @@ pub fn emit_unary(
     Ok((rvalue.into_values(), ty))
 }
 
-fn emit_unary_op(
-    ctx: &mut CodegenContext,
+fn emit_unary_op<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     op: &glsl::syntax::UnaryOp,
     val: Value,
     operand_ty: &GlslType,

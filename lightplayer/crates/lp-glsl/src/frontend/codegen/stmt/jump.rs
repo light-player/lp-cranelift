@@ -4,7 +4,7 @@ use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit jump statement (dispatch to break, continue, return)
-pub fn emit_jump_stmt(ctx: &mut CodegenContext, jump: &JumpStatement) -> Result<(), GlslError> {
+pub fn emit_jump_stmt<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, jump: &JumpStatement) -> Result<(), GlslError> {
     use glsl::syntax::JumpStatement;
 
     match jump {

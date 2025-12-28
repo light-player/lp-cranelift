@@ -6,7 +6,7 @@ use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit variable declaration statement
-pub fn emit_declaration(ctx: &mut CodegenContext, decl: &Declaration) -> Result<(), GlslError> {
+pub fn emit_declaration<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, decl: &Declaration) -> Result<(), GlslError> {
     use glsl::syntax::Declaration;
 
     match decl {
@@ -134,8 +134,8 @@ pub fn emit_declaration(ctx: &mut CodegenContext, decl: &Declaration) -> Result<
 }
 
 /// Parse type specifier from GLSL AST
-pub fn parse_type_specifier(
-    _ctx: &CodegenContext,
+pub fn parse_type_specifier<M: cranelift_module::Module>(
+    _ctx: &CodegenContext<'_, M>,
     type_spec: &glsl::syntax::FullySpecifiedType,
 ) -> Result<crate::frontend::semantic::types::Type, GlslError> {
     use glsl::syntax::TypeSpecifierNonArray;
@@ -168,8 +168,8 @@ pub fn parse_type_specifier(
 }
 
 /// Emit initializer expression (returns values and type)
-pub fn emit_initializer(
-    ctx: &mut CodegenContext,
+pub fn emit_initializer<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     init: &glsl::syntax::Initializer,
 ) -> Result<
     (

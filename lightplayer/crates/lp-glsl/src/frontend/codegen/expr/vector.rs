@@ -8,8 +8,8 @@ use super::coercion;
 
 use alloc::{format, vec::Vec};
 
-pub fn emit_vector_binary(
-    ctx: &mut CodegenContext,
+pub fn emit_vector_binary<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     op: &glsl::syntax::BinaryOp,
     lhs_vals: Vec<Value>,
     lhs_ty: &GlslType,

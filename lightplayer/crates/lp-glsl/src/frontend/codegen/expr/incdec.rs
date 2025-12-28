@@ -19,8 +19,8 @@ use glsl::syntax::Expr;
 use alloc::{format, vec::Vec};
 
 /// Translate pre-increment expression (++i)
-pub fn emit_preinc(
-    ctx: &mut CodegenContext,
+pub fn emit_preinc<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     operand: &Expr,
     span: glsl::syntax::SourceSpan,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
@@ -28,8 +28,8 @@ pub fn emit_preinc(
 }
 
 /// Translate pre-decrement expression (--i)
-pub fn emit_predec(
-    ctx: &mut CodegenContext,
+pub fn emit_predec<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     operand: &Expr,
     span: glsl::syntax::SourceSpan,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
@@ -37,8 +37,8 @@ pub fn emit_predec(
 }
 
 /// Translate post-increment expression (i++)
-pub fn emit_postinc(
-    ctx: &mut CodegenContext,
+pub fn emit_postinc<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     operand: &Expr,
     span: glsl::syntax::SourceSpan,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
@@ -46,8 +46,8 @@ pub fn emit_postinc(
 }
 
 /// Translate post-decrement expression (i--)
-pub fn emit_postdec(
-    ctx: &mut CodegenContext,
+pub fn emit_postdec<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     operand: &Expr,
     span: glsl::syntax::SourceSpan,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
@@ -55,8 +55,8 @@ pub fn emit_postdec(
 }
 
 /// Common implementation for increment/decrement operations
-fn emit_incdec(
-    ctx: &mut CodegenContext,
+fn emit_incdec<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     operand: &Expr,
     span: glsl::syntax::SourceSpan,
     is_increment: bool,
@@ -140,7 +140,7 @@ fn emit_incdec(
 /// Emit post-increment expression as RValue
 ///
 /// Returns the original value before incrementing (post-increment semantics).
-pub fn emit_postinc_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_postinc_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
     let Expr::PostInc(operand, span) = expr else {
         unreachable!("emit_postinc_rvalue called on non-postinc expr");
     };
@@ -151,7 +151,7 @@ pub fn emit_postinc_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
 /// Emit post-decrement expression as RValue
 ///
 /// Returns the original value before decrementing (post-decrement semantics).
-pub fn emit_postdec_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_postdec_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
     let Expr::PostDec(operand, span) = expr else {
         unreachable!("emit_postdec_rvalue called on non-postdec expr");
     };

@@ -12,7 +12,7 @@ use alloc::format;
 #[cfg(feature = "std")]
 use std::format;
 #[allow(non_snake_case)]
-impl<'a> CodegenContext<'a> {
+impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
     /// Component-wise matrix multiply: result[i][j] = x[i][j] * y[i][j]
     pub fn builtin_matrixCompMult(
         &mut self,

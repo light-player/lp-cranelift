@@ -6,7 +6,7 @@ use cranelift_codegen::ir::{InstBuilder, types};
 use glsl::syntax::Expr;
 
 /// Emit code to compute a literal as an RValue
-pub fn emit_literal_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_literal_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
     match expr {
         Expr::IntConst(n, _) => {
             let val = ctx.builder.ins().iconst(types::I32, *n as i64);
@@ -32,8 +32,8 @@ pub fn emit_literal_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
 /// TODO Legacy function for backwards compatibility
 use alloc::vec::Vec;
 
-pub fn emit_literal(
-    ctx: &mut CodegenContext,
+pub fn emit_literal<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     expr: &Expr,
 ) -> Result<(Vec<cranelift_codegen::ir::Value>, GlslType), GlslError> {
     let rvalue = emit_literal_rvalue(ctx, expr)?;

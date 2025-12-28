@@ -4,8 +4,8 @@ use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit iteration statement (dispatch to specific loop types)
-pub fn emit_iteration_stmt(
-    ctx: &mut CodegenContext,
+pub fn emit_iteration_stmt<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     iteration: &IterationStatement,
 ) -> Result<(), GlslError> {
     use glsl::syntax::IterationStatement;
@@ -25,8 +25,8 @@ pub fn emit_iteration_stmt(
 
 /// Shared helper: translate condition expression to boolean value
 /// Supports both expression conditions and variable declaration conditions (e.g., `while (bool j = i < 3)`)
-pub fn emit_condition(
-    ctx: &mut CodegenContext,
+pub fn emit_condition<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     condition: &glsl::syntax::Condition,
 ) -> Result<cranelift_codegen::ir::Value, GlslError> {
     use crate::frontend::codegen::stmt::declaration::{emit_initializer, parse_type_specifier};

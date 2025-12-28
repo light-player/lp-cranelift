@@ -4,8 +4,8 @@ use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit if statement (selection statement)
-pub fn emit_if_stmt(
-    ctx: &mut CodegenContext,
+pub fn emit_if_stmt<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     selection: &SelectionStatement,
 ) -> Result<(), GlslError> {
     use crate::error::{extract_span_from_expr, source_span_to_location};

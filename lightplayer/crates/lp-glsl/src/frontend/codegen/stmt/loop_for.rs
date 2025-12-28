@@ -6,8 +6,8 @@ use crate::frontend::codegen::stmt::loops::emit_condition;
 use cranelift_codegen::ir::InstBuilder;
 
 /// Emit for loop statement
-pub fn emit_loop_for_stmt(
-    ctx: &mut CodegenContext,
+pub fn emit_loop_for_stmt<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     init: &ForInitStatement,
     rest: &ForRestStatement,
     body: &Statement,

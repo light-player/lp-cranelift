@@ -5,8 +5,8 @@ use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::stmt::loops::emit_condition;
 
 /// Emit while loop statement
-pub fn emit_loop_while_stmt(
-    ctx: &mut CodegenContext,
+pub fn emit_loop_while_stmt<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     condition: &Condition,
     body: &Statement,
 ) -> Result<(), GlslError> {

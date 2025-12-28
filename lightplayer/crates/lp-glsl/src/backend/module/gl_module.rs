@@ -24,6 +24,9 @@ pub struct GlModule<M: Module> {
     pub source_text: String,
     pub source_loc_manager: SourceLocManager,
     pub source_map: GlSourceMap,
+    // Intrinsic cache (for tracking intrinsic functions that need to be added to fns)
+    #[cfg(feature = "intrinsic-math")]
+    pub intrinsic_cache: Option<crate::frontend::intrinsics::loader::IntrinsicCache>,
 }
 
 // Separate constructors for each Module type (Rust needs concrete types)
@@ -48,6 +51,8 @@ impl GlModule<JITModule> {
                     source_text: String::new(),
                     source_loc_manager: SourceLocManager::new(),
                     source_map: GlSourceMap::new(),
+                    #[cfg(feature = "intrinsic-math")]
+                    intrinsic_cache: None,
                 })
             }
             _ => Err(GlslError::new(
@@ -85,6 +90,8 @@ impl GlModule<ObjectModule> {
                     source_text: String::new(),
                     source_loc_manager: SourceLocManager::new(),
                     source_map: GlSourceMap::new(),
+                    #[cfg(feature = "intrinsic-math")]
+                    intrinsic_cache: None,
                 })
             }
             _ => Err(GlslError::new(
@@ -189,6 +196,26 @@ impl<M: Module> GlModule<M> {
         );
 
         Ok(func_id)
+    }
+
+    /// Add a function to fns HashMap without declaring in module
+    /// Used for intrinsic functions that are already declared during compilation
+    pub fn add_function_to_fns(
+        &mut self,
+        name: &str,
+        sig: cranelift_codegen::ir::Signature,
+        func: cranelift_codegen::ir::Function,
+        func_id: cranelift_module::FuncId,
+    ) {
+        self.fns.insert(
+            String::from(name),
+            GlFunc {
+                name: String::from(name),
+                clif_sig: sig,
+                func_id,
+                function: func,
+            },
+        );
     }
 
     /// Internal: Get mutable access to Module

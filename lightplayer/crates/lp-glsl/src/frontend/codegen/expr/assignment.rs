@@ -13,7 +13,7 @@ use alloc::{format, vec::Vec};
 /// Emit assignment expression as RValue
 ///
 /// Evaluates an assignment expression and returns the assigned value(s) as RValue.
-pub fn emit_assignment_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_assignment_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
     let Expr::Assignment(lhs, op, rhs, _span) = expr else {
         unreachable!("emit_assignment_rvalue called on non-assignment expr");
     };
@@ -25,8 +25,8 @@ pub fn emit_assignment_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<R
 ///
 /// Handles both simple assignment (=) and compound assignment (+=, -=, *=, /=).
 /// Returns the assigned value(s) and type.
-pub fn emit_assignment_typed(
-    ctx: &mut CodegenContext,
+pub fn emit_assignment_typed<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     lhs: &Expr,
     op: &glsl::syntax::AssignmentOp,
     rhs: &Expr,
@@ -154,8 +154,8 @@ pub fn emit_assignment_typed(
 }
 
 /// Handle compound assignment operators (+=, -=, *=, /=)
-fn emit_compound_assignment_typed(
-    ctx: &mut CodegenContext,
+fn emit_compound_assignment_typed<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     lhs: &Expr,
     op: &glsl::syntax::AssignmentOp,
     rhs: &Expr,

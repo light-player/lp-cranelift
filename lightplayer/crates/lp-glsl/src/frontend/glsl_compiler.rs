@@ -102,14 +102,13 @@ impl GlslCompiler {
                 triple,
             );
             let func = {
-                // Borrow module only for compilation
-                let module_ref = gl_module.module_mut_internal();
+                // Pass gl_module directly
                 self.compile_function_to_clif(
                     user_func,
                     func_id,
                     &func_ids,
                     &typed_ast.function_registry,
-                    module_ref,
+                    &mut gl_module,
                     isa_ref.as_ref(),
                     &mut source_loc_manager,
                     &mut source_map,
@@ -138,13 +137,12 @@ impl GlslCompiler {
             triple,
         );
         let main_func = {
-            // Borrow module only for compilation
-            let module_ref = gl_module.module_mut_internal();
+            // Pass gl_module directly
             self.compile_main_function_to_clif(
                 &typed_ast.main_function,
                 &func_ids,
                 &typed_ast.function_registry,
-                module_ref,
+                &mut gl_module,
                 isa_ref.as_ref(),
                 semantic_result.source,
                 &mut source_loc_manager,
@@ -248,14 +246,13 @@ impl GlslCompiler {
                 triple,
             );
             let func = {
-                // Borrow module only for compilation
-                let module_ref = gl_module.module_mut_internal();
+                // Pass gl_module directly
                 self.compile_function_to_clif(
                     user_func,
                     func_id,
                     &func_ids,
                     &typed_ast.function_registry,
-                    module_ref,
+                    &mut gl_module,
                     isa_ref.as_ref(),
                     &mut source_loc_manager,
                     &mut source_map,
@@ -284,13 +281,12 @@ impl GlslCompiler {
             triple,
         );
         let main_func = {
-            // Borrow module only for compilation
-            let module_ref = gl_module.module_mut_internal();
+            // Pass gl_module directly
             self.compile_main_function_to_clif(
                 &typed_ast.main_function,
                 &func_ids,
                 &typed_ast.function_registry,
-                module_ref,
+                &mut gl_module,
                 isa_ref.as_ref(),
                 semantic_result.source,
                 &mut source_loc_manager,
@@ -321,13 +317,13 @@ impl GlslCompiler {
         Ok(gl_module)
     }
 
-    fn compile_function_to_clif(
+    fn compile_function_to_clif<M: Module>(
         &mut self,
         func: &crate::frontend::semantic::TypedFunction,
         _func_id: FuncId,
         func_ids: &HashMap<String, FuncId>,
         func_registry: &crate::frontend::semantic::functions::FunctionRegistry,
-        temp_module: &mut dyn Module,
+        gl_module: &mut crate::backend::module::gl_module::GlModule<M>,
         isa: &dyn cranelift_codegen::isa::TargetIsa,
         source_loc_manager: &mut crate::frontend::src_loc_manager::SourceLocManager,
         source_map: &mut crate::frontend::src_loc::GlSourceMap,
@@ -362,7 +358,7 @@ impl GlslCompiler {
         // Create codegen context with function IDs
         let mut codegen_ctx = crate::frontend::codegen::context::CodegenContext::new(
             builder,
-            temp_module,
+            gl_module,
             source_map,
             file_id,
         );
@@ -496,12 +492,12 @@ impl GlslCompiler {
         Ok(ctx.func)
     }
 
-    fn compile_main_function_to_clif(
+    fn compile_main_function_to_clif<M: Module>(
         &mut self,
         main_func: &crate::frontend::semantic::TypedFunction,
         func_ids: &HashMap<String, FuncId>,
         func_registry: &crate::frontend::semantic::functions::FunctionRegistry,
-        temp_module: &mut dyn Module,
+        gl_module: &mut crate::backend::module::gl_module::GlModule<M>,
         isa: &dyn cranelift_codegen::isa::TargetIsa,
         source_text: &str,
         source_loc_manager: &mut crate::frontend::src_loc_manager::SourceLocManager,
@@ -537,7 +533,7 @@ impl GlslCompiler {
         // Create codegen context
         let mut codegen_ctx = crate::frontend::codegen::context::CodegenContext::new(
             builder,
-            temp_module,
+            gl_module,
             source_map,
             file_id,
         );

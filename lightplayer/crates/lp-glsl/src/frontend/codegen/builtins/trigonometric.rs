@@ -7,7 +7,7 @@ use cranelift_codegen::ir::{InstBuilder, Value};
 
 use alloc::vec::Vec;
 
-impl<'a> CodegenContext<'a> {
+impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
     /// radians(degrees) - Convert degrees to radians
     pub fn builtin_radians(
         &mut self,

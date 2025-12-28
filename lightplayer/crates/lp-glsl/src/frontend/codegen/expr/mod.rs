@@ -36,7 +36,7 @@ use glsl::syntax::Expr;
 
 use alloc::{format, vec::Vec};
 
-impl<'a> CodegenContext<'a> {
+impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
     /// Emit code to compute an RValue (right-hand value)
     ///
     /// This is the new primary entry point for expression evaluation,

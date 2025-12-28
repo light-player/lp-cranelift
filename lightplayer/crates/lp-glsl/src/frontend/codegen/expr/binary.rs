@@ -17,7 +17,7 @@ use super::vector;
 use alloc::{format, vec::Vec};
 
 /// Emit code to compute a binary expression as an RValue
-pub fn emit_binary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_binary_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
     // Ensure we're in a block before evaluating
     ctx.ensure_block()?;
 
@@ -70,8 +70,8 @@ pub fn emit_binary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValu
 }
 
 /// Legacy function for backwards compatibility
-pub fn emit_binary(
-    ctx: &mut CodegenContext,
+pub fn emit_binary<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     expr: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
     let rvalue = emit_binary_rvalue(ctx, expr)?;
@@ -79,8 +79,8 @@ pub fn emit_binary(
     Ok((rvalue.into_values(), ty))
 }
 
-fn emit_scalar_binary(
-    ctx: &mut CodegenContext,
+fn emit_scalar_binary<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     op: &glsl::syntax::BinaryOp,
     lhs_val: Value,
     lhs_ty: &GlslType,
@@ -157,8 +157,8 @@ fn emit_scalar_binary(
 }
 
 // Internal function for scalar binary operations (used by vector/matrix modules)
-pub fn emit_scalar_binary_op_internal(
-    ctx: &mut CodegenContext,
+pub fn emit_scalar_binary_op_internal<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     op: &glsl::syntax::BinaryOp,
     lhs: Value,
     rhs: Value,
@@ -168,8 +168,8 @@ pub fn emit_scalar_binary_op_internal(
     emit_scalar_binary_op(ctx, op, lhs, rhs, operand_ty, span)
 }
 
-fn emit_scalar_binary_op(
-    ctx: &mut CodegenContext,
+fn emit_scalar_binary_op<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     op: &glsl::syntax::BinaryOp,
     lhs: Value,
     rhs: Value,

@@ -19,7 +19,7 @@ use alloc::vec::Vec;
 use alloc::format;
 #[cfg(feature = "std")]
 use std::format;
-impl<'a> CodegenContext<'a> {
+impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
     pub fn emit_builtin_call(
         &mut self,
         name: &str,

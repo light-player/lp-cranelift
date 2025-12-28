@@ -4,8 +4,8 @@ use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit do-while loop statement
-pub fn emit_loop_do_while_stmt(
-    ctx: &mut CodegenContext,
+pub fn emit_loop_do_while_stmt<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     body: &Statement,
     condition: &Expr,
 ) -> Result<(), GlslError> {

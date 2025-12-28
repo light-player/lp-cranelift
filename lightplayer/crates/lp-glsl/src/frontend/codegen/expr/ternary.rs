@@ -11,7 +11,7 @@ use super::coercion;
 use alloc::{format, vec::Vec};
 
 /// Emit code to compute a ternary expression as an RValue
-pub fn emit_ternary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_ternary_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
     // Ensure we're in a block before evaluating
     ctx.ensure_block()?;
 
@@ -168,8 +168,8 @@ pub fn emit_ternary_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RVal
     }
 }
 
-fn emit_scalar_ternary(
-    ctx: &mut CodegenContext,
+fn emit_scalar_ternary<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     cond_val: Value,
     true_val: Value,
     false_val: Value,
@@ -184,8 +184,8 @@ fn emit_scalar_ternary(
     Ok((vec![result_val], result_ty.clone()))
 }
 
-fn emit_vector_ternary(
-    ctx: &mut CodegenContext,
+fn emit_vector_ternary<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     cond_val: Value,
     true_vals: Vec<Value>,
     false_vals: Vec<Value>,
@@ -211,8 +211,8 @@ fn emit_vector_ternary(
     Ok((result_vals, result_ty.clone()))
 }
 
-fn emit_matrix_ternary(
-    ctx: &mut CodegenContext,
+fn emit_matrix_ternary<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     cond_val: Value,
     true_vals: Vec<Value>,
     false_vals: Vec<Value>,

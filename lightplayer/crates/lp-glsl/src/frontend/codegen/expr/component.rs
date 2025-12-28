@@ -17,8 +17,8 @@ enum NamingSet {
     STPQ, // Texture coordinates: s, t, p, q
 }
 
-pub fn emit_component_access(
-    ctx: &mut CodegenContext,
+pub fn emit_component_access<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     expr: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
     // Ensure we're in a block before evaluating
@@ -60,8 +60,8 @@ pub fn emit_component_access(
     }
 }
 
-pub fn emit_indexing(
-    ctx: &mut CodegenContext,
+pub fn emit_indexing<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     expr: &Expr,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
     // Ensure we're in a block before evaluating
@@ -428,8 +428,8 @@ pub fn has_duplicates(indices: &[usize]) -> bool {
 /// - The emulator might not be handling trap instructions correctly
 /// - The trapnz lowering might not be implemented correctly for the target ISA
 /// - There might be an issue with how trap instructions are executed
-fn emit_bounds_check(
-    ctx: &mut CodegenContext,
+fn emit_bounds_check<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     index_val: Value,
     bound: usize,
     span: &SourceSpan,
@@ -468,8 +468,8 @@ fn emit_bounds_check(
 /// Handles dot notation (e.g., `vec.x`, `vec.xy`) for both LValues and RValues.
 /// For LValues (variables), resolves as LValue then loads.
 /// For RValues (expressions), evaluates the expression then extracts components.
-pub fn emit_component_access_rvalue(
-    ctx: &mut CodegenContext,
+pub fn emit_component_access_rvalue<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     expr: &Expr,
 ) -> Result<RValue, GlslError> {
     // Try LValue path first (for variables like `a.x`)
@@ -490,8 +490,8 @@ pub fn emit_component_access_rvalue(
 /// Handles bracket notation (e.g., `vec[0]`, `mat[0][1]`).
 /// For constant indices, uses LValue path for efficiency.
 /// For variable indices, uses translate_matrix_indexing directly.
-pub fn emit_matrix_indexing_rvalue(
-    ctx: &mut CodegenContext,
+pub fn emit_matrix_indexing_rvalue<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     expr: &Expr,
 ) -> Result<RValue, GlslError> {
     // Check if this is a variable index - if so, use translate_matrix_indexing directly

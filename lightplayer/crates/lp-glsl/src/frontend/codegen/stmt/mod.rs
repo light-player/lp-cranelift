@@ -18,7 +18,7 @@ pub mod loop_while;
 pub mod loops;
 pub mod r#return;
 
-impl<'a> CodegenContext<'a> {
+impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
     /// Main statement dispatch function (renamed from translate_statement to match Clang's EmitStmt)
     pub fn emit_statement(&mut self, stmt: &Statement) -> Result<(), GlslError> {
         match stmt {

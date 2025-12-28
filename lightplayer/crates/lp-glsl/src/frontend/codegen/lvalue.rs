@@ -96,7 +96,7 @@ fn compute_column_variable_indices(
 ///
 /// Recursively analyzes the expression to determine the modifiable location.
 /// Handles nested expressions like `m[0].x` by first resolving `m[0]` then extracting the component.
-pub fn resolve_lvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<LValue, GlslError> {
+pub fn resolve_lvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<LValue, GlslError> {
     match expr {
         Expr::Variable(ident, _span) => {
             let span = extract_span_from_identifier(ident);
@@ -375,8 +375,8 @@ pub fn resolve_lvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<LValue, G
 /// Read the current value(s) from an LValue
 ///
 /// Returns the values and their type.
-pub fn read_lvalue(
-    ctx: &mut CodegenContext,
+pub fn read_lvalue<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     lvalue: &LValue,
 ) -> Result<(Vec<Value>, GlslType), GlslError> {
     // Must be in block to read variables
@@ -444,8 +444,8 @@ pub fn read_lvalue(
 /// Write new value(s) to an LValue
 ///
 /// Validates that the number of values matches the LValue's component count.
-pub fn write_lvalue(
-    ctx: &mut CodegenContext,
+pub fn write_lvalue<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     lvalue: &LValue,
     values: &[Value],
 ) -> Result<(), GlslError> {
@@ -550,7 +550,7 @@ pub fn write_lvalue(
 /// This pattern is used for Variable, Dot, and Bracket expressions.
 /// First resolves the expression to a modifiable location (LValue),
 /// then reads the current value(s) from that location.
-pub fn emit_lvalue_as_rvalue(ctx: &mut CodegenContext, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_lvalue_as_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
     let lvalue = resolve_lvalue(ctx, expr)?;
     let (vals, ty) = read_lvalue(ctx, &lvalue)?;
     Ok(RValue::from_aggregate(vals, ty))

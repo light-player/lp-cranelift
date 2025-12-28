@@ -13,6 +13,7 @@ Create a GLSL to Rust converter using the existing `glsl-parser` infrastructure,
 ### Phase 1: Create GLSL to Rust Transpiler
 
 Create a transpiler module in `lp-glsl-filetests` that:
+
 - Uses `glsl-parser` AST (already a dependency via `lp-glsl`)
 - Converts GLSL AST nodes to Rust code
 - Handles basic GLSL features needed for test validation:
@@ -27,6 +28,7 @@ Create a transpiler module in `lp-glsl-filetests` that:
 ### Phase 2: Create Bless Binary
 
 Create `bless-filetest` binary in `lp-glsl-filetests` that:
+
 - Parses GLSL test files
 - Extracts function definitions and `// run:` directives
 - Converts GLSL to Rust using the transpiler
@@ -50,6 +52,7 @@ Create `bless-filetest` binary in `lp-glsl-filetests` that:
 ## Limitations
 
 The converter should be conservative and only handle features needed for test validation:
+
 - **Skip**: `inout`/`out` parameters (Rust doesn't have equivalent semantics)
 - **Skip**: Error tests (compile-time errors)
 - **Skip**: Complex GLSL features not needed for basic test validation
@@ -69,4 +72,3 @@ cargo run -p lp-glsl-filetests --bin bless-filetest -- function2/*.glsl
 - This is a minimal converter - only what's needed for test validation
 - Focus on correctness over completeness
 - Fail fast on unsupported features rather than trying to handle everything
-

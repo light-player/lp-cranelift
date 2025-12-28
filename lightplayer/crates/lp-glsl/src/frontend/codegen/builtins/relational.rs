@@ -7,7 +7,7 @@ use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
 
 use alloc::vec::Vec;
 
-impl<'a> CodegenContext<'a> {
+impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
     /// all(x) - returns true if all components are true
     pub fn builtin_all(
         &mut self,

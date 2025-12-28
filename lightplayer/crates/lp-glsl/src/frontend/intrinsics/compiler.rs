@@ -4,15 +4,14 @@ use crate::error::{ErrorCode, GlslError};
 use crate::frontend::pipeline::CompilationPipeline;
 use crate::frontend::src_loc::GlSourceMap;
 use cranelift_codegen::ir::Function;
-use cranelift_codegen::isa::TargetIsa;
 
 use alloc::{string::String, vec::Vec};
 
 use hashbrown::HashMap;
 
-use cranelift_codegen::{Context, control::ControlPlane};
+use cranelift_codegen::Context;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
-use cranelift_module::{FuncId, Linkage, Module, ModuleDeclarations, ModuleError, ModuleResult};
+use cranelift_module::{FuncId, Linkage, Module, FuncOrDataId};
 
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::signature::SignatureBuilder;
@@ -22,195 +21,103 @@ use crate::frontend::codegen::signature::SignatureBuilder;
 /// This function parses GLSL source that may contain multiple functions,
 /// compiles each function independently, and returns a map of function
 /// name -> Function object.
-pub fn compile_intrinsic_functions(
+///
+/// Functions are compiled directly into the provided module, ensuring
+/// that function references use the correct FuncIds.
+///
+/// If `functions_to_compile` is Some, only those functions (and their dependencies)
+/// will be compiled. If None, all functions are compiled.
+pub fn compile_intrinsic_functions<M: Module>(
     glsl_source: &str,
-    isa: &dyn TargetIsa,
+    gl_module: &mut crate::backend::module::gl_module::GlModule<M>,
     source_map: &mut GlSourceMap,
     file_id: crate::frontend::src_loc::GlFileId,
+    functions_to_compile: Option<&hashbrown::HashSet<String>>,
 ) -> Result<hashbrown::HashMap<String, Function>, GlslError> {
     // 1. Parse and analyze GLSL
     let semantic_result = CompilationPipeline::parse_and_analyze(glsl_source)?;
     let typed_ast = semantic_result.typed_ast;
 
-    // 2. Create a minimal module stub for function declarations
-    struct MinimalModule<'a> {
-        isa: &'a dyn TargetIsa,
-        func_counter: u32,
-        func_ids: HashMap<String, FuncId>,
-        declarations: ModuleDeclarations,
-    }
-
-    impl<'a> Module for MinimalModule<'a> {
-        fn isa(&self) -> &dyn TargetIsa {
-            self.isa
-        }
-
-        fn declarations(&self) -> &ModuleDeclarations {
-            &self.declarations
-        }
-
-        fn declare_function(
-            &mut self,
-            name: &str,
-            _linkage: Linkage,
-            _signature: &cranelift_codegen::ir::Signature,
-        ) -> ModuleResult<FuncId> {
-            if let Some(&id) = self.func_ids.get(name) {
-                Ok(id)
-            } else {
-                let id = FuncId::from_u32(self.func_counter);
-                self.func_counter += 1;
-                self.func_ids.insert(String::from(name), id);
-                Ok(id)
-            }
-        }
-
-        fn declare_data(
-            &mut self,
-            _name: &str,
-            _linkage: Linkage,
-            _writable: bool,
-            _tls: bool,
-        ) -> ModuleResult<cranelift_module::DataId> {
-            #[cfg(feature = "std")]
-            {
-                use std::io;
-                Err(ModuleError::Allocation {
-                    message: "Data declarations not supported in intrinsic compilation",
-                    err: io::Error::new(
-                        io::ErrorKind::Unsupported,
-                        "Data declarations not supported",
-                    ),
-                })
-            }
-            #[cfg(not(feature = "std"))]
-            {
-                Err(ModuleError::Undeclared(
-                    "Data declarations not supported".to_string(),
-                ))
-            }
-        }
-
-        fn define_function_bytes(
-            &mut self,
-            _id: FuncId,
-            _alignment: u64,
-            _bytes: &[u8],
-            _relocs: &[cranelift_module::ModuleReloc],
-        ) -> ModuleResult<()> {
-            Ok(())
-        }
-
-        fn define_function(&mut self, _id: FuncId, _ctx: &mut Context) -> ModuleResult<()> {
-            Ok(())
-        }
-
-        fn define_data(
-            &mut self,
-            _id: cranelift_module::DataId,
-            _data: &cranelift_module::DataDescription,
-        ) -> ModuleResult<()> {
-            #[cfg(feature = "std")]
-            {
-                use std::io;
-                Err(ModuleError::Allocation {
-                    message: "Data definitions not supported in intrinsic compilation",
-                    err: io::Error::new(
-                        io::ErrorKind::Unsupported,
-                        "Data definitions not supported",
-                    ),
-                })
-            }
-            #[cfg(not(feature = "std"))]
-            {
-                Err(ModuleError::Undeclared(
-                    "Data definitions not supported".to_string(),
-                ))
-            }
-        }
-
-        fn declare_anonymous_function(
-            &mut self,
-            _signature: &cranelift_codegen::ir::Signature,
-        ) -> ModuleResult<FuncId> {
-            let id = FuncId::from_u32(self.func_counter);
-            self.func_counter += 1;
-            Ok(id)
-        }
-
-        fn declare_anonymous_data(
-            &mut self,
-            _writable: bool,
-            _tls: bool,
-        ) -> ModuleResult<cranelift_module::DataId> {
-            #[cfg(feature = "std")]
-            {
-                use std::io;
-                Err(ModuleError::Allocation {
-                    message: "Data declarations not supported in intrinsic compilation",
-                    err: io::Error::new(
-                        io::ErrorKind::Unsupported,
-                        "Data declarations not supported",
-                    ),
-                })
-            }
-            #[cfg(not(feature = "std"))]
-            {
-                Err(ModuleError::Undeclared(
-                    "Data declarations not supported".to_string(),
-                ))
-            }
-        }
-
-        fn define_function_with_control_plane(
-            &mut self,
-            _id: FuncId,
-            _ctx: &mut Context,
-            _ctrl_plane: &mut ControlPlane,
-        ) -> ModuleResult<()> {
-            Ok(())
-        }
-    }
-
-    let mut module = MinimalModule {
-        isa,
-        func_counter: 0,
-        func_ids: HashMap::new(),
-        declarations: ModuleDeclarations::default(),
+    // 2. Filter functions to compile if specified
+    let functions_to_compile_set: hashbrown::HashSet<String> = if let Some(set) = functions_to_compile {
+        set.clone()
+    } else {
+        // Compile all functions
+        typed_ast.user_functions.iter().map(|f| f.name.clone()).collect()
     };
 
-    // 3. Declare all user functions and get their FuncIds
-    let mut func_ids: HashMap<String, FuncId> = HashMap::new();
+    // 3. Declare all user functions in the real module and get their FuncIds
+    // We need to declare all functions (even if not compiling) so they can be called
+    
+    // First pass: Check which functions are already declared (immutable borrows only)
+    let mut existing_func_ids: HashMap<String, FuncId> = HashMap::new();
+    let mut functions_to_declare: Vec<&crate::frontend::semantic::TypedFunction> = Vec::new();
+    
     for user_func in &typed_ast.user_functions {
-        let func_id = module
-            .declare_function(
-                &user_func.name,
-                Linkage::Local,
-                &cranelift_codegen::ir::Signature::new(
-                    cranelift_codegen::isa::CallConv::triple_default(isa.triple()),
-                ),
+        // Skip main() function
+        if user_func.name == "main" {
+            continue;
+        }
+        
+        if let Some(FuncOrDataId::Func(id)) = gl_module.module_internal().declarations().get_name(&user_func.name) {
+            // Function already declared, use existing ID
+            existing_func_ids.insert(user_func.name.clone(), id);
+        } else {
+            // Queue for declaration
+            functions_to_declare.push(user_func);
+        }
+    }
+    
+    // Second pass: Declare functions that need declaring (mutable borrow)
+    let mut func_ids = existing_func_ids;
+    for user_func in functions_to_declare {
+        // Get ISA info for this function (borrow, use, then drop before mutable borrow)
+        let sig = {
+            let isa = gl_module.module_internal().isa();
+            let pointer_type = isa.pointer_type();
+            let triple = isa.triple();
+            SignatureBuilder::build_with_triple(
+                &user_func.return_type,
+                &user_func.parameters,
+                pointer_type,
+                triple,
             )
+        }; // isa reference dropped here
+        
+        // Declare function in real module (mutable borrow, isa reference is already dropped)
+        let func_id = gl_module.module_mut_internal()
+            .declare_function(&user_func.name, Linkage::Local, &sig)
             .map_err(|e| {
                 GlslError::new(
                     ErrorCode::E0400,
-                    format!("failed to declare function: {}", e),
+                    format!("failed to declare function {}: {}", user_func.name, e),
                 )
             })?;
         func_ids.insert(user_func.name.clone(), func_id);
     }
-
-    // 4. Compile each function
+    
+    // 4. Compile each function (only those in functions_to_compile_set)
     let mut compiled_functions = hashbrown::HashMap::new();
     for user_func in &typed_ast.user_functions {
+        // Skip if not in the set of functions to compile
+        if !functions_to_compile_set.contains(&user_func.name) {
+            continue;
+        }
+        
+        // Build signature in a block to drop isa reference before mutable borrow
+        let sig = {
+            let isa = gl_module.module_internal().isa();
+            let pointer_type = isa.pointer_type();
+            let triple = isa.triple();
+            SignatureBuilder::build_with_triple(
+                &user_func.return_type,
+                &user_func.parameters,
+                pointer_type,
+                triple,
+            )
+        }; // isa reference dropped here
+        
         let mut ctx = Context::new();
-        let pointer_type = isa.pointer_type();
-        let triple = isa.triple();
-        let sig = SignatureBuilder::build_with_triple(
-            &user_func.return_type,
-            &user_func.parameters,
-            pointer_type,
-            triple,
-        );
         ctx.func.signature = sig;
 
         let mut builder_context = FunctionBuilderContext::new();
@@ -222,7 +129,8 @@ pub fn compile_intrinsic_functions(
 
         {
             let mut codegen_ctx =
-                CodegenContext::new(builder, &mut module, source_map, file_id);
+                CodegenContext::new(builder, gl_module, source_map, file_id);
+            // Use real module function IDs - these are the correct FuncIds
             codegen_ctx.set_function_ids(&func_ids);
             codegen_ctx.set_function_registry(&typed_ast.function_registry);
             codegen_ctx.set_return_type(user_func.return_type.clone());

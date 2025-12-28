@@ -7,7 +7,7 @@ use cranelift_codegen::ir::{InstBuilder, Value, condcodes::IntCC, types};
 
 use alloc::vec::Vec;
 
-impl<'a> CodegenContext<'a> {
+impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
     /// min(x, y) - component-wise for vectors
     pub fn builtin_min(
         &mut self,

@@ -9,6 +9,7 @@ use crate::frontend::src_loc_manager::SourceLocManager;
 use crate::semantic::functions::FunctionRegistry;
 use crate::semantic::types::Type as GlslType;
 use crate::semantic::types::Type;
+use crate::backend::module::gl_module::GlModule;
 
 use alloc::string::String;
 use alloc::{format, vec::Vec};
@@ -18,9 +19,9 @@ pub struct VarInfo {
     pub glsl_type: GlslType,
 }
 
-pub struct CodegenContext<'a> {
+pub struct CodegenContext<'a, M: Module> {
     pub builder: FunctionBuilder<'a>,
-    pub module: &'a mut dyn Module,
+    pub gl_module: &'a mut GlModule<M>,
     pub variables: HashMap<String, VarInfo>,
 
     // Variable scope stack for proper shadowing and scope management
@@ -61,16 +62,16 @@ pub struct LoopContext {
     pub exit_block: Block,      // Target for break
 }
 
-impl<'a> CodegenContext<'a> {
+impl<'a, M: Module> CodegenContext<'a, M> {
     pub fn new(
         builder: FunctionBuilder<'a>,
-        module: &'a mut dyn Module,
+        gl_module: &'a mut GlModule<M>,
         source_map: &'a mut GlSourceMap,
         current_file_id: GlFileId,
     ) -> Self {
         Self {
             builder,
-            module,
+            gl_module,
             variables: HashMap::new(),
             variable_scopes: vec![HashMap::new()], // Start with global scope
             loop_stack: Vec::new(),

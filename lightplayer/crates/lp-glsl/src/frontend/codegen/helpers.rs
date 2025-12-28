@@ -9,8 +9,8 @@ use alloc::{format, vec::Vec};
 
 /// Generate default return statement for a function
 /// Used when function doesn't have explicit return
-pub fn generate_default_return(
-    ctx: &mut CodegenContext,
+pub fn generate_default_return<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     return_type: &Type,
 ) -> Result<(), GlslError> {
     if return_type == &Type::Void {
@@ -27,8 +27,8 @@ pub fn generate_default_return(
     }
 }
 
-fn generate_default_scalar_return(
-    ctx: &mut CodegenContext,
+fn generate_default_scalar_return<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     return_type: &Type,
 ) -> Result<(), GlslError> {
     let return_val = match return_type {
@@ -51,8 +51,8 @@ fn generate_default_scalar_return(
 
 /// Helper: Get the StructReturn pointer from the function signature.
 /// Returns an error if StructReturn is expected but not found.
-fn get_structreturn_pointer(
-    ctx: &mut CodegenContext,
+fn get_structreturn_pointer<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
 ) -> Result<cranelift_codegen::ir::Value, GlslError> {
     ctx.builder
         .func
@@ -67,8 +67,8 @@ fn get_structreturn_pointer(
 
 /// Helper: Write zeros to StructReturn buffer for float elements.
 /// Used for matrices and float-based vectors.
-fn write_zeros_to_structreturn_buffer(
-    ctx: &mut CodegenContext,
+fn write_zeros_to_structreturn_buffer<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     struct_ret_ptr: cranelift_codegen::ir::Value,
     element_count: usize,
 ) {
@@ -82,8 +82,8 @@ fn write_zeros_to_structreturn_buffer(
 }
 
 /// Helper: Create a zero value for a given base type.
-fn create_zero_value(
-    ctx: &mut CodegenContext,
+fn create_zero_value<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     base_ty: &Type,
 ) -> Result<cranelift_codegen::ir::Value, GlslError> {
     match base_ty {
@@ -97,8 +97,8 @@ fn create_zero_value(
     }
 }
 
-fn generate_default_vector_return(
-    ctx: &mut CodegenContext,
+fn generate_default_vector_return<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     return_type: &Type,
 ) -> Result<(), GlslError> {
     let uses_struct_return = ctx
@@ -150,8 +150,8 @@ fn generate_default_vector_return(
     Ok(())
 }
 
-fn generate_default_matrix_return(
-    ctx: &mut CodegenContext,
+fn generate_default_matrix_return<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
     return_type: &Type,
 ) -> Result<(), GlslError> {
     // Check if function uses StructReturn
