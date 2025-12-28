@@ -1,6 +1,9 @@
+// test run
+// target riscv32.fixed32
+
 // Phase 5: Multi-dimensional Arrays - Nested arrays with multi-dimensional indexing
 
-int main() {
+int phase5() {
     // 2D array
     int arr[3][2];
     
@@ -19,4 +22,6 @@ int main() {
     
     return x + y + z; // 1 + 4 + 5 = 10
 }
+
+// run: phase5() == 10
 

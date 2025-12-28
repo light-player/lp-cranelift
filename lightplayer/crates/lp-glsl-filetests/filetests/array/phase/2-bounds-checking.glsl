@@ -1,6 +1,9 @@
+// test run
+// target riscv32.fixed32
+
 // Phase 2: Bounds Checking - Runtime bounds checking for array reads and writes
 
-int main() {
+int phase2() {
     int arr[3];
     arr[0] = 1;
     arr[1] = 2;
@@ -17,4 +20,6 @@ int main() {
     
     return x + y; // Should be 1 + 3 = 4
 }
+
+// run: phase2() == 4
 

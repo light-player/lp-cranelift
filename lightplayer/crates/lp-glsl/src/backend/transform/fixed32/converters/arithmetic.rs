@@ -21,7 +21,6 @@ pub(crate) fn convert_fadd(
     let (arg1_old, arg2_old) = extract_binary_operands(old_func, old_inst)?;
     let arg1 = map_operand(value_map, arg1_old);
     let arg2 = map_operand(value_map, arg2_old);
-    let target_type = format.cranelift_type();
 
     // Fixed-point addition is just integer addition (no conversion needed)
     // Both operands are already in fixed-point format

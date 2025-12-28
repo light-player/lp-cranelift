@@ -204,16 +204,8 @@ pub fn infer_expr_type_with_registry(
         }
 
         Expr::Bracket(array_expr, array_spec, span) => {
-            // Matrix/vector indexing: mat[col] or vec[index]
+            // Array/matrix/vector indexing: arr[i], mat[col], or vec[index]
             let array_ty = infer_expr_type_with_registry(array_expr, symbols, func_registry)?;
-
-            if !array_ty.is_matrix() && !array_ty.is_vector() {
-                return Err(GlslError::new(
-                    ErrorCode::E0400,
-                    "indexing only supported for matrices and vectors",
-                )
-                .with_location(source_span_to_location(span)));
-            }
 
             use glsl::syntax::ArraySpecifierDimension;
             if array_spec.dimensions.0.is_empty() {
@@ -223,7 +215,40 @@ pub fn infer_expr_type_with_registry(
                 );
             }
 
-            // Process dimensions one at a time
+            // Handle arrays first (before matrix/vector check)
+            if array_ty.is_array() {
+                // For Phase 1, only support 1D arrays
+                // Check that index is int
+                let index_expr = match &array_spec.dimensions.0[0] {
+                    ArraySpecifierDimension::ExplicitlySized(expr) => expr,
+                    ArraySpecifierDimension::Unsized => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "indexing requires explicit index",
+                        )
+                        .with_location(source_span_to_location(span)));
+                    }
+                };
+
+                let index_ty = infer_expr_type_with_registry(index_expr, symbols, func_registry)?;
+                if index_ty != Type::Int {
+                    return Err(GlslError::new(ErrorCode::E0106, "index must be int")
+                        .with_location(source_span_to_location(span)));
+                }
+
+                // Array indexing returns element type (recursive for multi-dim)
+                return Ok(array_ty.array_element_type().unwrap());
+            }
+
+            if !array_ty.is_matrix() && !array_ty.is_vector() {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "indexing only supported for arrays, matrices and vectors",
+                )
+                .with_location(source_span_to_location(span)));
+            }
+
+            // Process dimensions one at a time (for matrices/vectors)
             let mut current_ty = array_ty;
 
             for dimension in &array_spec.dimensions.0 {
@@ -255,7 +280,7 @@ pub fn infer_expr_type_with_registry(
                     return Err(GlslError::new(
                         ErrorCode::E0400,
                         format!(
-                            "cannot index into {:?} (only matrices and vectors can be indexed)",
+                            "cannot index into {:?} (only arrays, matrices and vectors can be indexed)",
                             current_ty
                         ),
                     )

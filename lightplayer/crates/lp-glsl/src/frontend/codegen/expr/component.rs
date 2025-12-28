@@ -1,6 +1,5 @@
 use crate::error::{ErrorCode, GlslError, extract_span_from_expr, source_span_to_location};
 use crate::frontend::codegen::context::CodegenContext;
-use crate::frontend::codegen::lvalue::emit_lvalue_as_rvalue;
 use crate::frontend::codegen::rvalue::RValue;
 use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::{InstBuilder, TrapCode, Value, condcodes::IntCC, types};
@@ -72,16 +71,131 @@ pub fn emit_indexing<M: cranelift_module::Module>(
     };
 
     let (array_vals, array_ty) = ctx.emit_expr_typed(array_expr)?;
-    crate::debug!(
-        "translate_matrix_indexing: array_ty={:?}, array_vals.len()={}",
-        array_ty,
-        array_vals.len()
-    );
+
+    // Handle arrays first (before matrix/vector check)
+    if array_ty.is_array() {
+        // For Phase 1, only support 1D arrays with variable name as base
+        // Get array pointer from variable lookup
+        let array_name = match array_expr.as_ref() {
+            Expr::Variable(ident, _) => &ident.name,
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "array indexing only supported for variable names",
+                )
+                .with_location(source_span_to_location(span)));
+            }
+        };
+
+        let var_info = ctx.lookup_var_info(array_name).ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("array variable '{}' not found", array_name),
+            )
+            .with_location(source_span_to_location(span))
+        })?;
+
+        let array_ptr = var_info.array_ptr.ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("variable '{}' is not an array", array_name),
+            )
+            .with_location(source_span_to_location(span))
+        })?;
+
+        // Extract index expression
+        use glsl::syntax::ArraySpecifierDimension;
+        if array_spec.dimensions.0.is_empty() {
+            return Err(
+                GlslError::new(ErrorCode::E0400, "indexing requires explicit index")
+                    .with_location(source_span_to_location(span)),
+            );
+        }
+
+        let index_expr = match &array_spec.dimensions.0[0] {
+            ArraySpecifierDimension::ExplicitlySized(expr) => expr,
+            ArraySpecifierDimension::Unsized => {
+                return Err(
+                    GlslError::new(ErrorCode::E0400, "indexing requires explicit index")
+                        .with_location(source_span_to_location(span)),
+                );
+            }
+        };
+
+        // Evaluate index (must be int)
+        let (index_vals, index_ty) = ctx.emit_expr_typed(index_expr)?;
+        if index_ty != GlslType::Int {
+            return Err(GlslError::new(ErrorCode::E0106, "index must be int")
+                .with_location(source_span_to_location(span)));
+        }
+
+        let index_val = index_vals[0];
+        let element_ty = array_ty.array_element_type().unwrap();
+        let array_size = array_ty.array_dimensions()[0];
+
+        // Bounds check
+        emit_bounds_check(ctx, index_val, array_size, span)?;
+
+        // Calculate element size in bytes
+        let element_cranelift_ty = element_ty.to_cranelift_type().map_err(|e| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("Failed to convert element type: {}", e.message),
+            )
+        })?;
+        let element_size_bytes = element_cranelift_ty.bytes();
+
+        // Calculate byte offset: offset = index * element_size_bytes
+        // For runtime offsets, we need to add the offset to the pointer and use offset 0
+        let (final_ptr, base_offset) = if let Expr::IntConst(n, _) = index_expr.as_ref() {
+            // Compile-time constant offset - can use directly
+            let offset = (*n as usize) * (element_size_bytes as usize);
+            (array_ptr, offset as i32)
+            } else {
+                // Runtime offset calculation - add to pointer
+                let element_size_const = ctx.builder.ins().iconst(types::I32, element_size_bytes as i64);
+                let offset_val = ctx.builder.ins().imul(index_val, element_size_const);
+                let pointer_type = ctx.gl_module.module_internal().isa().pointer_type();
+                let offset_extended = ctx.builder.ins().uextend(pointer_type, offset_val);
+                let final_ptr = ctx.builder.ins().iadd(array_ptr, offset_extended);
+                (final_ptr, 0)
+            };
+
+        // Load element value(s)
+        let flags = cranelift_codegen::ir::MemFlags::trusted();
+        if element_ty.is_scalar() {
+            // Single scalar value
+            let val = ctx.builder.ins().load(element_cranelift_ty, flags, final_ptr, base_offset);
+            return Ok((vec![val], element_ty));
+        } else {
+            // Multi-component element (vector/matrix) - load each component
+            let component_count = if element_ty.is_vector() {
+                element_ty.component_count().unwrap()
+            } else if element_ty.is_matrix() {
+                element_ty.matrix_element_count().unwrap()
+            } else {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!("unsupported array element type: {:?}", element_ty),
+                )
+                .with_location(source_span_to_location(span)));
+            };
+
+            let mut vals = Vec::new();
+            for i in 0..component_count {
+                let component_offset = (i * element_size_bytes as usize) as i32;
+                let total_offset = base_offset + component_offset;
+                let val = ctx.builder.ins().load(element_cranelift_ty, flags, final_ptr, total_offset);
+                vals.push(val);
+            }
+            return Ok((vals, element_ty));
+        }
+    }
 
     if !array_ty.is_matrix() && !array_ty.is_vector() {
         return Err(GlslError::new(
             ErrorCode::E0400,
-            "indexing only supported for matrices and vectors",
+            "indexing only supported for arrays, matrices and vectors",
         )
         .with_location(source_span_to_location(span)));
     }
@@ -512,7 +626,15 @@ pub fn emit_matrix_indexing_rvalue<M: cranelift_module::Module>(
         let (vals, ty) = emit_indexing(ctx, expr)?;
         Ok(RValue::from_aggregate(vals, ty))
     } else {
-        // Constant index - use LValue path for efficiency
-        emit_lvalue_as_rvalue(ctx, expr)
+        // Constant index - try LValue path first, fall back to RValue path if it fails
+        // This handles arrays which need special handling
+        match ctx.emit_lvalue(expr) {
+            Ok(lvalue) => ctx.load_lvalue(lvalue),
+            Err(_) => {
+                // Fall back to RValue path (for expressions like function calls that return arrays)
+                let (vals, ty) = emit_indexing(ctx, expr)?;
+                Ok(RValue::from_aggregate(vals, ty))
+            }
+        }
     }
 }

@@ -1,6 +1,9 @@
+// test run
+// target riscv32.fixed32
+
 // Phase 3: Initialization - Array initializer lists, full/partial initialization, unsized arrays
 
-int main() {
+int phase3() {
     // Full initialization
     int arr1[3] = {10, 20, 30};
     int x = arr1[0] + arr1[1] + arr1[2]; // 60
@@ -15,4 +18,6 @@ int main() {
     
     return x + y + z; // 60 + 1 + 400 = 461
 }
+
+// run: phase3() == 461
 

@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 /// GLSL type system
 /// Phase 1: Only Int and Bool are fully supported
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -47,6 +48,7 @@ impl Type {
             | Type::UVec3
             | Type::UVec4 => true,
             Type::Mat2 | Type::Mat3 | Type::Mat4 => true,
+            Type::Array(element_ty, _) => element_ty.is_numeric(),
             _ => false,
         }
     }
@@ -150,6 +152,42 @@ impl Type {
         }
     }
 
+    /// Returns true if this type is an array
+    pub fn is_array(&self) -> bool {
+        matches!(self, Type::Array(_, _))
+    }
+
+    /// Get the element type of an array (recursive for multi-dimensional arrays)
+    /// For `Array(Box<Type>, usize)`, returns the inner `Type`
+    pub fn array_element_type(&self) -> Option<Type> {
+        match self {
+            Type::Array(element_ty, _) => Some(*element_ty.clone()),
+            _ => None,
+        }
+    }
+
+    /// Get array dimensions (outermost-first)
+    /// For `int[5][3]`, returns `[5, 3]`
+    pub fn array_dimensions(&self) -> Vec<usize> {
+        let mut dims = Vec::new();
+        let mut current = self;
+        while let Type::Array(element_ty, size) = current {
+            dims.push(*size);
+            current = element_ty.as_ref();
+        }
+        dims
+    }
+
+    /// Get total element count for array allocation
+    /// For `int[5][3]`, returns `15` (5 * 3)
+    pub fn array_total_element_count(&self) -> Option<usize> {
+        if !self.is_array() {
+            return None;
+        }
+        let dims = self.array_dimensions();
+        Some(dims.iter().product())
+    }
+
     /// Get the corresponding Cranelift type
     ///
     /// Returns an error if the type cannot be converted to a Cranelift type
@@ -173,6 +211,11 @@ impl Type {
             }
             // UVec types are stored as i32 (same as UInt)
             Type::UVec2 | Type::UVec3 | Type::UVec4 => Ok(cranelift_codegen::ir::types::I32),
+            Type::Array(element_ty, _) => {
+                // Arrays return the element type's Cranelift type
+                // Storage is handled separately via stack slots
+                element_ty.to_cranelift_type()
+            }
             _ => Err(crate::error::GlslError::new(
                 crate::error::ErrorCode::E0109,
                 format!("Type not yet supported for codegen: {:?}", self),

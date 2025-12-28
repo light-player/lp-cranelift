@@ -1,6 +1,9 @@
+// test run
+// target riscv32.fixed32
+
 // Phase 4: Vector/Matrix Element Arrays - Arrays of vectors and matrices with component access
 
-int main() {
+int phase4() {
     // Array of vectors
     vec4 arr[3];
     arr[0] = vec4(1.0, 2.0, 3.0, 4.0);
@@ -23,4 +26,6 @@ int main() {
     
     return int(x + y + z + m + n); // 1 + 6 + 11 + 1 + 2 = 21
 }
+
+// run: phase4() == 21
 

@@ -1,4 +1,4 @@
-use cranelift_codegen::ir::{Block, Inst, InstBuilder, Value};
+use cranelift_codegen::ir::{Block, Inst, InstBuilder, StackSlot, Value};
 use cranelift_frontend::{FunctionBuilder, Variable};
 use cranelift_module::{FuncId, Module};
 use hashbrown::HashMap;
@@ -17,6 +17,9 @@ use alloc::{format, vec::Vec};
 pub struct VarInfo {
     pub cranelift_vars: Vec<Variable>, // Changed from single Variable to support vectors
     pub glsl_type: GlslType,
+    // Array storage: pointer to stack-allocated memory block
+    pub array_ptr: Option<Value>,      // Pointer to array memory (for arrays)
+    pub stack_slot: Option<StackSlot>, // Stack slot for array storage (for arrays)
 }
 
 pub struct CodegenContext<'a, M: Module> {
@@ -142,6 +145,57 @@ impl<'a, M: Module> CodegenContext<'a, M> {
         name: String,
         glsl_ty: GlslType,
     ) -> Result<Vec<Variable>, crate::error::GlslError> {
+        // Handle arrays: allocate stack slot and get pointer
+        if glsl_ty.is_array() {
+            let element_ty = glsl_ty.array_element_type().unwrap();
+            let array_size = glsl_ty.array_dimensions()[0]; // For Phase 1, only 1D arrays
+            
+            // Calculate element size in bytes
+            let element_cranelift_ty = element_ty.to_cranelift_type().map_err(|e| {
+                crate::error::GlslError::new(
+                    crate::error::ErrorCode::E0400,
+                    format!("Failed to convert array element type to Cranelift type: {}", e.message),
+                )
+            })?;
+            let element_size_bytes = element_cranelift_ty.bytes();
+            
+            // Calculate total array size in bytes
+            let total_size_bytes = array_size * element_size_bytes as usize;
+            
+            // Allocate stack slot
+            let stack_slot = self.builder.func.create_sized_stack_slot(
+                cranelift_codegen::ir::StackSlotData::new(
+                    cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
+                    total_size_bytes as u32,
+                    0, // alignment offset - let Cranelift choose alignment
+                )
+            );
+            
+            // Get pointer to stack slot
+            let pointer_type = self.gl_module.module_internal().isa().pointer_type();
+            let array_ptr = self.builder.ins().stack_addr(pointer_type, stack_slot, 0);
+            
+            // Create VarInfo with array storage
+            let var_info = VarInfo {
+                cranelift_vars: Vec::new(), // Arrays don't use individual variables
+                glsl_type: glsl_ty.clone(),
+                array_ptr: Some(array_ptr),
+                stack_slot: Some(stack_slot),
+            };
+            
+            // Declare in current scope (innermost scope)
+            if let Some(current_scope) = self.variable_scopes.last_mut() {
+                current_scope.insert(name, var_info);
+            } else {
+                // Fallback to global variables if no scopes (shouldn't happen)
+                self.variables.insert(name.clone(), var_info);
+            }
+            
+            // Return empty vec for arrays (they use pointer-based storage)
+            return Ok(Vec::new());
+        }
+        
+        // Non-array variables: use existing logic
         let component_count = if glsl_ty.is_vector() {
             glsl_ty.component_count().unwrap()
         } else if glsl_ty.is_matrix() {
@@ -172,7 +226,9 @@ impl<'a, M: Module> CodegenContext<'a, M> {
 
         let var_info = VarInfo {
             cranelift_vars: vars.clone(),
-            glsl_type: glsl_ty,
+            glsl_type: glsl_ty.clone(),
+            array_ptr: None,
+            stack_slot: None,
         };
 
         // Declare in current scope (innermost scope)
@@ -212,6 +268,16 @@ impl<'a, M: Module> CodegenContext<'a, M> {
         for scope in self.variable_scopes.iter().rev() {
             if let Some(info) = scope.get(name) {
                 return Some(&info.glsl_type);
+            }
+        }
+        None
+    }
+
+    pub fn lookup_var_info(&self, name: &str) -> Option<&VarInfo> {
+        // Search scopes from innermost to outermost
+        for scope in self.variable_scopes.iter().rev() {
+            if let Some(info) = scope.get(name) {
+                return Some(info);
             }
         }
         None

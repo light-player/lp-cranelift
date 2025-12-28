@@ -1,6 +1,9 @@
+// test run
+// target riscv32.fixed32
+
 // Phase 6: Verify All Operators - Increment/decrement, compound assignment, binary/unary ops
 
-int main() {
+int phase6() {
     int arr[3] = {10, 20, 30};
     
     // Increment/decrement
@@ -25,4 +28,6 @@ int main() {
     
     return x + y + z + a + b; // 33 + 43 + 30 - 15 + 18 = 109
 }
+
+// run: phase6() == 109
 

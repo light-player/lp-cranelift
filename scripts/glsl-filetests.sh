@@ -187,5 +187,6 @@ cd "$WORKSPACE_ROOT/lightplayer" || {
 # Run the GLSL filetests using lp-test binary with cargo run
 # This ensures cargo run picks up all compilation changes in the lightplayer workspace
 # Pass all remaining arguments directly to the test runner
+# Pass through DEBUG environment variable for debug logging
 cargo run -p lp-test --bin lp-test -- test "${TEST_ARGS[@]}"
 

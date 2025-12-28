@@ -1,6 +1,9 @@
+// test run
+// target riscv32.fixed32
+
 // Phase 9: Array Constructors - Array constructor syntax
 
-int main() {
+int phase9() {
     // Explicit size constructor
     int arr1 = int[3](10, 20, 30);
     int x = arr1[0] + arr1[2]; // 10 + 30 = 40
@@ -15,4 +18,6 @@ int main() {
     
     return int(x + y + z); // 40 + 6 + 3 = 49
 }
+
+// run: phase9() == 49
 

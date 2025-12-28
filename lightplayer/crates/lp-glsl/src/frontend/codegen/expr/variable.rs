@@ -6,7 +6,7 @@ use crate::semantic::types::Type as GlslType;
 use cranelift_codegen::ir::Value;
 use glsl::syntax::Expr;
 
-use alloc::{format, vec::Vec};
+use alloc::vec::Vec;
 
 pub fn emit_variable<M: cranelift_module::Module>(
     ctx: &mut CodegenContext<'_, M>,
@@ -17,6 +17,23 @@ pub fn emit_variable<M: cranelift_module::Module>(
     };
 
     let span = extract_span_from_identifier(ident);
+    
+    // Get variable type first to check if it's an array
+    let ty = ctx
+        .lookup_variable_type(&ident.name)
+        .ok_or_else(|| {
+            let error = GlslError::undefined_variable(&ident.name)
+                .with_location(source_span_to_location(&span));
+            ctx.add_span_to_error(error, &span)
+        })?
+        .clone();
+
+    // For arrays, we can't evaluate them as RValues directly (they need indexing)
+    // Return empty vec but correct type so type checking works
+    if ty.is_array() {
+        return Ok((Vec::new(), ty));
+    }
+
     let vars = ctx
         .lookup_variables(&ident.name)
         .ok_or_else(|| {
@@ -25,21 +42,6 @@ pub fn emit_variable<M: cranelift_module::Module>(
             ctx.add_span_to_error(error, &span)
         })?
         .to_vec(); // Clone to avoid borrow issues
-
-    let ty = ctx
-        .lookup_variable_type(&ident.name)
-        .ok_or_else(|| {
-            let error = GlslError::new(
-                crate::error::ErrorCode::E0400,
-                format!(
-                    "variable type not found for `{}` during codegen",
-                    ident.name
-                ),
-            )
-            .with_location(source_span_to_location(&span));
-            ctx.add_span_to_error(error, &span)
-        })?
-        .clone();
 
     // Ensure we're in the correct block before reading variables
     // This is important when reading variables in merge blocks after control flow

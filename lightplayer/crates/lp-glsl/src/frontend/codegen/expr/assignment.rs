@@ -92,6 +92,20 @@ pub fn emit_assignment_typed<M: cranelift_module::Module>(
             result_ty.component_count().unwrap()
         }
         crate::frontend::codegen::lvalue::LValue::VectorElement { .. } => 1,
+        crate::frontend::codegen::lvalue::LValue::ArrayElement { element_ty, component_indices, .. } => {
+            if let Some(indices) = component_indices {
+                indices.len()
+            } else if element_ty.is_scalar() {
+                1
+            } else if element_ty.is_vector() {
+                element_ty.component_count().unwrap()
+            } else {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!("unsupported array element type: {:?}", element_ty),
+                ));
+            }
+        }
     };
 
     if expected_count != rhs_vals.len() {

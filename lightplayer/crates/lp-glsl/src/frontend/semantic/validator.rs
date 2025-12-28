@@ -113,13 +113,20 @@ fn validate_declaration(
 ) -> Result<(), GlslError> {
     match decl {
         glsl::syntax::Declaration::InitDeclaratorList(list) => {
-            // Get type from type specifier
+            // Get base type from type specifier
             // Note: TypeSpecifier doesn't have a span, so we pass None
-            let ty = type_resolver::parse_return_type(&list.head.ty, None)?;
+            let mut ty = type_resolver::parse_return_type(&list.head.ty, None)?;
 
             // Handle the head declaration
+            // For "int arr[5];", the array specifier [5] is in list.head.array_specifier
             if let Some(name) = &list.head.name {
                 let name_span = name.span.clone();
+                
+                // Combine array specifier from SingleDeclaration with base type
+                if let Some(array_spec) = &list.head.array_specifier {
+                    ty = type_resolver::apply_array_specifier(&ty, array_spec, Some(name_span.clone()))?;
+                }
+                
                 symbols
                     .declare_variable(name.name.clone(), ty.clone(), StorageClass::Local)
                     .map_err(|e| e.with_location(source_span_to_location(&name_span)))?;
@@ -131,12 +138,20 @@ fn validate_declaration(
             }
 
             // Handle tail declarations (same type, different names)
+            // For tail declarations, array specifier is in ArrayedIdentifier.array_spec
             for declarator in &list.tail {
                 let name_span = declarator.ident.ident.span.clone();
+                
+                // Apply array specifier from ArrayedIdentifier if present
+                let mut declarator_ty = ty.clone();
+                if let Some(array_spec) = &declarator.ident.array_spec {
+                    declarator_ty = type_resolver::apply_array_specifier(&ty, array_spec, Some(name_span.clone()))?;
+                }
+                
                 symbols
                     .declare_variable(
                         declarator.ident.ident.name.clone(),
-                        ty.clone(),
+                        declarator_ty,
                         StorageClass::Local,
                     )
                     .map_err(|e| e.with_location(source_span_to_location(&name_span)))?;

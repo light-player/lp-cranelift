@@ -1,6 +1,9 @@
+// test run
+// target riscv32.fixed32
+
 // Phase 8: Constant Expression Array Sizes - Support constant expressions for array sizes
 
-int main() {
+int phase8() {
     // Constant variable
     const int n = 5;
     int arr1[n];
@@ -22,4 +25,6 @@ int main() {
     return arr1[0] + arr1[4] + arr2[0] + arr2[4] + arr3[0] + arr3[5];
     // 10 + 50 + 1 + 5 + 100 + 600 = 766
 }
+
+// run: phase8() == 766
 
