@@ -1,12 +1,16 @@
 use glsl::syntax::Declaration;
 
-use alloc::{format, vec::Vec};
+use alloc::{boxed::Box, format, vec::Vec};
 
 use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
+use cranelift_codegen::ir::InstBuilder;
 
 /// Emit variable declaration statement
-pub fn emit_declaration<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, decl: &Declaration) -> Result<(), GlslError> {
+pub fn emit_declaration<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
+    decl: &Declaration,
+) -> Result<(), GlslError> {
     use glsl::syntax::Declaration;
 
     match decl {
@@ -16,19 +20,145 @@ pub fn emit_declaration<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_
 
             // Handle the head declaration
             if let Some(name) = &list.head.name {
-                // Parse complete type including array specifier from SingleDeclaration
-                let ty = crate::frontend::semantic::type_resolver::parse_head_declarator_type(list, &name.span)?;
-                
+                // Check for unsized array and infer size from initializer if present
+                let mut ty = crate::frontend::semantic::type_resolver::parse_head_declarator_type(
+                    list, &name.span,
+                )?;
+
+                // Handle unsized arrays: infer size from initializer
+                if ty.is_array() {
+                    let array_dims = ty.array_dimensions();
+                    // Check if first dimension is 0 (unsized)
+                    if let Some(&first_dim) = array_dims.first() {
+                        if first_dim == 0 {
+                            // Unsized array - need initializer to infer size
+                            if let Some(init) = &list.head.initializer {
+                                let (init_vals, _init_ty) = emit_initializer(ctx, init)?;
+                                let inferred_size = init_vals.len();
+
+                                // Rebuild array type with inferred size
+                                let element_ty = ty.array_element_type().unwrap();
+                                ty = crate::frontend::semantic::types::Type::Array(
+                                    Box::new(element_ty),
+                                    inferred_size,
+                                );
+                            } else {
+                                return Err(GlslError::new(
+                                    ErrorCode::E0400,
+                                    "unsized arrays require initializer to infer size",
+                                ));
+                            }
+                        }
+                    }
+                }
+
                 let vars = ctx.declare_variable(name.name.clone(), ty.clone())?;
 
                 // Handle initializer if present
-                // Skip initialization for arrays (Phase 1 doesn't support array initialization)
                 if ty.is_array() {
-                    if list.head.initializer.is_some() {
-                        return Err(GlslError::new(
-                            ErrorCode::E0400,
-                            "array initialization not yet supported",
-                        ));
+                    if let Some(init) = &list.head.initializer {
+                        // Ensure we're in a block before emitting instructions
+                        ctx.ensure_block()?;
+
+                        // Array initialization
+                        let (init_vals, init_element_ty) = emit_initializer(ctx, init)?;
+
+                        let element_ty = ty.array_element_type().unwrap();
+                        let array_size = ty.array_dimensions()[0];
+
+                        // Validate initializer list length
+                        if init_vals.len() > array_size {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!(
+                                    "array initializer has {} elements, but array size is {}",
+                                    init_vals.len(),
+                                    array_size
+                                ),
+                            ));
+                        }
+
+                        // Type check element type
+                        crate::frontend::semantic::type_check::check_assignment(
+                            &element_ty,
+                            &init_element_ty,
+                        )
+                        .map_err(|_e| {
+                            GlslError::new(
+                                ErrorCode::E0400,
+                                format!(
+                                    "array element type mismatch: expected {:?}, got {:?}",
+                                    element_ty, init_element_ty
+                                ),
+                            )
+                        })?;
+
+                        // Get array pointer
+                        let var_info = ctx.lookup_var_info(&name.name).ok_or_else(|| {
+                            GlslError::new(
+                                ErrorCode::E0400,
+                                format!("array variable '{}' not found", name.name),
+                            )
+                        })?;
+                        let array_ptr = var_info.array_ptr.ok_or_else(|| {
+                            GlslError::new(
+                                ErrorCode::E0400,
+                                format!("variable '{}' is not an array", name.name),
+                            )
+                        })?;
+
+                        // Calculate element size
+                        let element_cranelift_ty = element_ty.to_cranelift_type().map_err(|e| {
+                            GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Failed to convert element type: {}", e.message),
+                            )
+                        })?;
+                        let element_size_bytes = element_cranelift_ty.bytes();
+
+                        // Coerce and store initializer values
+                        let base_ty = element_ty.clone();
+                        let flags = cranelift_codegen::ir::MemFlags::trusted();
+
+                        for (index, init_val) in init_vals.iter().enumerate() {
+                            let coerced_val =
+                                ctx.coerce_to_type(*init_val, &init_element_ty, &base_ty)?;
+                            let offset = (index * element_size_bytes as usize) as i32;
+                            ctx.builder
+                                .ins()
+                                .store(flags, coerced_val, array_ptr, offset);
+                        }
+
+                        // Zero-fill remaining elements for partial initialization
+                        if init_vals.len() < array_size {
+                            let zero_val = match element_ty {
+                                crate::frontend::semantic::types::Type::Int => ctx
+                                    .builder
+                                    .ins()
+                                    .iconst(cranelift_codegen::ir::types::I32, 0),
+                                crate::frontend::semantic::types::Type::Float => {
+                                    ctx.builder.ins().f32const(0.0)
+                                }
+                                crate::frontend::semantic::types::Type::Bool => ctx
+                                    .builder
+                                    .ins()
+                                    .iconst(cranelift_codegen::ir::types::I32, 0),
+                                _ => {
+                                    return Err(GlslError::new(
+                                        ErrorCode::E0400,
+                                        format!(
+                                            "unsupported array element type for zero initialization: {:?}",
+                                            element_ty
+                                        ),
+                                    ));
+                                }
+                            };
+
+                            for index in init_vals.len()..array_size {
+                                let offset = (index * element_size_bytes as usize) as i32;
+                                ctx.builder.ins().store(flags, zero_val, array_ptr, offset);
+                            }
+                        }
                     }
                 } else if let Some(init) = &list.head.initializer {
                     let (init_vals, init_ty) = emit_initializer(ctx, init)?;
@@ -92,23 +222,162 @@ pub fn emit_declaration<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_
             // Handle tail declarations (same type, different names)
             for declarator in &list.tail {
                 // Parse complete type including array specifier from ArrayedIdentifier
-                let declarator_ty = crate::frontend::semantic::type_resolver::parse_tail_declarator_type(&base_ty, declarator)?;
-                
-                let vars = ctx.declare_variable(declarator.ident.ident.name.clone(), declarator_ty.clone())?;
+                let mut declarator_ty =
+                    crate::frontend::semantic::type_resolver::parse_tail_declarator_type(
+                        &base_ty, declarator,
+                    )?;
 
-                // Skip initialization for arrays (Phase 1 doesn't support array initialization)
+                // Handle unsized arrays: infer size from initializer
                 if declarator_ty.is_array() {
-                    if declarator.initializer.is_some() {
-                        return Err(GlslError::new(
-                            ErrorCode::E0400,
-                            "array initialization not yet supported",
-                        ));
+                    let array_dims = declarator_ty.array_dimensions();
+                    if let Some(&first_dim) = array_dims.first() {
+                        if first_dim == 0 {
+                            // Unsized array - need initializer to infer size
+                            if let Some(init) = &declarator.initializer {
+                                let (init_vals, _init_ty) = emit_initializer(ctx, init)?;
+                                let inferred_size = init_vals.len();
+
+                                // Rebuild array type with inferred size
+                                let element_ty = declarator_ty.array_element_type().unwrap();
+                                declarator_ty = crate::frontend::semantic::types::Type::Array(
+                                    Box::new(element_ty),
+                                    inferred_size,
+                                );
+                            } else {
+                                return Err(GlslError::new(
+                                    ErrorCode::E0400,
+                                    "unsized arrays require initializer to infer size",
+                                ));
+                            }
+                        }
+                    }
+                }
+
+                let vars = ctx
+                    .declare_variable(declarator.ident.ident.name.clone(), declarator_ty.clone())?;
+
+                // Handle initializer if present
+                if declarator_ty.is_array() {
+                    if let Some(init) = &declarator.initializer {
+                        // Ensure we're in a block before emitting instructions
+                        ctx.ensure_block()?;
+
+                        // Array initialization
+                        let (init_vals, init_element_ty) = emit_initializer(ctx, init)?;
+
+                        let element_ty = declarator_ty.array_element_type().unwrap();
+                        let array_size = declarator_ty.array_dimensions()[0];
+
+                        // Validate initializer list length
+                        if init_vals.len() > array_size {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!(
+                                    "array initializer has {} elements, but array size is {}",
+                                    init_vals.len(),
+                                    array_size
+                                ),
+                            ));
+                        }
+
+                        // Type check element type
+                        crate::frontend::semantic::type_check::check_assignment(
+                            &element_ty,
+                            &init_element_ty,
+                        )
+                        .map_err(|_e| {
+                            GlslError::new(
+                                ErrorCode::E0400,
+                                format!(
+                                    "array element type mismatch: expected {:?}, got {:?}",
+                                    element_ty, init_element_ty
+                                ),
+                            )
+                        })?;
+
+                        // Get array pointer
+                        let var_info = ctx
+                            .lookup_var_info(&declarator.ident.ident.name)
+                            .ok_or_else(|| {
+                                GlslError::new(
+                                    ErrorCode::E0400,
+                                    format!(
+                                        "array variable '{}' not found",
+                                        declarator.ident.ident.name
+                                    ),
+                                )
+                            })?;
+                        let array_ptr = var_info.array_ptr.ok_or_else(|| {
+                            GlslError::new(
+                                ErrorCode::E0400,
+                                format!(
+                                    "variable '{}' is not an array",
+                                    declarator.ident.ident.name
+                                ),
+                            )
+                        })?;
+
+                        // Calculate element size
+                        let element_cranelift_ty = element_ty.to_cranelift_type().map_err(|e| {
+                            GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Failed to convert element type: {}", e.message),
+                            )
+                        })?;
+                        let element_size_bytes = element_cranelift_ty.bytes();
+
+                        // Coerce and store initializer values
+                        let base_ty = element_ty.clone();
+                        let flags = cranelift_codegen::ir::MemFlags::trusted();
+
+                        for (index, init_val) in init_vals.iter().enumerate() {
+                            let coerced_val =
+                                ctx.coerce_to_type(*init_val, &init_element_ty, &base_ty)?;
+                            let offset = (index * element_size_bytes as usize) as i32;
+                            ctx.builder
+                                .ins()
+                                .store(flags, coerced_val, array_ptr, offset);
+                        }
+
+                        // Zero-fill remaining elements for partial initialization
+                        if init_vals.len() < array_size {
+                            let zero_val = match element_ty {
+                                crate::frontend::semantic::types::Type::Int => ctx
+                                    .builder
+                                    .ins()
+                                    .iconst(cranelift_codegen::ir::types::I32, 0),
+                                crate::frontend::semantic::types::Type::Float => {
+                                    ctx.builder.ins().f32const(0.0)
+                                }
+                                crate::frontend::semantic::types::Type::Bool => ctx
+                                    .builder
+                                    .ins()
+                                    .iconst(cranelift_codegen::ir::types::I32, 0),
+                                _ => {
+                                    return Err(GlslError::new(
+                                        ErrorCode::E0400,
+                                        format!(
+                                            "unsupported array element type for zero initialization: {:?}",
+                                            element_ty
+                                        ),
+                                    ));
+                                }
+                            };
+
+                            for index in init_vals.len()..array_size {
+                                let offset = (index * element_size_bytes as usize) as i32;
+                                ctx.builder.ins().store(flags, zero_val, array_ptr, offset);
+                            }
+                        }
                     }
                 } else if let Some(init) = &declarator.initializer {
                     let (init_vals, init_ty) = emit_initializer(ctx, init)?;
 
                     // Type check (allows implicit conversions)
-                    crate::frontend::semantic::type_check::check_assignment(&declarator_ty, &init_ty)?;
+                    crate::frontend::semantic::type_check::check_assignment(
+                        &declarator_ty,
+                        &init_ty,
+                    )?;
 
                     // Coerce initializer values to match variable type
                     let base_ty = if declarator_ty.is_vector() {
@@ -165,6 +434,7 @@ pub fn parse_type_specifier<M: cranelift_module::Module>(
 }
 
 /// Emit initializer expression (returns values and type)
+/// For arrays, returns a flat list of element values
 pub fn emit_initializer<M: cranelift_module::Module>(
     ctx: &mut CodegenContext<'_, M>,
     init: &glsl::syntax::Initializer,
@@ -179,9 +449,52 @@ pub fn emit_initializer<M: cranelift_module::Module>(
 
     match init {
         Initializer::Simple(expr) => ctx.emit_expr_typed(expr.as_ref()),
-        _ => Err(GlslError::new(
-            ErrorCode::E0400,
-            "only simple initializers supported",
-        )),
+        Initializer::List(list) => {
+            // Handle initializer list for arrays
+            // For now, only support 1D arrays (flat list)
+            let mut values = Vec::new();
+            let mut element_type: Option<crate::frontend::semantic::types::Type> = None;
+
+            for item in list.0.iter() {
+                let (item_vals, item_ty) = emit_initializer(ctx, item)?;
+
+                // For 1D arrays, each item should be a scalar (or we'll handle vectors later)
+                if item_vals.len() != 1 {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!(
+                            "array initializer list items must be scalars (got {} values)",
+                            item_vals.len()
+                        ),
+                    ));
+                }
+
+                // Track element type (should be consistent across all items)
+                if let Some(ref expected_ty) = element_type {
+                    // Type check: allow implicit conversions
+                    crate::frontend::semantic::type_check::check_assignment(expected_ty, &item_ty)
+                        .map_err(|_e| {
+                            GlslError::new(
+                                ErrorCode::E0400,
+                                format!(
+                                    "array initializer type mismatch: expected {:?}, got {:?}",
+                                    expected_ty, item_ty
+                                ),
+                            )
+                        })?;
+                } else {
+                    element_type = Some(item_ty.clone());
+                }
+
+                values.push(item_vals[0]);
+            }
+
+            let element_ty = element_type
+                .ok_or_else(|| GlslError::new(ErrorCode::E0400, "empty array initializer list"))?;
+
+            // Return flat list of values and element type
+            // The caller will handle creating the array type
+            Ok((values, element_ty))
+        }
     }
 }

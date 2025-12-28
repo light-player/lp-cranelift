@@ -34,26 +34,30 @@ fn parse_array_dimensions(
                 }
             }
             ArraySpecifierDimension::Unsized => {
-                let mut error = GlslError::new(
-                    crate::error::ErrorCode::E0400,
-                    "unsized arrays require initializer to infer size",
-                );
-                if let Some(s) = span {
-                    error = error.with_location(source_span_to_location(&s));
-                }
-                return Err(error);
+                // Return 0 as a marker for unsized arrays
+                // The caller will need to infer size from initializer
+                0
             }
         };
 
+        // Allow size 0 as a marker for unsized arrays (will be inferred from initializer)
+        // Only reject 0 if it's from an explicitly sized array (not Unsized)
         if size == 0 {
-            let mut error = GlslError::new(
-                crate::error::ErrorCode::E0400,
-                "array size must be positive",
-            );
-            if let Some(s) = span {
-                error = error.with_location(source_span_to_location(&s));
+            match dimension {
+                ArraySpecifierDimension::ExplicitlySized(_) => {
+                    let mut error = GlslError::new(
+                        crate::error::ErrorCode::E0400,
+                        "array size must be positive",
+                    );
+                    if let Some(s) = span {
+                        error = error.with_location(source_span_to_location(&s));
+                    }
+                    return Err(error);
+                }
+                ArraySpecifierDimension::Unsized => {
+                    // Size 0 is valid for unsized arrays - will be inferred from initializer
+                }
             }
-            return Err(error);
         }
 
         dimensions.push(size);
