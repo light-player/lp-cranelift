@@ -6,7 +6,10 @@ use cranelift_codegen::ir::{InstBuilder, types};
 use glsl::syntax::Expr;
 
 /// Emit code to compute a literal as an RValue
-pub fn emit_literal_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_literal_rvalue<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
+    expr: &Expr,
+) -> Result<RValue, GlslError> {
     match expr {
         Expr::IntConst(n, _) => {
             let val = ctx.builder.ins().iconst(types::I32, *n as i64);

@@ -9,7 +9,7 @@ use alloc::string::String;
 use hashbrown::HashMap;
 
 use super::compiler::compile_intrinsic_functions;
-use super::dependency::{build_dependency_graph, compute_transitive_closure, DependencyGraph};
+use super::dependency::{DependencyGraph, build_dependency_graph, compute_transitive_closure};
 
 /// Cache for compiled intrinsic functions per module.
 pub struct IntrinsicCache {
@@ -120,14 +120,20 @@ pub fn get_or_create_intrinsic<M: Module>(
         graph.clone()
     } else {
         // Extract source string to build dependency graph
-        let glsl_source_str = source_map.get_file(intrinsic_file_id)
-            .ok_or_else(|| GlslError::new(
-                ErrorCode::E0400,
-                format!("Intrinsic file {} not found in source map", file_name),
-            ))?
-            .contents.clone();
+        let glsl_source_str = source_map
+            .get_file(intrinsic_file_id)
+            .ok_or_else(|| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("Intrinsic file {} not found in source map", file_name),
+                )
+            })?
+            .contents
+            .clone();
         let graph = build_dependency_graph(glsl_source_str.as_str())?;
-        cache.dependency_graphs.insert(String::from(file_name), graph.clone());
+        cache
+            .dependency_graphs
+            .insert(String::from(file_name), graph.clone());
         graph
     };
 
@@ -137,15 +143,19 @@ pub fn get_or_create_intrinsic<M: Module>(
 
     // Compile functions directly into the real module
     // Extract source string to avoid borrow conflicts (clone to release immutable borrow)
-    let glsl_source_str = source_map.get_file(intrinsic_file_id)
-        .ok_or_else(|| GlslError::new(
-            ErrorCode::E0400,
-            format!("Intrinsic file {} not found in source map", file_name),
-        ))?
-        .contents.clone();
+    let glsl_source_str = source_map
+        .get_file(intrinsic_file_id)
+        .ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0400,
+                format!("Intrinsic file {} not found in source map", file_name),
+            )
+        })?
+        .contents
+        .clone();
     let compiled_functions = compile_intrinsic_functions(
         glsl_source_str.as_str(),
-        ctx.gl_module,  // Pass GlModule - functions will be compiled directly into it
+        ctx.gl_module, // Pass GlModule - functions will be compiled directly into it
         source_map,
         intrinsic_file_id,
         Some(&functions_to_compile_set),
@@ -155,42 +165,53 @@ pub fn get_or_create_intrinsic<M: Module>(
     for (name, func) in &compiled_functions {
         if !cache.compiled_functions.contains_key(name) {
             // Get FuncId from module (function was declared during compilation)
-            let func_id = ctx.gl_module.module_internal().declarations()
+            let func_id = ctx
+                .gl_module
+                .module_internal()
+                .declarations()
                 .get_name(name)
                 .and_then(|id| match id {
                     FuncOrDataId::Func(id) => Some(id),
                     _ => None,
                 })
-                .ok_or_else(|| GlslError::new(
-                    ErrorCode::E0400,
-                    format!("Function {} was not declared in module", name),
-                ))?;
-            
+                .ok_or_else(|| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Function {} was not declared in module", name),
+                    )
+                })?;
+
             let sig = func.signature.clone();
-            
+
             // Add to GlModule.fns so it gets transformed
-            ctx.gl_module.add_function_to_fns(name, sig, func.clone(), func_id);
-            
+            ctx.gl_module
+                .add_function_to_fns(name, sig, func.clone(), func_id);
+
             // Store in cache
             cache.compiled_functions.insert(name.clone(), func.clone());
         }
     }
 
     // Get the requested function's ID from module
-    let func_id = if let Some(FuncOrDataId::Func(id)) = ctx.gl_module.module_internal().declarations().get_name(intrinsic_name) {
+    let func_id = if let Some(FuncOrDataId::Func(id)) = ctx
+        .gl_module
+        .module_internal()
+        .declarations()
+        .get_name(intrinsic_name)
+    {
         id
     } else {
         return Err(GlslError::new(
             ErrorCode::E0400,
-            format!(
-                "Intrinsic function {} not found in module",
-                intrinsic_name
-            ),
+            format!("Intrinsic function {} not found in module", intrinsic_name),
         ));
     };
 
     // Import into current function
-    let func_ref = ctx.gl_module.module_mut_internal().declare_func_in_func(func_id, ctx.builder.func);
+    let func_ref = ctx
+        .gl_module
+        .module_mut_internal()
+        .declare_func_in_func(func_id, ctx.builder.func);
 
     // Store in cache
     cache

@@ -17,7 +17,7 @@ pub fn emit_variable<M: cranelift_module::Module>(
     };
 
     let span = extract_span_from_identifier(ident);
-    
+
     // Get variable type first to check if it's an array
     let ty = ctx
         .lookup_variable_type(&ident.name)
@@ -64,6 +64,9 @@ pub fn emit_variable<M: cranelift_module::Module>(
 /// Emit variable expression as RValue
 ///
 /// Reads a variable by resolving it as an LValue, then loading its value.
-pub fn emit_variable_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_variable_rvalue<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
+    expr: &Expr,
+) -> Result<RValue, GlslError> {
     emit_lvalue_as_rvalue(ctx, expr)
 }

@@ -11,7 +11,7 @@ use hashbrown::HashMap;
 
 use cranelift_codegen::Context;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
-use cranelift_module::{FuncId, Linkage, Module, FuncOrDataId};
+use cranelift_module::{FuncId, FuncOrDataId, Linkage, Module};
 
 use crate::frontend::codegen::context::CodegenContext;
 use crate::frontend::codegen::signature::SignatureBuilder;
@@ -39,27 +39,36 @@ pub fn compile_intrinsic_functions<M: Module>(
     let typed_ast = semantic_result.typed_ast;
 
     // 2. Filter functions to compile if specified
-    let functions_to_compile_set: hashbrown::HashSet<String> = if let Some(set) = functions_to_compile {
-        set.clone()
-    } else {
-        // Compile all functions
-        typed_ast.user_functions.iter().map(|f| f.name.clone()).collect()
-    };
+    let functions_to_compile_set: hashbrown::HashSet<String> =
+        if let Some(set) = functions_to_compile {
+            set.clone()
+        } else {
+            // Compile all functions
+            typed_ast
+                .user_functions
+                .iter()
+                .map(|f| f.name.clone())
+                .collect()
+        };
 
     // 3. Declare all user functions in the real module and get their FuncIds
     // We need to declare all functions (even if not compiling) so they can be called
-    
+
     // First pass: Check which functions are already declared (immutable borrows only)
     let mut existing_func_ids: HashMap<String, FuncId> = HashMap::new();
     let mut functions_to_declare: Vec<&crate::frontend::semantic::TypedFunction> = Vec::new();
-    
+
     for user_func in &typed_ast.user_functions {
         // Skip main() function
         if user_func.name == "main" {
             continue;
         }
-        
-        if let Some(FuncOrDataId::Func(id)) = gl_module.module_internal().declarations().get_name(&user_func.name) {
+
+        if let Some(FuncOrDataId::Func(id)) = gl_module
+            .module_internal()
+            .declarations()
+            .get_name(&user_func.name)
+        {
             // Function already declared, use existing ID
             existing_func_ids.insert(user_func.name.clone(), id);
         } else {
@@ -67,7 +76,7 @@ pub fn compile_intrinsic_functions<M: Module>(
             functions_to_declare.push(user_func);
         }
     }
-    
+
     // Second pass: Declare functions that need declaring (mutable borrow)
     let mut func_ids = existing_func_ids;
     for user_func in functions_to_declare {
@@ -83,9 +92,10 @@ pub fn compile_intrinsic_functions<M: Module>(
                 triple,
             )
         }; // isa reference dropped here
-        
+
         // Declare function in real module (mutable borrow, isa reference is already dropped)
-        let func_id = gl_module.module_mut_internal()
+        let func_id = gl_module
+            .module_mut_internal()
             .declare_function(&user_func.name, Linkage::Local, &sig)
             .map_err(|e| {
                 GlslError::new(
@@ -95,7 +105,7 @@ pub fn compile_intrinsic_functions<M: Module>(
             })?;
         func_ids.insert(user_func.name.clone(), func_id);
     }
-    
+
     // 4. Compile each function (only those in functions_to_compile_set)
     let mut compiled_functions = hashbrown::HashMap::new();
     for user_func in &typed_ast.user_functions {
@@ -103,7 +113,7 @@ pub fn compile_intrinsic_functions<M: Module>(
         if !functions_to_compile_set.contains(&user_func.name) {
             continue;
         }
-        
+
         // Build signature in a block to drop isa reference before mutable borrow
         let sig = {
             let isa = gl_module.module_internal().isa();
@@ -116,7 +126,7 @@ pub fn compile_intrinsic_functions<M: Module>(
                 triple,
             )
         }; // isa reference dropped here
-        
+
         let mut ctx = Context::new();
         ctx.func.signature = sig;
 
@@ -128,8 +138,7 @@ pub fn compile_intrinsic_functions<M: Module>(
         builder.seal_block(entry_block);
 
         {
-            let mut codegen_ctx =
-                CodegenContext::new(builder, gl_module, source_map, file_id);
+            let mut codegen_ctx = CodegenContext::new(builder, gl_module, source_map, file_id);
             // Use real module function IDs - these are the correct FuncIds
             codegen_ctx.set_function_ids(&func_ids);
             codegen_ctx.set_function_registry(&typed_ast.function_registry);

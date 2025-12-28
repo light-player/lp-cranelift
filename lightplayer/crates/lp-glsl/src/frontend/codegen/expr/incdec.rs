@@ -140,7 +140,10 @@ fn emit_incdec<M: cranelift_module::Module>(
 /// Emit post-increment expression as RValue
 ///
 /// Returns the original value before incrementing (post-increment semantics).
-pub fn emit_postinc_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_postinc_rvalue<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
+    expr: &Expr,
+) -> Result<RValue, GlslError> {
     let Expr::PostInc(operand, span) = expr else {
         unreachable!("emit_postinc_rvalue called on non-postinc expr");
     };
@@ -151,7 +154,10 @@ pub fn emit_postinc_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext
 /// Emit post-decrement expression as RValue
 ///
 /// Returns the original value before decrementing (post-decrement semantics).
-pub fn emit_postdec_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_postdec_rvalue<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
+    expr: &Expr,
+) -> Result<RValue, GlslError> {
     let Expr::PostDec(operand, span) = expr else {
         unreachable!("emit_postdec_rvalue called on non-postdec expr");
     };

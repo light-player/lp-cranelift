@@ -238,7 +238,7 @@ impl fmt::Display for GlslError {
             &self.notes[..]
         };
         for note in notes_to_show {
-            write!(f, "\n{}", note)?;
+            write!(f, "\nnote: {}", note)?;
         }
 
         // Add spec reference
@@ -361,7 +361,7 @@ fn calculate_line_number_width(line_num: usize) -> usize {
 /// Format source line with error span for error display (Rust-style formatting).
 /// Shows only the error line with blank line before and caret pointing to the error.
 /// Matches Rust's exact format:
-/// ```
+/// ```text
 ///     |
 /// 102 |     while (int i = (sum < 3) ? 1 : 0) {
 ///     |            ^^^^^^^^^^^^^^^^^^^^^^^^^

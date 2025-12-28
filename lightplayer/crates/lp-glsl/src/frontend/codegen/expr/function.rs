@@ -447,7 +447,10 @@ fn emit_user_function_call<M: cranelift_module::Module>(
     validate_function_call(ctx, &func_sig, &arg_types, name, &call_span)?;
 
     // Step 4: Import function and setup StructReturn if needed
-    let func_ref = ctx.gl_module.module_mut_internal().declare_func_in_func(func_id, ctx.builder.func);
+    let func_ref = ctx
+        .gl_module
+        .module_mut_internal()
+        .declare_func_in_func(func_id, ctx.builder.func);
     let return_buffer_ptr = setup_struct_return_buffer(ctx, &func_sig, func_ref)?;
 
     // Step 5: Prepare call arguments

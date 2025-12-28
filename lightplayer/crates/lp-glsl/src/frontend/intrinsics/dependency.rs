@@ -85,10 +85,7 @@ fn extract_function_calls(stmt: &glsl::syntax::Statement) -> HashSet<String> {
 }
 
 /// Recursively traverse statements to find function calls.
-fn extract_function_calls_from_stmt(
-    stmt: &glsl::syntax::Statement,
-    calls: &mut HashSet<String>,
-) {
+fn extract_function_calls_from_stmt(stmt: &glsl::syntax::Statement, calls: &mut HashSet<String>) {
     match stmt {
         glsl::syntax::Statement::Simple(simple) => {
             extract_function_calls_from_simple_stmt(simple, calls);
@@ -167,10 +164,7 @@ fn extract_function_calls_from_compound(
 }
 
 /// Recursively extract function calls from an expression.
-fn extract_function_calls_from_expr(
-    expr: &glsl::syntax::Expr,
-    calls: &mut HashSet<String>,
-) {
+fn extract_function_calls_from_expr(expr: &glsl::syntax::Expr, calls: &mut HashSet<String>) {
     match expr {
         glsl::syntax::Expr::FunCall(func_ident, args, _) => {
             // Extract function name
@@ -241,16 +235,14 @@ fn extract_function_calls_from_for_init(
         glsl::syntax::ForInitStatement::Expression(Some(expr)) => {
             extract_function_calls_from_expr(expr, calls);
         }
-        glsl::syntax::ForInitStatement::Declaration(decl) => {
-            match decl.as_ref() {
-                glsl::syntax::Declaration::InitDeclaratorList(list) => {
-                    if let Some(init) = &list.head.initializer {
-                        extract_function_calls_from_initializer(init, calls);
-                    }
+        glsl::syntax::ForInitStatement::Declaration(decl) => match decl.as_ref() {
+            glsl::syntax::Declaration::InitDeclaratorList(list) => {
+                if let Some(init) = &list.head.initializer {
+                    extract_function_calls_from_initializer(init, calls);
                 }
-                _ => {}
             }
-        }
+            _ => {}
+        },
         glsl::syntax::ForInitStatement::Expression(None) => {}
     }
 }
@@ -289,12 +281,54 @@ fn is_builtin_or_constructor(name: &str) -> bool {
     // This is a simplified heuristic - we track __lp_ functions and skip obvious built-ins
     matches!(
         name,
-        "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sinh" | "cosh" | "tanh"
-            | "asinh" | "acosh" | "atanh" | "exp" | "log" | "exp2" | "log2" | "pow"
-            | "sqrt" | "abs" | "mod" | "min" | "max" | "clamp" | "mix" | "step" | "smoothstep"
-            | "floor" | "ceil" | "fract" | "sign" | "length" | "distance" | "dot" | "cross"
-            | "normalize" | "reflect" | "refract" | "transpose" | "determinant" | "inverse"
-            | "vec2" | "vec3" | "vec4" | "mat2" | "mat3" | "mat4" | "float" | "int" | "bool"
+        "sin"
+            | "cos"
+            | "tan"
+            | "asin"
+            | "acos"
+            | "atan"
+            | "sinh"
+            | "cosh"
+            | "tanh"
+            | "asinh"
+            | "acosh"
+            | "atanh"
+            | "exp"
+            | "log"
+            | "exp2"
+            | "log2"
+            | "pow"
+            | "sqrt"
+            | "abs"
+            | "mod"
+            | "min"
+            | "max"
+            | "clamp"
+            | "mix"
+            | "step"
+            | "smoothstep"
+            | "floor"
+            | "ceil"
+            | "fract"
+            | "sign"
+            | "length"
+            | "distance"
+            | "dot"
+            | "cross"
+            | "normalize"
+            | "reflect"
+            | "refract"
+            | "transpose"
+            | "determinant"
+            | "inverse"
+            | "vec2"
+            | "vec3"
+            | "vec4"
+            | "mat2"
+            | "mat3"
+            | "mat4"
+            | "float"
+            | "int"
+            | "bool"
     )
 }
-

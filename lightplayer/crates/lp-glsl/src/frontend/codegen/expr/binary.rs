@@ -17,7 +17,10 @@ use super::vector;
 use alloc::{format, vec::Vec};
 
 /// Emit code to compute a binary expression as an RValue
-pub fn emit_binary_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_binary_rvalue<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
+    expr: &Expr,
+) -> Result<RValue, GlslError> {
     // Ensure we're in a block before evaluating
     ctx.ensure_block()?;
 

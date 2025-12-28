@@ -14,7 +14,10 @@ use alloc::{format, vec::Vec};
 ///
 /// Handles pre-increment/decrement specially, delegates other unary operations
 /// to translate_unary_op.
-pub fn emit_unary_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_unary_rvalue<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
+    expr: &Expr,
+) -> Result<RValue, GlslError> {
     let Expr::Unary(op, operand, span) = expr else {
         unreachable!("emit_unary_rvalue called on non-unary expr");
     };

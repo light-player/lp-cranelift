@@ -119,10 +119,10 @@ fn validate_declaration(
             // Handle the head declaration
             if let Some(name) = &list.head.name {
                 let name_span = name.span.clone();
-                
+
                 // Parse complete type including array specifier from SingleDeclaration
                 let ty = type_resolver::parse_head_declarator_type(list, &name_span)?;
-                
+
                 symbols
                     .declare_variable(name.name.clone(), ty.clone(), StorageClass::Local)
                     .map_err(|e| e.with_location(source_span_to_location(&name_span)))?;
@@ -136,10 +136,11 @@ fn validate_declaration(
             // Handle tail declarations (same type, different names)
             for declarator in &list.tail {
                 let name_span = declarator.ident.ident.span.clone();
-                
+
                 // Parse complete type including array specifier from ArrayedIdentifier
-                let declarator_ty = type_resolver::parse_tail_declarator_type(&base_ty, declarator)?;
-                
+                let declarator_ty =
+                    type_resolver::parse_tail_declarator_type(&base_ty, declarator)?;
+
                 symbols
                     .declare_variable(
                         declarator.ident.ident.name.clone(),

@@ -108,7 +108,8 @@ pub fn emit_declaration<M: cranelift_module::Module>(
                         })?;
 
                         // Calculate element size
-                        let element_size_bytes = ctx.calculate_array_element_size_bytes(&element_ty)?;
+                        let element_size_bytes =
+                            ctx.calculate_array_element_size_bytes(&element_ty)?;
 
                         // Coerce and store initializer values
                         let base_ty = element_ty.clone();
@@ -312,7 +313,8 @@ pub fn emit_declaration<M: cranelift_module::Module>(
                         })?;
 
                         // Calculate element size
-                        let element_size_bytes = ctx.calculate_array_element_size_bytes(&element_ty)?;
+                        let element_size_bytes =
+                            ctx.calculate_array_element_size_bytes(&element_ty)?;
 
                         // Coerce and store initializer values
                         let base_ty = element_ty.clone();

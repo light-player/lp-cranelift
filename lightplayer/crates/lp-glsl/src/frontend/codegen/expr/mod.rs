@@ -102,10 +102,7 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
     ///
     /// This method is kept for backwards compatibility during the transition.
     /// New code should use `emit_rvalue` instead.
-    pub fn emit_expr_typed(
-        &mut self,
-        expr: &Expr,
-    ) -> Result<(Vec<Value>, GlslType), GlslError> {
+    pub fn emit_expr_typed(&mut self, expr: &Expr) -> Result<(Vec<Value>, GlslType), GlslError> {
         let rvalue = self.emit_rvalue(expr)?;
         let ty = rvalue.ty().clone();
         Ok((rvalue.into_values(), ty))

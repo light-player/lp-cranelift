@@ -6,7 +6,10 @@ use crate::error::GlslError;
 use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit return statement
-pub fn emit_return_stmt<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: Option<&Expr>) -> Result<(), GlslError> {
+pub fn emit_return_stmt<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
+    expr: Option<&Expr>,
+) -> Result<(), GlslError> {
     use crate::error::extract_span_from_expr;
     use cranelift_codegen::ir::{ArgumentPurpose, InstBuilder, MemFlags};
 

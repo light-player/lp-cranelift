@@ -3,13 +3,13 @@ use cranelift_frontend::{FunctionBuilder, Variable};
 use cranelift_module::{FuncId, Module};
 use hashbrown::HashMap;
 
+use crate::backend::module::gl_module::GlModule;
 use crate::error::{ErrorCode, GlslError};
 use crate::frontend::src_loc::{GlFileId, GlSourceMap};
 use crate::frontend::src_loc_manager::SourceLocManager;
 use crate::semantic::functions::FunctionRegistry;
 use crate::semantic::types::Type as GlslType;
 use crate::semantic::types::Type;
-use crate::backend::module::gl_module::GlModule;
 
 use alloc::string::String;
 use alloc::{format, vec::Vec};
@@ -18,7 +18,7 @@ pub struct VarInfo {
     pub cranelift_vars: Vec<Variable>, // Changed from single Variable to support vectors
     pub glsl_type: GlslType,
     // Array storage: pointer to stack-allocated memory block
-    pub array_ptr: Option<Value>,      // Pointer to array memory (for arrays)
+    pub array_ptr: Option<Value>, // Pointer to array memory (for arrays)
     pub stack_slot: Option<StackSlot>, // Stack slot for array storage (for arrays)
 }
 
@@ -142,7 +142,10 @@ impl<'a, M: Module> CodegenContext<'a, M> {
 
     /// Calculate the size in bytes of an array element type
     /// Handles vectors, matrices, and scalars
-    pub fn calculate_array_element_size_bytes(&self, element_ty: &GlslType) -> Result<usize, crate::error::GlslError> {
+    pub fn calculate_array_element_size_bytes(
+        &self,
+        element_ty: &GlslType,
+    ) -> Result<usize, crate::error::GlslError> {
         if element_ty.is_vector() {
             // Vector: component_count * base_type.bytes()
             let component_count = element_ty.component_count().unwrap();
@@ -150,7 +153,10 @@ impl<'a, M: Module> CodegenContext<'a, M> {
             let base_cranelift_ty = base_ty.to_cranelift_type().map_err(|e| {
                 crate::error::GlslError::new(
                     crate::error::ErrorCode::E0400,
-                    format!("Failed to convert vector base type to Cranelift type: {}", e.message),
+                    format!(
+                        "Failed to convert vector base type to Cranelift type: {}",
+                        e.message
+                    ),
                 )
             })?;
             Ok(component_count * base_cranelift_ty.bytes() as usize)
@@ -163,7 +169,10 @@ impl<'a, M: Module> CodegenContext<'a, M> {
             let element_cranelift_ty = element_ty.to_cranelift_type().map_err(|e| {
                 crate::error::GlslError::new(
                     crate::error::ErrorCode::E0400,
-                    format!("Failed to convert array element type to Cranelift type: {}", e.message),
+                    format!(
+                        "Failed to convert array element type to Cranelift type: {}",
+                        e.message
+                    ),
                 )
             })?;
             Ok(element_cranelift_ty.bytes() as usize)
@@ -179,26 +188,26 @@ impl<'a, M: Module> CodegenContext<'a, M> {
         if glsl_ty.is_array() {
             let element_ty = glsl_ty.array_element_type().unwrap();
             let array_size = glsl_ty.array_dimensions()[0]; // For Phase 1, only 1D arrays
-            
+
             // Calculate element size in bytes
             let element_size_bytes = self.calculate_array_element_size_bytes(&element_ty)?;
-            
+
             // Calculate total array size in bytes
             let total_size_bytes = array_size * element_size_bytes;
-            
+
             // Allocate stack slot
             let stack_slot = self.builder.func.create_sized_stack_slot(
                 cranelift_codegen::ir::StackSlotData::new(
                     cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
                     total_size_bytes as u32,
                     0, // alignment offset - let Cranelift choose alignment
-                )
+                ),
             );
-            
+
             // Get pointer to stack slot
             let pointer_type = self.gl_module.module_internal().isa().pointer_type();
             let array_ptr = self.builder.ins().stack_addr(pointer_type, stack_slot, 0);
-            
+
             // Create VarInfo with array storage
             let var_info = VarInfo {
                 cranelift_vars: Vec::new(), // Arrays don't use individual variables
@@ -206,7 +215,7 @@ impl<'a, M: Module> CodegenContext<'a, M> {
                 array_ptr: Some(array_ptr),
                 stack_slot: Some(stack_slot),
             };
-            
+
             // Declare in current scope (innermost scope)
             if let Some(current_scope) = self.variable_scopes.last_mut() {
                 current_scope.insert(name, var_info);
@@ -214,11 +223,11 @@ impl<'a, M: Module> CodegenContext<'a, M> {
                 // Fallback to global variables if no scopes (shouldn't happen)
                 self.variables.insert(name.clone(), var_info);
             }
-            
+
             // Return empty vec for arrays (they use pointer-based storage)
             return Ok(Vec::new());
         }
-        
+
         // Non-array variables: use existing logic
         let component_count = if glsl_ty.is_vector() {
             glsl_ty.component_count().unwrap()

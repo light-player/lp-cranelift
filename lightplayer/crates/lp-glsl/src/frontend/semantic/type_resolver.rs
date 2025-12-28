@@ -34,30 +34,30 @@ fn parse_array_dimensions(
                 }
             }
             ArraySpecifierDimension::Unsized => {
-                // Return 0 as a marker for unsized arrays
-                // The caller will need to infer size from initializer
-                0
+                // Unsized arrays require an initializer to infer the size
+                // Since this function doesn't have access to initializer context,
+                // we return an error
+                let mut error = GlslError::new(
+                    crate::error::ErrorCode::E0400,
+                    "unsized array requires an initializer",
+                );
+                if let Some(s) = span {
+                    error = error.with_location(source_span_to_location(&s));
+                }
+                return Err(error);
             }
         };
 
-        // Allow size 0 as a marker for unsized arrays (will be inferred from initializer)
-        // Only reject 0 if it's from an explicitly sized array (not Unsized)
+        // Reject size 0 (explicitly sized arrays cannot have zero size)
         if size == 0 {
-            match dimension {
-                ArraySpecifierDimension::ExplicitlySized(_) => {
-                    let mut error = GlslError::new(
-                        crate::error::ErrorCode::E0400,
-                        "array size must be positive",
-                    );
-                    if let Some(s) = span {
-                        error = error.with_location(source_span_to_location(&s));
-                    }
-                    return Err(error);
-                }
-                ArraySpecifierDimension::Unsized => {
-                    // Size 0 is valid for unsized arrays - will be inferred from initializer
-                }
+            let mut error = GlslError::new(
+                crate::error::ErrorCode::E0400,
+                "array size must be positive",
+            );
+            if let Some(s) = span {
+                error = error.with_location(source_span_to_location(&s));
             }
+            return Err(error);
         }
 
         dimensions.push(size);

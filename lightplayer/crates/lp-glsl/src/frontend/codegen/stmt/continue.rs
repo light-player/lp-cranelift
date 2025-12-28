@@ -2,7 +2,9 @@ use crate::error::{ErrorCode, GlslError};
 use crate::frontend::codegen::context::CodegenContext;
 
 /// Emit continue statement
-pub fn emit_continue_stmt<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>) -> Result<(), GlslError> {
+pub fn emit_continue_stmt<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
+) -> Result<(), GlslError> {
     let loop_ctx = ctx
         .loop_stack
         .last()

@@ -357,10 +357,7 @@ impl GlslCompiler {
 
         // Create codegen context with function IDs
         let mut codegen_ctx = crate::frontend::codegen::context::CodegenContext::new(
-            builder,
-            gl_module,
-            source_map,
-            file_id,
+            builder, gl_module, source_map, file_id,
         );
         codegen_ctx.set_function_ids(func_ids);
         codegen_ctx.set_function_registry(func_registry);
@@ -532,10 +529,7 @@ impl GlslCompiler {
 
         // Create codegen context
         let mut codegen_ctx = crate::frontend::codegen::context::CodegenContext::new(
-            builder,
-            gl_module,
-            source_map,
-            file_id,
+            builder, gl_module, source_map, file_id,
         );
         codegen_ctx.set_function_ids(func_ids);
         codegen_ctx.set_function_registry(func_registry);

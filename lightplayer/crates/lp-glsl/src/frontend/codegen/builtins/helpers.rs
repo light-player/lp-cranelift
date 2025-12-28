@@ -54,7 +54,8 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
 
         // Declare function in module if not already declared
         let func_id = self
-            .gl_module.module_mut_internal()
+            .gl_module
+            .module_mut_internal()
             .declare_function("atan2f", Linkage::Import, &sig)
             .map_err(|e| {
                 GlslError::new(
@@ -64,6 +65,9 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
             })?;
 
         // Import into current function
-        Ok(self.gl_module.module_mut_internal().declare_func_in_func(func_id, self.builder.func))
+        Ok(self
+            .gl_module
+            .module_mut_internal()
+            .declare_func_in_func(func_id, self.builder.func))
     }
 }
