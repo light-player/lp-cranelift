@@ -136,14 +136,30 @@ pub fn emit_indexing<M: cranelift_module::Module>(
         // Bounds check
         emit_bounds_check(ctx, index_val, array_size, span)?;
 
-        // Calculate element size in bytes
-        let element_cranelift_ty = element_ty.to_cranelift_type().map_err(|e| {
-            GlslError::new(
-                ErrorCode::E0400,
-                format!("Failed to convert element type: {}", e.message),
-            )
-        })?;
-        let element_size_bytes = element_cranelift_ty.bytes();
+        // Calculate element size in bytes (handles vectors/matrices)
+        let element_size_bytes = ctx.calculate_array_element_size_bytes(&element_ty)?;
+
+        // Get base Cranelift type for loading (scalar component type)
+        let base_cranelift_ty = if element_ty.is_vector() {
+            let base_ty = element_ty.vector_base_type().unwrap();
+            base_ty.to_cranelift_type().map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("Failed to convert vector base type: {}", e.message),
+                )
+            })?
+        } else if element_ty.is_matrix() {
+            // Matrices are always float
+            cranelift_codegen::ir::types::F32
+        } else {
+            // Scalar
+            element_ty.to_cranelift_type().map_err(|e| {
+                GlslError::new(
+                    ErrorCode::E0400,
+                    format!("Failed to convert element type: {}", e.message),
+                )
+            })?
+        };
 
         // Calculate byte offset: offset = index * element_size_bytes
         // For runtime offsets, we need to add the offset to the pointer and use offset 0
@@ -151,46 +167,52 @@ pub fn emit_indexing<M: cranelift_module::Module>(
             // Compile-time constant offset - can use directly
             let offset = (*n as usize) * (element_size_bytes as usize);
             (array_ptr, offset as i32)
+        } else {
+            // Runtime offset calculation - add to pointer
+            let element_size_const = ctx
+                .builder
+                .ins()
+                .iconst(types::I32, element_size_bytes as i64);
+            let offset_val = ctx.builder.ins().imul(index_val, element_size_const);
+            let pointer_type = ctx.gl_module.module_internal().isa().pointer_type();
+            // If pointer type matches offset type, use offset directly; otherwise extend
+            let offset_for_ptr = if pointer_type == types::I32 {
+                offset_val
             } else {
-                // Runtime offset calculation - add to pointer
-                let element_size_const = ctx.builder.ins().iconst(types::I32, element_size_bytes as i64);
-                let offset_val = ctx.builder.ins().imul(index_val, element_size_const);
-                let pointer_type = ctx.gl_module.module_internal().isa().pointer_type();
-                // If pointer type matches offset type, use offset directly; otherwise extend
-                let offset_for_ptr = if pointer_type == types::I32 {
-                    offset_val
-                } else {
-                    ctx.builder.ins().uextend(pointer_type, offset_val)
-                };
-                let final_ptr = ctx.builder.ins().iadd(array_ptr, offset_for_ptr);
-                (final_ptr, 0)
+                ctx.builder.ins().uextend(pointer_type, offset_val)
             };
+            let final_ptr = ctx.builder.ins().iadd(array_ptr, offset_for_ptr);
+            (final_ptr, 0)
+        };
 
         // Load element value(s)
         let flags = cranelift_codegen::ir::MemFlags::trusted();
         if element_ty.is_scalar() {
             // Single scalar value
-            let val = ctx.builder.ins().load(element_cranelift_ty, flags, final_ptr, base_offset);
+            let val = ctx
+                .builder
+                .ins()
+                .load(base_cranelift_ty, flags, final_ptr, base_offset);
             return Ok((vec![val], element_ty));
-        } else {
+        } else if element_ty.is_vector() || element_ty.is_matrix() {
             // Multi-component element (vector/matrix) - load each component
             let component_count = if element_ty.is_vector() {
                 element_ty.component_count().unwrap()
-            } else if element_ty.is_matrix() {
-                element_ty.matrix_element_count().unwrap()
             } else {
-                return Err(GlslError::new(
-                    ErrorCode::E0400,
-                    format!("unsupported array element type: {:?}", element_ty),
-                )
-                .with_location(source_span_to_location(span)));
+                element_ty.matrix_element_count().unwrap()
             };
+
+            // Calculate component size (base type size)
+            let component_size_bytes = base_cranelift_ty.bytes() as usize;
 
             let mut vals = Vec::new();
             for i in 0..component_count {
-                let component_offset = (i * element_size_bytes as usize) as i32;
+                let component_offset = (i * component_size_bytes) as i32;
                 let total_offset = base_offset + component_offset;
-                let val = ctx.builder.ins().load(element_cranelift_ty, flags, final_ptr, total_offset);
+                let val = ctx
+                    .builder
+                    .ins()
+                    .load(base_cranelift_ty, flags, final_ptr, total_offset);
                 vals.push(val);
             }
             return Ok((vals, element_ty));
@@ -607,39 +629,26 @@ pub fn emit_component_access_rvalue<M: cranelift_module::Module>(
 /// Emit matrix/vector indexing expression as RValue
 ///
 /// Handles bracket notation (e.g., `vec[0]`, `mat[0][1]`).
-/// For constant indices, uses LValue path for efficiency.
-/// For variable indices, uses translate_matrix_indexing directly.
-pub fn emit_matrix_indexing_rvalue<M: cranelift_module::Module>(
+/// Always tries LValue path first for efficiency (matches DirectX pattern).
+/// The LValue path defers loading until read_lvalue(), allowing component access
+/// like arr[i].x to only load the needed components.
+/// Falls back to RValue path only when LValue resolution fails.
+pub fn emit_indexing_rvalue<M: cranelift_module::Module>(
     ctx: &mut CodegenContext<'_, M>,
     expr: &Expr,
 ) -> Result<RValue, GlslError> {
-    // Check if this is a variable index - if so, use translate_matrix_indexing directly
-    let Expr::Bracket(_, array_spec, _) = expr else {
-        unreachable!("emit_matrix_indexing_rvalue called on non-bracket expr");
-    };
-
-    use glsl::syntax::ArraySpecifierDimension;
-    let has_variable_index = array_spec.dimensions.0.iter().any(|dim| match dim {
-        ArraySpecifierDimension::ExplicitlySized(index_expr) => {
-            !matches!(index_expr.as_ref(), Expr::IntConst(_, _))
-        }
-        ArraySpecifierDimension::Unsized => false,
-    });
-
-    if has_variable_index {
-        // Variable index - use translate_matrix_indexing directly
-        let (vals, ty) = emit_indexing(ctx, expr)?;
-        Ok(RValue::from_aggregate(vals, ty))
-    } else {
-        // Constant index - try LValue path first, fall back to RValue path if it fails
-        // This handles arrays which need special handling
-        match ctx.emit_lvalue(expr) {
-            Ok(lvalue) => ctx.load_lvalue(lvalue),
-            Err(_) => {
-                // Fall back to RValue path (for expressions like function calls that return arrays)
-                let (vals, ty) = emit_indexing(ctx, expr)?;
-                Ok(RValue::from_aggregate(vals, ty))
-            }
+    // Always try LValue path first - matches DirectX pattern:
+    // 1. EmitArraySubscriptExpr returns LValue (address + metadata, no load)
+    // 2. EmitLoadOfLValue converts LValue → RValue (load happens here)
+    // This allows arr[i].x to only load .x component, not all 4 components
+    match ctx.emit_lvalue(expr) {
+        Ok(lvalue) => ctx.load_lvalue(lvalue),
+        Err(_) => {
+            // Fall back to RValue path (for expressions like function calls that return arrays)
+            // Note: This path loads all components immediately, which is inefficient
+            // but necessary for cases where we can't resolve an LValue
+            let (vals, ty) = emit_indexing(ctx, expr)?;
+            Ok(RValue::from_aggregate(vals, ty))
         }
     }
 }

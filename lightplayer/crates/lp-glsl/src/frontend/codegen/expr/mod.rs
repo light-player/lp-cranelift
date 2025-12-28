@@ -62,7 +62,7 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
             Expr::Variable(..) => variable::emit_variable_rvalue(self, expr),
             Expr::Unary(..) => unary::emit_unary_rvalue(self, expr),
             Expr::Dot(..) => component::emit_component_access_rvalue(self, expr),
-            Expr::Bracket(..) => component::emit_matrix_indexing_rvalue(self, expr),
+            Expr::Bracket(..) => component::emit_indexing_rvalue(self, expr),
             Expr::Assignment(..) => assignment::emit_assignment_rvalue(self, expr),
             Expr::PostInc(..) => incdec::emit_postinc_rvalue(self, expr),
             Expr::PostDec(..) => incdec::emit_postdec_rvalue(self, expr),

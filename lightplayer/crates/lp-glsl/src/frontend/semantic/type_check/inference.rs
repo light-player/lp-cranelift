@@ -236,8 +236,58 @@ pub fn infer_expr_type_with_registry(
                         .with_location(source_span_to_location(span)));
                 }
 
-                // Array indexing returns element type (recursive for multi-dim)
-                return Ok(array_ty.array_element_type().unwrap());
+                let element_ty = array_ty.array_element_type().unwrap();
+
+                // If there are more dimensions and the element is a matrix/vector, continue processing
+                if array_spec.dimensions.0.len() > 1
+                    && (element_ty.is_matrix() || element_ty.is_vector())
+                {
+                    // Continue processing remaining dimensions
+                    let mut current_ty = element_ty;
+
+                    for dimension in array_spec.dimensions.0.iter().skip(1) {
+                        let index_expr = match dimension {
+                            ArraySpecifierDimension::ExplicitlySized(expr) => expr,
+                            ArraySpecifierDimension::Unsized => {
+                                return Err(GlslError::new(
+                                    ErrorCode::E0400,
+                                    "indexing requires explicit index",
+                                )
+                                .with_location(source_span_to_location(span)));
+                            }
+                        };
+
+                        // Check that index is int
+                        let index_ty =
+                            infer_expr_type_with_registry(index_expr, symbols, func_registry)?;
+                        if index_ty != Type::Int {
+                            return Err(GlslError::new(ErrorCode::E0106, "index must be int")
+                                .with_location(source_span_to_location(span)));
+                        }
+
+                        if current_ty.is_matrix() {
+                            // Matrix indexing: mat[col] returns column vector
+                            current_ty = current_ty.matrix_column_type().unwrap();
+                        } else if current_ty.is_vector() {
+                            // Vector indexing: vec[index] returns scalar component
+                            current_ty = current_ty.vector_base_type().unwrap();
+                        } else {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!(
+                                    "cannot index into {:?} (only matrices and vectors can be indexed after array)",
+                                    current_ty
+                                ),
+                            )
+                            .with_location(source_span_to_location(span)));
+                        }
+                    }
+
+                    return Ok(current_ty);
+                } else {
+                    // No more dimensions or element is scalar - return element type
+                    return Ok(element_ty);
+                }
             }
 
             if !array_ty.is_matrix() && !array_ty.is_vector() {

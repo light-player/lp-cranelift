@@ -140,6 +140,36 @@ impl<'a, M: Module> CodegenContext<'a, M> {
         add_span_text_to_error(error, source_text, span)
     }
 
+    /// Calculate the size in bytes of an array element type
+    /// Handles vectors, matrices, and scalars
+    pub fn calculate_array_element_size_bytes(&self, element_ty: &GlslType) -> Result<usize, crate::error::GlslError> {
+        if element_ty.is_vector() {
+            // Vector: component_count * base_type.bytes()
+            let component_count = element_ty.component_count().unwrap();
+            let base_ty = element_ty.vector_base_type().unwrap();
+            let base_cranelift_ty = base_ty.to_cranelift_type().map_err(|e| {
+                crate::error::GlslError::new(
+                    crate::error::ErrorCode::E0400,
+                    format!("Failed to convert vector base type to Cranelift type: {}", e.message),
+                )
+            })?;
+            Ok(component_count * base_cranelift_ty.bytes() as usize)
+        } else if element_ty.is_matrix() {
+            // Matrix: rows * cols * 4 bytes (always float)
+            let (rows, cols) = element_ty.matrix_dims().unwrap();
+            Ok(rows * cols * 4) // Float is 4 bytes
+        } else {
+            // Scalar: use to_cranelift_type()
+            let element_cranelift_ty = element_ty.to_cranelift_type().map_err(|e| {
+                crate::error::GlslError::new(
+                    crate::error::ErrorCode::E0400,
+                    format!("Failed to convert array element type to Cranelift type: {}", e.message),
+                )
+            })?;
+            Ok(element_cranelift_ty.bytes() as usize)
+        }
+    }
+
     pub fn declare_variable(
         &mut self,
         name: String,
@@ -151,16 +181,10 @@ impl<'a, M: Module> CodegenContext<'a, M> {
             let array_size = glsl_ty.array_dimensions()[0]; // For Phase 1, only 1D arrays
             
             // Calculate element size in bytes
-            let element_cranelift_ty = element_ty.to_cranelift_type().map_err(|e| {
-                crate::error::GlslError::new(
-                    crate::error::ErrorCode::E0400,
-                    format!("Failed to convert array element type to Cranelift type: {}", e.message),
-                )
-            })?;
-            let element_size_bytes = element_cranelift_ty.bytes();
+            let element_size_bytes = self.calculate_array_element_size_bytes(&element_ty)?;
             
             // Calculate total array size in bytes
-            let total_size_bytes = array_size * element_size_bytes as usize;
+            let total_size_bytes = array_size * element_size_bytes;
             
             // Allocate stack slot
             let stack_slot = self.builder.func.create_sized_stack_slot(

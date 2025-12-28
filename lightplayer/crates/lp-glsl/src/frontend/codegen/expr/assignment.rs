@@ -13,7 +13,10 @@ use alloc::{format, vec::Vec};
 /// Emit assignment expression as RValue
 ///
 /// Evaluates an assignment expression and returns the assigned value(s) as RValue.
-pub fn emit_assignment_rvalue<M: cranelift_module::Module>(ctx: &mut CodegenContext<'_, M>, expr: &Expr) -> Result<RValue, GlslError> {
+pub fn emit_assignment_rvalue<M: cranelift_module::Module>(
+    ctx: &mut CodegenContext<'_, M>,
+    expr: &Expr,
+) -> Result<RValue, GlslError> {
     let Expr::Assignment(lhs, op, rhs, _span) = expr else {
         unreachable!("emit_assignment_rvalue called on non-assignment expr");
     };
@@ -92,13 +95,19 @@ pub fn emit_assignment_typed<M: cranelift_module::Module>(
             result_ty.component_count().unwrap()
         }
         crate::frontend::codegen::lvalue::LValue::VectorElement { .. } => 1,
-        crate::frontend::codegen::lvalue::LValue::ArrayElement { element_ty, component_indices, .. } => {
+        crate::frontend::codegen::lvalue::LValue::ArrayElement {
+            element_ty,
+            component_indices,
+            ..
+        } => {
             if let Some(indices) = component_indices {
                 indices.len()
             } else if element_ty.is_scalar() {
                 1
             } else if element_ty.is_vector() {
                 element_ty.component_count().unwrap()
+            } else if element_ty.is_matrix() {
+                element_ty.matrix_element_count().unwrap()
             } else {
                 return Err(GlslError::new(
                     ErrorCode::E0400,

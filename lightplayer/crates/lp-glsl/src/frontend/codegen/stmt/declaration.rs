@@ -108,13 +108,7 @@ pub fn emit_declaration<M: cranelift_module::Module>(
                         })?;
 
                         // Calculate element size
-                        let element_cranelift_ty = element_ty.to_cranelift_type().map_err(|e| {
-                            GlslError::new(
-                                ErrorCode::E0400,
-                                format!("Failed to convert element type: {}", e.message),
-                            )
-                        })?;
-                        let element_size_bytes = element_cranelift_ty.bytes();
+                        let element_size_bytes = ctx.calculate_array_element_size_bytes(&element_ty)?;
 
                         // Coerce and store initializer values
                         let base_ty = element_ty.clone();
@@ -318,13 +312,7 @@ pub fn emit_declaration<M: cranelift_module::Module>(
                         })?;
 
                         // Calculate element size
-                        let element_cranelift_ty = element_ty.to_cranelift_type().map_err(|e| {
-                            GlslError::new(
-                                ErrorCode::E0400,
-                                format!("Failed to convert element type: {}", e.message),
-                            )
-                        })?;
-                        let element_size_bytes = element_cranelift_ty.bytes();
+                        let element_size_bytes = ctx.calculate_array_element_size_bytes(&element_ty)?;
 
                         // Coerce and store initializer values
                         let base_ty = element_ty.clone();

@@ -252,6 +252,10 @@ pub fn resolve_lvalue<M: cranelift_module::Module>(
                 } => {
                     // Component access on array element: arr[i].x
                     // Store component indices in the ArrayElement
+                    crate::debug!(
+                        "resolve_lvalue: Component access on ArrayElement: element_ty={:?}, indices={:?}, index={:?}, index_val={:?}",
+                        element_ty, indices, index, index_val
+                    );
                     Ok(LValue::ArrayElement {
                         array_ptr,
                         base_ty: base_ty.clone(),
@@ -320,14 +324,8 @@ pub fn resolve_lvalue<M: cranelift_module::Module>(
                     let element_ty = base_ty.array_element_type().unwrap();
                     let array_size = base_ty.array_dimensions()[0];
 
-                    // Calculate element size in bytes
-                    let element_cranelift_ty = element_ty.to_cranelift_type().map_err(|e| {
-                        GlslError::new(
-                            ErrorCode::E0400,
-                            format!("Failed to convert element type: {}", e.message),
-                        )
-                    })?;
-                    let element_size_bytes = element_cranelift_ty.bytes() as usize;
+                    // Calculate element size in bytes (handles vectors/matrices)
+                    let element_size_bytes = ctx.calculate_array_element_size_bytes(&element_ty)?;
 
                     // Extract compile-time constant index if available
                     let compile_time_index = if let Expr::IntConst(n, _) = index_expr.as_ref() {
@@ -350,21 +348,288 @@ pub fn resolve_lvalue<M: cranelift_module::Module>(
                         None
                     };
 
-                    return Ok(LValue::ArrayElement {
-                        array_ptr,
-                        base_ty,
-                        index: compile_time_index,
-                        index_val: if compile_time_index.is_none() {
-                            Some(index_val)
+                    // If there are more dimensions and the element is a matrix/vector, continue processing
+                    if array_spec.dimensions.0.len() > 1 && (element_ty.is_matrix() || element_ty.is_vector()) {
+                        // Load the array element to get its values
+                        let array_element_lvalue = LValue::ArrayElement {
+                            array_ptr,
+                            base_ty: base_ty.clone(),
+                            index: compile_time_index,
+                            index_val: if compile_time_index.is_none() {
+                                Some(index_val)
+                            } else {
+                                None
+                            },
+                            element_ty: element_ty.clone(),
+                            element_size_bytes,
+                            component_indices: None,
+                        };
+                        let (vals, _) = read_lvalue(ctx, &array_element_lvalue)?;
+                        
+                        // Create temporary variables to hold the loaded values
+                        let base_cranelift_ty = if element_ty.is_vector() {
+                            let base_ty = element_ty.vector_base_type().unwrap();
+                            base_ty.to_cranelift_type().map_err(|e| {
+                                GlslError::new(
+                                    ErrorCode::E0400,
+                                    format!("Failed to convert vector base type: {}", e.message),
+                                )
+                            })?
                         } else {
-                            None
-                        },
-                        element_ty,
-                        element_size_bytes,
-                        component_indices: None,
-                    });
+                            // Matrix - always float
+                            cranelift_codegen::ir::types::F32
+                        };
+                        let mut vars = Vec::new();
+                        for val in vals {
+                            let var = ctx.builder.declare_var(base_cranelift_ty);
+                            ctx.builder.def_var(var, val);
+                            vars.push(var);
+                        }
+                        
+                        // Continue processing remaining dimensions with the loaded matrix/vector
+                        let base_vars = vars;
+                        let base_ty = element_ty;
+                        
+                        // Process remaining dimensions (skip the first one we already handled)
+                        use glsl::syntax::ArraySpecifierDimension;
+                        if array_spec.dimensions.0.len() <= 1 {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                "expected more dimensions after array index",
+                            )
+                            .with_location(source_span_to_location(span)));
+                        }
+                        
+                        // Process dimensions starting from index 1 (skip the first array dimension)
+                        let mut current_ty = base_ty.clone();
+                        let mut current_vars = base_vars;
+                        let mut row: Option<usize> = None;
+                        let mut col: Option<usize> = None;
+
+                        crate::debug!(
+                            "Processing nested dimensions: base_ty={:?}, remaining_dims={}",
+                            base_ty,
+                            array_spec.dimensions.0.len() - 1
+                        );
+
+                        for (dim_idx, dimension) in array_spec.dimensions.0.iter().skip(1).enumerate() {
+                            crate::debug!(
+                                "  Processing dimension {}: current_ty={:?}, col={:?}, row={:?}",
+                                dim_idx + 1,
+                                current_ty,
+                                col,
+                                row
+                            );
+                            let index_expr = match dimension {
+                                ArraySpecifierDimension::ExplicitlySized(expr) => expr,
+                                ArraySpecifierDimension::Unsized => {
+                                    return Err(GlslError::new(
+                                        ErrorCode::E0400,
+                                        "indexing requires explicit index",
+                                    )
+                                    .with_location(source_span_to_location(span)));
+                                }
+                            };
+
+                            // Evaluate index (must be int)
+                            let (_, index_ty) = ctx.emit_expr_typed(index_expr)?;
+                            if index_ty != GlslType::Int {
+                                return Err(GlslError::new(ErrorCode::E0106, "index must be int")
+                                    .with_location(source_span_to_location(span)));
+                            }
+
+                            // Extract compile-time constant index
+                            let index = if let Expr::IntConst(n, _) = index_expr.as_ref() {
+                                *n as usize
+                            } else {
+                                return Err(GlslError::new(
+                                    ErrorCode::E0400,
+                                    "variable-indexed writes not yet implemented",
+                                )
+                                .with_location(source_span_to_location(span))
+                                .with_note("only compile-time constant indices are supported for writes"));
+                            };
+
+                            if current_ty.is_matrix() {
+                                // Matrix indexing: mat[col] returns column vector
+                                let (_rows, cols) = current_ty.matrix_dims().unwrap();
+
+                                if index >= cols {
+                                    return Err(GlslError::new(
+                                        ErrorCode::E0400,
+                                        format!(
+                                            "matrix column index {} out of bounds (max {})",
+                                            index,
+                                            cols - 1
+                                        ),
+                                    )
+                                    .with_location(source_span_to_location(span)));
+                                }
+
+                                col = Some(index);
+                                current_ty = current_ty.matrix_column_type().unwrap();
+                            } else if current_ty.is_vector() {
+                                // Vector indexing: vec[index] returns scalar component
+                                let component_count = current_ty.component_count().unwrap();
+
+                                if index >= component_count {
+                                    return Err(GlslError::new(
+                                        ErrorCode::E0400,
+                                        format!(
+                                            "vector component index {} out of bounds (max {})",
+                                            index,
+                                            component_count - 1
+                                        ),
+                                    )
+                                    .with_location(source_span_to_location(span)));
+                                }
+
+                                // If we already have a column, this is a matrix element access
+                                if col.is_some() {
+                                    crate::debug!(
+                                        "  Matrix element access: col={}, row={}, base_ty={:?}",
+                                        col.unwrap(),
+                                        index,
+                                        base_ty
+                                    );
+                                    row = Some(index);
+                                    current_ty = current_ty.vector_base_type().unwrap();
+                                    return Ok(LValue::MatrixElement {
+                                        base_vars: current_vars,
+                                        base_ty: base_ty.clone(),
+                                        row: row.unwrap(),
+                                        col: col.unwrap(),
+                                    });
+                                } else {
+                                    crate::debug!("  Vector element access: index={}", index);
+                                    // This is vector element access: v[0] -> scalar
+                                    return Ok(LValue::VectorElement {
+                                        base_vars: current_vars,
+                                        base_ty: base_ty.clone(),
+                                        index,
+                                    });
+                                }
+                            } else {
+                                return Err(GlslError::new(
+                                    ErrorCode::E0400,
+                                    format!(
+                                        "cannot index into {:?} (only matrices and vectors can be indexed after array)",
+                                        current_ty
+                                    ),
+                                )
+                                .with_location(source_span_to_location(span)));
+                            }
+                        }
+
+                        // If we get here, we processed all dimensions but didn't return
+                        // This means we have a matrix column
+                        if let Some(col_idx) = col {
+                            return Ok(LValue::MatrixColumn {
+                                base_vars: current_vars,
+                                base_ty: base_ty.clone(),
+                                col: col_idx,
+                                result_ty: current_ty,
+                            });
+                        } else {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                "unexpected state in array indexing",
+                            )
+                            .with_location(source_span_to_location(span)));
+                        }
+                    } else {
+                        // No more dimensions or element is scalar - return ArrayElement
+                        return Ok(LValue::ArrayElement {
+                            array_ptr,
+                            base_ty,
+                            index: compile_time_index,
+                            index_val: if compile_time_index.is_none() {
+                                Some(index_val)
+                            } else {
+                                None
+                            },
+                            element_ty,
+                            element_size_bytes,
+                            component_indices: None,
+                        });
+                    }
+                } else {
+                    // Base is not an array variable - continue to matrix/vector handling below
                 }
             }
+            
+            // If we get here, either:
+            // 1. Base was not an array variable, OR
+            // 2. Base was an array variable but element is matrix/vector and we loaded it
+            // In either case, we need to process matrix/vector indexing
+            let (base_vars, base_ty) = if let Expr::Variable(ident, _) = array_expr.as_ref() {
+                // We already handled array case above, so this must be a non-array variable
+                let vars = ctx.lookup_variables(&ident.name).ok_or_else(|| {
+                    let span = extract_span_from_identifier(ident);
+                    let error = GlslError::undefined_variable(&ident.name)
+                        .with_location(source_span_to_location(&span));
+                    ctx.add_span_to_error(error, &span)
+                })?.to_vec();
+                let ty = ctx.lookup_variable_type(&ident.name).unwrap().clone();
+                (vars, ty)
+            } else {
+                // Recursively resolve the base expression to an LValue (for matrices/vectors)
+                let base_lvalue = resolve_lvalue(ctx, array_expr)?;
+
+                // Get base variables and type
+                match base_lvalue {
+                    LValue::Variable { vars, ty } => (vars, ty),
+                    LValue::Component {
+                        base_vars, base_ty, ..
+                    } => (base_vars, base_ty),
+                    LValue::MatrixColumn {
+                        base_vars, base_ty, ..
+                    } => (base_vars, base_ty),
+                    LValue::MatrixElement {
+                        base_vars, base_ty, ..
+                    } => (base_vars, base_ty),
+                    LValue::VectorElement {
+                        base_vars, base_ty, ..
+                    } => (base_vars, base_ty),
+                    LValue::ArrayElement {
+                        ref element_ty,
+                        ..
+                    } => {
+                        // Array element contains a matrix/vector - need to load it first
+                        // This handles cases like mats[0][0][0] where mats[0] is an ArrayElement
+                        if element_ty.is_matrix() || element_ty.is_vector() {
+                            // Load the array element to get its values
+                            let (vals, _) = read_lvalue(ctx, &base_lvalue)?;
+                            // Create temporary variables to hold the loaded values
+                            let base_cranelift_ty = if element_ty.is_vector() {
+                                let base_ty = element_ty.vector_base_type().unwrap();
+                                base_ty.to_cranelift_type().map_err(|e| {
+                                    GlslError::new(
+                                        ErrorCode::E0400,
+                                        format!("Failed to convert vector base type: {}", e.message),
+                                    )
+                                })?
+                            } else {
+                                // Matrix - always float
+                                cranelift_codegen::ir::types::F32
+                            };
+                            let mut vars = Vec::new();
+                            for val in vals {
+                                let var = ctx.builder.declare_var(base_cranelift_ty);
+                                ctx.builder.def_var(var, val);
+                                vars.push(var);
+                            }
+                            (vars, element_ty.clone())
+                        } else {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                "nested array indexing not yet supported",
+                            )
+                            .with_location(source_span_to_location(span)));
+                        }
+                    }
+                }
+            };
 
             // Recursively resolve the base expression to an LValue (for matrices/vectors)
             let base_lvalue = resolve_lvalue(ctx, array_expr)?;
@@ -384,12 +649,42 @@ pub fn resolve_lvalue<M: cranelift_module::Module>(
                 LValue::VectorElement {
                     base_vars, base_ty, ..
                 } => (base_vars, base_ty),
-                LValue::ArrayElement { .. } => {
-                    return Err(GlslError::new(
-                        ErrorCode::E0400,
-                        "nested array indexing not yet supported",
-                    )
-                    .with_location(source_span_to_location(span)));
+                LValue::ArrayElement {
+                    ref element_ty,
+                    ..
+                } => {
+                    // Array element contains a matrix/vector - need to load it first
+                    // This handles cases like mats[0][0][0] where mats[0] is an ArrayElement
+                    if element_ty.is_matrix() || element_ty.is_vector() {
+                        // Load the array element to get its values
+                        let (vals, _) = read_lvalue(ctx, &base_lvalue)?;
+                        // Create temporary variables to hold the loaded values
+                        let base_cranelift_ty = if element_ty.is_vector() {
+                            let base_ty = element_ty.vector_base_type().unwrap();
+                            base_ty.to_cranelift_type().map_err(|e| {
+                                GlslError::new(
+                                    ErrorCode::E0400,
+                                    format!("Failed to convert vector base type: {}", e.message),
+                                )
+                            })?
+                        } else {
+                            // Matrix - always float
+                            cranelift_codegen::ir::types::F32
+                        };
+                        let mut vars = Vec::new();
+                        for val in vals {
+                            let var = ctx.builder.declare_var(base_cranelift_ty);
+                            ctx.builder.def_var(var, val);
+                            vars.push(var);
+                        }
+                        (vars, element_ty.clone())
+                    } else {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            "nested array indexing not yet supported",
+                        )
+                        .with_location(source_span_to_location(span)));
+                    }
                 }
             };
 
@@ -661,12 +956,30 @@ pub fn read_lvalue<M: cranelift_module::Module>(
                 ));
             };
 
-            let element_cranelift_ty = element_ty.to_cranelift_type().map_err(|e| {
-                GlslError::new(
-                    ErrorCode::E0400,
-                    format!("Failed to convert element type: {}", e.message),
-                )
-            })?;
+            // Get base Cranelift type for loading (scalar component type)
+            let base_cranelift_ty = if element_ty.is_vector() {
+                let base_ty = element_ty.vector_base_type().unwrap();
+                base_ty.to_cranelift_type().map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Failed to convert vector base type: {}", e.message),
+                    )
+                })?
+            } else if element_ty.is_matrix() {
+                // Matrices are always float
+                cranelift_codegen::ir::types::F32
+            } else {
+                // Scalar
+                element_ty.to_cranelift_type().map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Failed to convert element type: {}", e.message),
+                    )
+                })?
+            };
+            
+            // Calculate component size (base type size)
+            let component_size_bytes = base_cranelift_ty.bytes() as usize;
 
             let flags = cranelift_codegen::ir::MemFlags::trusted();
 
@@ -679,16 +992,26 @@ pub fn read_lvalue<M: cranelift_module::Module>(
                     ));
                 }
 
+                crate::debug!(
+                    "read_lvalue ArrayElement with component access: element_ty={:?}, component_indices={:?}, base_offset={}, component_size_bytes={}, final_ptr={:?}",
+                    element_ty, component_indices, base_offset, component_size_bytes, final_ptr
+                );
+
                 let mut vals = Vec::new();
                 for &comp_idx in component_indices {
-                    let component_offset = (comp_idx * element_size_bytes) as i32;
+                    let component_offset = (comp_idx * component_size_bytes) as i32;
                     let total_offset = base_offset + component_offset;
+                    crate::debug!(
+                        "  Loading component {}: comp_idx={}, component_offset={}, total_offset={}",
+                        comp_idx, comp_idx, component_offset, total_offset
+                    );
                     let val = ctx.builder.ins().load(
-                        element_cranelift_ty,
+                        base_cranelift_ty,
                         flags,
                         final_ptr,
                         total_offset,
                     );
+                    crate::debug!("  Loaded value: {:?}", val);
                     vals.push(val);
                 }
 
@@ -709,17 +1032,33 @@ pub fn read_lvalue<M: cranelift_module::Module>(
                     let val =
                         ctx.builder
                             .ins()
-                            .load(element_cranelift_ty, flags, final_ptr, base_offset);
+                            .load(base_cranelift_ty, flags, final_ptr, base_offset);
                     Ok((vec![val], element_ty.clone()))
                 } else if element_ty.is_vector() {
                     // Multi-component element - load each component
                     let component_count = element_ty.component_count().unwrap();
                     let mut vals = Vec::new();
                     for i in 0..component_count {
-                        let component_offset = (i * element_size_bytes) as i32;
+                        let component_offset = (i * component_size_bytes) as i32;
                         let total_offset = base_offset + component_offset;
                         let val = ctx.builder.ins().load(
-                            element_cranelift_ty,
+                            base_cranelift_ty,
+                            flags,
+                            final_ptr,
+                            total_offset,
+                        );
+                        vals.push(val);
+                    }
+                    Ok((vals, element_ty.clone()))
+                } else if element_ty.is_matrix() {
+                    // Multi-component element - load each component
+                    let component_count = element_ty.matrix_element_count().unwrap();
+                    let mut vals = Vec::new();
+                    for i in 0..component_count {
+                        let component_offset = (i * component_size_bytes) as i32;
+                        let total_offset = base_offset + component_offset;
+                        let val = ctx.builder.ins().load(
+                            base_cranelift_ty,
                             flags,
                             final_ptr,
                             total_offset,
@@ -887,6 +1226,31 @@ pub fn write_lvalue<M: cranelift_module::Module>(
                 ));
             };
 
+            // Get base Cranelift type for storing (scalar component type)
+            let base_cranelift_ty = if element_ty.is_vector() {
+                let base_ty = element_ty.vector_base_type().unwrap();
+                base_ty.to_cranelift_type().map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Failed to convert vector base type: {}", e.message),
+                    )
+                })?
+            } else if element_ty.is_matrix() {
+                // Matrices are always float
+                cranelift_codegen::ir::types::F32
+            } else {
+                // Scalar
+                element_ty.to_cranelift_type().map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Failed to convert element type: {}", e.message),
+                    )
+                })?
+            };
+            
+            // Calculate component size (base type size)
+            let component_size_bytes = base_cranelift_ty.bytes() as usize;
+
             let flags = cranelift_codegen::ir::MemFlags::trusted();
 
             // Handle component access (e.g., arr[i].x = value)
@@ -909,9 +1273,18 @@ pub fn write_lvalue<M: cranelift_module::Module>(
                     ));
                 }
 
+                crate::debug!(
+                    "write_lvalue ArrayElement with component access: element_ty={:?}, component_indices={:?}, base_offset={}, component_size_bytes={}",
+                    element_ty, component_indices, base_offset, component_size_bytes
+                );
+
                 for (&comp_idx, &val) in component_indices.iter().zip(values.iter()) {
-                    let component_offset = (comp_idx * element_size_bytes) as i32;
+                    let component_offset = (comp_idx * component_size_bytes) as i32;
                     let total_offset = base_offset + component_offset;
+                    crate::debug!(
+                        "  Storing component {}: comp_idx={}, component_offset={}, total_offset={}",
+                        comp_idx, comp_idx, component_offset, total_offset
+                    );
                     ctx.builder.ins().store(flags, val, final_ptr, total_offset);
                 }
 
@@ -948,7 +1321,27 @@ pub fn write_lvalue<M: cranelift_module::Module>(
                     }
 
                     for (i, &val) in values.iter().enumerate() {
-                        let component_offset = (i * element_size_bytes) as i32;
+                        let component_offset = (i * component_size_bytes) as i32;
+                        let total_offset = base_offset + component_offset;
+                        ctx.builder.ins().store(flags, val, final_ptr, total_offset);
+                    }
+                    Ok(())
+                } else if element_ty.is_matrix() {
+                    // Multi-component element - store each component
+                    let component_count = element_ty.matrix_element_count().unwrap();
+                    if values.len() != component_count {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            format!(
+                                "matrix array element requires {} values, got {}",
+                                component_count,
+                                values.len()
+                            ),
+                        ));
+                    }
+
+                    for (i, &val) in values.iter().enumerate() {
+                        let component_offset = (i * component_size_bytes) as i32;
                         let total_offset = base_offset + component_offset;
                         ctx.builder.ins().store(flags, val, final_ptr, total_offset);
                     }
