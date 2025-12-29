@@ -265,26 +265,12 @@ fn validate_bitselect(func: &Function, inst: Inst, _data: &DataFlowGraph) -> Cod
 }
 
 fn validate_select_instruction(
-    func: &Function,
-    inst: Inst,
-    opcode: Opcode,
+    _func: &Function,
+    _inst: Inst,
+    _opcode: Opcode,
 ) -> CodegenResult<()> {
-    // Get result type for select instructions
-    if let Some(result) = func.dfg.inst_results(inst).first() {
-        let result_ty = func.dfg.value_type(*result);
-
-        // Select instructions do not support i64 or i128 on riscv32
-        // i64 select triggers backend register allocation bugs
-        // GLSL only needs i32 select operations
-        if result_ty == I64 || result_ty == I128 {
-            return Err(super::error::ValidationError::UnsupportedType {
-                ty: result_ty,
-                context: format!("{} instruction", opcode),
-            }
-            .into());
-        }
-    }
-
+    // i64 and i128 select are now supported on riscv32
+    // The register allocation code handles multi-register selects correctly
     Ok(())
 }
 

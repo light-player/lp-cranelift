@@ -2479,15 +2479,11 @@
                 (gen_select_xreg (is_nonzero_cmp c) x_hi (zero_reg)))))
 
 ;; General: select between two i64 values
+;; Use gen_select_regs to handle both registers atomically (similar to riscv64 i128 select)
 (rule -1 (lower (has_type $I64 (select c x y)))
   (let ((x_regs ValueRegs x)
-        (y_regs ValueRegs y)
-        (x_lo XReg (value_regs_get x_regs 0))
-        (x_hi XReg (value_regs_get x_regs 1))
-        (y_lo XReg (value_regs_get y_regs 0))
-        (y_hi XReg (value_regs_get y_regs 1)))
-    (value_regs (gen_select_xreg (is_nonzero_cmp c) x_lo y_lo)
-                (gen_select_xreg (is_nonzero_cmp c) x_hi y_hi))))
+        (y_regs ValueRegs y))
+    (gen_select_regs (is_nonzero_cmp c) x_regs y_regs)))
 
 (rule 6 (lower (has_type (fits_in_32 (ty_int ty)) (select c (i64_from_iconst 0) y)))
   (gen_select_xreg (is_nonzero_cmp c) (zero_reg) y))
@@ -2974,6 +2970,36 @@
         (y_hi Reg (value_regs_get y 1))
         (top_cmp XReg (lower_int_compare (int_compare cc x_hi y_hi)))
         (bottom_cmp XReg (rv_sltu x_lo y_lo)))
+    (gen_select_xreg (cmp_eqz (rv_xor x_hi y_hi)) bottom_cmp top_cmp)))
+
+;; Signed comparison for i64: compare high bits using signed comparison,
+;; and if equal, compare low bits. When high bits are both zero, we need to
+;; use signed comparison of the low bits (treating them as signed i32).
+;; When high bits are equal and non-zero, unsigned comparison of low bits
+;; is sufficient since the sign is already determined.
+;; Special case: when comparing 0 < y (i.e., y > 0), if both high bits are zero,
+;; we need to check if y_lo > 0 (signed), not unsigned, because we're doing
+;; a signed comparison.
+(rule 2 (lower_icmp_i64 cc x y)
+  (if-let (IntCC.SignedLessThan) cc)
+  (let ((x_lo Reg (value_regs_get x 0))
+        (x_hi Reg (value_regs_get x 1))
+        (y_lo Reg (value_regs_get y 0))
+        (y_hi Reg (value_regs_get y 1))
+        (top_cmp XReg (lower_int_compare (int_compare cc x_hi y_hi)))
+        ;; Check if both high bits are zero
+        (both_hi_zero XReg (rv_and (rv_seqz x_hi) (rv_seqz y_hi)))
+        ;; Check if x is zero (for special case 0 < y)
+        (x_is_zero XReg (rv_and (rv_seqz x_hi) (rv_seqz x_lo)))
+        ;; If both high bits are zero and x is zero, check if y_lo > 0 (signed)
+        ;; Otherwise, use signed comparison of low bits (treating low bits as signed i32)
+        (bottom_cmp_zero XReg (rv_slt (zero_reg) y_lo))
+        (bottom_cmp_normal XReg (rv_slt x_lo y_lo))
+        (bottom_cmp_signed XReg (gen_select_xreg (cmp_eqz x_is_zero) bottom_cmp_zero bottom_cmp_normal))
+        ;; If high bits are equal but not both zero, use unsigned comparison
+        ;; (sign is already determined by high bits)
+        (bottom_cmp_unsigned XReg (rv_sltu x_lo y_lo))
+        (bottom_cmp XReg (gen_select_xreg (cmp_nez both_hi_zero) bottom_cmp_unsigned bottom_cmp_signed)))
     (gen_select_xreg (cmp_eqz (rv_xor x_hi y_hi)) bottom_cmp top_cmp)))
 
 ;; 128-bit comparisons.

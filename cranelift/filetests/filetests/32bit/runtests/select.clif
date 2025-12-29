@@ -47,3 +47,164 @@ block0(v0: i32, v1: i32, v2: i32):
 }
 ; run: %bitselect_i32(0, 10, 20) == 20
 ; run: %bitselect_i32(-1, 10, 20) == 10
+
+; i64 select tests (ported from runtests/select.clif)
+function %select_zero(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = iconst.i64 0
+  v3 = select.i64 v0, v1, v2
+  return v3
+}
+; run: %select_zero(0, 42) == 0
+; run: %select_zero(42, 42) == 42
+
+function %select_zero_icmp_neq_zero(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+  v2 = iconst.i64 0
+  v3 = icmp.i64 ne v0, v2
+  v4 = select.i64 v3, v1, v2
+  return v4
+}
+; run: %select_zero_icmp_neq_zero(0, 42) == 0
+; run: %select_zero_icmp_neq_zero(42, 42) == 42
+
+function %select_icmp_eq_zero(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+  v3 = iconst.i64 0
+  v4 = icmp.i64 eq v0, v3
+  v5 = select.i64 v4, v1, v2
+  return v5
+}
+; run: %select_icmp_eq_zero(0, 42, 35) == 42
+; run: %select_icmp_eq_zero(42, 42, 35) == 35
+
+function %select_icmp_ne_zero(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+  v3 = iconst.i64 0
+  v4 = icmp.i64 ne v0, v3
+  v5 = select.i64 v4, v1, v2
+  return v5
+}
+; run: %select_icmp_ne_zero(0, 42, 35) == 35
+; run: %select_icmp_ne_zero(42, 42, 35) == 42
+
+function %select_icmp64_eq_imm(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+  v3 = icmp_imm eq v0, 7
+  v4 = select.i64 v3, v1, v2
+  return v4
+}
+; run: %select_icmp64_eq_imm(7, 42, 35) == 42
+; run: %select_icmp64_eq_imm(0, 42, 35) == 35
+; run: %select_icmp64_eq_imm(-1, 42, 35) == 35
+
+function %select_icmp64_ne_imm(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+  v3 = icmp_imm ne v0, 7
+  v4 = select.i64 v3, v1, v2
+  return v4
+}
+; run: %select_icmp64_ne_imm(7, 42, 35) == 35
+; run: %select_icmp64_ne_imm(0, 42, 35) == 42
+; run: %select_icmp64_ne_imm(-1, 42, 35) == 42
+
+function %select_icmp64_slt_imm(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+  v3 = icmp_imm slt v0, 7
+  v4 = select.i64 v3, v1, v2
+  return v4
+}
+; run: %select_icmp64_slt_imm(8, 42, 35) == 35
+; run: %select_icmp64_slt_imm(7, 42, 35) == 35
+; run: %select_icmp64_slt_imm(0, 42, 35) == 42
+; run: %select_icmp64_slt_imm(-1, 42, 35) == 42
+
+function %select_icmp64_ult_imm(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+  v3 = icmp_imm ult v0, 7
+  v4 = select.i64 v3, v1, v2
+  return v4
+}
+; run: %select_icmp64_ult_imm(8, 42, 35) == 35
+; run: %select_icmp64_ult_imm(7, 42, 35) == 35
+; run: %select_icmp64_ult_imm(0, 42, 35) == 42
+; run: %select_icmp64_ult_imm(-1, 42, 35) == 35
+
+function %select_icmp64_sle_imm(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+  v3 = icmp_imm sle v0, 7
+  v4 = select.i64 v3, v1, v2
+  return v4
+}
+; run: %select_icmp64_sle_imm(8, 42, 35) == 35
+; run: %select_icmp64_sle_imm(7, 42, 35) == 42
+; run: %select_icmp64_sle_imm(0, 42, 35) == 42
+; run: %select_icmp64_sle_imm(-1, 42, 35) == 42
+
+function %select_icmp64_ule_imm(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+  v3 = icmp_imm ule v0, 7
+  v4 = select.i64 v3, v1, v2
+  return v4
+}
+; run: %select_icmp64_ule_imm(8, 42, 35) == 35
+; run: %select_icmp64_ule_imm(7, 42, 35) == 42
+; run: %select_icmp64_ule_imm(0, 42, 35) == 42
+; run: %select_icmp64_ule_imm(-1, 42, 35) == 35
+
+function %select_icmp64_sgt_imm(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+  v3 = icmp_imm sgt v0, 7
+  v4 = select.i64 v3, v1, v2
+  return v4
+}
+; run: %select_icmp64_sgt_imm(8, 42, 35) == 42
+; run: %select_icmp64_sgt_imm(7, 42, 35) == 35
+; run: %select_icmp64_sgt_imm(0, 42, 35) == 35
+; run: %select_icmp64_sgt_imm(-1, 42, 35) == 35
+
+function %select_icmp64_ugt_imm(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+  v3 = icmp_imm ugt v0, 7
+  v4 = select.i64 v3, v1, v2
+  return v4
+}
+; run: %select_icmp64_ugt_imm(8, 42, 35) == 42
+; run: %select_icmp64_ugt_imm(7, 42, 35) == 35
+; run: %select_icmp64_ugt_imm(0, 42, 35) == 35
+; run: %select_icmp64_ugt_imm(-1, 42, 35) == 42
+
+function %select_icmp64_sge_imm(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+  v3 = icmp_imm sge v0, 7
+  v4 = select.i64 v3, v1, v2
+  return v4
+}
+; run: %select_icmp64_sge_imm(8, 42, 35) == 42
+; run: %select_icmp64_sge_imm(7, 42, 35) == 42
+; run: %select_icmp64_sge_imm(0, 42, 35) == 35
+; run: %select_icmp64_sge_imm(-1, 42, 35) == 35
+
+function %select_icmp64_uge_imm(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+  v3 = icmp_imm uge v0, 7
+  v4 = select.i64 v3, v1, v2
+  return v4
+}
+; run: %select_icmp64_uge_imm(8, 42, 35) == 42
+; run: %select_icmp64_uge_imm(7, 42, 35) == 42
+; run: %select_icmp64_uge_imm(0, 42, 35) == 35
+; run: %select_icmp64_uge_imm(-1, 42, 35) == 42
+
+;; should be optimized to x > y (unsigned)
+function %simplify_select_ult_ne_i64(i64, i64) -> i8 fast {
+block0(v0: i64, v1: i64):
+    v2 = icmp ult v0, v1
+    v3 = select v2, v0, v1
+    v4 = icmp ne v3, v0
+    return v4
+}
+; run: %simplify_select_ult_ne_i64(8, 42) == 0
+; run: %simplify_select_ult_ne_i64(7, 9) == 0
+; run: %simplify_select_ult_ne_i64(3, 1) == 1
+; run: %simplify_select_ult_ne_i64(-1, 42) == 1

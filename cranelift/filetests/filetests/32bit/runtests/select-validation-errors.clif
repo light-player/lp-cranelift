@@ -1,26 +1,7 @@
-; Test that select instructions reject i64 and i128 types
+; Test that select instructions reject i128 types
+; Note: i64 select is now supported on riscv32
 test compile expect-fail
 target riscv32
-
-function %select_i64(i64, i64) -> i64 {
-block0(v0: i64, v1: i64):
-    v2 = iconst.i8 1
-    v3 = select.i64 v2, v0, v1
-    return v3
-}
-
-function %select_spectre_guard_i64(i64, i64) -> i64 {
-block0(v0: i64, v1: i64):
-    v2 = iconst.i8 1
-    v3 = select_spectre_guard.i64 v2, v0, v1
-    return v3
-}
-
-function %bitselect_i64(i64, i64, i64) -> i64 {
-block0(v0: i64, v1: i64, v2: i64):
-    v3 = bitselect.i64 v0, v1, v2
-    return v3
-}
 
 function %select_i128(i128, i128) -> i128 {
 block0(v0: i128, v1: i128):
