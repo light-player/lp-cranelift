@@ -1454,6 +1454,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "lp-glsl-builtins-src"
+version = "0.1.0"
+
+[[package]]
 name = "lp-glsl-filetests"
 version = "40.0.0"
 dependencies = [
@@ -1515,10 +1519,6 @@ dependencies = [
  "env_logger",
  "lp-glsl-filetests",
 ]
-
-[[package]]
-name = "lp-udiv64-clif-gen"
-version = "0.1.0"
 
 [[package]]
 name = "mach2"

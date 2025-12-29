@@ -1,5 +1,5 @@
 [package]
-name = "lp-glsl-builtins"
+name = "lp-glsl-builtins-src"
 version = "0.1.0"
 edition = "2021"
 

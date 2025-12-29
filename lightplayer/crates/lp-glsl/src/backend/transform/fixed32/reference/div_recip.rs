@@ -34,7 +34,7 @@
 //!
 //! An incomplete implementation of exact division using full long division (u64/u32)
 //! exists in the `feature/udiv64` branch. This approach would provide exact results
-//! but is significantly more complex and slower. See `lp-udiv64-clif-gen` for details
+//! but is significantly more complex and slower. See `lp-glsl-builtins-src` for details
 //! on the algorithm and the debugging work done to identify lowering bugs.
 //!
 //! ## Purpose
