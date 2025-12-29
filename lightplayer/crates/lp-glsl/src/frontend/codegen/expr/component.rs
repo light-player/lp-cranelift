@@ -165,7 +165,7 @@ pub fn emit_indexing<M: cranelift_module::Module>(
         // For runtime offsets, we need to add the offset to the pointer and use offset 0
         let (final_ptr, base_offset) = if let Expr::IntConst(n, _) = index_expr.as_ref() {
             // Compile-time constant offset - can use directly
-            let offset = (*n as usize) * (element_size_bytes as usize);
+            let offset = (*n as usize) * element_size_bytes;
             (array_ptr, offset as i32)
         } else {
             // Runtime offset calculation - add to pointer

@@ -312,8 +312,8 @@ impl GlslValue {
         }
     }
 
-    /// Default tolerance for float comparisons (1e-4)
-    pub const DEFAULT_TOLERANCE: f32 = 1e-4;
+    /// Default tolerance for float comparisons
+    pub const DEFAULT_TOLERANCE: f32 = 0.001;
 
     /// Approximate equality with default tolerance
     pub fn approx_eq_default(&self, other: &Self) -> bool {

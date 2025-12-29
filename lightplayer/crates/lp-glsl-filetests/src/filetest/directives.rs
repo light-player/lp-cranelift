@@ -52,25 +52,26 @@ pub fn parse_run_directive(line: &str, line_number: usize) -> Result<RunDirectiv
     };
 
     // Parse tolerance if present: (tolerance: 0.001)
-    let (expected, tolerance) = if let Some(tolerance_start) = expected_with_tolerance.find("(tolerance:") {
-        let expected = expected_with_tolerance[..tolerance_start].trim();
-        let tolerance_str = expected_with_tolerance[tolerance_start..]
-            .strip_prefix("(tolerance:")
-            .and_then(|s| s.strip_suffix(")"))
-            .map(|s| s.trim());
-        
-        let tolerance = if let Some(tol_str) = tolerance_str {
-            Some(tol_str.parse::<f32>().map_err(|e| {
-                anyhow::anyhow!("invalid tolerance value at line {}: {}", line_number, e)
-            })?)
+    let (expected, tolerance) =
+        if let Some(tolerance_start) = expected_with_tolerance.find("(tolerance:") {
+            let expected = expected_with_tolerance[..tolerance_start].trim();
+            let tolerance_str = expected_with_tolerance[tolerance_start..]
+                .strip_prefix("(tolerance:")
+                .and_then(|s| s.strip_suffix(")"))
+                .map(|s| s.trim());
+
+            let tolerance = if let Some(tol_str) = tolerance_str {
+                Some(tol_str.parse::<f32>().map_err(|e| {
+                    anyhow::anyhow!("invalid tolerance value at line {}: {}", line_number, e)
+                })?)
+            } else {
+                None
+            };
+
+            (expected, tolerance)
         } else {
-            None
+            (expected_with_tolerance, None)
         };
-        
-        (expected, tolerance)
-    } else {
-        (expected_with_tolerance, None)
-    };
 
     Ok(RunDirective {
         expression_str: expr.to_string(),

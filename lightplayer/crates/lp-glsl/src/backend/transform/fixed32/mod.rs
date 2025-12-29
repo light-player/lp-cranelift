@@ -12,5 +12,8 @@ mod types;
 #[cfg(test)]
 mod fixed32_test_util;
 
+#[cfg(test)]
+mod div_recip_ref;
+
 pub use transform::Fixed32Transform;
 pub use types::FixedPointFormat;

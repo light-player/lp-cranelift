@@ -67,8 +67,8 @@ pub fn get_first_result(old_func: &Function, old_inst: Inst) -> Value {
 /// Get the maximum representable value for a fixed-point format.
 pub fn max_fixed_value(format: FixedPointFormat) -> i32 {
     match format {
-        FixedPointFormat::Fixed16x16 => 0x7FFF0000i32, // 32767.0 in 16.16 format
-        FixedPointFormat::Fixed32x32 => i32::MAX,      // Not fully implemented
+        FixedPointFormat::Fixed16x16 => 0x7FFF_FFFFi32, // Maximum representable fixed16x16 value (~32767.99998)
+        FixedPointFormat::Fixed32x32 => i32::MAX,       // Not fully implemented
     }
 }
 
