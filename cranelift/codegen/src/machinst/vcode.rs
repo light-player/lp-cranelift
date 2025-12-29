@@ -18,6 +18,7 @@
 //! backend pipeline.
 
 use crate::CodegenError;
+use crate::FxHashMap;
 use crate::ir::pcc::*;
 use crate::ir::{self, Constant, ConstantData, ValueLabel, types};
 use crate::ranges::Ranges;
@@ -29,7 +30,6 @@ use regalloc2::{
     Edit, Function as RegallocFunction, InstOrEdit, InstPosition, InstRange, Operand,
     OperandConstraint, OperandKind, PRegSet, ProgPoint, RegClass,
 };
-use crate::FxHashMap;
 
 use alloc::{format, vec, vec::Vec};
 use core::cmp::Ordering;
@@ -37,10 +37,10 @@ use core::fmt::{self, Write};
 use core::mem::take;
 use core::ops::Range;
 use cranelift_entity::{Keys, entity_impl};
-#[cfg(feature = "std")]
-use std::collections::{HashMap, hash_map::Entry};
 #[cfg(not(feature = "std"))]
 use hashbrown::{HashMap, hash_map::Entry};
+#[cfg(feature = "std")]
+use std::collections::{HashMap, hash_map::Entry};
 
 /// Index referring to an instruction in VCode.
 pub type InsnIndex = regalloc2::Inst;
@@ -863,8 +863,7 @@ impl<I: VCodeInst> VCode<I> {
                            state: &mut I::State| {
                 if want_disasm && !inst.is_args() {
                     let mut s = state.clone();
-                    let offset = buffer.cur_offset();
-                    writeln!(disasm, "  {:08x}: {}", offset, inst.pretty_print_inst(&mut s)).unwrap();
+                    writeln!(disasm, "  {}", inst.pretty_print_inst(&mut s)).unwrap();
                 }
                 inst.emit(buffer, &self.emit_info, state);
             };

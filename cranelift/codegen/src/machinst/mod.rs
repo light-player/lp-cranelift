@@ -471,9 +471,6 @@ impl<T: CompilePhase> CompiledCodeBase<T> {
             let buffer = &self.buffer.data()[start as usize..end as usize];
             let insns = cs.disasm_all(buffer, start as u64).map_err(map_caperr)?;
             for i in insns.iter() {
-                // Write hex address for correlation with execution logs
-                write!(buf, "  {:08x}: ", i.address())?;
-
                 let op_str = i.op_str().unwrap_or("");
                 if let Some(s) = i.mnemonic() {
                     write!(buf, "{s}")?;
