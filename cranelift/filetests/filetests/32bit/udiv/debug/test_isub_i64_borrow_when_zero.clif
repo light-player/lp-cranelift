@@ -1,0 +1,23 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test i64 subtraction when low parts cause specific borrow detection scenarios
+; The bug might be in how borrow is detected when x_lo and y_lo have specific values
+function %test_isub_i64_borrow_when_zero(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+    v2 = isub v0, v1
+    return v2
+}
+
+; Critical test case: when both high parts are 0 and low parts are equal
+; This should result in high part = 0, not -1
+; run: %test_isub_i64_borrow_when_zero(0x0000000000000064, 0x0000000000000064) == 0
+
+; When low parts are equal but high parts differ
+; run: %test_isub_i64_borrow_when_zero(0x0000000100000064, 0x0000000000000064) == 0x0000000100000000
+
+; The exact case from execution log: a4=0, s8=0, so subtraction is 0-0
+; High parts: a0 should be 0, a3 should be 0
+; run: %test_isub_i64_borrow_when_zero(0x0000000000000000, 0x0000000000000000) == 0
+

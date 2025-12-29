@@ -1,0 +1,34 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test i64 subtraction with borrow - demonstrates the bug in borrow detection
+; The bug: line 686 uses rv_sltu x_lo diff_lo instead of rv_sltu x_lo y_lo
+; This causes incorrect borrow detection when the low parts subtract with borrow
+function %test_isub_i64_borrow_bug(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+    v2 = isub v0, v1
+    return v2
+}
+
+; Test case that will fail with the buggy borrow detection
+; When x_lo < y_lo, there should be a borrow from the high part
+; Example: 0x0000000100000000 - 0x0000000000000001 = 0x00000000ffffffff
+; The bug causes incorrect borrow detection, leading to wrong high part
+; run: %test_isub_i64_borrow_bug(0x0000000100000000, 0x0000000000000001) == 0x00000000ffffffff
+
+; Another case: 0x0000000000000020 - 0x0000000000000000 = 0x0000000000000020
+; This should work correctly (no borrow)
+; run: %test_isub_i64_borrow_bug(0x0000000000000020, 0x0000000000000000) == 32
+
+; Case with borrow: high part needs to be decremented
+; 0x0000000100000005 - 0x0000000000000006 = 0x00000000ffffffff
+; run: %test_isub_i64_borrow_bug(0x0000000100000005, 0x0000000000000006) == 0x00000000ffffffff
+
+; Case where borrow detection bug manifests:
+; When x_lo wraps around, diff_lo > x_lo, so rv_sltu x_lo diff_lo is TRUE
+; But this is checking the wrong thing - we need to check if x_lo < y_lo BEFORE subtraction
+; 0x0000000000000005 - 0x0000000000000006 = 0xffffffffffffffff (with borrow from high)
+; But if high is 0, we get: 0x0000000000000000 - 0x0000000000000001 = 0xffffffffffffffff
+; run: %test_isub_i64_borrow_bug(0x0000000000000000, 0x0000000000000001) == 0xffffffffffffffff
+

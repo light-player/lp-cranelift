@@ -1,0 +1,21 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test i64 subtraction when high parts are both zero
+; This is the common case in the division loop
+; The bug: high part becomes -1 instead of staying 0
+function %test_isub_i64_high_zero(i32, i32) -> i64 {
+block0(v0: i32, v1: i32):
+    v2 = uextend.i64 v0
+    v3 = uextend.i64 v1
+    v4 = isub v2, v3
+    return v4
+}
+
+; Test cases
+; run: %test_isub_i64_high_zero(100, 0) == 100
+; run: %test_isub_i64_high_zero(100, 50) == 50
+; run: %test_isub_i64_high_zero(0, 0) == 0
+; run: %test_isub_i64_high_zero(1, 2) == 0xffffffffffffffff
+

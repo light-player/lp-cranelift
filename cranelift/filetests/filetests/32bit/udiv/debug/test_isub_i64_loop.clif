@@ -1,0 +1,27 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test i64 subtraction that matches the loop pattern from block5
+; The loop does: v33 = isub v31, v32 where:
+; - v31 is the current dividend (starts as v74)
+; - v32 is the shifted divisor (starts as v27)
+; The issue: a0 (high part) becomes -1 when it should be 0
+function %test_isub_i64_loop(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+    v2 = isub v0, v1
+    return v2
+}
+
+; Test cases that match the loop conditions
+; When dividend high part is 0 and divisor high part is 0
+; run: %test_isub_i64_loop(0x0000000000000064, 0x0000000000000000) == 100
+; run: %test_isub_i64_loop(0x0000000000000064, 0x0000000000000001) == 99
+
+; When dividend high part is 0 and divisor high part is also 0 (common case)
+; run: %test_isub_i64_loop(0x0000000000000000, 0x0000000000000000) == 0
+
+; The problematic case: when result should be positive but high part becomes -1
+; This happens when low part subtraction wraps but borrow detection is wrong
+; run: %test_isub_i64_loop(0x0000000000000001, 0x0000000000000002) == 0xffffffffffffffff
+

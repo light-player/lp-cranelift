@@ -6,6 +6,7 @@ members = [
     "crates/lp-jit-util",
     "crates/lp-riscv-shared",
     "crates/lp-riscv-tools",
+    "crates/lp-udiv64-clif-gen",
     "apps/embive-program",
     "apps/esp32-glsl-jit",
     "apps/lp-test",

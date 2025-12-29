@@ -1,0 +1,40 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test the exact pattern from the udiv64 algorithm
+; This demonstrates the bug when zero-extending a negative i32 to i64
+; and then subtracting from a constant
+function %test_isub_uextend_bug(i32, i32) -> i64 {
+block0(v0: i32, v1: i32):
+    ; This mimics block12: v59 = isub.i32 v57, v58
+    v2 = isub.i32 v0, v1
+    ; This mimics: v60 = uextend.i64 v59
+    v3 = uextend.i64 v2
+    ; This mimics block3: v24 = isub v22, v23 where v22 = 32
+    v4 = iconst.i64 32
+    v5 = isub v4, v3
+    return v5
+}
+
+; Test cases that demonstrate the bug
+; When v0 < v1, v2 is negative, zero-extending makes it huge positive
+; Then subtracting from 32 gives wrong result due to borrow detection bug
+
+; Case 1: v0=5, v1=3, v2=2, v3=2, 32-2=30 (should work)
+; run: %test_isub_uextend_bug(5, 3) == 30
+
+; Case 2: v0=3, v1=5, v2=-2 (0xfffffffe), v3=0x00000000fffffffe, 32-0x00000000fffffffe
+; The bug: borrow detection fails because diff_lo wraps around
+; Interpreter (correct): -4294967262
+; Actual with buggy lowering: -4294967262 (same, so this case doesn't show the bug)
+; The bug manifests differently - need to find a case where borrow detection matters
+; run: %test_isub_uextend_bug(3, 5) == -4294967262
+
+; Case 3: v0=32, v1=0, v2=32, v3=32, 32-32=0 (should work)
+; run: %test_isub_uextend_bug(32, 0) == 0
+
+; Case 4: v0=0, v1=32, v2=-32 (0xffffffe0), v3=0x00000000ffffffe0, 32-0x00000000ffffffe0
+; Interpreter result: 32 - 4294967264 = -4294967232
+; run: %test_isub_uextend_bug(0, 32) == -4294967232
+

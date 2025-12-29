@@ -1,0 +1,25 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test the comparison that controls the loop in block5
+; This tests if icmp sle works correctly with i64 results from isub
+function %test_icmp_sle_i64_result(i64, i64) -> i32 {
+block0(v0: i64, v1: i64):
+    v2 = isub v0, v1
+    v3 = iconst.i64 0
+    v4 = icmp sle v3, v2
+    v5 = uextend.i32 v4
+    return v5
+}
+
+; Test cases
+; 100 - 50 = 50, so 0 <= 50 should be true (1)
+; run: %test_icmp_sle_i64_result(0x0000000000000064, 0x0000000000000032) == 1
+
+; 1 - 2 = -1, so 0 <= -1 should be false (0)
+; run: %test_icmp_sle_i64_result(0x0000000000000001, 0x0000000000000002) == 0
+
+; 0 - 0 = 0, so 0 <= 0 should be true (1)
+; run: %test_icmp_sle_i64_result(0x0000000000000000, 0x0000000000000000) == 1
+

@@ -148,6 +148,7 @@
       <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/winch/codegen/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lightplayer/apps/lp-test/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-udiv64-clif-gen/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/lightplayer/apps/esp32-glsl-jit/target" />
       <excludeFolder url="file://$MODULE_DIR$/lightplayer/apps/esp32c3-jit-test/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />

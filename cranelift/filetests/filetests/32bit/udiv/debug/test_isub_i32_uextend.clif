@@ -1,0 +1,21 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test i32 subtraction followed by uextend to i64
+; This is the normalization shift calculation pattern from block12
+; The issue: if v59 is negative, uextend makes it a huge positive number
+function %test_isub_i32_uextend(i32, i32) -> i64 {
+block0(v0: i32, v1: i32):
+    v2 = isub.i32 v0, v1
+    v3 = uextend.i64 v2
+    return v3
+}
+
+; Test cases
+; run: %test_isub_i32_uextend(5, 3) == 2
+; run: %test_isub_i32_uextend(3, 5) == 0x00000000fffffffe  ; -2 as u64
+; run: %test_isub_i32_uextend(32, 0) == 32
+; run: %test_isub_i32_uextend(0, 32) == 0x00000000ffffffe0  ; -32 as u64
+; run: %test_isub_i32_uextend(0, 0) == 0
+

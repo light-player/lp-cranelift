@@ -1,0 +1,27 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test the exact pattern from block3 that's failing
+; block3: v22 = iconst.i64 32; v24 = isub v22, v23; jump block4(v24)
+; The execution log shows: sub s5, a0, a3 where s5: 32 -> -1 and rs1=-1, rs2=0
+; This suggests the constant 32 is being represented incorrectly, or registers are mixed up
+function %test_iconst_isub_bug(i64) -> i64 {
+block0(v0: i64):
+    v1 = iconst.i64 32
+    v2 = isub v1, v0
+    return v2
+}
+
+; Test cases
+; run: %test_iconst_isub_bug(0) == 32
+; run: %test_iconst_isub_bug(1) == 31
+; run: %test_iconst_isub_bug(31) == 1
+; run: %test_iconst_isub_bug(32) == 0
+
+; The problematic case from the execution log
+; If v0 is 0x00000000fffffffe (zero-extended -2), then:
+; 32 - 0x00000000fffffffe = -4294967262
+; But the execution log suggests registers are wrong
+; run: %test_iconst_isub_bug(0x00000000fffffffe) == -4294967262
+
