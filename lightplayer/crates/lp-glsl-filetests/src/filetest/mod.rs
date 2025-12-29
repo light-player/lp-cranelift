@@ -53,6 +53,8 @@ pub struct RunDirective {
     pub comparison: ComparisonOp,
     /// The expected value string (e.g., "0.0").
     pub expected_str: String,
+    /// Custom tolerance for approximate comparisons (None = use default).
+    pub tolerance: Option<f32>,
     /// Line number for bless mode updates.
     pub line_number: usize,
 }

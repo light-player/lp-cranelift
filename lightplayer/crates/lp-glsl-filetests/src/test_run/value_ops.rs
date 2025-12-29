@@ -49,6 +49,7 @@ pub fn compare_results(
     actual: &GlslValue,
     expected: &GlslValue,
     comparison: ComparisonOp,
+    tolerance: Option<f32>,
 ) -> Result<(), String> {
     match comparison {
         ComparisonOp::Exact => {
@@ -63,7 +64,7 @@ pub fn compare_results(
             }
         }
         ComparisonOp::Approx => {
-            let tolerance = GlslValue::DEFAULT_TOLERANCE;
+            let tolerance = tolerance.unwrap_or(GlslValue::DEFAULT_TOLERANCE);
             if actual.approx_eq(expected, tolerance) {
                 Ok(())
             } else {

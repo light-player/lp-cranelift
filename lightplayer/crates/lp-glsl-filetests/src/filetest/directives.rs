@@ -35,8 +35,8 @@ pub fn parse_run_directive_line(line: &str) -> Option<&str> {
 
 /// Parse a single `// run:` line into a `RunDirective`.
 pub fn parse_run_directive(line: &str, line_number: usize) -> Result<RunDirective> {
-    // Parse format: <expression> == <expected> or <expression> ~= <expected>
-    let (comparison, expr, expected) = if let Some(pos) = line.rfind(" == ") {
+    // Parse format: <expression> == <expected> or <expression> ~= <expected> [ (tolerance: <value>) ]
+    let (comparison, expr, expected_with_tolerance) = if let Some(pos) = line.rfind(" == ") {
         let expr = line[..pos].trim();
         let expected = line[pos + 4..].trim();
         (ComparisonOp::Exact, expr, expected)
@@ -51,10 +51,32 @@ pub fn parse_run_directive(line: &str, line_number: usize) -> Result<RunDirectiv
         );
     };
 
+    // Parse tolerance if present: (tolerance: 0.001)
+    let (expected, tolerance) = if let Some(tolerance_start) = expected_with_tolerance.find("(tolerance:") {
+        let expected = expected_with_tolerance[..tolerance_start].trim();
+        let tolerance_str = expected_with_tolerance[tolerance_start..]
+            .strip_prefix("(tolerance:")
+            .and_then(|s| s.strip_suffix(")"))
+            .map(|s| s.trim());
+        
+        let tolerance = if let Some(tol_str) = tolerance_str {
+            Some(tol_str.parse::<f32>().map_err(|e| {
+                anyhow::anyhow!("invalid tolerance value at line {}: {}", line_number, e)
+            })?)
+        } else {
+            None
+        };
+        
+        (expected, tolerance)
+    } else {
+        (expected_with_tolerance, None)
+    };
+
     Ok(RunDirective {
         expression_str: expr.to_string(),
         comparison,
         expected_str: expected.to_string(),
+        tolerance,
         line_number,
     })
 }

@@ -9,7 +9,7 @@ pub mod value_ops;
 use crate::file_update::format_glsl_value;
 
 use crate::file_update::FileUpdate;
-use crate::filetest::TestFile;
+use crate::filetest::{ComparisonOp, TestFile};
 use anyhow::{Context, Result};
 use lp_glsl::GlslOptions;
 use lp_glsl::glsl_emu_riscv32_with_metadata;
@@ -255,9 +255,18 @@ pub fn run_test_file_with_line_filter(
                     &actual_value,
                     &expected_value,
                     directive.comparison,
+                    directive.tolerance,
                 ) {
                     Ok(()) => {
-                        // Test passed
+                        // Test passed - print success message in detailed mode
+                        if show_full_output {
+                            eprintln!(
+                                "✓ test passed at line {}: {} ~= {}",
+                                directive.line_number,
+                                directive.expression_str,
+                                format_glsl_value(&actual_value)
+                            );
+                        }
                     }
                     Err(err_msg) => {
                         if bless_enabled {
@@ -292,18 +301,33 @@ pub fn run_test_file_with_line_filter(
                                 relative_path, directive.line_number
                             );
 
+                            // Format the // run: line
+                            let op_str = match directive.comparison {
+                                ComparisonOp::Exact => "==",
+                                ComparisonOp::Approx => "~=",
+                            };
+                            let tolerance_str = if let Some(tol) = directive.tolerance {
+                                format!(" (tolerance: {})", tol)
+                            } else {
+                                String::new()
+                            };
+                            let run_line = format!(
+                                "// run: {} {} {}{}",
+                                directive.expression_str, op_str, directive.expected_str, tolerance_str
+                            );
+
+                            // Format expected and actual values nicely
+                            let expected_formatted = format_glsl_value(&expected_value);
+                            let actual_formatted = format_glsl_value(&actual_value);
+
                             // Format error message
                             // Note: For comparison errors, execution succeeded so emulator state isn't needed
                             let error_msg = format!(
-                                "run test failed at line {}: {}{}{}\n\
-                                 \n\
-                                 This test assertion can be automatically updated by setting the\n\
-                                 CRANELIFT_TEST_BLESS=1 environment variable when running this test.\n\
-                                 \n\
-                                 To rerun just this test:\n\
-                                 {}",
+                                "run test failed at line {}:\n\n{}\n\nexpected: {}\n  actual: {}{}{}\n\nTo rerun just this test:\n{}",
                                 directive.line_number,
-                                err_msg,
+                                run_line,
+                                expected_formatted,
+                                actual_formatted,
                                 bootstrap_code_display,
                                 debug_info_display,
                                 rerun_cmd
