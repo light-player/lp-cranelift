@@ -1,0 +1,24 @@
+[package]
+name = "lp-glsl-builtins-tool"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "lp-glsl-builtins-tool"
+path = "src/main.rs"
+
+[dependencies]
+# Cranelift dependencies
+cranelift-codegen = { path = "../../../cranelift/codegen", features = ["enable-serde", "std"] }
+cranelift-reader = { path = "../../../cranelift/reader" }
+
+# Serialization
+postcard = "1.0"
+
+# CLI
+clap = { version = "4.0", features = ["derive"] }
+
+# Utilities
+walkdir = "2.0"
+anyhow = "1.0"
+
