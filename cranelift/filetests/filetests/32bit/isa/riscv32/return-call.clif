@@ -1,0 +1,52 @@
+test compile precise-output
+target riscv32 has_m
+
+function %callee_i32(i32) -> i32 tail {
+block0(v0: i32):
+    v1 = iadd_imm.i32 v0, 10
+    return v1
+}
+
+; VCode:
+; block0:
+;   addi a0,a0,10
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   addi a0, a0, 0xa
+;   ret
+
+function %return_call_i32(i32) -> i32 tail {
+    fn0 = %callee_i32(i32) -> i32 tail
+
+block0(v0: i32):
+    return_call fn0(v0)
+}
+
+; VCode:
+;   addi sp,sp,-16
+;   sd ra,8(sp)
+;   sd fp,0(sp)
+;   mv fp,sp
+; block0:
+;   load_ext_name_far t0,%callee_i32+0
+;   return_call_ind t0 new_stack_arg_size:0 a0=a0
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   addi sp, sp, -0x10
+;   .byte 0x23, 0x34, 0x11, 0x00
+;   .byte 0x23, 0x30, 0x81, 0x00
+;   mv s0, sp
+; block1: ; offset 0x10
+;   auipc t0, 0
+;   .byte 0x83, 0xb2, 0xc2, 0x00
+;   j 0xc
+;   .byte 0x00, 0x00, 0x00, 0x00 ; reloc_external Abs8 %callee_i32 0
+;   .byte 0x00, 0x00, 0x00, 0x00
+;   .byte 0x83, 0x30, 0x81, 0x00
+;   .byte 0x03, 0x34, 0x01, 0x00
+;   addi sp, sp, 0x10
+;   jr t0
+

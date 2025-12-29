@@ -1,0 +1,13 @@
+test interpret
+test run
+
+set unwind_info=false
+target riscv32 has_m
+
+function %return_constant() -> i32 {
+block0:
+    v0 = iconst.i32 42
+    return v0
+}
+
+; run: %return_constant() == 42

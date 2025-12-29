@@ -1,0 +1,243 @@
+test compile precise-output
+set unwind_info=false
+target riscv32 has_m
+
+function %brif_i8(i8) -> i8 {
+block0(v0: i8):
+  brif v0, block1, block2
+
+block1:
+  v1 = iconst.i8 1
+  return v1
+
+block2:
+  v2 = iconst.i8 0
+  return v2
+}
+
+; VCode:
+; block0:
+;   andi a4,a0,255
+;   bne a4,zero,taken(label2),not_taken(label1)
+; block1:
+;   li a0,0
+;   ret
+; block2:
+;   li a0,1
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   andi a4, a0, 0xff
+;   bnez a4, 0xc
+; block1: ; offset 0x8
+;   mv a0, zero
+;   ret
+; block2: ; offset 0x10
+;   addi a0, zero, 1
+;   ret
+
+function %brif_i16(i16) -> i8 {
+block0(v0: i16):
+  brif v0, block1, block2
+
+block1:
+  v1 = iconst.i8 1
+  return v1
+
+block2:
+  v2 = iconst.i8 0
+  return v2
+}
+
+; VCode:
+; block0:
+;   slli a4,a0,48
+;   srai a0,a4,48
+;   bne a0,zero,taken(label2),not_taken(label1)
+; block1:
+;   li a0,0
+;   ret
+; block2:
+;   li a0,1
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   slli a4, a0, 0x30
+;   srai a0, a4, 0x30
+;   bnez a0, 0xc
+; block1: ; offset 0xc
+;   mv a0, zero
+;   ret
+; block2: ; offset 0x14
+;   addi a0, zero, 1
+;   ret
+
+function %brif_i32(i32) -> i8 {
+block0(v0: i32):
+  brif v0, block1, block2
+
+block1:
+  v1 = iconst.i8 1
+  return v1
+
+block2:
+  v2 = iconst.i8 0
+  return v2
+}
+
+; VCode:
+; block0:
+;   slli a4,a0,32
+;   srai a0,a4,32
+;   bne a0,zero,taken(label2),not_taken(label1)
+; block1:
+;   li a0,0
+;   ret
+; block2:
+;   li a0,1
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   slli a4, a0, 0x20
+;   srai a0, a4, 0x20
+;   bnez a0, 0xc
+; block1: ; offset 0xc
+;   mv a0, zero
+;   ret
+; block2: ; offset 0x14
+;   addi a0, zero, 1
+;   ret
+
+function %brif_icmp_i8(i8, i8) -> i8 {
+block0(v0: i8, v1: i8):
+  v2 = icmp eq v0, v1
+  brif v2, block1, block2
+
+block1:
+  v3 = iconst.i8 1
+  return v3
+
+block2:
+  v4 = iconst.i8 0
+  return v4
+}
+
+; VCode:
+; block0:
+;   andi a5,a0,255
+;   andi a1,a1,255
+;   beq a5,a1,taken(label2),not_taken(label1)
+; block1:
+;   li a0,0
+;   ret
+; block2:
+;   li a0,1
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   andi a5, a0, 0xff
+;   andi a1, a1, 0xff
+;   beq a5, a1, 0xc
+; block1: ; offset 0xc
+;   mv a0, zero
+;   ret
+; block2: ; offset 0x14
+;   addi a0, zero, 1
+;   ret
+
+function %brif_icmp_i16(i16, i16) -> i8 {
+block0(v0: i16, v1: i16):
+  v2 = icmp eq v0, v1
+  brif v2, block1, block2
+
+block1:
+  v3 = iconst.i8 1
+  return v3
+
+block2:
+  v4 = iconst.i8 0
+  return v4
+}
+
+; VCode:
+; block0:
+;   mv a3,a1
+;   slli a5,a0,48
+;   srai a1,a5,48
+;   mv a5,a3
+;   slli a3,a5,48
+;   srai a5,a3,48
+;   beq a1,a5,taken(label2),not_taken(label1)
+; block1:
+;   li a0,0
+;   ret
+; block2:
+;   li a0,1
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   mv a3, a1
+;   slli a5, a0, 0x30
+;   srai a1, a5, 0x30
+;   mv a5, a3
+;   slli a3, a5, 0x30
+;   srai a5, a3, 0x30
+;   beq a1, a5, 0xc
+; block1: ; offset 0x1c
+;   mv a0, zero
+;   ret
+; block2: ; offset 0x24
+;   addi a0, zero, 1
+;   ret
+
+function %brif_icmp_i32(i32, i32) -> i8 {
+block0(v0: i32, v1: i32):
+  v2 = icmp eq v0, v1
+  brif v2, block1, block2
+
+block1:
+  v3 = iconst.i8 1
+  return v3
+
+block2:
+  v4 = iconst.i8 0
+  return v4
+}
+
+; VCode:
+; block0:
+;   mv a3,a1
+;   slli a5,a0,32
+;   srai a1,a5,32
+;   mv a5,a3
+;   slli a3,a5,32
+;   srai a5,a3,32
+;   beq a1,a5,taken(label2),not_taken(label1)
+; block1:
+;   li a0,0
+;   ret
+; block2:
+;   li a0,1
+;   ret
+;
+; Disassembled:
+; block0: ; offset 0x0
+;   mv a3, a1
+;   slli a5, a0, 0x20
+;   srai a1, a5, 0x20
+;   mv a5, a3
+;   slli a3, a5, 0x20
+;   srai a5, a3, 0x20
+;   beq a1, a5, 0xc
+; block1: ; offset 0x1c
+;   mv a0, zero
+;   ret
+; block2: ; offset 0x24
+;   addi a0, zero, 1
+;   ret
+
