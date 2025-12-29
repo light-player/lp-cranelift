@@ -1,0 +1,22 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test i64 signed less than or equal comparison
+; Used in block5: v35 = icmp sle v34, v33 where v34 = 0
+function %test_icmp_sle_i64(i64, i64) -> i32 {
+block0(v0: i64, v1: i64):
+    v2 = iconst.i64 0
+    v3 = icmp sle v2, v0
+    v4 = uextend.i32 v3  ; icmp returns i8, extend to i32
+    return v4
+}
+
+; Test cases - returns 1 if true, 0 if false
+; run: %test_icmp_sle_i64(0, 0) == 1
+; run: %test_icmp_sle_i64(1, 0) == 1
+; run: %test_icmp_sle_i64(-1, 0) == 0
+; run: %test_icmp_sle_i64(100, 0) == 1
+; run: %test_icmp_sle_i64(0x0000000000000000, 0) == 1
+; run: %test_icmp_sle_i64(0xffffffffffffffff, 0) == 0
+

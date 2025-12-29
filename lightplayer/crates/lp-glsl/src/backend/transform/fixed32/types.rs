@@ -39,25 +39,16 @@ impl FixedPointFormat {
 /// Range: -32768.0 to +32767.9999847412109375
 /// Precision: 1/65536 (approximately 0.00001526)
 pub fn float_to_fixed16x16(f: f32) -> i32 {
-    // Check bounds in floating point first to avoid overflow during conversion
-    const MAX_FIXED: i32 = 0x7FFF_FFFF; // Maximum representable fixed16x16 value
-    const MIN_FIXED: i32 = i32::MIN; // Minimum representable fixed16x16 value
-    const MAX_FLOAT: f32 = MAX_FIXED as f32 / crate::frontend::codegen::constants::FIXED16X16_SCALE; // ~32767.99998
-    const MIN_FLOAT: f32 = MIN_FIXED as f32 / crate::frontend::codegen::constants::FIXED16X16_SCALE; // ~-32768.0
-
-    if f > MAX_FLOAT {
-        MAX_FIXED
-    } else if f < MIN_FLOAT {
-        MIN_FIXED
+    // Clamp to representable range
+    let clamped = f.clamp(-32768.0, 32767.9999847412109375);
+    // Convert to fixed-point (round to nearest)
+    let scaled = clamped * crate::frontend::codegen::constants::FIXED16X16_SCALE;
+    let rounded = if scaled >= 0.0 {
+        (scaled + 0.5) as i32
     } else {
-        // Convert to fixed-point (round to nearest)
-        let scaled = f * crate::frontend::codegen::constants::FIXED16X16_SCALE;
-        if scaled >= 0.0 {
-            (scaled + 0.5) as i32
-        } else {
-            (scaled - 0.5) as i32
-        }
-    }
+        (scaled - 0.5) as i32
+    };
+    rounded
 }
 
 /// Convert fixed16x16 back to float32 (for debugging/constants).

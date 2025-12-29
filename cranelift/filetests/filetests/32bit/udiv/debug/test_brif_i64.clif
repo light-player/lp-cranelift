@@ -1,0 +1,25 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test branch on i64 value (non-zero check)
+; Pattern from block12: brif v60, block3, block2
+; This tests if zero-extended negative values cause wrong branches
+function %test_brif_i64(i64) -> i32 {
+block0(v0: i64):
+    brif v0, block1, block2
+block1:
+    v1 = iconst.i32 1
+    return v1
+block2:
+    v2 = iconst.i32 0
+    return v2
+}
+
+; Test cases
+; run: %test_brif_i64(0) == 0
+; run: %test_brif_i64(1) == 1
+; run: %test_brif_i64(0x0000000000000001) == 1
+; run: %test_brif_i64(0x00000000ffffffff) == 1  ; Large positive
+; run: %test_brif_i64(0xffffffffffffffff) == 1  ; -1 as i64, should branch (non-zero)
+

@@ -1,0 +1,19 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test i64 unsigned right shift
+; Used in the division loop and for extracting high bits
+function %test_ushr_i64(i64, i32) -> i64 {
+block0(v0: i64, v1: i32):
+    v2 = ushr.i64 v0, v1
+    return v2
+}
+
+; Test cases
+; run: %test_ushr_i64(0x0000000100000000, 32) == 1
+; run: %test_ushr_i64(0x0000000080000000, 31) == 1
+; run: %test_ushr_i64(0x00000000ffffffff, 32) == 0
+; run: %test_ushr_i64(0x0000000100000000, 0) == 0x0000000100000000
+; run: %test_ushr_i64(0xffffffffffffffff, 32) == 0x00000000ffffffff
+

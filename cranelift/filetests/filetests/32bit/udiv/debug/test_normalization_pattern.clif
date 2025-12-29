@@ -1,0 +1,30 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test the exact pattern from the normalization shift calculation
+; This replicates block11 -> block12 -> block3 flow
+function %test_normalization_pattern(i32, i32) -> i64 {
+block0(v0: i32, v1: i32):
+    ; v0 = clz(duo_hi), v1 = clz(div_lo)
+    ; Calculate norm_shift = clz(div_lo) - clz(duo_hi)
+    ; But the CLIF does: v59 = isub.i32 v57, v58 where v57=clz(duo_hi), v58=clz(div_lo)
+    ; So it computes: clz(duo_hi) - clz(div_lo) = -(clz(div_lo) - clz(duo_hi))
+    v2 = isub.i32 v0, v1  ; This is what the CLIF does
+    v3 = uextend.i64 v2
+    ; Then in block3: v24 = isub v22, v23 where v22=32, v23=v3
+    v4 = iconst.i64 32
+    v5 = isub v4, v3
+    return v5
+}
+
+; Test cases - these demonstrate the bug
+; If clz(duo_hi)=3, clz(div_lo)=5, then v2 = 3-5 = -2 (as i32 = 0xfffffffe)
+; v3 = uextend.i64 v2 = 0x00000000fffffffe (4294967294 as u64)
+; v5 = 32 - 4294967294 = -4294967262 (this is the bug!)
+; The issue: negative i32 values become huge positive u64 values when zero-extended
+; run: %test_normalization_pattern(5, 3) == 30  ; 32 - (5-3) = 30 (positive case works)
+; run: %test_normalization_pattern(3, 5) == -4294967262  ; 32 - (3-5 as u64) = 32 - 4294967294 = -4294967262 (BUG!)
+; run: %test_normalization_pattern(0, 0) == 32  ; 32 - (0-0) = 32
+; run: %test_normalization_pattern(32, 0) == 0  ; 32 - (32-0) = 0
+

@@ -1,0 +1,28 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test the exact bug: icmp sle 0, (isub result)
+; This reproduces the bug where the comparison only checks the low part
+; and ignores the high part of the i64 subtraction result
+function %test_icmp_sle_isub_bug(i32, i32) -> i8 {
+block0(v0: i32, v1: i32):
+    ; Build i64 values with zero high parts (like test 13)
+    v2 = uextend.i64 v0  ; High part is 0
+    v3 = uextend.i64 v1  ; High part is 0
+    v4 = iconst.i32 1
+    v5 = ishl v3, v4  ; Shift left by 1: v1 << 1
+    v6 = isub v2, v5  ; Subtract: v0 - (v1 << 1)
+    v7 = iconst.i64 0
+    v8 = icmp sle v7, v6  ; Check if 0 <= (v0 - (v1 << 1))
+    return v8
+}
+
+; Test cases that reproduce the bug
+; run: %test_icmp_sle_isub_bug(100, 2) == 1   ; 0 <= (100 - 4) = 0 <= 96 (true)
+; run: %test_icmp_sle_isub_bug(50, 100) == 0  ; 0 <= (50 - 200) = 0 <= -150 (false)
+; run: %test_icmp_sle_isub_bug(0, 100) == 0   ; 0 <= (0 - 200) = 0 <= -200 (false)
+; run: %test_icmp_sle_isub_bug(200, 50) == 1  ; 0 <= (200 - 100) = 0 <= 100 (true)
+; run: %test_icmp_sle_isub_bug(1, 0) == 1     ; 0 <= (1 - 0) = 0 <= 1 (true)
+; run: %test_icmp_sle_isub_bug(0, 1) == 0     ; 0 <= (0 - 2) = 0 <= -2 (false)
+

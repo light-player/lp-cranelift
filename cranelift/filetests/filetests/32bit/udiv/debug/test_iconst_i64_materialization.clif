@@ -1,0 +1,19 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test if i64 constants are correctly materialized when used in operations
+; The issue might be that iconst.i64 produces value_regs with immediates,
+; and these immediates aren't being materialized correctly when used in isub
+function %test_iconst_i64_materialization() -> i64 {
+block0:
+    v0 = iconst.i64 32
+    v1 = iconst.i64 0
+    v2 = isub v0, v1
+    return v2
+}
+
+; This should work - 32 - 0 = 32
+; If this fails, it means constants aren't being materialized correctly
+; run: %test_iconst_i64_materialization() == 32
+

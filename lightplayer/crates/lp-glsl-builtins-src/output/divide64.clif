@@ -1,0 +1,126 @@
+set regalloc_algorithm=backtracking
+set opt_level=speed_and_size
+set tls_model=macho
+set stack_switch_model=none
+set libcall_call_conv=isa_default
+set probestack_size_log2=12
+set probestack_strategy=inline
+set bb_padding_log2_minus_one=0
+set log2_min_function_alignment=0
+set regalloc_checker=0
+set regalloc_verbose_logs=0
+set enable_alias_analysis=1
+set enable_verifier=0
+set enable_pcc=0
+set is_pic=1
+set use_colocated_libcalls=0
+set enable_nan_canonicalization=0
+set enable_pinned_reg=0
+set enable_llvm_abi_extensions=1
+set enable_multi_ret_implicit_sret=0
+set unwind_info=1
+set preserve_frame_pointers=1
+set machine_code_cfg_info=0
+set enable_probestack=1
+set enable_heap_access_spectre_mitigation=1
+set enable_table_access_spectre_mitigation=1
+set enable_incremental_compilation_cache_checks=0
+target aarch64 has_lse=0 has_pauth=0 has_fp16=0 sign_return_address_all=0 sign_return_address=0 sign_return_address_with_bkey=0 use_bti=0
+
+
+function u0:0(i32, i32) -> i32 apple_aarch64 {
+; symbol divide64
+; instance Instance { def: Item(DefId(0:3 ~ lib[187e]::divide64)), args: [] }
+; abi FnAbi { args: [ArgAbi { layout: TyAndLayout { ty: u32, layout: Layout { size: Size(4 bytes), align: AbiAlign { abi: Align(4 bytes) }, backend_repr: Scalar(Initialized { value: Int(I32, false), valid_range: 0..=4294967295 }), fields: Primitive, largest_niche: None, uninhabited: false, variants: Single { index: 0 }, max_repr_align: None, unadjusted_abi_align: Align(4 bytes), randomization_seed: 18446462607322841091 } }, mode: Direct(ArgAttributes { regular: NoUndef, arg_ext: None, pointee_size: Size(0 bytes), pointee_align: None }) }, ArgAbi { layout: TyAndLayout { ty: u32, layout: Layout { size: Size(4 bytes), align: AbiAlign { abi: Align(4 bytes) }, backend_repr: Scalar(Initialized { value: Int(I32, false), valid_range: 0..=4294967295 }), fields: Primitive, largest_niche: None, uninhabited: false, variants: Single { index: 0 }, max_repr_align: None, unadjusted_abi_align: Align(4 bytes), randomization_seed: 18446462607322841091 } }, mode: Direct(ArgAttributes { regular: NoUndef, arg_ext: None, pointee_size: Size(0 bytes), pointee_align: None }) }], ret: ArgAbi { layout: TyAndLayout { ty: u32, layout: Layout { size: Size(4 bytes), align: AbiAlign { abi: Align(4 bytes) }, backend_repr: Scalar(Initialized { value: Int(I32, false), valid_range: 0..=4294967295 }), fields: Primitive, largest_niche: None, uninhabited: false, variants: Single { index: 0 }, max_repr_align: None, unadjusted_abi_align: Align(4 bytes), randomization_seed: 18446462607322841091 } }, mode: Direct(ArgAttributes { regular: NoUndef, arg_ext: None, pointee_size: Size(0 bytes), pointee_align: None }) }, c_variadic: false, fixed_count: 2, conv: Rust, can_unwind: false }
+
+; kind  loc.idx   param    pass mode                            ty
+; ssa   _0    u32                               4b 4                var=1
+; ret   _0      -          Direct(ArgAttributes { regular: NoUndef, arg_ext: None, pointee_size: Size(0 bytes), pointee_align: None }) u32
+; arg   _1      = v0       Direct(ArgAttributes { regular: NoUndef, arg_ext: None, pointee_size: Size(0 bytes), pointee_align: None }) u32
+; arg   _2      = v1       Direct(ArgAttributes { regular: NoUndef, arg_ext: None, pointee_size: Size(0 bytes), pointee_align: None }) u32
+
+; kind  local ty                              size align (abi)
+; ssa   _1    u32                               4b 4                var=2
+; ssa   _2    u32                               4b 4                var=3
+; ssa   _3    u64                               8b 8                var=4
+; ssa   _4    u64                               8b 8                var=5
+; ssa   _5    u64                               8b 8                var=6
+; ssa   _6    u64                               8b 8                var=7
+; ssa   _7    u32                               4b 4                var=8
+; ssa   _8    u64                               8b 8                var=9
+; ssa   _9    u64                               8b 8                var=10
+; ssa   _10   bool                              1b 1                var=11
+; ssa   _11   i64                               8b 8                var=12
+
+block0(v0: i32, v1: i32):
+    v2 -> v0
+    v4 -> v1
+    nop 
+; write_cvalue: Var(_1, var2): u32 <- ByVal(v0): u32
+; write_cvalue: Var(_2, var3): u32 <- ByVal(v1): u32
+    jump block1
+
+block1:
+    nop 
+; _3 = copy _1 as u64 (IntToInt)
+    v3 = uextend.i64 v2
+; write_cvalue: Var(_3, var4): u64 <- ByVal(v3): u64
+; _5 = copy _2 as u64 (IntToInt)
+    v5 = uextend.i64 v4
+; write_cvalue: Var(_5, var6): u64 <- ByVal(v5): u64
+; _4 = Shl(move _5, const 1_i32)
+    v6 = iconst.i32 1
+    v7 = ishl v5, v6  ; v6 = 1
+; write_cvalue: Var(_4, var5): u64 <- ByVal(v7): u64
+; _6 = Sub(copy _3, copy _4)
+    v8 = isub v3, v7
+; write_cvalue: Var(_6, var7): u64 <- ByVal(v8): u64
+; _3 = copy _6
+; write_cvalue: Var(_3, var4): u64 <- ByVal(v8): u64
+; _9 = copy _3
+; write_cvalue: Var(_9, var10): u64 <- ByVal(v8): u64
+; _8 = Shr(move _9, const 32_i32)
+    v9 = iconst.i32 32
+    v10 = ushr v8, v9  ; v9 = 32
+; write_cvalue: Var(_8, var9): u64 <- ByVal(v10): u64
+; _7 = move _8 as u32 (IntToInt)
+    v11 = ireduce.i32 v10
+    v14 -> v11
+    v17 -> v11
+; write_cvalue: Var(_7, var8): u32 <- ByVal(v11): u32
+; _11 = move _3 as i64 (IntToInt)
+; write_cvalue: Var(_11, var12): i64 <- ByVal(v8): i64
+; _10 = Le(const 0_i64, move _11)
+    v12 = iconst.i64 0
+    v13 = icmp sle v12, v8  ; v12 = 0
+; write_cvalue: Var(_10, var11): bool <- ByVal(v13): bool
+; 
+; switchInt(copy _10)
+    brif v13, block2, block3
+
+block2:
+    nop 
+; _0 = BitOr(copy _7, const 65536_u32)
+    v15 = iconst.i32 0x0001_0000
+    v16 = bor.i32 v14, v15  ; v15 = 0x0001_0000
+; write_cvalue: Var(_0, var1): u32 <- ByVal(v16): u32
+; 
+; goto
+    return v16
+
+block3:
+    nop 
+; _0 = copy _7
+; write_cvalue: Var(_0, var1): u32 <- ByVal(v17): u32
+; 
+; goto
+    return v17
+
+block4:
+    v19 = iconst.i32 0
+    v18 -> v19
+    nop 
+; 
+; return
+    return v18  ; v18 = 0
+}

@@ -1,0 +1,24 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test i64 values flowing through multiple blocks with jumps
+; This mimics the flow: block3 -> block4 -> block5
+; The issue might be in how i64 values are passed as block arguments
+function %test_block_flow_i64(i64) -> i64 {
+block0(v0: i64):
+    v1 = iconst.i64 32
+    v2 = isub v1, v0
+    jump block1(v2)
+block1(v3: i64):
+    ; Use v3 in another operation to see if it's corrupted
+    v4 = iconst.i64 0
+    v5 = isub v3, v4
+    return v5
+}
+
+; Test cases
+; run: %test_block_flow_i64(0) == 32
+; run: %test_block_flow_i64(1) == 31
+; run: %test_block_flow_i64(0x00000000fffffffe) == -4294967262
+

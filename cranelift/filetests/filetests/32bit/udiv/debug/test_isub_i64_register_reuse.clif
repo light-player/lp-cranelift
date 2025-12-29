@@ -1,0 +1,22 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test if register reuse causes issues in i64 subtraction
+; The execution log shows a0 becoming -1, suggesting register corruption
+function %test_isub_i64_register_reuse(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+    ; Do subtraction
+    v2 = isub v0, v1
+    ; Use result in another operation that might reuse registers
+    v3 = iconst.i64 0
+    v4 = icmp sle v3, v2
+    ; Do another subtraction that might reuse the same registers
+    v5 = isub v2, v3
+    return v5
+}
+
+; Test cases - v5 should equal v2 since we're subtracting 0
+; run: %test_isub_i64_register_reuse(0x0000000000000064, 0x0000000000000032) == 50
+; run: %test_isub_i64_register_reuse(0x0000000000000000, 0x0000000000000000) == 0
+

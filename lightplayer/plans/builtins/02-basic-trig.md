@@ -4,7 +4,7 @@
 
 ## Progress Report
 
-**Status**: ✅ **COMPLETE** - All acceptance criteria met
+**Status**: Implementation complete, minor precision issues
 
 **Completed**:
 - ✅ Dependency tracking implemented and working
@@ -14,27 +14,16 @@
 - ✅ Trig intrinsics refactored to use loops with arrays (replacing 16 unrolled iterations)
 - ✅ Array support verified - trig intrinsics compile successfully
 - ✅ Array initialization syntax updated to use initializer list `{...}`
-- ✅ Acceptance test `02-basic-trig.glsl` passes
-- ✅ All basic trig functions (sin, cos, tan) work correctly
 
 **Current Status**:
 - ✅ Trig intrinsics compile and run
-- ✅ Tests pass with default tolerance (`~=` comparison)
-- ⚠️ Minor precision issues exist but are within acceptable tolerance:
-  - `sin(0.0)` returns `-0.00015258789` instead of `0.0` (error ~0.00015, well within default tolerance)
-  - Precision is acceptable for fixed-point CORDIC implementation with 16 iterations
-  - Errors are due to fixed-point conversion and CORDIC algorithm precision limits
+- ⚠️ Minor precision issues in tests (e.g., sin(0.0) returns -0.00015258789 instead of 0.0)
+- ⚠️ Tests failing due to precision tolerance - may need to adjust test tolerances or improve CORDIC precision
 
-**Implementation Details**:
-- **Algorithm**: CORDIC rotation with 16 iterations
-- **Precision**: ~0.00015 error for edge cases like `sin(0.0)`, typically much better for other angles
-- **Dependency Tracking**: Only compiles needed functions (e.g., `cos` includes `sin` but not `tan`)
-- **Performance**: Fast due to precomputed atan table and loop-based iteration
-
-**Known Limitations**:
-- Precision errors are inherent to fixed-point CORDIC with limited iterations
-- Increasing iterations would improve precision but increase code size and execution time
-- Current precision is acceptable for graphics/shaders use case
+**Next Steps**:
+- Investigate precision issues - may be due to fixed-point conversion or CORDIC algorithm precision
+- Consider increasing CORDIC iterations or adjusting algorithm
+- Update test tolerances if precision is acceptable for use case
 
 ## Tasks
 
@@ -85,11 +74,9 @@ scripts/glsl-filetests.sh builtins/phase/02-basic-trig.glsl
 ```
 
 The phase is complete when:
-- [x] `sin()`, `cos()`, `tan()` work correctly from user GLSL code
-- [x] Only needed functions are compiled (dependency pruning works)
-- [x] Acceptance test `02-basic-trig.glsl` passes
-- [x] All filetests for `sin`, `cos`, `tan` pass
-- [x] Error messages show correct source locations
-
-**✅ Phase 2 Complete** - All acceptance criteria met. Minor precision issues are within acceptable tolerance for the use case.
+- [ ] `sin()`, `cos()`, `tan()` work correctly from user GLSL code
+- [ ] Only needed functions are compiled (dependency pruning works)
+- [ ] Acceptance test `02-basic-trig.glsl` passes
+- [ ] All filetests for `sin`, `cos`, `tan` pass
+- [ ] Error messages show correct source locations
 

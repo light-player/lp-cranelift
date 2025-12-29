@@ -13,7 +13,8 @@ mod types;
 mod fixed32_test_util;
 
 #[cfg(test)]
-mod div_recip_ref;
+mod div_play1;
 
+mod div_play2_rust_based;
 pub use transform::Fixed32Transform;
 pub use types::FixedPointFormat;

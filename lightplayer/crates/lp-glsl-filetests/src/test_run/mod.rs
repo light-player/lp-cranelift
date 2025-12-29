@@ -16,14 +16,6 @@ use lp_glsl::glsl_emu_riscv32_with_metadata;
 use std::env;
 use std::path::Path;
 
-/// Context key for storing line number in error chain
-const LINE_NUMBER_CONTEXT: &str = "test_line_number";
-
-/// Add line number context to an error for easy extraction later
-fn with_line_number_context(error: anyhow::Error, line_number: usize) -> anyhow::Error {
-    error.context(format!("{}:{}", LINE_NUMBER_CONTEXT, line_number))
-}
-
 /// Run all tests in a test file.
 pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
     run_test_file_with_line_filter(test_file, path, None, true)
@@ -123,30 +115,28 @@ pub fn run_test_file_with_line_filter(
                 } else {
                     String::new()
                 };
-                return Err(with_line_number_context(
-                    anyhow::anyhow!(
-                        "{}run test failed at line {}: expected trap but execution succeeded\n\
-                         \n\
-                         Expected: trap{}\n\
-                         Actual: value {}\n\
-                         \n\
-                         To rerun just this test:\n\
-                         scripts/glsl-filetests.sh {}:{}",
-                        bootstrap_code_display,
-                        directive.line_number,
-                        if let Some(code) = exp.trap_code {
-                            format!(" (code {})", code)
-                        } else if let Some(ref msg) = exp.trap_message {
-                            format!(" (message containing '{}')", msg)
-                        } else {
-                            String::new()
-                        },
-                        format_glsl_value(&actual_value),
-                        relative_path,
-                        directive.line_number
-                    ),
+                anyhow::bail!(
+                    "run test failed at line {}: expected trap but execution succeeded\n\
+                     \n\
+                     Expected: trap{}\n\
+                     Actual: value {}\n\
+                     {}\
+                     \n\
+                     To rerun just this test:\n\
+                     scripts/glsl-filetests.sh {}:{}",
                     directive.line_number,
-                ));
+                    if let Some(code) = exp.trap_code {
+                        format!(" (code {})", code)
+                    } else if let Some(ref msg) = exp.trap_message {
+                        format!(" (message containing '{}')", msg)
+                    } else {
+                        String::new()
+                    },
+                    format_glsl_value(&actual_value),
+                    bootstrap_code_display,
+                    relative_path,
+                    directive.line_number
+                );
             }
             (Err(e), None) => {
                 // Got an error but didn't expect one - check if it's a trap
@@ -165,26 +155,24 @@ pub fn run_test_file_with_line_filter(
                     } else {
                         String::new()
                     };
-                    return Err(with_line_number_context(
-                        anyhow::anyhow!(
-                            "{}run test failed at line {}: unexpected trap\n\
-                             \n\
-                             Expected: value\n\
-                             Actual: trap\n\
-                             \n\
-                             Error details:\n\
-                             {}\n\
-                             \n\
-                             To rerun just this test:\n\
-                             scripts/glsl-filetests.sh {}:{}",
-                            bootstrap_code_display,
-                            directive.line_number,
-                            error_str,
-                            relative_path,
-                            directive.line_number
-                        ),
+                    anyhow::bail!(
+                        "run test failed at line {}: unexpected trap\n\
+                         \n\
+                         Expected: value\n\
+                         Actual: trap\n\
+                         {}\
+                         \n\
+                         Error details:\n\
+                         {}\n\
+                         \n\
+                         To rerun just this test:\n\
+                         scripts/glsl-filetests.sh {}:{}",
                         directive.line_number,
-                    ));
+                        bootstrap_code_display,
+                        error_str,
+                        relative_path,
+                        directive.line_number
+                    );
                 } else {
                     // Other error - pass through
                     return Err(e);
@@ -205,24 +193,22 @@ pub fn run_test_file_with_line_filter(
                         } else {
                             String::new()
                         };
-                        return Err(with_line_number_context(
-                            anyhow::anyhow!(
-                                "{}run test failed at line {}: trap code mismatch\n\
-                                 \n\
-                                 Expected: trap code {}\n\
-                                 Actual trap: {}\n\
-                                 \n\
-                                 To rerun just this test:\n\
-                                 scripts/glsl-filetests.sh {}:{}",
-                                bootstrap_code_display,
-                                directive.line_number,
-                                expected_code,
-                                error_str,
-                                relative_path,
-                                directive.line_number
-                            ),
+                        anyhow::bail!(
+                            "run test failed at line {}: trap code mismatch\n\
+                             \n\
+                             Expected: trap code {}\n\
+                             Actual trap: {}\n\
+                             {}\
+                             \n\
+                             To rerun just this test:\n\
+                             scripts/glsl-filetests.sh {}:{}",
                             directive.line_number,
-                        ));
+                            expected_code,
+                            error_str,
+                            bootstrap_code_display,
+                            relative_path,
+                            directive.line_number
+                        );
                     }
                 }
 
@@ -237,24 +223,22 @@ pub fn run_test_file_with_line_filter(
                         } else {
                             String::new()
                         };
-                        return Err(with_line_number_context(
-                            anyhow::anyhow!(
-                                "{}run test failed at line {}: trap message mismatch\n\
-                                 \n\
-                                 Expected: trap message containing '{}'\n\
-                                 Actual trap: {}\n\
-                                 \n\
-                                 To rerun just this test:\n\
-                                 scripts/glsl-filetests.sh {}:{}",
-                                bootstrap_code_display,
-                                directive.line_number,
-                                expected_msg,
-                                error_str,
-                                relative_path,
-                                directive.line_number
-                            ),
+                        anyhow::bail!(
+                            "run test failed at line {}: trap message mismatch\n\
+                             \n\
+                             Expected: trap message containing '{}'\n\
+                             Actual trap: {}\n\
+                             {}\
+                             \n\
+                             To rerun just this test:\n\
+                             scripts/glsl-filetests.sh {}:{}",
                             directive.line_number,
-                        ));
+                            expected_msg,
+                            error_str,
+                            bootstrap_code_display,
+                            relative_path,
+                            directive.line_number
+                        );
                     }
                 }
 
@@ -284,7 +268,7 @@ pub fn run_test_file_with_line_filter(
                             );
                         }
                     }
-                    Err(_err_msg) => {
+                    Err(err_msg) => {
                         if bless_enabled {
                             // Update expectation in-place
                             file_update.update_run_expectation(
@@ -329,10 +313,7 @@ pub fn run_test_file_with_line_filter(
                             };
                             let run_line = format!(
                                 "// run: {} {} {}{}",
-                                directive.expression_str,
-                                op_str,
-                                directive.expected_str,
-                                tolerance_str
+                                directive.expression_str, op_str, directive.expected_str, tolerance_str
                             );
 
                             // Format expected and actual values nicely
@@ -341,22 +322,17 @@ pub fn run_test_file_with_line_filter(
 
                             // Format error message
                             // Note: For comparison errors, execution succeeded so emulator state isn't needed
-                            // Put debug output first so it's visible when tailing the output
                             let error_msg = format!(
-                                "{}{}run test failed at line {}:\n\n{}\n\nexpected: {}\n  actual: {}\n\nTo rerun just this test:\n{}",
-                                bootstrap_code_display,
-                                debug_info_display,
+                                "run test failed at line {}:\n\n{}\n\nexpected: {}\n  actual: {}{}{}\n\nTo rerun just this test:\n{}",
                                 directive.line_number,
                                 run_line,
                                 expected_formatted,
                                 actual_formatted,
+                                bootstrap_code_display,
+                                debug_info_display,
                                 rerun_cmd
                             );
-                            // Attach line number as context for easy extraction
-                            return Err(with_line_number_context(
-                                anyhow::anyhow!("{}", error_msg),
-                                directive.line_number,
-                            ));
+                            anyhow::bail!("{}", error_msg);
                         }
                     }
                 }

@@ -1,0 +1,20 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test i64 left shift - the log shows sll with potentially wrong values
+; Line 9974: sll s2, s7, t3 where s7 is -1 and t3 is 32
+function %test_ishl_i64(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+    v2 = ishl.i64 v0, v1
+    return v2
+}
+
+; Test cases
+; run: %test_ishl_i64(1, 0) == 1
+; run: %test_ishl_i64(1, 1) == 2
+; run: %test_ishl_i64(1, 31) == 0x0000000080000000
+; run: %test_ishl_i64(1, 32) == 0x0000000100000000
+; run: %test_ishl_i64(0x0000000000000001, 0x000000000000001f) == 0x0000000080000000
+; run: %test_ishl_i64(0x0000000000000001, 0x0000000000000020) == 0x0000000100000000
+

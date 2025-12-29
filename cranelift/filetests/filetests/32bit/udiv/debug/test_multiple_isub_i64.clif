@@ -1,0 +1,18 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test multiple i64 subtractions in sequence
+; The execution log shows register values getting corrupted
+; This tests if doing multiple subtractions causes register reuse issues
+function %test_multiple_isub_i64(i64, i64, i64) -> i64 {
+block0(v0: i64, v1: i64, v2: i64):
+    v3 = isub v0, v1
+    v4 = isub v3, v2
+    return v4
+}
+
+; Test cases
+; run: %test_multiple_isub_i64(0x0000000000000064, 0x0000000000000032, 0x000000000000000a) == 40
+; run: %test_multiple_isub_i64(0x0000000000000020, 0x0000000000000000, 0x0000000000000000) == 32
+

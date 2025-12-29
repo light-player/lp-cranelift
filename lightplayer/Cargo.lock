@@ -1517,6 +1517,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "lp-udiv64-clif-gen"
+version = "0.1.0"
+
+[[package]]
 name = "mach2"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

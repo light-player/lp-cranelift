@@ -1,0 +1,39 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+function %divide64(i32, i32) -> i32 {
+block0(v0: i32, v1: i32):
+    v2 -> v0
+    v4 -> v1
+    jump block1
+block1:
+    v3 = uextend.i64 v2
+    v5 = uextend.i64 v4
+    v6 = iconst.i32 1
+    v7 = ishl v5, v6
+    v8 = isub v3, v7
+    v9 = iconst.i32 32
+    v10 = ushr v8, v9
+    v11 = ireduce.i32 v10
+    v14 -> v11
+    v17 -> v11
+    v12 = iconst.i64 0
+    v13 = icmp sle v12, v8
+    brif v13, block2, block3
+block2:
+    v15 = iconst.i32 0x0001_0000
+    v16 = bor.i32 v14, v15
+    return v16
+block3:
+    return v17
+block4:
+    v19 = iconst.i32 0
+    v18 -> v19
+    return v18
+}
+
+; Test cases
+; run: %divide64(100, 2) == 0x10000   ; 100 - 4 = 96 (positive), high=0, return 0|0x10000
+; run: %divide64(50, 100) == 0xffffffff  ; 50 - 200 = -150 (negative), high=0xffffffff
+; run: %divide64(0, 100) == 0xffffffff   ; 0 - 200 = -200 (negative), high=0xffffffff

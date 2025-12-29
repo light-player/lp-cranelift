@@ -1,0 +1,30 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test the exact pattern from block5 that's causing the infinite loop
+; v33 = isub v31, v32 where:
+; - v31 comes from block4 as v74 (the dividend, high part should be 0)
+; - v32 comes from block4 as v27 (shifted divisor, high part should be 0)
+; The bug: high part becomes -1 instead of 0, causing wrong comparison result
+function %test_isub_i64_exact_pattern(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+    ; This mimics the exact pattern: isub with both operands having zero high parts
+    v2 = isub v0, v1
+    ; Then check if result >= 0 (icmp sle 0, result) - this is what block5 does
+    v3 = iconst.i64 0
+    v4 = icmp sle v3, v2
+    ; Return the subtraction result directly to see if it's correct
+    return v2
+}
+
+; Test case: 100 - 50 = 50
+; If this returns 0, the subtraction is wrong
+; run: %test_isub_i64_exact_pattern(0x0000000000000064, 0x0000000000000032) == 50
+
+; Test case: 1 - 2 = -1 (0xffffffffffffffff)
+; run: %test_isub_i64_exact_pattern(0x0000000000000001, 0x0000000000000002) == 0xffffffffffffffff
+
+; Test case: 0 - 0 = 0
+; run: %test_isub_i64_exact_pattern(0x0000000000000000, 0x0000000000000000) == 0
+

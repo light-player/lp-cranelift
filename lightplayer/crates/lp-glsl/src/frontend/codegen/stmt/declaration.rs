@@ -118,7 +118,7 @@ pub fn emit_declaration<M: cranelift_module::Module>(
                         for (index, init_val) in init_vals.iter().enumerate() {
                             let coerced_val =
                                 ctx.coerce_to_type(*init_val, &init_element_ty, &base_ty)?;
-                            let offset = (index * element_size_bytes) as i32;
+                            let offset = (index * element_size_bytes as usize) as i32;
                             ctx.builder
                                 .ins()
                                 .store(flags, coerced_val, array_ptr, offset);
@@ -150,7 +150,7 @@ pub fn emit_declaration<M: cranelift_module::Module>(
                             };
 
                             for index in init_vals.len()..array_size {
-                                let offset = (index * element_size_bytes) as i32;
+                                let offset = (index * element_size_bytes as usize) as i32;
                                 ctx.builder.ins().store(flags, zero_val, array_ptr, offset);
                             }
                         }
@@ -323,7 +323,7 @@ pub fn emit_declaration<M: cranelift_module::Module>(
                         for (index, init_val) in init_vals.iter().enumerate() {
                             let coerced_val =
                                 ctx.coerce_to_type(*init_val, &init_element_ty, &base_ty)?;
-                            let offset = (index * element_size_bytes) as i32;
+                            let offset = (index * element_size_bytes as usize) as i32;
                             ctx.builder
                                 .ins()
                                 .store(flags, coerced_val, array_ptr, offset);
@@ -355,7 +355,7 @@ pub fn emit_declaration<M: cranelift_module::Module>(
                             };
 
                             for index in init_vals.len()..array_size {
-                                let offset = (index * element_size_bytes) as i32;
+                                let offset = (index * element_size_bytes as usize) as i32;
                                 ctx.builder.ins().store(flags, zero_val, array_ptr, offset);
                             }
                         }

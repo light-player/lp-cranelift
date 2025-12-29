@@ -1,0 +1,21 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test i64 block arguments - the pattern from block3 -> block4
+; This tests if i64 values are correctly passed as block arguments
+function %test_block_arg_i64(i64) -> i64 {
+block0(v0: i64):
+    v1 = iconst.i64 32
+    v2 = isub v1, v0
+    jump block1(v2)
+block1(v3: i64):
+    return v3
+}
+
+; Test cases - same as test_iconst_isub_bug but with block argument
+; run: %test_block_arg_i64(0) == 32
+; run: %test_block_arg_i64(1) == 31
+; run: %test_block_arg_i64(32) == 0
+; run: %test_block_arg_i64(0x00000000fffffffe) == -4294967262
+

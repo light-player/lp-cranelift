@@ -1,0 +1,25 @@
+test interpret
+test run
+target riscv32 has_m has_zbb
+
+; Test i64 subtraction borrow detection specifically
+; The bug is likely in how borrow is detected when high parts are zero
+function %test_isub_i64_borrow_detection(i64, i64) -> i64 {
+block0(v0: i64, v1: i64):
+    v2 = isub v0, v1
+    return v2
+}
+
+; Test cases that specifically test borrow detection
+; Case 1: No borrow, both high parts zero
+; run: %test_isub_i64_borrow_detection(0x0000000000000064, 0x0000000000000032) == 50
+
+; Case 2: Borrow occurs in low part, high parts both zero
+; run: %test_isub_i64_borrow_detection(0x0000000000000001, 0x0000000000000002) == 0xffffffffffffffff
+
+; Case 3: No borrow, high parts both zero, result is zero
+; run: %test_isub_i64_borrow_detection(0x0000000000000064, 0x0000000000000064) == 0
+
+; Case 4: Large values, no borrow
+; run: %test_isub_i64_borrow_detection(0x00000000ffffffff, 0x0000000000000001) == 0x00000000fffffffe
+
