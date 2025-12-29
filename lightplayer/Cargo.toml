@@ -1,13 +1,12 @@
 [workspace]
 resolver = '2'
 members = [
+    "crates/lp-builtins",
     "crates/lp-glsl",
     "crates/lp-glsl-filetests",
     "crates/lp-jit-util",
     "crates/lp-riscv-shared",
     "crates/lp-riscv-tools",
-    "crates/lp-glsl-builtins-src",
-    "crates/lp-glsl-builtins-tool",
     "apps/embive-program",
     "apps/esp32-glsl-jit",
     "apps/lp-test",
