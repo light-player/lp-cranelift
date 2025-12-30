@@ -241,13 +241,15 @@ pub extern "C" fn main() -> ! {
     let user_main_ptr =
         unsafe { core::ptr::read_volatile(&raw const __USER_MAIN_PTR as *const u32) };
 
-    println!("lp-builtins-app: main()");
-    println!("user_main_ptr: 0x{:x}", user_main_ptr);
+    println!("[lp-builtins-app] lp-builtins-app: main()");
+    println!("[lp-builtins-app] user_main_ptr: 0x{:x}", user_main_ptr);
 
     if user_main_ptr == 0 || user_main_ptr == 0xDEADBEEF {
         // No user main set - panic
         panic!("__user_main_ptr not set (value: 0x{:x})", user_main_ptr);
     }
+
+    println!("[lp-builtins-app] about to jump");
 
     // Jump to user main
     unsafe {
