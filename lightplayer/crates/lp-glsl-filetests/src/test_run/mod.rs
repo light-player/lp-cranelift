@@ -281,6 +281,7 @@ pub fn run_test_file_with_line_filter(
                                 eprintln!(
                                     "{}{}✓ {}{} {}{}{}",
                                     colors::LIGHT_GREEN,
+                                    "✓ ",
                                     file_line,
                                     colors::RESET,
                                     " ",
