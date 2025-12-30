@@ -12,7 +12,12 @@ extern crate std;
 #[unsafe(no_mangle)]
 pub fn __host_debug(args: core::fmt::Arguments) {
     if std::env::var("DEBUG").as_deref() == Ok("1") {
-        std::println!("{}", args);
+        // Use write! to format the arguments
+        use std::fmt::Write;
+        use std::string::String;
+        let mut buf = String::new();
+        let _ = write!(buf, "{}", args);
+        std::println!("{}", buf);
     }
 }
 
@@ -22,6 +27,11 @@ pub fn __host_debug(args: core::fmt::Arguments) {
 #[cfg(feature = "test")]
 #[unsafe(no_mangle)]
 pub fn __host_println(args: core::fmt::Arguments) {
-    std::println!("{}", args);
+    // Use write! to format the arguments
+    use std::fmt::Write;
+    use std::string::String;
+    let mut buf = String::new();
+    let _ = write!(buf, "{}", args);
+    std::println!("{}", buf);
 }
 

@@ -2,6 +2,7 @@
 #![no_main]
 
 mod print;
+mod host;
 
 // Re-export _print so macros can find it
 pub use print::_print;
@@ -240,6 +241,12 @@ pub extern "C" fn main() -> () {
         let _ = core::ptr::read_volatile(&_sqrt_fn as *const _);
         let _ = core::ptr::read_volatile(&_mul_fn as *const _);
         let _ = core::ptr::read_volatile(&_div_fn as *const _);
+
+        // Reference host functions to prevent dead code elimination
+        let _debug_fn: fn(core::fmt::Arguments) = host::__host_debug;
+        let _println_fn: fn(core::fmt::Arguments) = host::__host_println;
+        let _ = core::ptr::read_volatile(&_debug_fn as *const _);
+        let _ = core::ptr::read_volatile(&_println_fn as *const _);
     }
 
     // Read user _init pointer
