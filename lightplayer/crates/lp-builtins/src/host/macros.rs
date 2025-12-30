@@ -58,4 +58,3 @@ macro_rules! host_println {
         }
     };
 }
-

@@ -24,4 +24,3 @@ impl HostId {
         &[HostId::Debug, HostId::Println]
     }
 }
-

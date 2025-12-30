@@ -31,7 +31,7 @@ pub extern "C" fn __host_println(ptr: *const u8, len: usize) {
     args[0] = ptr;
     args[1] = len;
     let _ = syscall(SYSCALL_WRITE, &args);
-    
+
     // Print newline
     let newline = "\n";
     let ptr = newline.as_ptr() as usize as i32;
@@ -41,4 +41,3 @@ pub extern "C" fn __host_println(ptr: *const u8, len: usize) {
     args[1] = len;
     let _ = syscall(SYSCALL_WRITE, &args);
 }
-

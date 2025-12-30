@@ -6,8 +6,8 @@
 //! - Tests: Functions defined here using `std` (gated by feature flag)
 //! - JIT: Functions registered by `GlJitModule` (delegate to `lp-glsl` macros)
 
-mod registry;
 mod macros;
+mod registry;
 
 pub use registry::HostId;
 
@@ -58,4 +58,3 @@ pub use test::{__host_debug, __host_println};
 #[cfg(test)]
 #[cfg(feature = "test")]
 mod tests;
-

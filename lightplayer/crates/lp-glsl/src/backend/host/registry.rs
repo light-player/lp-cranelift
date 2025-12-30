@@ -83,4 +83,3 @@ pub fn declare_host_functions<M: Module>(module: &mut M) -> Result<(), GlslError
 
     Ok(())
 }
-

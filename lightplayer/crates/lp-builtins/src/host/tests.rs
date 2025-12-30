@@ -15,7 +15,7 @@ mod tests {
         unsafe {
             std::env::set_var("DEBUG", "1");
         }
-        
+
         // Test that debug prints when DEBUG=1
         host_debug!("test debug message: {}", 42);
         // If we get here without panicking, it worked
@@ -27,7 +27,7 @@ mod tests {
         unsafe {
             std::env::remove_var("DEBUG");
         }
-        
+
         // Test that debug doesn't print when DEBUG is not set
         host_debug!("this should not print: {}", 42);
         // If we get here without panicking, it worked
@@ -52,10 +52,9 @@ mod tests {
         unsafe {
             std::env::set_var("DEBUG", "1");
         }
-        
+
         // Test various format specifiers
         host_debug!("hex: {:x}, decimal: {}, binary: {:b}", 255, 255, 255);
         host_println!("float: {:.2}, scientific: {:e}", 3.14159, 1000.0);
     }
 }
-

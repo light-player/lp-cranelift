@@ -27,4 +27,3 @@ pub extern "C" fn __host_println(ptr: *const u8, len: usize) {
         std::println!("{}", msg);
     }
 }
-

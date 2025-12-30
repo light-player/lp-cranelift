@@ -1,8 +1,8 @@
 #![no_std]
 #![no_main]
 
-mod print;
 mod host;
+mod print;
 
 // Re-export _print so macros can find it
 pub use print::_print;

@@ -7,8 +7,8 @@
 
 pub mod fixed32;
 // mem module provides memcpy/memset/memcmp for no_std environments
-pub mod mem;
 pub mod host;
+pub mod mem;
 
 // Panic handler must be provided by the executable that uses this library
 // This crate is only used as a dependency, never built standalone
