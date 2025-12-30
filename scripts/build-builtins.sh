@@ -37,13 +37,12 @@ cargo build \
     --release \
     --bin lp-builtins-app
 
-echo ""
-echo "Built executable: $OUTPUT_DIR/lp-builtins-app"
-ls -lh "$OUTPUT_DIR/lp-builtins-app"
+# Count symbols
+LP_SYMBOLS=$(nm "$OUTPUT_DIR/lp-builtins-app" 2>/dev/null | grep "__lp_" | wc -l | xargs)
 
-# Show some stats
-echo ""
-echo "Executable stats:"
-nm "$OUTPUT_DIR/lp-builtins-app" 2>/dev/null | grep "__lp_" | wc -l | xargs echo "  __lp_* symbols:"
-nm "$OUTPUT_DIR/lp-builtins-app" 2>/dev/null | grep -E "^\s*[Tt]\s+(memcpy|memset|memcmp)$" | wc -l | xargs echo "  mem* symbols:"
+# Output formatted results
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+echo -e "    ${GREEN}lp-builtins-app elf built to:${NC} $OUTPUT_DIR/lp-builtins-app"
+echo "    __lp_* symbols: $LP_SYMBOLS"
 
