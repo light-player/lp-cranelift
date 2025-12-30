@@ -331,6 +331,17 @@ mod tests {
         // Create main object file (calls __lp_fixed32_sqrt)
         let main_obj = create_main_object_with_builtin_call();
 
+        // Dump object file to /tmp for inspection
+        {
+            use std::fs::File;
+            use std::io::Write;
+            let mut f = File::create("/tmp/test_object.o").unwrap();
+            f.write_all(&main_obj).unwrap();
+            println!("\n=== Object file written to /tmp/test_object.o ===");
+            println!("Inspect with: readelf -r /tmp/test_object.o");
+            println!("Inspect with: objdump -d -r /tmp/test_object.o");
+        }
+
         // Debug: Dump object file relocations
         {
             let obj_file = object::File::parse(&main_obj[..]).unwrap();

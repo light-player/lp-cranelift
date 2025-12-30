@@ -2079,7 +2079,7 @@ impl Inst {
                 // Emit the following code:
                 // label:
                 //   auipc rd, 0              # R_RISCV_PCREL_HI20 (symbol_name)
-                //   ld    rd, rd, 0          # R_RISCV_PCREL_LO12_I (label)
+                //   addi  rd, rd, 0          # R_RISCV_PCREL_LO12_I (label)
 
                 let auipc_label = sink.get_label();
                 sink.bind_label(auipc_label, &mut state.ctrl_plane);
