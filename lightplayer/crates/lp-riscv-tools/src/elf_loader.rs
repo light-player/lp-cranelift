@@ -603,20 +603,200 @@ pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
     }
     debug!("Loaded {} sections", section_count);
 
-    // Find the .text section and apply relocations
-    // Use the actual load address where we placed the section (not the ELF address)
-    let mut text_section_id = None;
-    for section in obj.sections() {
-        if section.kind() == object::SectionKind::Text {
-            text_section_id = Some(section.index());
-            break;
+    // Build symbol map for relocations (needed for all sections)
+    let mut symbol_map: HashMap<String, u32> = HashMap::new();
+    
+    debug!("=== Building symbol map for relocations ===");
+    debug!("text_section_base: 0x{:x}", actual_text_section_base);
+    
+    // Collect all symbols, preferring defined ones
+    let mut defined_symbols: Vec<(String, u32, object::SymbolSection)> = Vec::new();
+    let mut undefined_symbols: Vec<(String, u32)> = Vec::new();
+    
+    for symbol in obj.symbols() {
+        if let Ok(name) = symbol.name() {
+            if name.is_empty() {
+                continue;
+            }
+            
+            let addr = symbol.address();
+            let symbol_section = symbol.section();
+            let is_defined = symbol_section != object::SymbolSection::Undefined;
+            
+            // Calculate offset - for RAM sections, use absolute address
+            let offset = if addr >= RAM_START as u64 {
+                // RAM section - use absolute address
+                addr as u32
+            } else if addr >= actual_text_section_base {
+                // Text section - relative to base
+                (addr - actual_text_section_base) as u32
+            } else {
+                // Other ROM sections - use as-is
+                addr as u32
+            };
+            
+            if is_defined {
+                defined_symbols.push((name.to_string(), offset, symbol_section));
+            } else {
+                undefined_symbols.push((name.to_string(), offset));
+            }
         }
     }
+    
+    // Add defined symbols first
+    for (name, offset, section) in defined_symbols {
+        if let Some(&existing_offset) = symbol_map.get(&name) {
+            if offset > existing_offset {
+                symbol_map.insert(name.clone(), offset);
+                debug!("  Symbol '{}': replacing offset 0x{:x} with 0x{:x} (higher address)", 
+                       name, existing_offset, offset);
+            }
+        } else {
+            symbol_map.insert(name.clone(), offset);
+            debug!("  Symbol '{}': offset=0x{:x}, section={:?}", name, offset, section);
+        }
+    }
+    
+    // Add undefined symbols only if not already present
+    for (name, offset) in undefined_symbols {
+        if !symbol_map.contains_key(&name) {
+            symbol_map.insert(name.clone(), offset);
+            debug!("  Symbol '{}': offset=0x{:x} (undefined)", name, offset);
+        }
+    }
+    
+    debug!("Symbol map contains {} entries", symbol_map.len());
 
-    // Apply relocations if we found a text section
-    // Use actual_text_section_base (where we loaded it) instead of section.address()
-    if let Some(text_id) = text_section_id {
-        apply_relocations(&obj, &mut code, text_id, actual_text_section_base)?;
+    // Apply relocations to all sections (both .text and .data)
+    debug!("=== Applying relocations to all sections ===");
+    for section in obj.sections() {
+        let section_name = section.name().unwrap_or("<unnamed>");
+        let section_kind = section.kind();
+        let section_addr = section.address();
+        
+        // Check if this section has relocations
+        let mut reloc_count = 0;
+        for (reloc_offset, _reloc) in section.relocations() {
+            reloc_count += 1;
+        }
+        
+        if reloc_count > 0 {
+            debug!("Section '{}' (kind: {:?}, addr: 0x{:x}) has {} relocations", 
+                   section_name, section_kind, section_addr, reloc_count);
+            
+            if section_addr < RAM_START as u64 {
+                // ROM/code section
+                debug!("  -> Applying relocations to CODE buffer");
+                let load_addr = actual_text_section_base;
+                
+                for (reloc_offset, reloc) in section.relocations() {
+                    debug!("  Relocation at offset 0x{:x} in section '{}'", reloc_offset, section_name);
+                    
+                    // Get symbol name for debugging
+                    let symbol_name = match reloc.target() {
+                        object::RelocationTarget::Symbol(sym_idx) => {
+                            if let Ok(sym) = obj.symbol_by_index(sym_idx) {
+                                sym.name().unwrap_or("<unnamed>").to_string()
+                            } else {
+                                format!("symbol_index_{}", sym_idx.0)
+                            }
+                        }
+                        _ => "<unknown>".to_string(),
+                    };
+                    debug!("    -> Targets symbol: '{}'", symbol_name);
+                    
+                    apply_single_relocation(
+                        &reloc,
+                        reloc_offset,
+                        load_addr,
+                        &mut code,
+                        &symbol_map,
+                        &obj,
+                    )
+                    .map_err(|e| format!("Failed to apply relocation in section '{}' at offset 0x{:x} (target: '{}'): {}", 
+                                         section_name, reloc_offset, symbol_name, e))?;
+                }
+            } else {
+                // RAM/data section
+                debug!("  -> Applying relocations to RAM buffer");
+                let ram_offset = (section_addr - RAM_START as u64) as usize;
+                if ram_offset >= ram.len() {
+                    debug!("  -> WARNING: RAM section offset 0x{:x} out of bounds (ram.len()={})", ram_offset, ram.len());
+                    continue;
+                }
+                
+                let load_addr = section_addr;
+                
+                for (reloc_offset, reloc) in section.relocations() {
+                    debug!("  Relocation at offset 0x{:x} in section '{}'", reloc_offset, section_name);
+                    
+                    // Get symbol name for debugging
+                    let symbol_name = match reloc.target() {
+                        object::RelocationTarget::Symbol(sym_idx) => {
+                            if let Ok(sym) = obj.symbol_by_index(sym_idx) {
+                                sym.name().unwrap_or("<unnamed>").to_string()
+                            } else {
+                                format!("symbol_index_{}", sym_idx.0)
+                            }
+                        }
+                        _ => "<unknown>".to_string(),
+                    };
+                    debug!("    -> Targets symbol: '{}'", symbol_name);
+                    
+                    // Check if this is modifying __USER_MAIN_PTR
+                    if symbol_name == "__USER_MAIN_PTR" || symbol_name == "_user_main" || symbol_name == "main" {
+                        debug!("    -> *** IMPORTANT: This relocation affects __USER_MAIN_PTR or main() ***");
+                        let data_offset = ram_offset + reloc_offset as usize;
+                        if data_offset + 4 <= ram.len() {
+                            let old_value = u32::from_le_bytes([
+                                ram[data_offset],
+                                ram[data_offset + 1],
+                                ram[data_offset + 2],
+                                ram[data_offset + 3],
+                            ]);
+                            debug!("    -> Old value at RAM offset 0x{:x} (addr 0x{:x}): 0x{:x}", 
+                                   data_offset, section_addr + reloc_offset, old_value);
+                        }
+                    }
+                    
+                    // Apply the relocation - create slice starting at section start
+                    if ram_offset + reloc_offset as usize + 4 > ram.len() {
+                        return Err(format!("Relocation offset 0x{:x} in RAM section '{}' out of bounds (ram.len()={})", 
+                                          ram_offset + reloc_offset as usize, section_name, ram.len()));
+                    }
+                    
+                    // Create a slice starting at the section start (ram_offset)
+                    // The relocation offset is relative to the section start
+                    let ram_slice = &mut ram[ram_offset..];
+                    
+                    apply_single_relocation(
+                        &reloc,
+                        reloc_offset, // Offset relative to section start
+                        load_addr,
+                        ram_slice,
+                        &symbol_map,
+                        &obj,
+                    )
+                    .map_err(|e| format!("Failed to apply relocation in section '{}' at offset 0x{:x} (target: '{}'): {}", 
+                                         section_name, reloc_offset, symbol_name, e))?;
+                    
+                    // Check the new value if this was __USER_MAIN_PTR
+                    if symbol_name == "__USER_MAIN_PTR" || symbol_name == "_user_main" || symbol_name == "main" {
+                        let data_offset = ram_offset + reloc_offset as usize;
+                        if data_offset + 4 <= ram.len() {
+                            let new_value = u32::from_le_bytes([
+                                ram[data_offset],
+                                ram[data_offset + 1],
+                                ram[data_offset + 2],
+                                ram[data_offset + 3],
+                            ]);
+                            debug!("    -> New value at RAM offset 0x{:x} (addr 0x{:x}): 0x{:x}", 
+                                   data_offset, section_addr + reloc_offset, new_value);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Ok(ElfLoadInfo {
