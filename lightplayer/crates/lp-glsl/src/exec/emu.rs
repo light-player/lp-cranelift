@@ -620,18 +620,15 @@ impl GlslExecutable for GlslEmulatorModule {
         Self::validate_main_only(name)?;
         Self::validate_no_args(args)?;
 
-        // Main is always at address 0x00
-        const MAIN_ENTRY: u32 = 0x00;
-
         // Get the actual Cranelift signature for main
         let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
             GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
         })?;
 
-        // Call main via emulator (no arguments)
+        // Call main via emulator (no arguments) - use the actual main address from ELF
         let _results = self
             .emulator
-            .call_function(MAIN_ENTRY, &[], sig)
+            .call_function(self.main_address, &[], sig)
             .map_err(|e| match e {
                 EmulatorError::Trap { code, pc, regs } => {
                     self.format_trap_error_from_emulator_error(code, pc, &regs, name)

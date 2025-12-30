@@ -39,8 +39,14 @@ pub fn find_symbol_address(
             if let Ok(name) = symbol.name() {
                 if name == symbol_name {
                     let addr = symbol.address();
+                    // In ELF object files, symbol addresses are section-relative (often 0x0 for start of section)
+                    // If addr is already >= text_section_base, it's an absolute address - use it directly
+                    // Otherwise, it's section-relative, so we use it as-is (it's already the offset)
                     if addr >= text_section_base {
                         return Ok((addr - text_section_base) as u32);
+                    } else {
+                        // Section-relative address - use it directly as the offset
+                        return Ok(addr as u32);
                     }
                 }
             }
@@ -270,6 +276,10 @@ fn apply_relocations(
     debug!("text_section_base: 0x{:x}", text_section_base);
 
     // First pass: collect all symbols, preferring defined ones
+    // Strategy: First collect all defined symbols, then add undefined ones only if not already present
+    let mut defined_symbols: Vec<(String, u32, object::SymbolSection)> = Vec::new();
+    let mut undefined_symbols: Vec<(String, u32)> = Vec::new();
+    
     for symbol in obj.symbols() {
         if let Ok(name) = symbol.name() {
             if name.is_empty() {
@@ -280,31 +290,50 @@ fn apply_relocations(
             let symbol_section = symbol.section();
             let is_defined = symbol_section != object::SymbolSection::Undefined;
 
-            // If we already have this symbol, only replace if the new one is defined and old one wasn't
-            if let Some(&_existing_addr) = symbol_map.get(name) {
-                if is_defined {
-                    // New symbol is defined, use it
-                    let offset = if addr >= text_section_base {
-                        (addr - text_section_base) as u32
-                    } else {
-                        addr as u32
-                    };
-                    symbol_map.insert(name.to_string(), offset);
-                    debug!("  Symbol '{}': replacing with defined addr=0x{:x}, offset=0x{:x}, section={:?}", name, addr, offset, symbol_section);
-                } else {
-                    // Keep existing (might be defined)
-                    debug!("  Symbol '{}': keeping existing entry (new is undefined)", name);
-                }
+            // Calculate offset
+            let offset = if addr >= text_section_base {
+                (addr - text_section_base) as u32
             } else {
-                // New symbol, add it
-                let offset = if addr >= text_section_base {
-                    (addr - text_section_base) as u32
-                } else {
-                    addr as u32
-                };
-                symbol_map.insert(name.to_string(), offset);
-                debug!("  Symbol '{}': addr=0x{:x}, offset=0x{:x}, section={:?}", name, addr, offset, symbol_section);
+                addr as u32
+            };
+
+            if is_defined {
+                defined_symbols.push((name.to_string(), offset, symbol_section));
+            } else {
+                undefined_symbols.push((name.to_string(), offset));
             }
+        }
+    }
+    
+    // Add all defined symbols first
+    // If there are duplicates, keep the one with the highest (most recent) address
+    // This handles cases where the same symbol appears multiple times (e.g., from different object files)
+    for (name, offset, section) in defined_symbols {
+        if let Some(&existing_offset) = symbol_map.get(&name) {
+            // Keep the one with the higher address (more likely to be correct after linking)
+            if offset > existing_offset {
+                symbol_map.insert(name.clone(), offset);
+                debug!("  Symbol '{}': replacing offset 0x{:x} with 0x{:x} (higher address), section={:?}", 
+                       name, existing_offset, offset, section);
+            } else {
+                debug!("  Symbol '{}': keeping existing offset 0x{:x} (new: 0x{:x}), section={:?}", 
+                       name, existing_offset, offset, section);
+            }
+        } else {
+            symbol_map.insert(name.clone(), offset);
+            debug!("  Symbol '{}': addr=0x{:x}, offset=0x{:x}, section={:?} (defined)", 
+                   name, text_section_base + offset as u64, offset, section);
+        }
+    }
+    
+    // Add undefined symbols only if not already present
+    for (name, offset) in undefined_symbols {
+        if !symbol_map.contains_key(&name) {
+            symbol_map.insert(name.clone(), offset);
+            debug!("  Symbol '{}': addr=0x{:x}, offset=0x{:x}, section=Undefined", 
+                   name, text_section_base + offset as u64, offset);
+        } else {
+            debug!("  Symbol '{}': skipping undefined (already have defined)", name);
         }
     }
     
@@ -424,11 +453,19 @@ pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
     let mut ram = vec![0u8; ram_size];
 
     // Second pass: copy segment data
+    use crate::debug;
+    debug!("=== Loading segments ===");
     if let Some(segments) = elf.segments() {
-        for segment in segments.iter().filter(|s| s.p_type == PT_LOAD) {
+        let loadable_segments: Vec<_> = segments.iter().filter(|s| s.p_type == PT_LOAD).collect();
+        debug!("Found {} loadable segments", loadable_segments.len());
+        
+        for (idx, segment) in loadable_segments.iter().enumerate() {
             let vaddr = segment.p_vaddr as u32;
             let filesz = segment.p_filesz as usize;
             let memsz = segment.p_memsz as usize;
+
+            debug!("  Segment {}: vaddr=0x{:x}, filesz={}, memsz={}, offset=0x{:x}", 
+                   idx, vaddr, filesz, memsz, segment.p_offset);
 
             // Get segment data
             let data = elf_data
@@ -438,10 +475,12 @@ pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
             if vaddr < RAM_START {
                 // ROM region
                 let offset = vaddr as usize;
+                debug!("    -> Copying {} bytes to code[0x{:x}..0x{:x}]", filesz, offset, offset + filesz);
                 if offset < code.len() && offset + filesz <= code.len() {
                     // Copy file data
                     code[offset..offset + filesz].copy_from_slice(data);
                     // Rest is zero-initialized (for .bss-like segments)
+                    debug!("    -> Copied successfully");
                 } else if filesz > 0 {
                     return Err(format!(
                         "Segment data out of bounds: vaddr=0x{:x}, size={}, code_len={}",
@@ -453,10 +492,12 @@ pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
             } else {
                 // RAM region
                 let offset = (vaddr - RAM_START) as usize;
+                debug!("    -> Copying {} bytes to ram[0x{:x}..0x{:x}]", filesz, offset, offset + filesz);
                 if offset < ram.len() && offset + filesz <= ram.len() {
                     // Copy file data
                     ram[offset..offset + filesz].copy_from_slice(data);
                     // Rest is zero-initialized
+                    debug!("    -> Copied successfully");
                 } else if filesz > 0 {
                     return Err(format!(
                         "Segment data out of bounds: vaddr=0x{:x}, size={}, ram_len={}",
@@ -467,6 +508,8 @@ pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
                 }
             }
         }
+    } else {
+        debug!("No segments found");
     }
 
     // Apply relocations to code sections using the object crate
@@ -477,6 +520,15 @@ pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
     // Load section data into code/RAM buffers
     // Object files use sections, not segments
     // Only load executable sections (Text) and data sections, skip metadata
+    debug!("=== Loading sections ===");
+    let mut section_count = 0;
+    // Track current offset for sections with address 0x0 (object files)
+    // Place them sequentially to avoid overwriting
+    let mut next_code_offset = 0u64;
+    let mut next_ram_offset = 0u64;
+    // Track where we actually loaded the text section (for relocations)
+    let mut actual_text_section_base = 0u64;
+    
     for section in obj.sections() {
         // Skip metadata sections (symbol tables, string tables, etc.)
         let section_kind = section.kind();
@@ -486,53 +538,85 @@ pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
             continue;
         }
 
-        if let Ok(data) = section.data() {
-            if data.is_empty() {
-                continue;
-            }
-
-            let section_addr = section.address();
-
-            if section_addr < RAM_START as u64 {
-                // ROM/Code region
-                let offset = section_addr as usize;
-                if offset + data.len() <= code.len() {
-                    code[offset..offset + data.len()].copy_from_slice(data);
-                } else {
-                    // Extend code buffer if needed
-                    let needed_size = offset + data.len();
-                    code.resize(needed_size.max(code.len()), 0);
-                    code[offset..offset + data.len()].copy_from_slice(data);
+        if let Ok(name) = section.name() {
+            if let Ok(data) = section.data() {
+                if data.is_empty() {
+                    continue;
                 }
-            } else {
-                // RAM region
-                let offset = (section_addr - RAM_START as u64) as usize;
-                if offset + data.len() <= ram.len() {
-                    ram[offset..offset + data.len()].copy_from_slice(data);
+
+                let section_addr = section.address();
+                section_count += 1;
+                debug!("  Section '{}': addr=0x{:x}, size={}, kind={:?}", 
+                       name, section_addr, data.len(), section_kind);
+
+                if section_kind == object::SectionKind::Text || section_addr < RAM_START as u64 {
+                    // ROM/Code region
+                    // If address is 0x0 (common in object files), place sequentially
+                    let offset = if section_addr == 0 {
+                        let offset = next_code_offset;
+                        next_code_offset += data.len() as u64;
+                        offset as usize
+                    } else {
+                        section_addr as usize
+                    };
+                    // Track where we loaded the text section
+                    if section_kind == object::SectionKind::Text {
+                        actual_text_section_base = offset as u64;
+                    }
+                    debug!("    -> Copying {} bytes to code[0x{:x}..0x{:x}]", data.len(), offset, offset + data.len());
+                    if offset + data.len() <= code.len() {
+                        code[offset..offset + data.len()].copy_from_slice(data);
+                        debug!("    -> Copied successfully");
+                    } else {
+                        // Extend code buffer if needed
+                        let needed_size = offset + data.len();
+                        debug!("    -> Extending code buffer from {} to {}", code.len(), needed_size);
+                        code.resize(needed_size.max(code.len()), 0);
+                        code[offset..offset + data.len()].copy_from_slice(data);
+                        debug!("    -> Copied successfully");
+                    }
                 } else {
-                    // Extend RAM buffer if needed
-                    let needed_size = offset + data.len();
-                    ram.resize(needed_size.max(ram.len()), 0);
-                    ram[offset..offset + data.len()].copy_from_slice(data);
+                    // RAM region
+                    // If address is 0x0 (common in object files), place sequentially
+                    let offset = if section_addr == 0 {
+                        let offset = next_ram_offset;
+                        next_ram_offset += data.len() as u64;
+                        offset as usize
+                    } else {
+                        (section_addr - RAM_START as u64) as usize
+                    };
+                    debug!("    -> Copying {} bytes to ram[0x{:x}..0x{:x}]", data.len(), offset, offset + data.len());
+                    if offset + data.len() <= ram.len() {
+                        ram[offset..offset + data.len()].copy_from_slice(data);
+                        debug!("    -> Copied successfully");
+                    } else {
+                        // Extend RAM buffer if needed
+                        let needed_size = offset + data.len();
+                        debug!("    -> Extending ram buffer from {} to {}", ram.len(), needed_size);
+                        ram.resize(needed_size.max(ram.len()), 0);
+                        ram[offset..offset + data.len()].copy_from_slice(data);
+                        debug!("    -> Copied successfully");
+                    }
                 }
             }
         }
     }
+    debug!("Loaded {} sections", section_count);
 
     // Find the .text section and apply relocations
-    let mut text_section_base = 0u64;
+    // Use the actual load address where we placed the section (not the ELF address)
     let mut text_section_id = None;
     for section in obj.sections() {
         if section.kind() == object::SectionKind::Text {
-            text_section_base = section.address();
             text_section_id = Some(section.index());
             break;
         }
     }
 
     // Apply relocations if we found a text section
+    // Use actual_text_section_base (where we loaded it) instead of section.address()
     if let Some(text_id) = text_section_id {
-        apply_relocations(&obj, &mut code, text_id, text_section_base)?;
+        apply_relocations(&obj, &mut code, text_id, actual_text_section_base)?;
     }
 
     Ok(ElfLoadInfo {

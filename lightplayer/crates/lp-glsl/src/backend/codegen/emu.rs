@@ -381,7 +381,8 @@ pub fn build_emu_executable(
 
     // 7. Set up stack and PC
     emulator.set_register(Gpr::Sp, options.max_memory as i32);
-    emulator.set_pc(0);
+    // Note: PC will be set by call_function to main_address, but initialize it here for safety
+    emulator.set_pc(main_address);
 
     // 8. Create GlslEmulatorModule
     // Preserve metadata from GlModule
