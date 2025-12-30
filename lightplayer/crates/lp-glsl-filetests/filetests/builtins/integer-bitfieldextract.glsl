@@ -51,3 +51,4 @@ ivec2 test_bitfieldextract_ivec2() {
 // run: test_bitfieldextract_ivec2() == ivec2(15, 10)
 
 
+

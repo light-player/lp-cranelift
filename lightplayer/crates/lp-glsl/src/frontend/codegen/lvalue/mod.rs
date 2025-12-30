@@ -33,3 +33,4 @@ pub fn emit_lvalue_as_rvalue<M: cranelift_module::Module>(
     Ok(RValue::from_aggregate(vals, ty))
 }
 
+

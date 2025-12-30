@@ -72,3 +72,4 @@ mat2 test_mat2_from_vec2_function_result() {
 // run: test_mat2_from_vec2_function_result() ~= mat2(0.6, 0.8, 1.0, 0.0)
 
 
+

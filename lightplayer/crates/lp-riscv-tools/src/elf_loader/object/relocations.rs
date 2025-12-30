@@ -4,6 +4,7 @@ extern crate alloc;
 
 use crate::debug;
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use hashbrown::HashMap;
 use ::object::{Object, ObjectSection};
 
@@ -156,9 +157,38 @@ pub fn apply_object_relocations(
         }
     }
 
-    // Phase 2: Apply relocations with adjusted section addresses
+    // Adjust relocation addresses based on actual section placement
+    // The relocations were calculated with object file's section addresses (0-relative),
+    // but we need them relative to where sections were actually placed
+    let mut adjusted_relocations = Vec::new();
+    for reloc in relocations {
+        // Get the original section address from the object file
+        // Object files have section addresses starting at 0, so we can use section_vma from relocation
+        let original_section_addr = reloc.section_vma;
+        
+        // Get the adjusted section address and adjust the relocation
+        let mut adjusted_reloc = reloc.clone();
+        if let Some(adjusted_info) = adjusted_section_addrs.get(&reloc.section_name) {
+            // Calculate the adjustment: new_section_addr - original_section_addr
+            let adjustment = adjusted_info.vma.wrapping_sub(original_section_addr);
+            
+            // Adjust the relocation address
+            let old_address = adjusted_reloc.address;
+            adjusted_reloc.address = (adjusted_reloc.address as u64).wrapping_add(adjustment) as u32;
+            
+            debug!("  Adjusted relocation in '{}': 0x{:x} -> 0x{:x} (section adjustment: 0x{:x})",
+                   adjusted_reloc.section_name, 
+                   old_address,
+                   adjusted_reloc.address,
+                   adjustment);
+        }
+        
+        adjusted_relocations.push(adjusted_reloc);
+    }
+
+    // Phase 2: Apply relocations with adjusted section addresses and adjusted relocation addresses
     apply_relocations_phase2(
-        &relocations,
+        &adjusted_relocations,
         &got_tracker,
         &adjusted_section_addrs,
         code,

@@ -113,6 +113,20 @@ fn run_nostd_test() -> Result<(), String> {
     loop {
         match emu.step() {
             Ok(StepResult::Continue) => continue,
+            Ok(StepResult::Panic(panic_info)) => {
+                let msg = if let Some(ref file) = panic_info.file {
+                    if let Some(line) = panic_info.line {
+                        format!("{}:{}", file, line)
+                    } else {
+                        file.clone()
+                    }
+                } else if let Some(line) = panic_info.line {
+                    format!("line {}", line)
+                } else {
+                    "unknown location".to_string()
+                };
+                return Err(format!("Guest panicked at PC 0x{:x}: {} ({})", panic_info.pc, panic_info.message, msg));
+            }
             Ok(StepResult::Syscall(info)) => {
                 // Handle syscall
                 match info.number {

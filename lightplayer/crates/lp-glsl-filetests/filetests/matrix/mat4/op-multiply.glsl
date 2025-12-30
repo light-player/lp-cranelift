@@ -72,3 +72,4 @@ mat4 test_mat4_multiply_associative() {
 // run: test_mat4_multiply_associative() ~= mat4(2.0, 4.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0)
 
 
+

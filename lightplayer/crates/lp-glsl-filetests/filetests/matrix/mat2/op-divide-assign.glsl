@@ -88,3 +88,4 @@ mat2 test_mat2_divide_assign_scalar_fractional() {
 // run: test_mat2_divide_assign_scalar_fractional() ~= mat2(20.0, 40.0, 60.0, 80.0)
 
 
+

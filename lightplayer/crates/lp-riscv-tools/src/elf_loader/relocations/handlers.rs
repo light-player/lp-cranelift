@@ -3,6 +3,7 @@
 use crate::debug;
 use alloc::format;
 use alloc::string::String;
+use alloc::vec::Vec;
 use hashbrown::HashMap;
 
 use super::got::GotTracker;
@@ -81,6 +82,7 @@ pub fn handle_call_plt(ctx: &mut RelocationContext, reloc: &RelocationInfo) -> R
 }
 
 /// Handle R_RISCV_GOT_HI20 (19): GOT high 20 bits (for auipc instruction).
+/// Falls back to direct PC-relative addressing if no GOT entry exists (for object files).
 pub fn handle_got_hi20(ctx: &mut RelocationContext, reloc: &RelocationInfo) -> Result<(), String> {
     debug!("  Applying R_RISCV_GOT_HI20 at 0x{:x}", reloc.address);
 
@@ -92,40 +94,60 @@ pub fn handle_got_hi20(ctx: &mut RelocationContext, reloc: &RelocationInfo) -> R
         ));
     }
 
-    // Find the GOT entry address
-    let got_entry = ctx
-        .got_tracker
-        .get_entry(&reloc.symbol_name)
-        .ok_or_else(|| {
-            format!(
-                "GOT_HI20 relocation at offset 0x{:x} targets '{}', but no GOT entry found. \
-             Make sure R_RISCV_32 relocation for this symbol exists.",
-                reloc.offset, reloc.symbol_name
-            )
-        })?;
+    // Check if we have a GOT entry for this symbol
+    if let Some(got_entry) = ctx.got_tracker.get_entry(&reloc.symbol_name) {
+        // GOT-based access: compute PC-relative offset from auipc instruction to GOT entry
+        let got_offset = got_entry.address.wrapping_sub(ctx.pc);
 
-    // Compute PC-relative offset from auipc instruction to GOT entry
-    let got_offset = got_entry.address.wrapping_sub(ctx.pc);
+        debug!(
+            "    GOT_HI20 (GOT): PC=0x{:x}, GOT entry=0x{:x}, offset=0x{:x} (signed: {})",
+            ctx.pc, got_entry.address, got_offset, got_offset as i32
+        );
 
-    debug!(
-        "    PC=0x{:x}, GOT entry=0x{:x}, offset=0x{:x} (signed: {})",
-        ctx.pc, got_entry.address, got_offset, got_offset as i32
-    );
+        // Read instruction
+        let inst_bytes = &mut ctx.buffer[offset..offset + 4];
+        let inst_word =
+            u32::from_le_bytes([inst_bytes[0], inst_bytes[1], inst_bytes[2], inst_bytes[3]]);
 
-    // Read instruction
-    let inst_bytes = &mut ctx.buffer[offset..offset + 4];
-    let inst_word =
-        u32::from_le_bytes([inst_bytes[0], inst_bytes[1], inst_bytes[2], inst_bytes[3]]);
+        // Extract high 20 bits of the offset (with rounding for bit 11)
+        let hi20 = ((got_offset >> 12) + ((got_offset & 0x800) != 0) as u32) & 0xFFFFF;
+        let patched = (inst_word & 0xFFF) | (hi20 << 12);
+        inst_bytes.copy_from_slice(&patched.to_le_bytes());
 
-    // Extract high 20 bits of the offset (with rounding for bit 11)
-    let hi20 = ((got_offset >> 12) + ((got_offset & 0x800) != 0) as u32) & 0xFFFFF;
-    let patched = (inst_word & 0xFFF) | (hi20 << 12);
-    inst_bytes.copy_from_slice(&patched.to_le_bytes());
+        debug!(
+            "    Patched auipc: 0x{:08x} → 0x{:08x} (hi20=0x{:x})",
+            inst_word, patched, hi20
+        );
+    } else {
+        // No GOT entry: fall back to direct PC-relative addressing (for object files)
+        // This happens when symbols are resolved directly without GOT indirection
+        debug!("    GOT_HI20 (no GOT entry, using direct PC-relative): PC=0x{:x}, target=0x{:x}",
+               ctx.pc, ctx.target_addr);
+        
+        let pcrel = ctx
+            .target_addr
+            .wrapping_sub(ctx.pc)
+            .wrapping_add(reloc.addend as u32);
 
-    debug!(
-        "    Patched auipc: 0x{:08x} → 0x{:08x} (hi20=0x{:x})",
-        inst_word, patched, hi20
-    );
+        debug!(
+            "    GOT_HI20 (direct): PC=0x{:x}, target=0x{:x}, offset=0x{:x} (signed: {})",
+            ctx.pc, ctx.target_addr, pcrel, pcrel as i32
+        );
+
+        let inst_bytes = &mut ctx.buffer[offset..offset + 4];
+        let inst_word =
+            u32::from_le_bytes([inst_bytes[0], inst_bytes[1], inst_bytes[2], inst_bytes[3]]);
+
+        // Extract the high 20 bits of the PC-relative offset
+        let hi20 = ((pcrel >> 12) + ((pcrel & 0x800) != 0) as u32) & 0xFFFFF;
+        let patched = (inst_word & 0xFFF) | (hi20 << 12);
+        inst_bytes.copy_from_slice(&patched.to_le_bytes());
+
+        debug!(
+            "    Patched auipc: 0x{:08x} → 0x{:08x} (hi20=0x{:x})",
+            inst_word, patched, hi20
+        );
+    }
 
     Ok(())
 }
@@ -271,20 +293,16 @@ pub fn handle_pcrel_lo12_i(
         );
     } else {
         // Regular PCREL_LO12_I relocation
-        // The target is the auipc label (.L0_XX), which is at target_addr (the auipc PC)
+        // The target is the auipc label (.L0_XX), which is at the auipc PC
         // The auipc (already patched by PCREL_HI20) computes: auipc_result = auipc_pc + (hi20 << 12)
         // The lw loads from: (auipc_result) + lo12
         // We need to read the hi20 from the auipc instruction to compute auipc_result
         // Then: lo12 = (final_target - auipc_result) & 0xFFF
-        // But we need the final_target. The PCREL_HI20 relocation targeted the final symbol.
-        // For now, let's compute lo12 relative to the auipc label address.
-        // Actually, the correct approach: read hi20 from auipc, compute auipc_result,
-        // then find what the PCREL_HI20 was targeting by looking it up in symbol_map
-        // using a heuristic: find the previous PCREL_HI20 relocation in the same section
+        // The PCREL_HI20 relocation targeted the final symbol, so we need to find it
 
-        // Read the auipc instruction (4 bytes before the lw, at target_addr)
-        // The auipc is at target_addr (the label address), which is 4 bytes before the lw
-        let auipc_pc = ctx.target_addr; // The label is at the auipc PC
+        // The auipc instruction is 4 bytes before the lw instruction
+        // The auipc PC is the address of the auipc instruction, which is reloc.address - 4
+        let auipc_pc = ctx.pc.wrapping_sub(4); // auipc is 4 bytes before lw
         let auipc_buffer_offset = offset.wrapping_sub(4); // auipc is 4 bytes before lw
 
         if auipc_buffer_offset >= ctx.buffer.len() || auipc_buffer_offset + 4 > ctx.buffer.len() {
@@ -315,29 +333,49 @@ pub fn handle_pcrel_lo12_i(
         let auipc_result = auipc_pc.wrapping_add((hi20_signed << 12) as u32);
 
         // For PCREL_LO12_I, the target is the label (.L0_XX), but we need the final target
-        // Find the corresponding PCREL_HI20 relocation that comes before this one
+        // Find the corresponding PCREL_HI20 or GOT_HI20 relocation that comes before this one
         // It should be at auipc_pc and target the actual symbol
-        let final_target = if let Some(all_relocs) = ctx.all_relocations {
-            // Find PCREL_HI20 relocation at auipc_pc
+        let (final_target, is_got_without_entry) = if let Some(all_relocs) = ctx.all_relocations {
+            // Find PCREL_HI20 (20) or GOT_HI20 (19) relocation at auipc_pc
+            debug!("    Looking for HI20 relocation at auipc_pc=0x{:x} (available relocs: {:?})",
+                   auipc_pc,
+                   all_relocs.iter()
+                       .filter(|r| r.r_type == 20 || r.r_type == 19)
+                       .map(|r| format!("type={} addr=0x{:x}", r.r_type, r.address))
+                       .collect::<Vec<_>>());
             let hi20_reloc = all_relocs
                 .iter()
-                .find(|r| r.r_type == 20 && r.address == auipc_pc)
+                .find(|r| (r.r_type == 20 || r.r_type == 19) && r.address == auipc_pc)
                 .ok_or_else(|| format!(
-                    "Could not find corresponding PCREL_HI20 relocation for PCREL_LO12_I at 0x{:x}",
-                    reloc.address
+                    "Could not find corresponding PCREL_HI20 or GOT_HI20 relocation for PCREL_LO12_I at 0x{:x} (looking for relocation at auipc_pc=0x{:x})",
+                    reloc.address, auipc_pc
                 ))?;
-            ctx.symbol_map
+            debug!("    Found {} relocation at 0x{:x} for symbol '{}'",
+                   if hi20_reloc.r_type == 19 { "GOT_HI20" } else { "PCREL_HI20" },
+                   hi20_reloc.address, hi20_reloc.symbol_name);
+            let target = ctx.symbol_map
                 .get(&hi20_reloc.symbol_name)
                 .copied()
                 .ok_or_else(|| {
                     format!(
-                        "Could not resolve symbol '{}' for PCREL_HI20 relocation at 0x{:x}",
-                        hi20_reloc.symbol_name, auipc_pc
+                        "Could not resolve symbol '{}' for {} relocation at 0x{:x}",
+                        hi20_reloc.symbol_name,
+                        if hi20_reloc.r_type == 19 { "GOT_HI20" } else { "PCREL_HI20" },
+                        auipc_pc
                     )
-                })?
+                })?;
+            // Check if this is GOT_HI20 or PCREL_HI20 without a GOT entry (need to convert lw to addi)
+            // For function calls, we convert lw to addi to compute address directly instead of loading from memory
+            let has_got_entry = ctx.got_tracker.has_entry(&hi20_reloc.symbol_name);
+            // Convert to addi if: (1) GOT_HI20 without GOT entry, or (2) PCREL_HI20 without GOT entry (direct function call)
+            let is_got_without_entry = (hi20_reloc.r_type == 19 || hi20_reloc.r_type == 20) && !has_got_entry;
+            debug!("    {}: has_entry={}, is_got_without_entry={} (will convert lw to addi)",
+                   if hi20_reloc.r_type == 19 { "GOT_HI20" } else { "PCREL_HI20" },
+                   has_got_entry, is_got_without_entry);
+            (target, is_got_without_entry)
         } else {
             return Err(format!(
-                "PCREL_LO12_I at 0x{:x} requires all_relocations to find corresponding PCREL_HI20",
+                "PCREL_LO12_I at 0x{:x} requires all_relocations to find corresponding PCREL_HI20 or GOT_HI20",
                 reloc.address
             ));
         };
@@ -351,19 +389,40 @@ pub fn handle_pcrel_lo12_i(
         // Therefore: lo12 = (final_target - auipc_result) & 0xFFF
         let lo12 = (final_target.wrapping_sub(auipc_result)) & 0xFFF;
 
-        debug!(
-            "    PCREL_LO12_I (regular): lw PC=0x{:x}, auipc PC=0x{:x}, hi20=0x{:x} (signed: {}), auipc_result=0x{:x}, final_target=0x{:x}, lo12=0x{:x}",
-            ctx.pc, auipc_pc, hi20, hi20_signed, auipc_result, final_target, lo12
-        );
+        if is_got_without_entry {
+            // For GOT_HI20/PCREL_HI20 without a GOT entry, convert lw to addi to compute address directly
+            // lw: bits [6:0]=0000011 (0x03), bits [14:12]=010 (funct3=2)
+            // addi: bits [6:0]=0010011 (0x13), bits [14:12]=000 (funct3=0)
+            // Clear bits [14:12] (funct3) and bits [6:0] (opcode), then set to addi opcode
+            // Mask: clear bits [14:12] (0x7000) and bits [6:0] (0x7F), keep everything else
+            // 0xFFFF8F80 = clears bits [14:12] and [6:0]
+            let patched = (inst_word & 0xFFFF8F80) | (lo12 << 20) | 0x00000013;
+            let inst_bytes = &mut ctx.buffer[offset..offset + 4];
+            inst_bytes.copy_from_slice(&patched.to_le_bytes());
+            
+            debug!(
+                "    PCREL_LO12_I (GOT_HI20 without GOT, converted lw to addi): lw PC=0x{:x}, auipc PC=0x{:x}, hi20=0x{:x} (signed: {}), auipc_result=0x{:x}, final_target=0x{:x}, lo12=0x{:x}",
+                ctx.pc, auipc_pc, hi20, hi20_signed, auipc_result, final_target, lo12
+            );
+            debug!(
+                "    Converted instruction: 0x{:08x} → 0x{:08x} (lw → addi, lo12=0x{:x})",
+                inst_word, patched, lo12
+            );
+        } else {
+            // Regular PCREL_LO12_I: patch the lw instruction
+            let patched = (inst_word & 0xFFFFF) | (lo12 << 20);
+            let inst_bytes = &mut ctx.buffer[offset..offset + 4];
+            inst_bytes.copy_from_slice(&patched.to_le_bytes());
 
-        let patched = (inst_word & 0xFFFFF) | (lo12 << 20);
-        let inst_bytes = &mut ctx.buffer[offset..offset + 4];
-        inst_bytes.copy_from_slice(&patched.to_le_bytes());
-
-        debug!(
-            "    Patched lw instruction: 0x{:08x} → 0x{:08x} (lo12=0x{:x})",
-            inst_word, patched, lo12
-        );
+            debug!(
+                "    PCREL_LO12_I (regular): lw PC=0x{:x}, auipc PC=0x{:x}, hi20=0x{:x} (signed: {}), auipc_result=0x{:x}, final_target=0x{:x}, lo12=0x{:x}",
+                ctx.pc, auipc_pc, hi20, hi20_signed, auipc_result, final_target, lo12
+            );
+            debug!(
+                "    Patched lw instruction: 0x{:08x} → 0x{:08x} (lo12=0x{:x})",
+                inst_word, patched, lo12
+            );
+        }
     }
 
     Ok(())

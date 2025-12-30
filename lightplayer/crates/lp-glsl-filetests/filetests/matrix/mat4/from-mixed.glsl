@@ -61,3 +61,4 @@ mat4 test_mat4_from_mixed_in_assignment() {
 // run: test_mat4_from_mixed_in_assignment() ~= mat4(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
 
+

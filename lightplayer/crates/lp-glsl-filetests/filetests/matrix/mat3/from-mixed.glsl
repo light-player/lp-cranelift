@@ -60,3 +60,4 @@ mat3 test_mat3_from_mixed_in_assignment() {
 // run: test_mat3_from_mixed_in_assignment() ~= mat3(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 0.0, 0.0, 0.0)
 
 
+

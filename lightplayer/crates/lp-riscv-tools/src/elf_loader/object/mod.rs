@@ -118,24 +118,41 @@ pub fn load_object_file(
     if let Some(main_addr) = main_address {
         debug!("Found 'main' symbol in object file at 0x{:x}", main_addr);
         
-        // Update __USER_MAIN_PTR in RAM if it exists (from base executable)
-        if let Some(&user_main_ptr_addr) = merged_symbol_map.get("__USER_MAIN_PTR") {
-            // Calculate RAM offset (__USER_MAIN_PTR is in RAM)
-            if user_main_ptr_addr >= RAM_START {
-                let ram_offset = (user_main_ptr_addr - RAM_START) as usize;
-                
-                // Ensure RAM buffer is large enough
-                if ram_offset + 4 <= ram.len() {
-                    // Write main address as little-endian u32
-                    ram[ram_offset..ram_offset + 4].copy_from_slice(&main_addr.to_le_bytes());
-                    debug!("Updated __USER_MAIN_PTR at 0x{:x} (RAM offset 0x{:x}) to point to main() at 0x{:x}",
-                           user_main_ptr_addr, ram_offset, main_addr);
+        // Update __USER_MAIN_PTR in ROM LMA (not RAM) so init code copies the correct value
+        // The .data section is loaded into ROM at LMA and copied to RAM by init code
+        if let Some(&user_main_ptr_vma) = merged_symbol_map.get("__USER_MAIN_PTR") {
+            if user_main_ptr_vma >= RAM_START {
+                // Find the .data section LMA by looking for __data_source_start symbol
+                // or by finding the .data section in the object file we parsed earlier
+                // Actually, we need to parse the base executable to find .data LMA
+                // For now, try to find __data_source_start in merged symbol map
+                if let Some(&data_source_start) = merged_symbol_map.get("__data_source_start") {
+                    // __USER_MAIN_PTR is at RAM offset 0x0 (VMA 0x80000000)
+                    // Calculate its offset within .data section
+                    let ram_offset = (user_main_ptr_vma - RAM_START) as usize;
+                    // The LMA is data_source_start + offset within section
+                    let lma_offset = data_source_start as usize + ram_offset;
+                    
+                    if lma_offset + 4 <= code.len() {
+                        // Write main address as little-endian u32 to ROM LMA
+                        code[lma_offset..lma_offset + 4].copy_from_slice(&main_addr.to_le_bytes());
+                        debug!("Updated __USER_MAIN_PTR at ROM LMA 0x{:x} (VMA 0x{:x}, RAM offset 0x{:x}) to point to main() at 0x{:x}",
+                               lma_offset, user_main_ptr_vma, ram_offset, main_addr);
+                    } else {
+                        debug!("Warning: __USER_MAIN_PTR LMA 0x{:x} is out of code buffer bounds (len={})",
+                               lma_offset, code.len());
+                    }
                 } else {
-                    debug!("Warning: __USER_MAIN_PTR at 0x{:x} is out of RAM buffer bounds (len={})",
-                           user_main_ptr_addr, ram.len());
+                    // Fallback: update RAM directly (will be overwritten by init code, but might work if init already ran)
+                    let ram_offset = (user_main_ptr_vma - RAM_START) as usize;
+                    if ram_offset + 4 <= ram.len() {
+                        ram[ram_offset..ram_offset + 4].copy_from_slice(&main_addr.to_le_bytes());
+                        debug!("Updated __USER_MAIN_PTR at RAM offset 0x{:x} (__data_source_start not found, using RAM directly)",
+                               ram_offset);
+                    }
                 }
             } else {
-                debug!("Warning: __USER_MAIN_PTR at 0x{:x} is not in RAM region", user_main_ptr_addr);
+                debug!("Warning: __USER_MAIN_PTR at 0x{:x} is not in RAM region", user_main_ptr_vma);
             }
         } else {
             debug!("__USER_MAIN_PTR symbol not found, skipping update");
