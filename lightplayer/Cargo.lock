@@ -1446,6 +1446,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "lp-builtins-app"
+version = "40.0.0"
+dependencies = [
+ "lp-builtins",
+]
+
+[[package]]
 name = "lp-glsl"
 version = "40.0.0"
 dependencies = [

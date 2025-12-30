@@ -8,11 +8,11 @@ use crate::error::{ErrorCode, GlslError};
 #[cfg(all(feature = "std", feature = "emulator"))]
 use alloc::vec::Vec;
 
-/// Link builtins library into ELF and verify symbols are defined
+/// Link builtins executable into ELF and verify symbols are defined
 ///
 /// # Arguments
-/// * `elf_bytes` - The ELF file bytes to link into
-/// * `builtins_lib_bytes` - The builtins static library bytes
+/// * `elf_bytes` - The ELF object file bytes to link into the executable
+/// * `builtins_exe_bytes` - The lp-builtins-app executable bytes
 ///
 /// # Returns
 /// * `Ok(Vec<u8>)` - The linked ELF file bytes with builtins
@@ -20,31 +20,32 @@ use alloc::vec::Vec;
 #[cfg(all(feature = "std", feature = "emulator"))]
 pub fn link_and_verify_builtins(
     elf_bytes: &[u8],
-    builtins_lib_bytes: &[u8],
+    builtins_exe_bytes: &[u8],
 ) -> Result<Vec<u8>, GlslError> {
     use crate::backend::builtins::registry::BuiltinId;
     use object::{File as ObjectFile, Object, ObjectSymbol, SymbolKind, SymbolSection};
 
-    crate::debug!("=== Linking builtins library ===");
-    crate::debug!("Builtins library size: {} bytes", builtins_lib_bytes.len());
+    crate::debug!("=== Linking object file into builtins executable ===");
+    crate::debug!("Builtins executable size: {} bytes", builtins_exe_bytes.len());
+    crate::debug!("Object file size: {} bytes", elf_bytes.len());
 
-    if builtins_lib_bytes.is_empty() {
+    if builtins_exe_bytes.is_empty() {
         return Err(GlslError::new(
             ErrorCode::E0400,
-            "lp-builtins library is empty or not available. \
-             Build it with: cargo build --target riscv32imac-unknown-none-elf --package lp-builtins",
+            "lp-builtins-app executable is empty or not available. \
+             Build it with: scripts/build-builtins.sh",
         ));
     }
 
-    // Link the builtins library into the ELF
-    crate::debug!("Attempting to link builtins library...");
-    let linked_elf = lp_riscv_tools::link_static_library(elf_bytes, builtins_lib_bytes)
+    // Link the object file into the executable
+    crate::debug!("Attempting to link object file into executable...");
+    let linked_elf = lp_riscv_tools::executable_linker::link_into_executable(builtins_exe_bytes, elf_bytes)
         .map_err(|e| {
             GlslError::new(
                 ErrorCode::E0400,
                 format!(
-                    "Failed to link builtins library: {}. \
-                     Ensure lp-builtins is correctly compiled.",
+                    "Failed to link object file into executable: {}. \
+                     Ensure lp-builtins-app is correctly compiled.",
                     e
                 ),
             )

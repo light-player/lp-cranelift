@@ -1,17 +1,17 @@
 #!/bin/bash
-# Build lp-builtins static library with aggressive optimizations
-# This reduces the library size and number of symbols significantly
+# Build lp-builtins-app executable with aggressive optimizations
+# This ensures all dependency symbols (rlibc, compiler_builtins) are included
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 LIGHTPLAYER_DIR="$WORKSPACE_ROOT/lightplayer"
-BUILTINS_CRATE="$LIGHTPLAYER_DIR/crates/lp-builtins"
+BUILTINS_APP="$LIGHTPLAYER_DIR/apps/lp-builtins-app"
 TARGET="riscv32imac-unknown-none-elf"
 OUTPUT_DIR="$LIGHTPLAYER_DIR/target/$TARGET/release"
 
-echo "Building lp-builtins for $TARGET with aggressive optimizations..."
+echo "Building lp-builtins-app for $TARGET with aggressive optimizations..."
 
 # Ensure target is installed
 if ! rustup target list --installed | grep -q "^$TARGET$"; then
@@ -37,17 +37,17 @@ RUSTFLAGS="-C opt-level=2 \
            -C codegen-units=1" \
 cargo build \
     --target $TARGET \
-    --package lp-builtins \
+    --package lp-builtins-app \
     --release \
-    --features baremetal
+    --bin lp-builtins-app
 
 echo ""
-echo "Built library: $OUTPUT_DIR/liblp_builtins.a"
-ls -lh "$OUTPUT_DIR/liblp_builtins.a"
+echo "Built executable: $OUTPUT_DIR/lp-builtins-app"
+ls -lh "$OUTPUT_DIR/lp-builtins-app"
 
 # Show some stats
 echo ""
-echo "Library stats:"
-ar t "$OUTPUT_DIR/liblp_builtins.a" | wc -l | xargs echo "  Object files:"
-nm "$OUTPUT_DIR/liblp_builtins.a" 2>/dev/null | grep "__lp_" | wc -l | xargs echo "  __lp_* symbols:"
+echo "Executable stats:"
+nm "$OUTPUT_DIR/lp-builtins-app" 2>/dev/null | grep "__lp_" | wc -l | xargs echo "  __lp_* symbols:"
+nm "$OUTPUT_DIR/lp-builtins-app" 2>/dev/null | grep -E "^\s*[Tt]\s+(memcpy|memset|memcmp)$" | wc -l | xargs echo "  mem* symbols:"
 

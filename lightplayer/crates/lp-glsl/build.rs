@@ -19,37 +19,36 @@ fn main() {
     // Path to lp-builtins crate (workspace root is already lightplayer/)
     let builtins_crate_path = workspace_root.join("crates").join("lp-builtins");
 
-    // Path to the generated .a file
-    let lib_path = workspace_root
+    // Path to the lp-builtins-app executable
+    let exe_path = workspace_root
         .join("target")
         .join(target)
         .join(&profile)
-        .join("liblp_builtins.a");
+        .join("lp-builtins-app");
 
-    // Check if library exists and copy to OUT_DIR for compile-time inclusion
-    if !lib_path.exists() {
+    // Check if executable exists and copy to OUT_DIR for compile-time inclusion
+    if !exe_path.exists() {
         println!(
-            "cargo:warning=lp-builtins library not found at: {}",
-            lib_path.display()
+            "cargo:warning=lp-builtins-app executable not found at: {}",
+            exe_path.display()
         );
         println!(
-            "cargo:warning=Build it manually with: cargo build --target {} --package lp-builtins",
-            target
+            "cargo:warning=Build it manually with: scripts/build-builtins.sh"
         );
-        // Generate empty bytes if library doesn't exist
+        // Generate empty bytes if executable doesn't exist
         let out_file = std::path::Path::new(&out_dir).join("lp_builtins_lib.rs");
-        std::fs::write(&out_file, "pub const LP_BUILTINS_LIB_BYTES: &[u8] = &[];\n")
-            .expect("Failed to write empty builtins lib file");
+        std::fs::write(&out_file, "pub const LP_BUILTINS_EXE_BYTES: &[u8] = &[];\n")
+            .expect("Failed to write empty builtins exe file");
     } else {
         println!(
-            "cargo:warning=lp-builtins library found at: {}",
-            lib_path.display()
+            "cargo:warning=lp-builtins-app executable found at: {}",
+            exe_path.display()
         );
-        // Copy library to OUT_DIR
-        let out_file = std::path::Path::new(&out_dir).join("liblp_builtins.a");
-        std::fs::copy(&lib_path, &out_file).expect("Failed to copy lp-builtins library to OUT_DIR");
+        // Copy executable to OUT_DIR
+        let out_file = std::path::Path::new(&out_dir).join("lp-builtins-app");
+        std::fs::copy(&exe_path, &out_file).expect("Failed to copy lp-builtins-app executable to OUT_DIR");
 
-        // Generate a module that includes the library bytes
+        // Generate a module that includes the executable bytes
         let include_file = std::path::Path::new(&out_dir).join("lp_builtins_lib.rs");
         let include_path = out_file
             .strip_prefix(&out_dir)
@@ -59,24 +58,25 @@ fn main() {
         std::fs::write(
             &include_file,
             format!(
-                "pub const LP_BUILTINS_LIB_BYTES: &[u8] = include_bytes!(\"{}\");\n",
+                "pub const LP_BUILTINS_EXE_BYTES: &[u8] = include_bytes!(\"{}\");\n",
                 include_path
             ),
         )
-        .expect("Failed to write builtins lib include file");
+        .expect("Failed to write builtins exe include file");
     }
 
-    // Tell Cargo to rerun if lp-builtins source changes
+    // Tell Cargo to rerun if lp-builtins-app source changes
+    let builtins_app_path = workspace_root.join("apps").join("lp-builtins-app");
     println!(
         "cargo:rerun-if-changed={}",
-        builtins_crate_path.join("Cargo.toml").display()
+        builtins_app_path.join("Cargo.toml").display()
     );
     println!(
         "cargo:rerun-if-changed={}",
-        builtins_crate_path.join("src").display()
+        builtins_app_path.join("src").display()
     );
-    // Also rerun if the library changes (in case it's rebuilt externally)
-    println!("cargo:rerun-if-changed={}", lib_path.display());
+    // Also rerun if the executable changes (in case it's rebuilt externally)
+    println!("cargo:rerun-if-changed={}", exe_path.display());
 }
 
 #[cfg(not(feature = "emulator"))]

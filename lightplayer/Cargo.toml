@@ -9,6 +9,7 @@ members = [
     "crates/lp-riscv-tools",
     "apps/embive-program",
     "apps/esp32-glsl-jit",
+    "apps/lp-builtins-app",
     "apps/lp-test",
     "apps/test-structreturn",
 ]

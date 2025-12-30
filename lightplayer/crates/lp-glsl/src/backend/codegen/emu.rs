@@ -4,6 +4,8 @@
 #[allow(unused_imports)]
 mod builtins_lib {
     include!(concat!(env!("OUT_DIR"), "/lp_builtins_lib.rs"));
+    // For backward compatibility, alias the old name
+    pub const LP_BUILTINS_LIB_BYTES: &[u8] = LP_BUILTINS_EXE_BYTES;
 }
 
 #[cfg(feature = "emulator")]
