@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-#![allow(unexpected_cfgs)] // Suppress warnings from macros in dependencies that check for features not defined in this crate
 
 mod host;
 mod print;

@@ -23,15 +23,12 @@ macro_rules! host_debug {
             #[cfg(feature = "std")]
             {
                 // When std is available, check if test feature exists
-                // Use cfg_attr to suppress warnings about unknown features in destination crate
-                #[cfg_attr(not(feature = "test"), allow(unexpected_cfgs))]
                 #[cfg(feature = "test")]
                 {
                     // With std and test feature, use std::format! and call test implementation
                     let formatted = std::format!($($arg)*);
                     $crate::host::__host_debug(formatted.as_ptr(), formatted.len());
                 }
-                #[cfg_attr(not(feature = "test"), allow(unexpected_cfgs))]
                 #[cfg(not(feature = "test"))]
                 {
                     // With std but not test - use extern function (for JIT or other contexts)
@@ -71,12 +68,10 @@ macro_rules! host_println {
         let newline = "\n";
         #[cfg(feature = "std")]
         {
-            #[cfg_attr(not(feature = "test"), allow(unexpected_cfgs))]
             #[cfg(feature = "test")]
             {
                 $crate::host::__host_println(newline.as_ptr(), newline.len());
             }
-            #[cfg_attr(not(feature = "test"), allow(unexpected_cfgs))]
             #[cfg(not(feature = "test"))]
             {
                 unsafe extern "C" {
@@ -96,14 +91,12 @@ macro_rules! host_println {
         {
             #[cfg(feature = "std")]
             {
-                #[cfg_attr(not(feature = "test"), allow(unexpected_cfgs))]
                 #[cfg(feature = "test")]
                 {
                     // With std and test feature, use std::format! and call test implementation
                     let formatted = std::format!($($arg)*);
                     $crate::host::__host_println(formatted.as_ptr(), formatted.len());
                 }
-                #[cfg_attr(not(feature = "test"), allow(unexpected_cfgs))]
                 #[cfg(not(feature = "test"))]
                 {
                     // With std but not test - use extern function (for JIT or other contexts)
