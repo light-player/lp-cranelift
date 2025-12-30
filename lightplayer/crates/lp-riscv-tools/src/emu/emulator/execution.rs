@@ -2,7 +2,6 @@
 
 extern crate alloc;
 
-use alloc::{format, string::String, vec::Vec};
 use super::super::{
     decoder::decode_instruction, error::EmulatorError, executor::execute_instruction,
     memory::Memory,
@@ -10,6 +9,7 @@ use super::super::{
 use super::state::Riscv32Emulator;
 use super::types::{PanicInfo, StepResult, SyscallInfo};
 use crate::{Gpr, Inst};
+use alloc::{format, string::String, vec::Vec};
 
 impl Riscv32Emulator {
     /// Execute a single instruction.
@@ -116,7 +116,7 @@ impl Riscv32Emulator {
                     self.regs[Gpr::A6.num() as usize],
                 ],
             };
-            
+
             // Check if this is a panic syscall (SYSCALL_PANIC = 1)
             if syscall_info.number == 1 {
                 // Extract panic information from syscall args
@@ -130,15 +130,23 @@ impl Riscv32Emulator {
                 let file_ptr = syscall_info.args[2] as u32;
                 let file_len = syscall_info.args[3] as usize;
                 let line = syscall_info.args[4] as u32;
-                
+
                 // Debug: print syscall args
-                crate::debug!("Panic syscall detected: msg_ptr=0x{:x}, msg_len={}, file_ptr=0x{:x}, file_len={}, line={}", 
-                             msg_ptr, msg_len, file_ptr, file_len, line);
-                
+                crate::debug!(
+                    "Panic syscall detected: msg_ptr=0x{:x}, msg_len={}, file_ptr=0x{:x}, file_len={}, line={}",
+                    msg_ptr,
+                    msg_len,
+                    file_ptr,
+                    file_len,
+                    line
+                );
+
                 // Read panic message from memory
-                let message = read_memory_string(&self.memory, msg_ptr, msg_len)
-                    .unwrap_or_else(|_| format!("<failed to read panic message from 0x{:x}>", msg_ptr));
-                
+                let message =
+                    read_memory_string(&self.memory, msg_ptr, msg_len).unwrap_or_else(|_| {
+                        format!("<failed to read panic message from 0x{:x}>", msg_ptr)
+                    });
+
                 // Read file name from memory (if pointer is not null)
                 let file = if file_ptr != 0 && file_len > 0 {
                     match read_memory_string(&self.memory, file_ptr, file_len) {
@@ -155,7 +163,7 @@ impl Riscv32Emulator {
                     crate::debug!("File pointer is null or file_len is 0, skipping file read");
                     None
                 };
-                
+
                 // Create panic info
                 let panic_info = PanicInfo {
                     message,
@@ -163,8 +171,37 @@ impl Riscv32Emulator {
                     line: if line != 0 { Some(line) } else { None },
                     pc: self.pc,
                 };
-                
+
                 Ok(StepResult::Panic(panic_info))
+            } else if syscall_info.number == 2 {
+                // SYSCALL_WRITE: Write string to host
+                // args[0] = pointer to string (as i32, cast to u32)
+                // args[1] = length of string
+                let msg_ptr = syscall_info.args[0] as u32;
+                let msg_len = syscall_info.args[1] as usize;
+
+                // Read string from memory and print it
+                match read_memory_string(&self.memory, msg_ptr, msg_len) {
+                    Ok(s) => {
+                        #[cfg(feature = "std")]
+                        {
+                            use std::io::Write;
+                            let _ = std::io::stderr().write_all(s.as_bytes());
+                            let _ = std::io::stderr().flush();
+                        }
+                    }
+                    Err(e) => {
+                        crate::debug!(
+                            "Failed to read write syscall string from 0x{:x}: {}",
+                            msg_ptr,
+                            e
+                        );
+                    }
+                }
+
+                // Return success (0 in a0)
+                self.regs[Gpr::A0.num() as usize] = 0;
+                Ok(StepResult::Continue)
             } else {
                 Ok(StepResult::Syscall(syscall_info))
             }
@@ -188,20 +225,26 @@ fn read_memory_string(memory: &Memory, ptr: u32, len: usize) -> Result<String, S
     // Limit maximum string length to prevent excessive memory reads
     const MAX_STRING_LEN: usize = 1024;
     let len = len.min(MAX_STRING_LEN);
-    
+
     if len == 0 {
         return Ok(String::new());
     }
-    
+
     // Read bytes from memory
     let mut bytes = Vec::with_capacity(len);
     for i in 0..len {
         match memory.read_u8(ptr.wrapping_add(i as u32)) {
             Ok(byte) => bytes.push(byte),
-            Err(e) => return Err(format!("Failed to read byte at 0x{:x}: {}", ptr + i as u32, e)),
+            Err(e) => {
+                return Err(format!(
+                    "Failed to read byte at 0x{:x}: {}",
+                    ptr + i as u32,
+                    e
+                ));
+            }
         }
     }
-    
+
     // Convert to UTF-8 string, handling invalid UTF-8 gracefully
     match String::from_utf8(bytes) {
         Ok(s) => Ok(s),

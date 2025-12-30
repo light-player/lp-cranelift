@@ -115,3 +115,4 @@ git commit -m "lpc: implement logical OR operator"
 - **Pattern**: Follows the same pattern as logical AND, but with OR logic (result is 1 if either operand is non-zero).
 
 
+

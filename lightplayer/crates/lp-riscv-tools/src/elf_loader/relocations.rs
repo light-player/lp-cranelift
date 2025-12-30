@@ -1,3 +1,4 @@
+
 //! Relocation application for ELF loading.
 
 use crate::debug;
@@ -80,6 +81,7 @@ pub fn apply_relocations(
             object::SectionKind::Text | 
             object::SectionKind::Data | 
             object::SectionKind::ReadOnlyData |
+            object::SectionKind::ReadOnlyString | // .rodata sections
             object::SectionKind::UninitializedData => {}
             _ => continue,
         }
@@ -142,6 +144,7 @@ pub fn apply_relocations(
             object::SectionKind::Text | 
             object::SectionKind::Data | 
             object::SectionKind::ReadOnlyData |
+            object::SectionKind::ReadOnlyString | // .rodata sections
             object::SectionKind::UninitializedData => {}
             _ => continue,
         }

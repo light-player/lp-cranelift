@@ -69,3 +69,4 @@ vec4 test_ldexp_vec4() {
 
 // run: test_ldexp_vec4() ~= vec4(2.0, 0.25, 2.0, 6.0)
 
+

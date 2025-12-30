@@ -65,3 +65,4 @@ mat2 test_mat2_from_mat3_in_assignment() {
 
 // run: test_mat2_from_mat3_in_assignment() ~= mat2(1.0, 2.0, 4.0, 5.0)
 
+

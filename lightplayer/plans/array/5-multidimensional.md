@@ -71,3 +71,4 @@ Test file: `lightplayer/crates/lp-glsl-filetests/filetests/array/phases/5-multid
 - `lightplayer/crates/lp-glsl/src/frontend/codegen/context.rs` (verify multi-dim size calculation)
 
 
+

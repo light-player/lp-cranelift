@@ -62,3 +62,4 @@ vec4 test_fma_vec4() {
 
 // run: test_fma_vec4() ~= vec4(2.0, 10.0, 3.5, 4.0)
 
+

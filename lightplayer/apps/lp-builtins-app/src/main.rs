@@ -1,17 +1,24 @@
 #![no_std]
 #![no_main]
 
+mod print;
+
+// Re-export _print so macros can find it
+pub use print::_print;
+
+use core::arch::asm;
 use core::{
     arch::global_asm,
     fmt::Write,
     mem::zeroed,
     ptr::{addr_of_mut, read, write_volatile},
 };
-
 use lp_builtins::fixed32::{__lp_fixed32_div, __lp_fixed32_mul, __lp_fixed32_sqrt};
 
 /// Syscall number for panic
 const SYSCALL_PANIC: i32 = 1;
+/// Syscall number for write
+const SYSCALL_WRITE: i32 = 2;
 
 /// Number of syscall arguments
 const SYSCALL_ARGS: usize = 7;
@@ -33,11 +40,7 @@ fn syscall(nr: i32, args: &[i32; SYSCALL_ARGS]) -> i32 {
             in("x16") args[6],
         );
     }
-    if error != 0 {
-        error
-    } else {
-        value
-    }
+    if error != 0 { error } else { value }
 }
 
 /// Report a panic to the host VM
@@ -110,19 +113,12 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     // Try to format the full panic info
     let _ = write!(writer, "{}", info.message());
 
-    // If message is empty, try payload
+    // If message is empty, use default message
     if cursor == 0 {
-        if let Some(payload) = info.payload().downcast_ref::<&str>() {
-            let bytes = payload.as_bytes();
-            let to_copy = bytes.len().min(panic_msg_buf.len());
-            panic_msg_buf[..to_copy].copy_from_slice(&bytes[..to_copy]);
-            cursor = to_copy;
-        } else {
-            let default_msg = b"panic occurred (no message)";
-            let to_copy = default_msg.len().min(panic_msg_buf.len());
-            panic_msg_buf[..to_copy].copy_from_slice(&default_msg[..to_copy]);
-            cursor = to_copy;
-        }
+        let default_msg = b"panic occurred (no message)";
+        let to_copy = default_msg.len().min(panic_msg_buf.len());
+        panic_msg_buf[..to_copy].copy_from_slice(&default_msg[..to_copy]);
+        cursor = to_copy;
     }
 
     // Try to extract location info
@@ -194,7 +190,8 @@ unsafe extern "C" fn _code_entry() -> ! {
 
     while sdata < edata {
         unsafe {
-            write_volatile(sdata, read(sdatas));
+            let val = read(sdatas);
+            write_volatile(sdata, val);
             sdata = sdata.offset(1);
             sdatas = sdatas.offset(1);
         }
@@ -221,7 +218,7 @@ unsafe extern "C" fn _code_entry() -> ! {
 static mut __USER_MAIN_PTR: u32 = 0xDEADBEEF;
 
 /// Placeholder main function that references all builtin functions to prevent dead code elimination.
-/// 
+///
 /// This function:
 /// 1. References all __lp_* functions explicitly (prevents dead code elimination)
 /// 2. Reads __user_main_ptr from .data section
@@ -235,7 +232,7 @@ pub extern "C" fn main() -> ! {
         let _sqrt_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_sqrt;
         let _mul_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_mul;
         let _div_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_div;
-        
+
         // Force these to be included by using them in a way that can't be optimized away
         // We'll use volatile reads to prevent optimization
         let _ = core::ptr::read_volatile(&_sqrt_fn as *const _);
@@ -244,8 +241,12 @@ pub extern "C" fn main() -> ! {
     }
 
     // Read user main pointer
-    let user_main_ptr = unsafe { core::ptr::read_volatile(&raw const __USER_MAIN_PTR as *const u32) };
-    
+    let user_main_ptr =
+        unsafe { core::ptr::read_volatile(&raw const __USER_MAIN_PTR as *const u32) };
+
+    println!("lp-builtins-app: main()");
+    println!("user_main_ptr: 0x{:x}", user_main_ptr);
+
     if user_main_ptr == 0 || user_main_ptr == 0xDEADBEEF {
         // No user main set - panic
         panic!("__user_main_ptr not set (value: 0x{:x})", user_main_ptr);
@@ -257,4 +258,3 @@ pub extern "C" fn main() -> ! {
         user_main();
     }
 }
-

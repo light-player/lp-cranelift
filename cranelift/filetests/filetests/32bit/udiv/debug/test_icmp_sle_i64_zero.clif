@@ -21,3 +21,4 @@ block0(v0: i64):
 ; run: %test_icmp_sle_i64_zero(0x0000000000000064) == 1
 
 
+

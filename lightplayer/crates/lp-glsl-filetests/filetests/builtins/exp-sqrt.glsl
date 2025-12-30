@@ -70,3 +70,4 @@ vec4 test_sqrt_vec4() {
 
 // run: test_sqrt_vec4() ~= vec4(0.0, 0.5, 1.0, 1.4142135623730951)
 
+

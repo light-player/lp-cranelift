@@ -29,7 +29,7 @@ cd "$LIGHTPLAYER_DIR"
 # Use nightly toolchain for compiler_builtins support
 export RUSTUP_TOOLCHAIN=nightly
 
-RUSTFLAGS="-C opt-level=2 \
+RUSTFLAGS="-C opt-level=1 \
            -C panic=abort \
            -C overflow-checks=off \
            -C debuginfo=0 \

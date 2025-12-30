@@ -292,3 +292,4 @@ pub fn write_lvalue<M: cranelift_module::Module>(
         }
     }
 }
+

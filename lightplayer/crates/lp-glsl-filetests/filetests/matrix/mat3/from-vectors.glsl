@@ -75,3 +75,4 @@ mat3 test_mat3_from_vec3_function_result() {
 
 // run: test_mat3_from_vec3_function_result() ~= mat3(0.26726123690605164, 0.5345224738121033, 0.8017836809158325, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0)
 
+

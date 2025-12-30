@@ -69,3 +69,4 @@ ivec2 test_bitcount_ivec2() {
 
 // run: test_bitcount_ivec2() == ivec2(0, 4)
 
+

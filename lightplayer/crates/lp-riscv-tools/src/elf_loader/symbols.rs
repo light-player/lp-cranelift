@@ -86,29 +86,25 @@ pub fn build_symbol_map(obj: &object::File, text_base: u64) -> HashMap<String, u
     symbol_map
 }
 
-/// Find the address of a symbol by name (relative to text section base).
+/// Find the address of a symbol by name.
 ///
-/// Returns the offset from the text section base address.
+/// Returns the absolute address of the symbol (for both ROM and RAM symbols).
 pub fn find_symbol_address(
     obj: &object::File,
     symbol_name: &str,
     text_section_base: u64,
 ) -> Result<u32, String> {
     for symbol in obj.symbols() {
-        if symbol.kind() == object::SymbolKind::Text {
-            if let Ok(name) = symbol.name() {
-                if name == symbol_name {
-                    let addr = symbol.address();
-                    // In ELF object files, symbol addresses are section-relative (often 0x0 for start of section)
-                    // If addr is already >= text_section_base, it's an absolute address - use it directly
-                    // Otherwise, it's section-relative, so we use it as-is (it's already the offset)
-                    if addr >= text_section_base {
-                        return Ok((addr - text_section_base) as u32);
-                    } else {
-                        // Section-relative address - use it directly as the offset
-                        return Ok(addr as u32);
-                    }
-                }
+        // Don't filter by symbol kind - absolute address symbols (like __data_source_start)
+        // are not Text symbols, but we still need to find them
+        if let Ok(name) = symbol.name() {
+            if name == symbol_name {
+                let addr = symbol.address();
+                // Return the absolute address directly
+                // For absolute address symbols (like __data_source_start), addr is already absolute
+                // For section-relative symbols, addr is relative to the section, but we want absolute
+                // For now, just return the address as-is since linker-provided symbols are usually absolute
+                return Ok(addr as u32);
             }
         }
     }

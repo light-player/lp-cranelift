@@ -73,3 +73,4 @@ mat2 test_mat2_divide_scalar_assignment() {
 
 // run: test_mat2_divide_scalar_assignment() ~= mat2(2.0, 3.0, 4.0, 5.0)
 
+

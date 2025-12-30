@@ -18,3 +18,4 @@ block0:
 ; run: %test_iconst_i64_materialization() == 32
 
 
+

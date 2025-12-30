@@ -62,3 +62,4 @@ vec4 test_trunc_vec4() {
 
 // run: test_trunc_vec4() ~= vec4(1.0, 2.0, 0.0, 4.0)
 
+

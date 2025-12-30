@@ -91,6 +91,7 @@ pub fn load_sections(
             object::SectionKind::Text | 
             object::SectionKind::Data | 
             object::SectionKind::ReadOnlyData |
+            object::SectionKind::ReadOnlyString | // .rodata sections
             object::SectionKind::UninitializedData => {
                 // These are loadable sections
             }

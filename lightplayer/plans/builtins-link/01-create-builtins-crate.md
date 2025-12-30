@@ -52,3 +52,4 @@ Create the `lp-builtins` crate as a `no_std` library with `core` only, set up mo
 - `no_std` with `core` only (no `alloc`)
 - Module structure should be ready for one-file-per-function approach
 
+

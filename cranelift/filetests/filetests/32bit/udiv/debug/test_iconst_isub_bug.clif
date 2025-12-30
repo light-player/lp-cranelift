@@ -26,3 +26,4 @@ block0(v0: i64):
 ; run: %test_iconst_isub_bug(0x00000000fffffffe) == -4294967262
 
 
+

@@ -63,3 +63,4 @@ Option 2: Use linker flags in Cargo:
 - Emulator uses `find_symbol_address` to locate functions
 - Test should verify both function availability and correctness
 
+

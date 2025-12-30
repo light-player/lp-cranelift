@@ -64,3 +64,4 @@ module.define_function_linkage(
 - No need for dynamic loading or symbol resolution
 - This is simpler than emulator case (no ELF loading needed)
 
+

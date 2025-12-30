@@ -106,3 +106,4 @@ bool test_ternary_same_bool_type() {
 // run: test_ternary_same_bool_type() == true
 
 
+

@@ -71,3 +71,4 @@ vec4 test_pow_vec4() {
 
 // run: test_pow_vec4() ~= vec4(2.0, 3.0, 4.0, 5.0)
 
+

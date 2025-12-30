@@ -74,3 +74,4 @@ impl BuiltinRegistry {
 - Consider using `include!` or proc macro to generate from source
 - Registry should make it easy to add new builtins (just add to enum)
 
+

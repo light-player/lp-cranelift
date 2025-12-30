@@ -67,3 +67,4 @@ Test file: `lightplayer/crates/lp-glsl-filetests/filetests/array/phases/8-consta
 - `lightplayer/crates/lp-glsl/src/frontend/semantic/type_check/inference.rs` (may need const variable lookup)
 
 
+

@@ -80,3 +80,4 @@ mat3 test_mat3_assign_after_operations() {
 
 // run: test_mat3_assign_after_operations() ~= mat3(2.0, 3.0, 4.0, 10.0, 11.0, 12.0, 8.0, 9.0, 10.0)
 
+
