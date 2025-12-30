@@ -55,3 +55,7 @@ mod test;
 #[cfg(feature = "test")]
 pub use test::{__host_debug, __host_println};
 
+#[cfg(test)]
+#[cfg(feature = "test")]
+mod tests;
+

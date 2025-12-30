@@ -20,6 +20,9 @@ macro_rules! host_debug {
     ($($arg:tt)*) => {
         {
             // Format the string first
+            #[cfg(feature = "std")]
+            let formatted = std::format!($($arg)*);
+            #[cfg(not(feature = "std"))]
             let formatted = alloc::format!($($arg)*);
             $crate::host::__host_debug(formatted.as_ptr(), formatted.len());
         }
@@ -47,6 +50,9 @@ macro_rules! host_println {
     ($($arg:tt)*) => {
         {
             // Format the string first
+            #[cfg(feature = "std")]
+            let formatted = std::format!($($arg)*);
+            #[cfg(not(feature = "std"))]
             let formatted = alloc::format!($($arg)*);
             $crate::host::__host_println(formatted.as_ptr(), formatted.len());
         }
