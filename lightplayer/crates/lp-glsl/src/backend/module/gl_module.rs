@@ -38,18 +38,30 @@ impl GlModule<JITModule> {
         match &target {
             Target::HostJit { .. } => {
                 let mut builder = target.create_module_builder()?;
-                // Add builtin symbol lookup function before creating module
+                // Add builtin and host symbol lookup function before creating module
                 {
                     use crate::backend::builtins::registry::{BuiltinId, get_function_pointer};
+                    #[cfg(feature = "std")]
+                    use crate::backend::host::{HostId, get_host_function_pointer};
                     match &mut builder {
                         crate::backend::target::builder::ModuleBuilder::JIT(jit_builder) => {
-                            // Create lookup function that returns builtin function pointers
+                            // Create lookup function that returns builtin and host function pointers
                             // This works in both std and no_std - iterate through builtins directly
                             jit_builder.symbol_lookup_fn(Box::new(
                                 move |name: &str| -> Option<*const u8> {
+                                    // Check builtins first
                                     for builtin in BuiltinId::all() {
                                         if builtin.name() == name {
                                             return Some(get_function_pointer(*builtin));
+                                        }
+                                    }
+                                    // Check host functions (only in std mode)
+                                    #[cfg(feature = "std")]
+                                    {
+                                        for host in HostId::all() {
+                                            if host.name() == name {
+                                                return Some(get_host_function_pointer(*host));
+                                            }
                                         }
                                     }
                                     None
@@ -128,6 +140,18 @@ impl GlModule<ObjectModule> {
                 {
                     use crate::backend::builtins::declare_builtins;
                     declare_builtins(&mut module)?;
+                }
+
+                // Declare host functions when module is created (for emulator)
+                // Note: Host functions use fmt::Arguments which can't be represented in Cranelift,
+                // so these declarations are placeholders. The actual functions are linked from
+                // lp-builtins-app and will be resolved by the linker.
+                #[cfg(feature = "std")]
+                {
+                    use crate::backend::host::declare_host_functions;
+                    // Only declare if std is available (host functions require std)
+                    let _ = declare_host_functions(&mut module);
+                    // Ignore errors - host functions may not be usable from compiled code
                 }
 
                 Ok(Self {
