@@ -10,14 +10,13 @@ extern crate std;
 /// Checks `DEBUG=1` environment variable and only prints if set.
 #[cfg(feature = "test")]
 #[unsafe(no_mangle)]
-pub fn __host_debug(args: core::fmt::Arguments) {
+pub extern "C" fn __host_debug(ptr: *const u8, len: usize) {
     if std::env::var("DEBUG").as_deref() == Ok("1") {
-        // Use write! to format the arguments
-        use std::fmt::Write;
-        use std::string::String;
-        let mut buf = String::new();
-        let _ = write!(buf, "{}", args);
-        std::println!("{}", buf);
+        unsafe {
+            let slice = core::slice::from_raw_parts(ptr, len);
+            let msg = core::str::from_utf8_unchecked(slice);
+            std::println!("{}", msg);
+        }
     }
 }
 
@@ -26,12 +25,11 @@ pub fn __host_debug(args: core::fmt::Arguments) {
 /// Always prints to stdout.
 #[cfg(feature = "test")]
 #[unsafe(no_mangle)]
-pub fn __host_println(args: core::fmt::Arguments) {
-    // Use write! to format the arguments
-    use std::fmt::Write;
-    use std::string::String;
-    let mut buf = String::new();
-    let _ = write!(buf, "{}", args);
-    std::println!("{}", buf);
+pub extern "C" fn __host_println(ptr: *const u8, len: usize) {
+    unsafe {
+        let slice = core::slice::from_raw_parts(ptr, len);
+        let msg = core::str::from_utf8_unchecked(slice);
+        std::println!("{}", msg);
+    }
 }
 
