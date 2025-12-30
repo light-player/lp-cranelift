@@ -1,5 +1,6 @@
 #![no_std]
 #![no_main]
+#![allow(unexpected_cfgs)] // Suppress warnings from macros in dependencies that check for features not defined in this crate
 
 mod host;
 mod print;
@@ -15,6 +16,7 @@ use core::{
     ptr::{addr_of_mut, read, write_volatile},
 };
 use lp_builtins::fixed32::{__lp_fixed32_div, __lp_fixed32_mul, __lp_fixed32_sqrt};
+use lp_builtins::host_debug;
 
 /// Syscall number for panic
 const SYSCALL_PANIC: i32 = 1;
@@ -253,33 +255,13 @@ pub extern "C" fn main() -> () {
     let user_init_ptr =
         unsafe { core::ptr::read_volatile(&raw const __USER_MAIN_PTR as *const u32) };
 
-    println!("[lp-builtins-app::main()] lp-builtins-app: main()");
-    println!(
-        "[lp-builtins-app::main()] user_init_ptr: 0x{:x}",
-        user_init_ptr
-    );
-
-    let sqrt_res = __lp_fixed32_sqrt(0x10000);
-    println!(
-        "[lp-builtins-app::main()] __lp_fixed32_sqrt(0x10000): 0x{:x}",
-        sqrt_res
-    );
-
-    // Test sqrt(4.0) = 0x00040000 in fixed32
-    let sqrt_four = __lp_fixed32_sqrt(0x00040000);
-    println!(
-        "[lp-builtins-app::main()] __lp_fixed32_sqrt(0x00040000): 0x{:x} (expected 0x{:x} for sqrt(4.0)=2.0)",
-        sqrt_four,
-        0x00020000
-    );
-
     if user_init_ptr == 0 || user_init_ptr == 0xDEADBEEF {
         // No user _init set - halt gracefully
-        println!("[lp-builtins-app::main()] no user _init specified. halting.");
+        host_debug!("[lp-builtins-app::main()] no user _init specified. halting.");
         ebreak();
     }
 
-    println!(
+    host_debug!(
         "[lp-builtins-app::main()] jumping to user _init at 0x{:x}",
         user_init_ptr
     );
@@ -293,7 +275,7 @@ pub extern "C" fn main() -> () {
         user_init()
     };
 
-    println!(
+    host_debug!(
         "[lp-builtins-app::main()] returned from user _init(): {}",
         res
     );
