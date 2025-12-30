@@ -7,3 +7,14 @@
 
 pub mod fixed32;
 
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    // For emulator: trap instruction (ebreak)
+    #[cfg(target_arch = "riscv32")]
+    unsafe {
+        core::arch::asm!("ebreak", options(nomem, nostack));
+    }
+    
+    // For other targets: infinite loop
+    loop {}
+}
