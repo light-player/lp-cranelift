@@ -62,11 +62,9 @@ pub fn calculate_object_layout(
         match section_name {
             ".text" => {
                 text_size = section.size();
-                debug!("Found .text section: size={} bytes", text_size);
             }
             ".data" => {
                 data_size = section.size();
-                debug!("Found .data section: size={} bytes", data_size);
             }
             _ => {}
         }

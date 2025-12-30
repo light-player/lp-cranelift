@@ -68,40 +68,26 @@ pub fn build_object_symbol_map(
                     Some(".text") => {
                         // .text section symbol: adjust by text_placement
                         // symbol_addr is section-relative offset
-                        let adjusted = text_placement.wrapping_add(symbol_addr as u32);
-                        debug!("  Symbol '{}': .text section, offset=0x{:x}, final=0x{:x}", 
-                               name, symbol_addr, adjusted);
-                        adjusted
+                        text_placement.wrapping_add(symbol_addr as u32)
                     }
                     Some(".data") => {
                         // .data section symbol: adjust by RAM_START + data_placement
                         // symbol_addr is section-relative offset
-                        let adjusted = RAM_START.wrapping_add(data_placement).wrapping_add(symbol_addr as u32);
-                        debug!("  Symbol '{}': .data section, offset=0x{:x}, final=0x{:x}", 
-                               name, symbol_addr, adjusted);
-                        adjusted
+                        RAM_START.wrapping_add(data_placement).wrapping_add(symbol_addr as u32)
                     }
                     Some(".rodata") => {
                         // .rodata section symbol: placed in code buffer after .text
                         // For now, place after .text (we'd need to track .rodata placement)
                         // This is a simplification - in practice .rodata might be placed differently
-                        let adjusted = text_placement.wrapping_add(symbol_addr as u32);
-                        debug!("  Symbol '{}': .rodata section, offset=0x{:x}, final=0x{:x} (simplified)", 
-                               name, symbol_addr, adjusted);
-                        adjusted
+                        text_placement.wrapping_add(symbol_addr as u32)
                     }
                     Some(".bss") => {
                         // .bss section symbol: placed in RAM buffer after .data
                         // For now, place after .data (we'd need to track .bss placement)
-                        let adjusted = RAM_START.wrapping_add(data_placement).wrapping_add(symbol_addr as u32);
-                        debug!("  Symbol '{}': .bss section, offset=0x{:x}, final=0x{:x} (simplified)", 
-                               name, symbol_addr, adjusted);
-                        adjusted
+                        RAM_START.wrapping_add(data_placement).wrapping_add(symbol_addr as u32)
                     }
                     _ => {
                         // Unknown section or no section - use address as-is
-                        debug!("  Symbol '{}': unknown section '{:?}', using address as-is: 0x{:x}", 
-                               name, section_name, symbol_addr);
                         symbol_addr as u32
                     }
                 }
@@ -117,20 +103,13 @@ pub fn build_object_symbol_map(
 
     // Add defined symbols first
     // If there are duplicates, keep the one with the higher address
-    for (name, addr, section) in defined_symbols {
+    for (name, addr, _section) in defined_symbols {
         if let Some(&existing_addr) = symbol_map.get(&name) {
             if addr > existing_addr {
                 symbol_map.insert(name.clone(), addr);
-                debug!("  Symbol '{}': replacing address 0x{:x} with 0x{:x} (higher address), section={:?}", 
-                       name, existing_addr, addr, section);
-            } else {
-                debug!("  Symbol '{}': keeping existing address 0x{:x} (new: 0x{:x}), section={:?}", 
-                       name, existing_addr, addr, section);
             }
         } else {
             symbol_map.insert(name.clone(), addr);
-            debug!("  Symbol '{}': address=0x{:x}, section={:?} (defined)", 
-                   name, addr, section);
         }
     }
 
@@ -138,9 +117,6 @@ pub fn build_object_symbol_map(
     for (name, addr) in undefined_symbols {
         if !symbol_map.contains_key(&name) {
             symbol_map.insert(name.clone(), addr);
-            debug!("  Symbol '{}': address=0x{:x} (undefined)", name, addr);
-        } else {
-            debug!("  Symbol '{}': skipping undefined (already have defined)", name);
         }
     }
 

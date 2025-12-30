@@ -9,7 +9,7 @@
 /// 4. Truncate to i32
 #[unsafe(no_mangle)]
 pub extern "C" fn __lp_fixed32_sqrt(x: i32) -> i32 {
-    // Handle edge cases
+    // // Handle edge cases
     if x <= 0 {
         return 0;
     }

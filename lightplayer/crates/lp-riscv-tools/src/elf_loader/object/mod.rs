@@ -22,6 +22,7 @@ pub use relocations::apply_object_relocations;
 extern crate alloc;
 
 use crate::debug;
+use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use hashbrown::HashMap;
@@ -116,8 +117,6 @@ pub fn load_object_file(
     let main_address = obj_symbol_map.get("main").copied();
     
     if let Some(main_addr) = main_address {
-        debug!("Found 'main' symbol in object file at 0x{:x}", main_addr);
-        
         // Update __USER_MAIN_PTR in ROM LMA (not RAM) so init code copies the correct value
         // The .data section is loaded into ROM at LMA and copied to RAM by init code
         if let Some(&user_main_ptr_vma) = merged_symbol_map.get("__USER_MAIN_PTR") {
@@ -133,32 +132,23 @@ pub fn load_object_file(
                     // The LMA is data_source_start + offset within section
                     let lma_offset = data_source_start as usize + ram_offset;
                     
-                    if lma_offset + 4 <= code.len() {
-                        // Write main address as little-endian u32 to ROM LMA
-                        code[lma_offset..lma_offset + 4].copy_from_slice(&main_addr.to_le_bytes());
-                        debug!("Updated __USER_MAIN_PTR at ROM LMA 0x{:x} (VMA 0x{:x}, RAM offset 0x{:x}) to point to main() at 0x{:x}",
-                               lma_offset, user_main_ptr_vma, ram_offset, main_addr);
-                    } else {
-                        debug!("Warning: __USER_MAIN_PTR LMA 0x{:x} is out of code buffer bounds (len={})",
-                               lma_offset, code.len());
+                    if lma_offset + 4 > code.len() {
+                        return Err(format!(
+                            "__USER_MAIN_PTR LMA 0x{:x} is out of code buffer bounds (len={})",
+                            lma_offset, code.len()
+                        ));
                     }
+                    // Write main address as little-endian u32 to ROM LMA
+                    code[lma_offset..lma_offset + 4].copy_from_slice(&main_addr.to_le_bytes());
                 } else {
                     // Fallback: update RAM directly (will be overwritten by init code, but might work if init already ran)
                     let ram_offset = (user_main_ptr_vma - RAM_START) as usize;
                     if ram_offset + 4 <= ram.len() {
                         ram[ram_offset..ram_offset + 4].copy_from_slice(&main_addr.to_le_bytes());
-                        debug!("Updated __USER_MAIN_PTR at RAM offset 0x{:x} (__data_source_start not found, using RAM directly)",
-                               ram_offset);
                     }
                 }
-            } else {
-                debug!("Warning: __USER_MAIN_PTR at 0x{:x} is not in RAM region", user_main_ptr_vma);
             }
-        } else {
-            debug!("__USER_MAIN_PTR symbol not found, skipping update");
         }
-    } else {
-        debug!("No 'main' symbol found in object file");
     }
 
     debug!("=== Object file loading complete ===");

@@ -173,14 +173,7 @@ pub fn apply_object_relocations(
             let adjustment = adjusted_info.vma.wrapping_sub(original_section_addr);
             
             // Adjust the relocation address
-            let old_address = adjusted_reloc.address;
             adjusted_reloc.address = (adjusted_reloc.address as u64).wrapping_add(adjustment) as u32;
-            
-            debug!("  Adjusted relocation in '{}': 0x{:x} -> 0x{:x} (section adjustment: 0x{:x})",
-                   adjusted_reloc.section_name, 
-                   old_address,
-                   adjusted_reloc.address,
-                   adjustment);
         }
         
         adjusted_relocations.push(adjusted_reloc);

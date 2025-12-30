@@ -88,7 +88,6 @@ pub fn load_object_sections(
                         .copy_from_slice(data);
                     
                     text_size = data.len();
-                    debug!("Loaded .text section: {} bytes at 0x{:x}", text_size, text_start);
                 }
             }
             ".data" => {
@@ -108,7 +107,6 @@ pub fn load_object_sections(
                         .copy_from_slice(data);
                     
                     data_size = data.len();
-                    debug!("Loaded .data section: {} bytes at offset 0x{:x}", data_size, data_start);
                 }
             }
             ".rodata" => {
@@ -130,8 +128,6 @@ pub fn load_object_sections(
                     // Copy section data
                     code[rodata_start_aligned as usize..rodata_start_aligned as usize + data.len()]
                         .copy_from_slice(data);
-                    
-                    debug!("Loaded .rodata section: {} bytes at 0x{:x}", data.len(), rodata_start_aligned);
                 }
             }
             ".bss" => {
@@ -150,13 +146,10 @@ pub fn load_object_sections(
                         ram[bss_start_aligned as usize..bss_start_aligned as usize + section_size]
                             .fill(0);
                     }
-                    
-                    debug!("Initialized .bss section: {} bytes at offset 0x{:x}", section_size, bss_start_aligned);
                 }
             }
             _ => {
                 // Skip other sections for now
-                debug!("Skipping section '{}' (kind: {:?})", section_name, section_kind);
             }
         }
     }

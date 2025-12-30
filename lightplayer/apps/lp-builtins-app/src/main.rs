@@ -12,6 +12,7 @@ use core::{
     mem::zeroed,
     ptr::{addr_of_mut, read, write_volatile},
 };
+use core::arch::asm;
 use lp_builtins::fixed32::{__lp_fixed32_div, __lp_fixed32_mul, __lp_fixed32_sqrt};
 
 /// Syscall number for panic
@@ -203,7 +204,10 @@ unsafe extern "C" fn _code_entry() -> ! {
         main();
     }
 
-    // If main returns (shouldn't happen), loop forever
+    unsafe {
+        asm! { "ebreak" }
+    }
+
     loop {}
 }
 
@@ -221,7 +225,7 @@ static mut __USER_MAIN_PTR: u32 = 0xDEADBEEF;
 /// 2. Reads __user_main_ptr from .data section
 /// 3. Jumps to that address if non-zero, otherwise panics
 #[unsafe(no_mangle)]
-pub extern "C" fn main() -> ! {
+pub extern "C" fn main() -> () {
     // Reference all builtin functions to prevent dead code elimination
     // These references ensure the functions are included in the executable
     unsafe {
@@ -241,19 +245,26 @@ pub extern "C" fn main() -> ! {
     let user_main_ptr =
         unsafe { core::ptr::read_volatile(&raw const __USER_MAIN_PTR as *const u32) };
 
-    println!("[lp-builtins-app] lp-builtins-app: main()");
-    println!("[lp-builtins-app] user_main_ptr: 0x{:x}", user_main_ptr);
+
+    println!("[lp-builtins-app::main()] lp-builtins-app: main()");
+    println!("[lp-builtins-app::main()] user_main_ptr: 0x{:x}", user_main_ptr);
+
+    let sqrt_res = __lp_fixed32_sqrt(0x10000);
+    println!("[lp-builtins-app::main()] __lp_fixed32_sqrt(0x10000): 0x{:x}", sqrt_res);
 
     if user_main_ptr == 0 || user_main_ptr == 0xDEADBEEF {
         // No user main set - panic
         panic!("__user_main_ptr not set (value: 0x{:x})", user_main_ptr);
     }
 
-    println!("[lp-builtins-app] about to jump");
+    println!("[lp-builtins-app::main()] about to jump");
 
     // Jump to user main
-    unsafe {
-        let user_main: extern "C" fn() -> ! = core::mem::transmute(user_main_ptr);
-        user_main();
-    }
+    let res = unsafe {
+        let user_main: extern "C" fn() -> i32 = core::mem::transmute(user_main_ptr);
+        user_main()
+    };
+
+    println!("[lp-builtins-app::main()] returned from user main(): {}", res);
+
 }

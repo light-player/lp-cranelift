@@ -442,17 +442,6 @@ mod tests {
         // Create main object file (calls __lp_fixed32_sqrt)
         let main_obj = create_main_object_with_builtin_call();
 
-        // Dump object file to /tmp for inspection
-        {
-            use std::fs::File;
-            use std::io::Write;
-            let mut f = File::create("/tmp/test_object.o").unwrap();
-            f.write_all(&main_obj).unwrap();
-            println!("\n=== Object file written to /tmp/test_object.o ===");
-            println!("Inspect with: readelf -r /tmp/test_object.o");
-            println!("Inspect with: objdump -d -r /tmp/test_object.o");
-        }
-
         // Load base executable
         let mut load_info = load_elf(&builtins_exe).expect("Failed to load base executable");
 
@@ -466,8 +455,6 @@ mod tests {
 
         // Verify main symbol was found
         assert!(obj_info.main_address.is_some(), "main symbol should be found in object file");
-        let main_addr = obj_info.main_address.unwrap();
-        println!("main() address: 0x{:x}", main_addr);
 
         // Verify __lp_fixed32_sqrt is in symbol map
         assert!(
@@ -475,7 +462,6 @@ mod tests {
             "__lp_fixed32_sqrt should be in merged symbol map"
         );
         let sqrt_addr = load_info.symbol_map.get("__lp_fixed32_sqrt").unwrap();
-        println!("__lp_fixed32_sqrt address: 0x{:x}", sqrt_addr);
 
         // Get RAM size before moving it into emulator
         let ram_size = load_info.ram.len();
@@ -494,9 +480,6 @@ mod tests {
 
         // Set PC to entry point - this will initialize and call our main() via __USER_MAIN_PTR
         emu.set_pc(load_info.entry_point);
-
-        println!("Entry point: 0x{:x}", load_info.entry_point);
-        println!("__lp_fixed32_sqrt address: 0x{:x}", sqrt_addr);
 
         // Run until function returns (or max instructions)
         let mut steps = 0;
@@ -518,37 +501,7 @@ mod tests {
 
                     // Handle panic result - break immediately
                     if let StepResult::Panic(panic_info) = step_result {
-                        println!("\n=== Panic Detected ===");
-                        println!("Panic message: {}", panic_info.message);
-                        if let Some(ref file) = panic_info.file {
-                            if let Some(line) = panic_info.line {
-                                println!("  at {}:{}", file, line);
-                            } else {
-                                println!("  at {}", file);
-                            }
-                        } else if let Some(line) = panic_info.line {
-                            println!("  at line {}", line);
-                        } else {
-                            println!("  (no file/line information available)");
-                        }
-                        println!("PC: 0x{:x}", panic_info.pc);
-                        println!("\n=== Emulator State ===");
-                        println!("{}", emu.dump_state());
-                        println!("\n=== Execution Log (last 30 instructions) ===");
-                        let logs = emu.format_logs();
-                        let log_lines: Vec<&str> = logs.lines().collect();
-                        let start = if log_lines.len() > 30 {
-                            log_lines.len() - 30
-                        } else {
-                            0
-                        };
-                        for line in log_lines.iter().skip(start) {
-                            println!("{}", line);
-                        }
-                        println!("\n=== Debug Info ===");
-                        println!("{}", emu.format_debug_info(Some(emu.get_pc()), 30));
-                        
-                        panic!("Panic occurred in emulated program: {}", panic_info.message);
+                        panic!("Panic occurred in emulated program at PC 0x{:x}: {}", panic_info.pc, panic_info.message);
                     }
                     
                     // Handle halt result
@@ -563,7 +516,6 @@ mod tests {
                     // Check if we've jumped into __lp_fixed32_sqrt (function was called)
                     if pc_after >= *sqrt_addr && pc_after < *sqrt_addr + 100 {
                         called_sqrt = true;
-                        println!("Detected call to __lp_fixed32_sqrt at step {} (PC: 0x{:x})", steps, pc_after);
                     }
 
                     // Check if PC is at halt address (function returned via RET)
@@ -573,32 +525,8 @@ mod tests {
                     }
                 }
                 Err(e) => {
-                    // Print debug information on error
-                    println!("\n=== Emulator Error ===");
-                    println!("Error: {}", e);
-                    println!("Steps executed: {}", steps);
-                    println!("PC: 0x{:x}", emu.get_pc());
-                    println!("a0 register: 0x{:x} ({})", last_a0 as u32, last_a0);
-                    println!("Called sqrt: {}", called_sqrt);
-                    println!("\n=== Emulator State ===");
-                    println!("{}", emu.dump_state());
-                    println!("\n=== Execution Log (last 30 instructions) ===");
-                    let logs = emu.format_logs();
-                    let log_lines: Vec<&str> = logs.lines().collect();
-                    let start = if log_lines.len() > 30 {
-                        log_lines.len() - 30
-                    } else {
-                        0
-                    };
-                    for line in log_lines.iter().skip(start) {
-                        println!("{}", line);
-                    }
-                    println!("\n=== Debug Info ===");
-                    println!("{}", emu.format_debug_info(Some(emu.get_pc()), 30));
-
                     // If we've called sqrt and executed enough steps, that's good enough
                     if called_sqrt && steps >= 15 {
-                        println!("\nEmulator stopped after {} steps (called sqrt): {} (a0=0x{:x})", steps, e, last_a0 as u32);
                         break;
                     }
                     if steps == 0 {
@@ -610,7 +538,6 @@ mod tests {
                     }
                     // If we called sqrt but got an error, that might be okay if we got a result
                     if called_sqrt {
-                        println!("\nEmulator stopped after {} steps (called sqrt): {} (a0=0x{:x})", steps, e, last_a0 as u32);
                         break;
                     }
                     panic!("Emulator error after {} steps: {} (a0=0x{:x})", steps, e, last_a0 as u32);
