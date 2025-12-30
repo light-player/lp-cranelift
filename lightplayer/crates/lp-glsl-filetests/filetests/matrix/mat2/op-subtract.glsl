@@ -67,3 +67,4 @@ mat2 test_mat2_subtract_zero_matrix() {
 }
 
 // run: test_mat2_subtract_zero_matrix() ~= mat2(1.0, 2.0, 3.0, 4.0)
+

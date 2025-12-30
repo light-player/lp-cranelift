@@ -89,3 +89,4 @@ Comprehensive test suite in `lightplayer/crates/lp-glsl-filetests/filetests/cont
 - **short_circuit.glsl**: Short-circuit evaluation behavior (note: both branches evaluated with `select`)
 
 
+

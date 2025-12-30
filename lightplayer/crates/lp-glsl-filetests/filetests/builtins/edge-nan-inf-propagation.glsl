@@ -87,3 +87,4 @@ vec2 test_inf_propagation() {
 }
 
 // run: test_inf_propagation() ~= vec2(0.0, 0.0)
+

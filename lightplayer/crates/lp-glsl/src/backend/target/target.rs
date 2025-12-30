@@ -61,9 +61,9 @@ impl Target {
         match self {
             Target::Rv32Emu { flags, isa } => {
                 if isa.is_none() {
-                    let triple = riscv32_triple();
                     #[cfg(feature = "emulator")]
                     {
+                        let triple = riscv32_triple();
                         use cranelift_codegen::isa::riscv32::isa_builder;
                         *isa = Some(isa_builder(triple).finish(flags.clone()).map_err(|e| {
                             GlslError::new(ErrorCode::E0400, format!("ISA creation failed: {}", e))
@@ -178,6 +178,7 @@ fn default_host_flags() -> Result<Flags, GlslError> {
 }
 
 /// Helper: Get RISC-V 32-bit triple
+#[cfg(feature = "emulator")]
 fn riscv32_triple() -> target_lexicon::Triple {
     use target_lexicon::{
         Architecture, BinaryFormat, Environment, OperatingSystem, Riscv32Architecture, Triple,

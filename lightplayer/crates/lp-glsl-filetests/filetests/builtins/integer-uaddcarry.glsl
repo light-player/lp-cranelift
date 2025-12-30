@@ -42,3 +42,4 @@ uvec4 test_uaddcarry_uvec2() {
 }
 
 // run: test_uaddcarry_uvec2() == uvec4(3u, 0u, 0u, 1u)
+

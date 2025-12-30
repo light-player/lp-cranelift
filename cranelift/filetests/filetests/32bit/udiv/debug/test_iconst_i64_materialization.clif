@@ -17,3 +17,4 @@ block0:
 ; If this fails, it means constants aren't being materialized correctly
 ; run: %test_iconst_i64_materialization() == 32
 
+

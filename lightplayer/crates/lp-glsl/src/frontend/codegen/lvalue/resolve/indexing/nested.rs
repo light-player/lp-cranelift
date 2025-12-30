@@ -70,7 +70,7 @@ pub fn resolve_nested_array_indexing<M: cranelift_module::Module>(
 
     // Process dimensions starting from index 1 (skip the first array dimension)
     let mut current_ty = base_ty.clone();
-    let mut current_vars = base_vars;
+    let current_vars = base_vars;
     let mut row: Option<usize> = None;
     let mut col: Option<usize> = None;
 
@@ -124,7 +124,7 @@ pub fn resolve_nested_array_indexing<M: cranelift_module::Module>(
                     base_ty
                 );
                 row = Some(index);
-                current_ty = process_vector_dimension(&current_ty, index, span)?;
+                let _ = process_vector_dimension(&current_ty, index, span)?;
                 return Ok(LValue::MatrixElement {
                     base_vars: current_vars,
                     base_ty: base_ty.clone(),

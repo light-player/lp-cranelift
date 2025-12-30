@@ -22,3 +22,4 @@ block1(v3: i64):
 ; run: %test_block_flow_i64(1) == 31
 ; run: %test_block_flow_i64(0x00000000fffffffe) == -4294967262
 
+

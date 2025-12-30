@@ -69,3 +69,4 @@ vec4 test_modf_vec3() {
 }
 
 // run: test_modf_vec3() ~= vec4(0.5, -0.8, 0.0, 1.0)
+

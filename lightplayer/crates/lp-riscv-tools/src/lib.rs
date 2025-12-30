@@ -14,12 +14,20 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+// Debug macro
+#[macro_use]
+mod debug;
+
 // Emulator modules
 pub mod emu;
 
 // ELF loading utility
 #[cfg(feature = "std")]
 pub mod elf_loader;
+
+// ELF linking utility
+#[cfg(feature = "std")]
+pub mod elf_linker;
 
 // Instruction utilities
 pub mod auipc_imm;
@@ -42,3 +50,5 @@ pub use regs::Gpr;
 
 #[cfg(feature = "std")]
 pub use elf_loader::{ElfLoadInfo, find_symbol_address, load_elf};
+#[cfg(feature = "std")]
+pub use elf_linker::{link_static_library, LinkerError};

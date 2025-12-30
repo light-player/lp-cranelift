@@ -152,3 +152,4 @@ float test_edge_return_type_multiple_returns() {
 }
 
 // run: test_edge_return_type_multiple_returns() ~= 5.0
+

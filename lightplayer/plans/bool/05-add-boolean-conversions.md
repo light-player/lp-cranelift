@@ -182,3 +182,4 @@ git commit -m "lpc: add boolean type conversions"
 - **Zero Comparison**: For numeric → bool, any non-zero value converts to true
 - **Explicit Conversions**: All conversions are explicit (via constructors), not implicit
 
+

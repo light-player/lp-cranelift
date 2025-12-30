@@ -68,3 +68,4 @@ mat2 test_mat2_negate_fractional() {
 }
 
 // run: test_mat2_negate_fractional() ~= mat2(-1.5, -2.5, -3.5, -4.5)
+

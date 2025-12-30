@@ -74,3 +74,4 @@ vec4 test_cos_vec4() {
 }
 
 // run: test_cos_vec4() ~= vec4(1.0, 0.0, -1.0, 0.0)
+

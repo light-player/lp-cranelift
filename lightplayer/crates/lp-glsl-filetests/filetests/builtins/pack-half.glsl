@@ -47,3 +47,4 @@ uint test_packhalf2x16_small() {
 }
 
 // run: test_packhalf2x16_small() == 50331648u
+

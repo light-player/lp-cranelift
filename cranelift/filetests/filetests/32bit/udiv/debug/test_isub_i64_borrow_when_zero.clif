@@ -21,3 +21,4 @@ block0(v0: i64, v1: i64):
 ; High parts: a0 should be 0, a3 should be 0
 ; run: %test_isub_i64_borrow_when_zero(0x0000000000000000, 0x0000000000000000) == 0
 
+

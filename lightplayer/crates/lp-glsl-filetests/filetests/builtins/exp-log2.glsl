@@ -69,3 +69,4 @@ vec4 test_log2_vec4() {
 }
 
 // run: test_log2_vec4() ~= vec4(0.0, 1.0, -1.0, -2.0)
+

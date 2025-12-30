@@ -98,3 +98,4 @@ bool test_call_simple_in_condition() {
 
 // run: test_call_simple_in_condition() == false
 
+

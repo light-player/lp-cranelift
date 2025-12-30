@@ -151,7 +151,14 @@ fn convert_instruction(
             converters::math::convert_nearest(old_func, old_inst, builder, value_map, format)?;
         }
         Opcode::Sqrt => {
-            converters::math::convert_sqrt(old_func, old_inst, builder, value_map, format)?;
+            converters::math::convert_sqrt(
+                old_func,
+                old_inst,
+                builder,
+                value_map,
+                format,
+                func_id_map,
+            )?;
         }
         Opcode::FcvtFromSint => {
             converters::conversions::convert_fcvt_from_sint(

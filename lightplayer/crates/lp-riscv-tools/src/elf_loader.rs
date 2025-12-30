@@ -60,20 +60,33 @@ fn apply_single_relocation(
 ) -> Result<(), String> {
     use object::{RelocationFlags, RelocationTarget};
 
+    use crate::debug;
+    
     // Get target symbol address
+    // IMPORTANT: Symbol indices can be wrong after linking due to symbol reordering.
+    // We resolve by name from the symbol_map, which prefers defined symbols.
     let target_addr = match reloc.target() {
         RelocationTarget::Symbol(sym_idx) => {
             if let Ok(sym) = obj.symbol_by_index(sym_idx) {
                 if let Ok(name) = sym.name() {
+                    debug!("  Relocation targets symbol '{}' (index {})", name, sym_idx.0);
+                    
+                    // Look up by name in symbol_map - this ensures we get the right symbol
+                    // even if the index is wrong due to symbol reordering
                     symbol_map.get(name).copied()
                 } else {
+                    debug!("  Relocation targets unnamed symbol (index {})", sym_idx.0);
                     None
                 }
             } else {
+                debug!("  Relocation targets invalid symbol index {}", sym_idx.0);
                 None
             }
         }
-        _ => None,
+        _ => {
+            debug!("  Relocation has non-symbol target");
+            None
+        }
     };
 
     let target_addr = target_addr.ok_or_else(|| {
@@ -109,6 +122,9 @@ fn apply_single_relocation(
     let pcrel = target_absolute
         .wrapping_sub(pc)
         .wrapping_add(reloc.addend() as u32);
+    
+    debug!("  PC=0x{:x}, target_absolute=0x{:x}, pcrel=0x{:x} (signed: {})", 
+           pc, target_absolute, pcrel, pcrel as i32);
 
     // Determine relocation type from flags
     let reloc_offset = reloc_offset as usize;
@@ -244,10 +260,16 @@ fn apply_relocations(
     text_section_id: object::SectionIndex,
     text_section_base: u64,
 ) -> Result<(), String> {
+    use crate::debug;
+    
     // Build comprehensive symbol map (name -> address)
+    // We need to handle duplicate symbols - prefer defined ones over undefined ones
     let mut symbol_map: HashMap<String, u32> = HashMap::new();
 
-    // Include ALL symbols, not just Text
+    debug!("=== Building symbol map for relocations ===");
+    debug!("text_section_base: 0x{:x}", text_section_base);
+
+    // First pass: collect all symbols, preferring defined ones
     for symbol in obj.symbols() {
         if let Ok(name) = symbol.name() {
             if name.is_empty() {
@@ -255,34 +277,49 @@ fn apply_relocations(
             }
 
             let addr = symbol.address();
-            let _symbol_section = symbol.section();
+            let symbol_section = symbol.section();
+            let is_defined = symbol_section != object::SymbolSection::Undefined;
 
-            // Address 0 is valid if the text section starts at 0 and this is the first function
-            // So we use the address as-is
-            let final_addr = addr;
-
-            if final_addr >= text_section_base {
-                let offset = (final_addr - text_section_base) as u32;
-                symbol_map.insert(name.to_string(), offset);
+            // If we already have this symbol, only replace if the new one is defined and old one wasn't
+            if let Some(&_existing_addr) = symbol_map.get(name) {
+                if is_defined {
+                    // New symbol is defined, use it
+                    let offset = if addr >= text_section_base {
+                        (addr - text_section_base) as u32
+                    } else {
+                        addr as u32
+                    };
+                    symbol_map.insert(name.to_string(), offset);
+                    debug!("  Symbol '{}': replacing with defined addr=0x{:x}, offset=0x{:x}, section={:?}", name, addr, offset, symbol_section);
+                } else {
+                    // Keep existing (might be defined)
+                    debug!("  Symbol '{}': keeping existing entry (new is undefined)", name);
+                }
             } else {
-                // For symbols in other sections, store absolute address
-                // These will be handled differently during relocation
-                symbol_map.insert(format!("{}_abs", name), addr as u32);
-            }
-
-            // Also store the original symbol regardless of address
-            // This handles cases where symbols might be at address 0 or in different sections
-            if !symbol_map.contains_key(name) {
-                symbol_map.insert(name.to_string(), addr as u32);
+                // New symbol, add it
+                let offset = if addr >= text_section_base {
+                    (addr - text_section_base) as u32
+                } else {
+                    addr as u32
+                };
+                symbol_map.insert(name.to_string(), offset);
+                debug!("  Symbol '{}': addr=0x{:x}, offset=0x{:x}, section={:?}", name, addr, offset, symbol_section);
             }
         }
     }
+    
+    debug!("Symbol map contains {} entries", symbol_map.len());
 
     // Find text section and apply relocations
+    debug!("=== Applying relocations ===");
     for section in obj.sections() {
         if section.index() == text_section_id {
             let section_load_addr = section.address();
+            debug!("Text section load address: 0x{:x}", section_load_addr);
+            let mut reloc_count = 0;
             for (reloc_offset, reloc) in section.relocations() {
+                reloc_count += 1;
+                debug!("Relocation {} at offset 0x{:x}", reloc_count, reloc_offset);
                 apply_single_relocation(
                     &reloc,
                     reloc_offset,
@@ -313,6 +350,7 @@ fn apply_relocations(
                     }
                 })?;
             }
+            debug!("Applied {} relocations", reloc_count);
             break;
         }
     }

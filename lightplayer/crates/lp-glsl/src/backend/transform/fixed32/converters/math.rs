@@ -1,11 +1,11 @@
 //! Math function conversion functions.
 
 use crate::backend::transform::fixed32::converters::{
-    create_zero_const, extract_unary_operand, get_first_result, map_operand,
+    extract_unary_operand, get_first_result, map_operand,
 };
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::error::GlslError;
-use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, condcodes::IntCC, types};
+use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, types};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 
@@ -103,70 +103,66 @@ pub(crate) fn convert_nearest(
     Ok(())
 }
 
-/// Convert Sqrt using Newton-Raphson method.
+/// Convert Sqrt by calling the linked __lp_fixed32_sqrt function.
 pub(crate) fn convert_sqrt(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
     value_map: &mut HashMap<Value, Value>,
-    format: FixedPointFormat,
+    _format: FixedPointFormat,
+    func_id_map: &HashMap<alloc::string::String, cranelift_module::FuncId>,
 ) -> Result<(), GlslError> {
+    use cranelift_codegen::ir::{
+        AbiParam, ExtFuncData, ExternalName, Signature, UserExternalName,
+    };
+    use cranelift_codegen::isa::CallConv;
+
     let arg = extract_unary_operand(old_func, old_inst)?;
     let mapped_arg = map_operand(value_map, arg);
-    let target_type = format.cranelift_type();
-    let shift_amount = format.shift_amount();
 
-    // Handle edge cases with select (no branching)
-    let zero = create_zero_const(builder, format);
-    let is_zero = builder.ins().icmp(IntCC::Equal, mapped_arg, zero);
-    let is_negative = builder.ins().icmp(IntCC::SignedLessThan, mapped_arg, zero);
-    let is_invalid = builder.ins().bor(is_zero, is_negative);
+    // Get FuncId for __lp_fixed32_sqrt from func_id_map
+    let builtin_name = "__lp_fixed32_sqrt";
+    let func_id = func_id_map.get(builtin_name).ok_or_else(|| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            format!(
+                "Builtin function '{}' not found in func_id_map",
+                builtin_name
+            ),
+        )
+    })?;
 
-    // Convert to i64 for intermediate calculations
-    let x_fixed_wide = builder.ins().sextend(types::I64, mapped_arg);
+    // Create signature for __lp_fixed32_sqrt: (i32) -> i32
+    let mut sig = Signature::new(CallConv::SystemV);
+    sig.params.push(AbiParam::new(types::I32));
+    sig.returns.push(AbiParam::new(types::I32));
+    let sig_ref = builder.func.import_signature(sig);
 
-    // Scale up for better precision: x_scaled = x_fixed << 16
-    // This allows us to compute sqrt(x_fixed << 16) = sqrt(x) * 65536 directly
-    let shift_16 = builder.ins().iconst(types::I64, shift_amount);
-    let x_scaled = builder.ins().ishl(x_fixed_wide, shift_16);
+    // Create UserExternalName with the FuncId
+    let user_name = UserExternalName {
+        namespace: 0, // Use namespace 0 for builtins
+        index: func_id.as_u32(),
+    };
+    let user_ref = builder.func.declare_imported_user_function(user_name);
+    let ext_name = ExternalName::User(user_ref);
 
-    // Initial guess: max(x_scaled >> 16, 1) to avoid division by zero
-    // This is a rough approximation: sqrt(x_scaled) ≈ x_scaled >> 16 for large values
-    let shift_16_for_guess = builder.ins().iconst(types::I64, shift_amount);
-    let guess0_wide = builder.ins().sshr(x_scaled, shift_16_for_guess);
-    let one_wide = builder.ins().iconst(types::I64, 1);
-    let guess0_min = builder.ins().smax(guess0_wide, one_wide);
+    // For ObjectModule (emulator), colocated should be true so the linker can resolve
+    // the symbol directly. For JITModule, colocated doesn't matter as much since
+    // function pointers are resolved at runtime via symbol_lookup_fn.
+    // We use true here to ensure proper linking for emulator mode.
+    let ext_func = ExtFuncData {
+        name: ext_name,
+        signature: sig_ref,
+        colocated: true,
+    };
+    let sqrt_func_ref = builder.func.import_function(ext_func);
 
-    // Newton-Raphson iteration 1: guess1 = (guess0 + x_scaled / guess0) >> 1
-    let div1 = builder.ins().sdiv(x_scaled, guess0_min);
-    let sum1 = builder.ins().iadd(guess0_min, div1);
-    let shift_1 = builder.ins().iconst(types::I64, 1);
-    let guess1_wide = builder.ins().sshr(sum1, shift_1);
-
-    // Newton-Raphson iteration 2
-    let div2 = builder.ins().sdiv(x_scaled, guess1_wide);
-    let sum2 = builder.ins().iadd(guess1_wide, div2);
-    let guess2_wide = builder.ins().sshr(sum2, shift_1);
-
-    // Newton-Raphson iteration 3
-    let div3 = builder.ins().sdiv(x_scaled, guess2_wide);
-    let sum3 = builder.ins().iadd(guess2_wide, div3);
-    let guess3_wide = builder.ins().sshr(sum3, shift_1);
-
-    // Newton-Raphson iteration 4 (for better precision)
-    let div4 = builder.ins().sdiv(x_scaled, guess3_wide);
-    let sum4 = builder.ins().iadd(guess3_wide, div4);
-    let guess4_wide = builder.ins().sshr(sum4, shift_1);
-
-    // guess4_wide = sqrt(x_scaled) = sqrt(x_fixed << 16) = sqrt(x) * 65536
-    // This is already in fixed-point format, so we just truncate to i32
-    let result = builder.ins().ireduce(target_type, guess4_wide);
-
-    // Handle edge cases: if input was zero or negative, return 0
-    let new_result = builder.ins().select(is_invalid, zero, result);
+    // Call __lp_fixed32_sqrt with the mapped argument
+    let call_result = builder.ins().call(sqrt_func_ref, &[mapped_arg]);
+    let result = builder.inst_results(call_result)[0];
 
     let old_result = get_first_result(old_func, old_inst);
-    value_map.insert(old_result, new_result);
+    value_map.insert(old_result, result);
 
     Ok(())
 }

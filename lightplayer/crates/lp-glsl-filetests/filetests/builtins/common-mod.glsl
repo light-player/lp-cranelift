@@ -61,3 +61,4 @@ vec4 test_mod_vec4() {
 }
 
 // run: test_mod_vec4() ~= vec4(2.0, 1.0, 1.0, 1.0)
+

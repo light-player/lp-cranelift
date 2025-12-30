@@ -288,6 +288,7 @@ pub(crate) fn convert_fabs(
 #[cfg(test)]
 #[cfg(feature = "std")]
 mod tests {
+    #[cfg(feature = "emulator")]
     use crate::backend::transform::fixed32::fixed32_test_util;
 
     /// Test fadd: addition

@@ -202,7 +202,7 @@ impl GlslOptions {
             run_mode: RunMode::Emulator {
                 max_memory,
                 stack_size,
-                max_instructions: 10_000_000,
+                max_instructions: 10_000,
             },
             decimal_format: DecimalFormat::Fixed32,
         }
@@ -216,7 +216,7 @@ impl GlslOptions {
             run_mode: RunMode::Emulator {
                 max_memory: 1024 * 1024, // 1MB
                 stack_size: 64 * 1024,   // 64KB
-                max_instructions: 10_000_000,
+                max_instructions: 10_000,
             },
             decimal_format: DecimalFormat::Fixed32,
         }

@@ -22,6 +22,7 @@ object = { workspace = true, optional = true }
 target-lexicon = { workspace = true }
 lp-jit-util = { path = "../lp-jit-util", default-features = false }
 lp-riscv-tools = { path = "../lp-riscv-tools", optional = true, features = ["std"] }
+lp-builtins = { path = "../lp-builtins" }
 anyhow = { workspace = true, optional = true }
 
 [features]
@@ -38,7 +39,8 @@ std = [
     "cranelift-jit/std",
     "cranelift-native",
     "cranelift-reader",
-    "anyhow"
+    "anyhow",
+    "lp-builtins/std"
 ]
 core = [
     "cranelift-codegen/core",

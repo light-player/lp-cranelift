@@ -15,3 +15,4 @@ block0(v0: i64, v1: i64):
 ; run: %test_isub_i64_simple(0x0000000000000000, 0x0000000000000000) == 0
 ; run: %test_isub_i64_simple(0x0000000000000001, 0x0000000000000002) == 0xffffffffffffffff
 
+

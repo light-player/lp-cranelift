@@ -10,4 +10,3 @@ mod sqrt;
 pub use div::__lp_fixed32_div;
 pub use mul::__lp_fixed32_mul;
 pub use sqrt::__lp_fixed32_sqrt;
-

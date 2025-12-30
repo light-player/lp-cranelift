@@ -19,3 +19,4 @@ block1(v3: i64):
 ; run: %test_block_arg_i64(32) == 0
 ; run: %test_block_arg_i64(0x00000000fffffffe) == -4294967262
 
+

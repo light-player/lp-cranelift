@@ -106,3 +106,4 @@ float test_edge_const_struct() {
 }
 
 // run: test_edge_const_struct() ~= 5.0
+

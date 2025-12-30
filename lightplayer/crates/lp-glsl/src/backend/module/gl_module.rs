@@ -6,6 +6,8 @@ use crate::error::{ErrorCode, GlslError};
 use crate::frontend::semantic::functions::{FunctionRegistry, FunctionSignature};
 use crate::frontend::src_loc::GlSourceMap;
 use crate::frontend::src_loc_manager::SourceLocManager;
+#[cfg(feature = "std")]
+use alloc::boxed::Box;
 use alloc::string::String;
 use cranelift_jit::JITModule;
 use cranelift_module::Module;
@@ -35,13 +37,53 @@ impl GlModule<JITModule> {
     pub fn new_jit(mut target: Target) -> Result<Self, GlslError> {
         match &target {
             Target::HostJit { .. } => {
-                let builder = target.create_module_builder()?;
-                let module = match builder {
+                let mut builder = target.create_module_builder()?;
+                // Add builtin symbol lookup function before creating module
+                {
+                    use crate::backend::builtins::registry::{BuiltinId, get_function_pointer};
+                    match &mut builder {
+                        crate::backend::target::builder::ModuleBuilder::JIT(jit_builder) => {
+                            // Create lookup function that returns builtin function pointers
+                            // This works in both std and no_std - iterate through builtins directly
+                            jit_builder.symbol_lookup_fn(Box::new(
+                                move |name: &str| -> Option<*const u8> {
+                                    for builtin in BuiltinId::all() {
+                                        if builtin.name() == name {
+                                            return Some(get_function_pointer(*builtin));
+                                        }
+                                    }
+                                    None
+                                },
+                            ));
+                        }
+                        #[cfg(feature = "emulator")]
+                        crate::backend::target::builder::ModuleBuilder::Object(_) => {
+                            return Err(GlslError::new(
+                                crate::error::ErrorCode::E0400,
+                                "HostJit target must create JIT builder",
+                            ));
+                        }
+                    }
+                }
+                let mut module = match builder {
                     crate::backend::target::builder::ModuleBuilder::JIT(jit_builder) => {
                         JITModule::new(jit_builder)
                     }
-                    _ => return Err(GlslError::new(ErrorCode::E0400, "Expected JIT builder")),
+                    #[cfg(feature = "emulator")]
+                    crate::backend::target::builder::ModuleBuilder::Object(_) => {
+                        return Err(GlslError::new(
+                            crate::error::ErrorCode::E0400,
+                            "HostJit target cannot create Object builder",
+                        ));
+                    }
                 };
+
+                // Declare builtin functions when module is created
+                {
+                    use crate::backend::builtins::declare_builtins;
+                    declare_builtins(&mut module)?;
+                }
+
                 Ok(Self {
                     target,
                     fns: HashMap::new(),
@@ -75,12 +117,19 @@ impl GlModule<ObjectModule> {
         match &target {
             Target::Rv32Emu { .. } => {
                 let builder = target.create_module_builder()?;
-                let module = match builder {
+                let mut module = match builder {
                     crate::backend::target::builder::ModuleBuilder::Object(obj_builder) => {
                         ObjectModule::new(obj_builder)
                     }
                     _ => return Err(GlslError::new(ErrorCode::E0400, "Expected Object builder")),
                 };
+
+                // Declare builtin functions when module is created
+                {
+                    use crate::backend::builtins::declare_builtins;
+                    declare_builtins(&mut module)?;
+                }
+
                 Ok(Self {
                     target,
                     fns: HashMap::new(),
@@ -111,6 +160,62 @@ impl<M: Module> GlModule<M> {
     /// Get function metadata by name
     pub fn get_func(&self, name: &str) -> Option<&GlFunc> {
         self.fns.get(name)
+    }
+
+    /// Get a FuncRef for a builtin function that can be used in function building.
+    ///
+    /// This handles the differences between JIT and ObjectModule:
+    /// - For JIT: Uses UserExternalName with FuncId, resolved via symbol_lookup_fn
+    /// - For ObjectModule: Uses FuncId from module declarations, generates direct call
+    ///
+    /// The builtin must have been declared via `declare_builtins` before calling this.
+    pub fn get_builtin_func_ref(
+        &mut self,
+        builtin: crate::backend::builtins::registry::BuiltinId,
+        func: &mut cranelift_codegen::ir::Function,
+    ) -> Result<cranelift_codegen::ir::FuncRef, GlslError> {
+        use crate::backend::builtins::registry::BuiltinId;
+        use cranelift_module::FuncOrDataId;
+
+        let name = builtin.name();
+        let func_id = self
+            .module
+            .declarations()
+            .get_name(name)
+            .and_then(|id| match id {
+                FuncOrDataId::Func(fid) => Some(fid),
+                FuncOrDataId::Data(_) => None,
+            })
+            .ok_or_else(|| {
+                GlslError::new(
+                    crate::error::ErrorCode::E0400,
+                    format!(
+                        "Builtin function '{}' not found in module declarations. Ensure declare_builtins() was called.",
+                        name
+                    ),
+                )
+            })?;
+
+        // Use declare_func_in_func which handles both JIT and ObjectModule correctly:
+        // - For JIT: Creates UserExternalName that will be resolved via symbol_lookup_fn
+        // - For ObjectModule: Creates UserExternalName that maps to the symbol name for linker resolution
+        // The colocated flag is determined by the linkage (Import -> false, but that's handled internally)
+        Ok(self.module.declare_func_in_func(func_id, func))
+    }
+
+    /// Get a FuncRef for a builtin function by FuncId (for use during transformations).
+    ///
+    /// This is a lower-level version that takes a FuncId directly, useful when you
+    /// already have the FuncId from func_id_map during transformations.
+    ///
+    /// This handles the differences between JIT and ObjectModule correctly.
+    pub fn get_builtin_func_ref_by_id(
+        &mut self,
+        func_id: cranelift_module::FuncId,
+        func: &mut cranelift_codegen::ir::Function,
+    ) -> cranelift_codegen::ir::FuncRef {
+        // Use declare_func_in_func which handles both JIT and ObjectModule correctly
+        self.module.declare_func_in_func(func_id, func)
     }
 
     /// Add a function to this module
@@ -264,6 +369,22 @@ impl<M: Module> GlModule<M> {
             func_id_map.insert(name.clone(), func_id);
             // Build reverse mapping: old FuncId -> function name
             old_func_id_map.insert(gl_func.func_id, name.clone());
+        }
+
+        // 1.5. Add builtin function FuncIds to func_id_map
+        // Builtins are declared when the module is created, so they should always be available
+        {
+            use crate::backend::builtins::registry::BuiltinId;
+            use cranelift_module::FuncOrDataId;
+            for builtin in BuiltinId::all() {
+                let name = builtin.name();
+                // Get FuncId from module declarations (builtins are declared at module creation)
+                if let Some(FuncOrDataId::Func(func_id)) =
+                    new_module.module_internal().declarations().get_name(name)
+                {
+                    func_id_map.insert(alloc::string::String::from(name), func_id);
+                }
+            }
         }
 
         // 2. Transform function bodies

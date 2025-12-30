@@ -18,3 +18,4 @@ int test_while_loop_in_if() {
 }
 
 // run: test_while_loop_in_if() == 3
+

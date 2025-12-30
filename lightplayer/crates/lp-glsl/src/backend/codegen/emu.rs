@@ -1,6 +1,12 @@
 //! Emulator codegen - build executable from GlModule<ObjectModule>
 
 #[cfg(feature = "emulator")]
+#[allow(unused_imports)]
+mod builtins_lib {
+    include!(concat!(env!("OUT_DIR"), "/lp_builtins_lib.rs"));
+}
+
+#[cfg(feature = "emulator")]
 use crate::backend::module::gl_module::GlModule;
 #[cfg(feature = "emulator")]
 use crate::error::{ErrorCode, GlslError};
@@ -45,6 +51,8 @@ pub fn build_emu_executable(
     use lp_riscv_tools::emu::LogLevel;
     use lp_riscv_tools::emu::emulator::Riscv32Emulator;
     use object::{Object, ObjectSection, ObjectSymbol};
+
+    // Builtin functions are already declared when the module was created
 
     // 1. Define all functions (compile them)
     // Collect function data first to avoid borrowing conflicts
@@ -263,9 +271,48 @@ pub fn build_emu_executable(
 
     // 3. Finish module and get object file
     let product = gl_module.into_module().finish();
-    let elf_bytes = product
+    let mut elf_bytes = product
         .emit()
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to emit ELF: {}", e)))?;
+
+    // Debug: Check symbols BEFORE linking
+    crate::debug!("=== Symbols BEFORE linking ===");
+    if let Ok(obj) = object::File::parse(&elf_bytes[..]) {
+        use crate::backend::builtins::registry::BuiltinId;
+        for builtin in BuiltinId::all() {
+            let symbol_name = builtin.name();
+            crate::debug!("Looking for builtin: {}", symbol_name);
+            let mut found = false;
+            for symbol in obj.symbols() {
+                if let Ok(name) = symbol.name() {
+                    if name == symbol_name {
+                        found = true;
+                        crate::debug!(
+                            "  Found {}: kind={:?} section={:?} address=0x{:x}",
+                            name,
+                            symbol.kind(),
+                            symbol.section(),
+                            symbol.address()
+                        );
+                    }
+                }
+            }
+            if !found {
+                crate::debug!("  NOT FOUND: {}", symbol_name);
+            }
+        }
+    }
+
+    // 3.5 Link builtins static library into the ELF if available
+    #[cfg(feature = "std")]
+    {
+        // Use compile-time embedded library bytes
+        let builtins_lib_bytes = builtins_lib::LP_BUILTINS_LIB_BYTES;
+        elf_bytes = crate::backend::codegen::builtins_linker::link_and_verify_builtins(
+            &elf_bytes,
+            builtins_lib_bytes,
+        )?;
+    }
 
     // 4. Load ELF and find main address
     let load_info = load_elf(&elf_bytes)

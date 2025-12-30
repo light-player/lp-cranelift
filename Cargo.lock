@@ -2414,6 +2414,7 @@ dependencies = [
  "hashbrown 0.15.2",
  "nom",
  "object 0.37.3",
+ "target-lexicon",
 ]
 
 [[package]]

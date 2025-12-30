@@ -1430,4 +1430,28 @@ mod tests {
             result_float
         );
     }
+
+    #[test]
+    fn test_emu_builtin_sqrt_linked() {
+        // Test that sqrt() uses the linked __lp_fixed32_sqrt function
+        let source = r#"
+        float main() {
+            return sqrt(4.0);
+        }
+    "#;
+
+        let options = GlslOptions::emu_riscv32_imac();
+
+        let mut executable = glsl_emu_riscv32(source, options).expect("Compilation failed");
+        let result = executable.call_f32("main", &[]).expect("Execution failed");
+
+        let expected = 2.0;
+        let result_float = fixed32_to_float(float_to_fixed32(result));
+        assert!(
+            (result_float - expected).abs() < 0.01,
+            "Expected sqrt(4.0) ≈ {}, got {}",
+            expected,
+            result_float
+        );
+    }
 }

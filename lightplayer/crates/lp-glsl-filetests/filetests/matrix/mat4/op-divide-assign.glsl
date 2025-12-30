@@ -86,3 +86,4 @@ mat4 test_mat4_divide_assign_scalar_fractional() {
 }
 
 // run: test_mat4_divide_assign_scalar_fractional() ~= mat4(20.0, 40.0, 60.0, 80.0, 100.0, 120.0, 140.0, 160.0, 180.0, 200.0, 220.0, 240.0, 260.0, 280.0, 300.0, 320.0)
+

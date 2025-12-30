@@ -61,3 +61,4 @@ vec4 test_intbitstofloat_vec4() {
 }
 
 // run: test_intbitstofloat_vec4() ~= vec4(1.0, 0.0, -1.0, 1.0 / 0.0)
+

@@ -72,3 +72,4 @@ cargo run -p lp-glsl-filetests --bin bless-filetest -- function2/*.glsl
 - This is a minimal converter - only what's needed for test validation
 - Focus on correctness over completeness
 - Fail fast on unsupported features rather than trying to handle everything
+

@@ -38,3 +38,4 @@ vec2 test_trig_vec2() {
 // functions are compiled. This is verified manually during development
 // by inspecting the generated code.
 
+

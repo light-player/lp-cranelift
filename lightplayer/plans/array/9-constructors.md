@@ -68,3 +68,4 @@ Test file: `lightplayer/crates/lp-glsl-filetests/filetests/array/phases/9-constr
 - `lightplayer/crates/lp-glsl/src/frontend/codegen/expr/constructor.rs`
 - `lightplayer/crates/lp-glsl/src/frontend/semantic/type_check/constructors.rs` (may need array constructor checking)
 
+

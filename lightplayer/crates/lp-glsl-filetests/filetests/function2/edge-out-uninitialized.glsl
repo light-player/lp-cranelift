@@ -119,3 +119,4 @@ bool test_edge_out_bool_uninitialized() {
 }
 
 // run: test_edge_out_bool_uninitialized() == true
+

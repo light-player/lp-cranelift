@@ -25,3 +25,4 @@ block0(v0: i64, v1: i64):
 ; This happens when low part subtraction wraps but borrow detection is wrong
 ; run: %test_isub_i64_loop(0x0000000000000001, 0x0000000000000002) == 0xffffffffffffffff
 
+

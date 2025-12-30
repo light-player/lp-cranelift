@@ -22,7 +22,7 @@ cranelift-frontend = { workspace = true, optional = true }
 
 # For ELF loading (std only)
 elf = { version = "0.7", optional = true }
-object = { version = "0.37.3", optional = true }
+object = { version = "0.37.3", optional = true, features = ["write"] }
 
 [features]
 std = ["dep:cranelift-frontend", "cranelift-frontend/std", "dep:elf", "dep:object"]
@@ -31,6 +31,7 @@ std = ["dep:cranelift-frontend", "cranelift-frontend/std", "dep:elf", "dep:objec
 cranelift-object = { workspace = true }
 cranelift-frontend = { workspace = true }
 cranelift-module = { workspace = true }
+target-lexicon = "0.13"
 
 [[example]]
 name = "simple_codegen"

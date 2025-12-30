@@ -26,3 +26,4 @@ block0(v0: i32, v1: i32):
 ; run: %test_icmp_sle_isub_bug(1, 0) == 1     ; 0 <= (1 - 0) = 0 <= 1 (true)
 ; run: %test_icmp_sle_isub_bug(0, 1) == 0     ; 0 <= (0 - 2) = 0 <= -2 (false)
 
+

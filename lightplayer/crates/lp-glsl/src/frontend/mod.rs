@@ -38,6 +38,7 @@ use cranelift_jit::JITModule;
 use cranelift_object::ObjectModule;
 
 use alloc::boxed::Box;
+#[cfg(feature = "emulator")]
 use alloc::string::String;
 
 /// Compile GLSL to GlModule<JITModule> (internal, reusable)

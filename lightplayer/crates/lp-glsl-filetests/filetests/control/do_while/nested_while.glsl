@@ -40,3 +40,4 @@ int test_while_in_do_while_loop_continue() {
 }
 
 // run: test_while_in_do_while_loop_continue() == 12
+

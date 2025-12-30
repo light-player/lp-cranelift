@@ -69,3 +69,4 @@ ivec2 test_findlsb_ivec2() {
 }
 
 // run: test_findlsb_ivec2() == ivec2(-1, 3)
+

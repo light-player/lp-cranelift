@@ -1,3 +1,4 @@
+pub mod builtins;
 pub mod codegen;
 pub mod module;
 pub mod target;

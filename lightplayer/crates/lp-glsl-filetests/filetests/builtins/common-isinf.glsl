@@ -54,3 +54,4 @@ bvec4 test_isinf_vec4() {
 }
 
 // run: test_isinf_vec4() == bvec4(true, true, false, false)
+

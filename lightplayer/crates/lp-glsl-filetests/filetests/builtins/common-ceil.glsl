@@ -61,3 +61,4 @@ vec4 test_ceil_vec4() {
 }
 
 // run: test_ceil_vec4() ~= vec4(2.0, 3.0, 0.0, 4.0)
+

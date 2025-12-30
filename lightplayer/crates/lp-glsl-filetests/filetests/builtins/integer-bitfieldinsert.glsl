@@ -49,3 +49,4 @@ ivec2 test_bitfieldinsert_ivec2() {
 }
 
 // run: test_bitfieldinsert_ivec2() == ivec2(175, 243)
+

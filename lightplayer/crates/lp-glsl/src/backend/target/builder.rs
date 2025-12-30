@@ -60,7 +60,10 @@ mod tests {
         assert!(builder.is_ok());
         match builder.unwrap() {
             ModuleBuilder::JIT(_) => {}
-            _ => panic!("Expected JIT builder"),
+            #[cfg(feature = "emulator")]
+            ModuleBuilder::Object(_) => {
+                panic!("HostJit should create JIT builder, not Object builder");
+            }
         }
     }
 

@@ -297,7 +297,9 @@ mod tests {
 
     // Mock SourceSpan for testing (since we can't import glsl-parser in tests easily)
     struct MockSourceSpan {
+        #[allow(dead_code)]
         pub line: usize,
+        #[allow(dead_code)]
         pub column: usize,
     }
 
@@ -445,7 +447,7 @@ mod tests {
         );
 
         // Mock glsl span
-        let mock_span = MockSourceSpan::new(3, 5);
+        let _mock_span = MockSourceSpan::new(3, 5);
         let gl_span = GlSourceSpan::new(file_id, 3, 5, 3, 5);
 
         // Since we can't easily create a real glsl::syntax::SourceSpan,

@@ -14,6 +14,8 @@ use hashbrown::HashMap;
 pub fn build_jit_executable(
     mut gl_module: GlModule<JITModule>,
 ) -> Result<GlslJitModule, GlslError> {
+    // Builtin functions are already declared when the module was created
+
     // 1. Define all functions (compile them)
     // Collect function data first to avoid borrowing conflicts
     let funcs: Vec<(

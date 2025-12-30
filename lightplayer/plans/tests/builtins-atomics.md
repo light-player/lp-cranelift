@@ -56,3 +56,4 @@ builtins/atomics/
 - **builtinfunctions.adoc**: Atomic Counter Functions (lines 2460-2561), Atomic Memory Functions (lines 2562-2667)
 - Key sections: Atomic counter operations, Atomic memory operations, Variable restrictions
 
+

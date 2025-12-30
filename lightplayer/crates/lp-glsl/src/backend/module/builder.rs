@@ -26,7 +26,7 @@ mod tests {
 
         let result =
             build_simple_function(&mut gl_module, "test", Linkage::Local, sig, |builder| {
-                let entry = builder.current_block().unwrap();
+                let _entry = builder.current_block().unwrap();
                 let val = builder.ins().iconst(types::I32, 42);
                 builder.ins().return_(&[val]);
                 Ok(())

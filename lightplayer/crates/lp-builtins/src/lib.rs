@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 //! Light Player builtins library.
 //!
@@ -7,6 +7,7 @@
 
 pub mod fixed32;
 
+#[cfg(not(feature = "std"))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     // For emulator: trap instruction (ebreak)

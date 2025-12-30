@@ -86,3 +86,4 @@ mat3 test_mat3_multiply_assign_scalar_large() {
 }
 
 // run: test_mat3_multiply_assign_scalar_large() ~= mat3(1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0)
+

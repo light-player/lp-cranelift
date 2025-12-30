@@ -26,3 +26,4 @@ int test_return_immediate() {
 
 // run: test_return_immediate() == 100
 
+

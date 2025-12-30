@@ -67,3 +67,4 @@ vec4 test_const_vec4_array() {
 }
 
 // run: test_const_vec4_array() ~= vec4(1.0, 1.0, 1.0, 1.0)
+

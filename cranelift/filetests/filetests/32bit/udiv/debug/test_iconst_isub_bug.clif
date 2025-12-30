@@ -25,3 +25,4 @@ block0(v0: i64):
 ; But the execution log suggests registers are wrong
 ; run: %test_iconst_isub_bug(0x00000000fffffffe) == -4294967262
 
+

@@ -86,3 +86,4 @@ mat3 test_mat3_divide_assign_scalar_fractional() {
 }
 
 // run: test_mat3_divide_assign_scalar_fractional() ~= mat3(20.0, 40.0, 60.0, 80.0, 100.0, 120.0, 140.0, 160.0, 180.0)
+

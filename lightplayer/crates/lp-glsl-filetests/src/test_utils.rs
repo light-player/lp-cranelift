@@ -15,7 +15,7 @@ pub const DEFAULT_MAX_MEMORY: usize = 1024 * 1024;
 pub const DEFAULT_STACK_SIZE: usize = 64 * 1024;
 
 /// Default maximum instructions for emulator.
-pub const DEFAULT_MAX_INSTRUCTIONS: u64 = 10_000_000;
+pub const DEFAULT_MAX_INSTRUCTIONS: u64 = 10_000;
 
 /// Create a riscv32 ISA for compilation.
 pub fn create_riscv32_isa() -> Result<OwnedTargetIsa> {
@@ -43,3 +43,4 @@ pub fn create_riscv32_isa() -> Result<OwnedTargetIsa> {
         .finish(flags)
         .map_err(|e| anyhow::anyhow!("failed to create riscv32 ISA: {}", e))
 }
+

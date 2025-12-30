@@ -19,3 +19,4 @@ block0(v0: i32, v1: i32):
 ; run: %test_isub_i64_high_zero(0, 0) == 0
 ; run: %test_isub_i64_high_zero(1, 2) == 0xffffffffffffffff
 
+

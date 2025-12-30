@@ -75,3 +75,4 @@ bool test_mat3_equal_after_assignment() {
 }
 
 // run: test_mat3_equal_after_assignment() == true
+
