@@ -25,14 +25,6 @@ pub mod emu;
 #[cfg(feature = "std")]
 pub mod elf_loader;
 
-// ELF linking utility
-#[cfg(feature = "std")]
-pub mod elf_linker;
-
-// Lazy linking utility
-#[cfg(feature = "std")]
-pub mod lazy_linking;
-
 // Executable linker utility
 #[cfg(feature = "std")]
 pub mod executable_linker;
