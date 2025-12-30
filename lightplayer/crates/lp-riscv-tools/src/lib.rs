@@ -25,6 +25,10 @@ pub mod emu;
 #[cfg(feature = "std")]
 pub mod elf_loader;
 
+// ELF linker error types
+#[cfg(feature = "std")]
+pub mod elf_linker;
+
 // Executable linker utility
 #[cfg(feature = "std")]
 pub mod executable_linker;

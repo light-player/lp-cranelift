@@ -47,19 +47,17 @@ pub fn write_deferred_data_section_and_relocation(
                 writer.append_section_data(data_section_id, &deferred.data, 1);
             }
 
-            // TEMPORARILY DISABLED: Add relocation for __USER_MAIN_PTR to point to our main() function
-            // This is disabled to verify that DEADBEEF sentinel is present and to debug what's modifying it
-            debug!("DEBUG: Relocation for __USER_MAIN_PTR is DISABLED - sentinel value should remain 0xDEADBEEF");
+            // Add relocation for __USER_MAIN_PTR to point to our main() function
             if let Some(main_addr) = user_main_address {
-                debug!("DEBUG: Would set __USER_MAIN_PTR to main() at 0x{:x}, but relocation is disabled", main_addr);
-                // DISABLED: add_user_main_relocation(
-                //     base_elf,
-                //     writer,
-                //     data_section_id,
-                //     symbol_map,
-                //     deferred.address,
-                //     main_addr,
-                // )?;
+                debug!("DEBUG: Setting __USER_MAIN_PTR to main() at 0x{:x}", main_addr);
+                add_user_main_relocation(
+                    base_elf,
+                    writer,
+                    data_section_id,
+                    symbol_map,
+                    deferred.address,
+                    main_addr,
+                )?;
             } else {
                 debug!("Warning: user main() not found, __USER_MAIN_PTR will remain 0");
             }

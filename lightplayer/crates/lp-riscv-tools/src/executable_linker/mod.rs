@@ -450,7 +450,7 @@ mod tests {
                 );
             }
 
-            let pc_before = emu.get_pc();
+            let _pc_before = emu.get_pc();
             match emu.step() {
                 Ok(_step_result) => {
                     steps += 1;
