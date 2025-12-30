@@ -1,5 +1,6 @@
 //! Math function conversion functions.
 
+use crate::backend::builtins::registry::BuiltinId;
 use crate::backend::transform::fixed32::converters::{
     extract_unary_operand, get_first_result, map_operand,
 };
@@ -8,6 +9,18 @@ use crate::error::GlslError;
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, types};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
+
+/// Map TestCase function name to BuiltinId.
+///
+/// Returns None if the function name is not a math function that should be converted.
+/// Handles both standard C math function names (sinf, cosf) and intrinsic names (__lp_sin, __lp_cos).
+pub fn map_testcase_to_builtin(testcase_name: &str) -> Option<BuiltinId> {
+    match testcase_name {
+        "sinf" | "__lp_sin" => Some(BuiltinId::Fixed32Sin),
+        "cosf" | "__lp_cos" => Some(BuiltinId::Fixed32Cos),
+        _ => None,
+    }
+}
 
 /// Convert Ceil instruction.
 pub(crate) fn convert_ceil(

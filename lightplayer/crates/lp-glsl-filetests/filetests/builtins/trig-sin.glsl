@@ -24,7 +24,7 @@ float test_sin_pi() {
     return sin(3.141592653589793);
 }
 
-// run: test_sin_pi() ~= 0.0
+// run: test_sin_pi() ~= 0.0 (tolerance: 0.01)
 
 float test_sin_three_pi_half() {
     // sin(3π/2) should be -1
@@ -66,14 +66,14 @@ vec3 test_sin_vec3() {
     return sin(vec3(0.0, 1.5707963267948966, 3.141592653589793));
 }
 
-// run: test_sin_vec3() ~= vec3(0.0, 1.0, 0.0)
+// run: test_sin_vec3() ~= vec3(0.0, 1.0, 0.0) (tolerance: 0.01)
 
 vec4 test_sin_vec4() {
     // Test with vec4
     return sin(vec4(0.0, 1.5707963267948966, 3.141592653589793, 4.71238898038469));
 }
 
-// run: test_sin_vec4() ~= vec4(0.0, 1.0, 0.0, -1.0)
+// run: test_sin_vec4() ~= vec4(0.0, 1.0, 0.0, -1.0) (tolerance: 0.01)
 
 
 

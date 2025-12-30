@@ -14,6 +14,8 @@ pub enum BuiltinId {
     Fixed32Div,
     Fixed32Mul,
     Fixed32Sqrt,
+    Fixed32Sin,
+    Fixed32Cos,
 }
 
 impl BuiltinId {
@@ -23,6 +25,8 @@ impl BuiltinId {
             BuiltinId::Fixed32Div => "__lp_fixed32_div",
             BuiltinId::Fixed32Mul => "__lp_fixed32_mul",
             BuiltinId::Fixed32Sqrt => "__lp_fixed32_sqrt",
+            BuiltinId::Fixed32Sin => "__lp_fixed32_sin",
+            BuiltinId::Fixed32Cos => "__lp_fixed32_cos",
         }
     }
 
@@ -36,7 +40,7 @@ impl BuiltinId {
                 sig.params.push(AbiParam::new(types::I32));
                 sig.returns.push(AbiParam::new(types::I32));
             }
-            BuiltinId::Fixed32Sqrt => {
+            BuiltinId::Fixed32Sqrt | BuiltinId::Fixed32Sin | BuiltinId::Fixed32Cos => {
                 // (i32) -> i32
                 sig.params.push(AbiParam::new(types::I32));
                 sig.returns.push(AbiParam::new(types::I32));
@@ -51,6 +55,8 @@ impl BuiltinId {
             BuiltinId::Fixed32Div,
             BuiltinId::Fixed32Mul,
             BuiltinId::Fixed32Sqrt,
+            BuiltinId::Fixed32Sin,
+            BuiltinId::Fixed32Cos,
         ]
     }
 }
@@ -64,6 +70,8 @@ pub fn get_function_pointer(builtin: BuiltinId) -> *const u8 {
         BuiltinId::Fixed32Div => fixed32::__lp_fixed32_div as *const u8,
         BuiltinId::Fixed32Mul => fixed32::__lp_fixed32_mul as *const u8,
         BuiltinId::Fixed32Sqrt => fixed32::__lp_fixed32_sqrt as *const u8,
+        BuiltinId::Fixed32Sin => fixed32::__lp_fixed32_sin as *const u8,
+        BuiltinId::Fixed32Cos => fixed32::__lp_fixed32_cos as *const u8,
     }
 }
 

@@ -14,7 +14,9 @@ use core::{
     mem::zeroed,
     ptr::{addr_of_mut, read, write_volatile},
 };
-use lp_builtins::fixed32::{__lp_fixed32_div, __lp_fixed32_mul, __lp_fixed32_sqrt};
+use lp_builtins::fixed32::{
+    __lp_fixed32_cos, __lp_fixed32_div, __lp_fixed32_mul, __lp_fixed32_sin, __lp_fixed32_sqrt,
+};
 use lp_builtins::host_debug;
 
 /// Syscall number for panic
@@ -236,12 +238,16 @@ pub extern "C" fn main() -> () {
         let _sqrt_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_sqrt;
         let _mul_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_mul;
         let _div_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_div;
+        let _sin_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_sin;
+        let _cos_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_cos;
 
         // Force these to be included by using them in a way that can't be optimized away
         // We'll use volatile reads to prevent optimization
         let _ = core::ptr::read_volatile(&_sqrt_fn as *const _);
         let _ = core::ptr::read_volatile(&_mul_fn as *const _);
         let _ = core::ptr::read_volatile(&_div_fn as *const _);
+        let _ = core::ptr::read_volatile(&_sin_fn as *const _);
+        let _ = core::ptr::read_volatile(&_cos_fn as *const _);
 
         // Reference host functions to prevent dead code elimination
         let _debug_fn: extern "C" fn(*const u8, usize) = host::__host_debug;

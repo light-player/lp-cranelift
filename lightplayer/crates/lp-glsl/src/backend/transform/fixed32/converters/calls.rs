@@ -1,13 +1,16 @@
 //! Function call conversion functions.
 
-use crate::backend::transform::fixed32::converters::map_value;
+use crate::backend::transform::fixed32::converters::math::map_testcase_to_builtin;
+use crate::backend::transform::fixed32::converters::{get_first_result, map_value};
 use crate::backend::transform::fixed32::signature::convert_signature;
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::error::{ErrorCode, GlslError};
 use alloc::{string::String, vec::Vec};
 use cranelift_codegen::ir::{
-    ExtFuncData, ExternalName, FuncRef, Function, Inst, InstBuilder, InstructionData, SigRef, Value,
+    AbiParam, ExtFuncData, ExternalName, FuncRef, Function, Inst, InstBuilder, InstructionData,
+    SigRef, Signature, UserExternalName, Value, types,
 };
+use cranelift_codegen::isa::CallConv;
 use cranelift_frontend::FunctionBuilder;
 use cranelift_module::FuncId;
 use hashbrown::HashMap;
@@ -116,7 +119,7 @@ pub(crate) fn convert_call(
     ext_func_map: &mut HashMap<FuncRef, FuncRef>,
     sig_map: &mut HashMap<SigRef, SigRef>,
     format: FixedPointFormat,
-    _func_id_map: &HashMap<String, FuncId>,
+    func_id_map: &HashMap<String, FuncId>,
     old_func_id_map: &HashMap<FuncId, String>,
 ) -> Result<(), GlslError> {
     let inst_data = &old_func.dfg.insts[old_inst];
@@ -127,34 +130,156 @@ pub(crate) fn convert_call(
         args,
     } = inst_data
     {
-        // Check if this is a TestCase (colocated) function
+        // Check if this is a TestCase or User function that should be converted to a builtin
         let old_ext_func = &old_func.dfg.ext_funcs[*func_ref];
-        let new_func_ref = if let ExternalName::TestCase(_) = &old_ext_func.name {
-            // For TestCase names, clone directly (like identity transform does)
-            // This preserves the function name correctly without needing FuncId lookup
-            // Don't cache TestCase functions - import fresh each time like identity transform
-            // Get the old signature and transform it
-            let old_sig_ref = old_ext_func.signature;
-            let old_sig = &old_func.dfg.signatures[old_sig_ref];
-            let new_sig = convert_signature(old_sig, format);
 
-            // Import signature into current function's context
-            let new_sig_ref = if let Some(&mapped_sig_ref) = sig_map.get(&old_sig_ref) {
-                mapped_sig_ref
+        // Try to get the function name - could be TestCase or User
+        let func_name_opt: Option<&str> = match &old_ext_func.name {
+            ExternalName::TestCase(testcase_name) => core::str::from_utf8(testcase_name.raw()).ok(),
+            ExternalName::User(user_ref) => {
+                // Look up function name from old_func_id_map
+                if let Some(user_name) = old_func.params.user_named_funcs().get(*user_ref) {
+                    let old_func_id = cranelift_module::FuncId::from_u32(user_name.index);
+                    old_func_id_map.get(&old_func_id).map(|s| s.as_str())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
+        let new_func_ref = if let Some(func_name) = func_name_opt {
+            // Check if this is a math function that should be converted to a builtin
+            if let Some(builtin_id) = map_testcase_to_builtin(func_name) {
+                // Convert to builtin call (similar to convert_sqrt)
+                // This should be a unary function (sin, cos)
+                let old_args = args.as_slice(&old_func.dfg.value_lists);
+                if old_args.len() != 1 {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!(
+                            "Expected 1 argument for math function '{}', got {}",
+                            func_name,
+                            old_args.len()
+                        ),
+                    ));
+                }
+
+                let mapped_arg = map_value(value_map, old_args[0]);
+
+                // Get FuncId for the builtin from func_id_map
+                let builtin_name = builtin_id.name();
+                let func_id = func_id_map.get(builtin_name).ok_or_else(|| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!(
+                            "Builtin function '{}' not found in func_id_map",
+                            builtin_name
+                        ),
+                    )
+                })?;
+
+                // Create signature for the builtin: (i32) -> i32
+                let mut sig = Signature::new(CallConv::SystemV);
+                sig.params.push(AbiParam::new(types::I32));
+                sig.returns.push(AbiParam::new(types::I32));
+                let sig_ref = builder.func.import_signature(sig);
+
+                // Create UserExternalName with the FuncId
+                let user_name = UserExternalName {
+                    namespace: 0, // Use namespace 0 for builtins
+                    index: func_id.as_u32(),
+                };
+                let user_ref = builder.func.declare_imported_user_function(user_name);
+                let ext_name = ExternalName::User(user_ref);
+
+                let ext_func = ExtFuncData {
+                    name: ext_name,
+                    signature: sig_ref,
+                    colocated: true,
+                };
+                let builtin_func_ref = builder.func.import_function(ext_func);
+
+                // Call the builtin function
+                let call_inst = builder.ins().call(builtin_func_ref, &[mapped_arg]);
+                let result = builder.inst_results(call_inst)[0];
+
+                let old_result = get_first_result(old_func, old_inst);
+                value_map.insert(old_result, result);
+
+                return Ok(());
             } else {
-                let imported_sig_ref = builder.func.import_signature(new_sig);
-                sig_map.insert(old_sig_ref, imported_sig_ref);
-                imported_sig_ref
-            };
+                // Not a math function, handle as regular function call
+                // Get the old signature and transform it
+                let old_sig_ref = old_ext_func.signature;
+                let old_sig = &old_func.dfg.signatures[old_sig_ref];
+                let new_sig = convert_signature(old_sig, format);
 
-            // Clone the TestCase name directly (like identity transform)
-            let new_ext_func = ExtFuncData {
-                name: old_ext_func.name.clone(), // Clone TestCase name directly
-                signature: new_sig_ref,
-                colocated: old_ext_func.colocated,
-            };
+                // Import signature into current function's context
+                let new_sig_ref = if let Some(&mapped_sig_ref) = sig_map.get(&old_sig_ref) {
+                    mapped_sig_ref
+                } else {
+                    let imported_sig_ref = builder.func.import_signature(new_sig);
+                    sig_map.insert(old_sig_ref, imported_sig_ref);
+                    imported_sig_ref
+                };
 
-            builder.func.import_function(new_ext_func)
+                // Handle TestCase vs User external names
+                let new_name = match &old_ext_func.name {
+                    ExternalName::TestCase(_) => {
+                        // Clone TestCase name directly (like identity transform)
+                        old_ext_func.name.clone()
+                    }
+                    ExternalName::User(old_user_ref) => {
+                        // Map User function reference to new FuncId
+                        let user_name = old_func
+                            .params
+                            .user_named_funcs()
+                            .get(*old_user_ref)
+                            .ok_or_else(|| {
+                                GlslError::new(
+                                    ErrorCode::E0400,
+                                    format!(
+                                        "UserExternalNameRef {} not found in old function's user_named_funcs",
+                                        old_user_ref
+                                    ),
+                                )
+                            })?;
+                        let old_func_id = cranelift_module::FuncId::from_u32(user_name.index);
+                        let func_name = old_func_id_map.get(&old_func_id).ok_or_else(|| {
+                            GlslError::new(
+                                ErrorCode::E0400,
+                                format!(
+                                    "Old FuncId {} not found in old_func_id_map",
+                                    old_func_id.as_u32()
+                                ),
+                            )
+                        })?;
+                        let new_func_id = func_id_map.get(func_name).ok_or_else(|| {
+                            GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Function '{}' not found in func_id_map", func_name),
+                            )
+                        })?;
+                        let new_user_name = UserExternalName {
+                            namespace: user_name.namespace,
+                            index: new_func_id.as_u32(),
+                        };
+                        let new_user_ref =
+                            builder.func.declare_imported_user_function(new_user_name);
+                        ExternalName::User(new_user_ref)
+                    }
+                    _ => old_ext_func.name.clone(),
+                };
+
+                let new_ext_func = ExtFuncData {
+                    name: new_name,
+                    signature: new_sig_ref,
+                    colocated: old_ext_func.colocated,
+                };
+
+                builder.func.import_function(new_ext_func)
+            }
         } else {
             // Use existing logic for external functions (with caching)
             map_external_function(
@@ -164,7 +289,7 @@ pub(crate) fn convert_call(
                 ext_func_map,
                 sig_map,
                 format,
-                _func_id_map,
+                func_id_map,
                 old_func_id_map,
             )?
         };

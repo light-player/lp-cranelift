@@ -37,10 +37,13 @@ Then you will create a new file for each phase, named like 01-phase-title.md.
 
 Then commit the plan to git with the message "lpc: create plan <name>"
 
-Each phase should end with a success criteria section, and all code should compile. Any
-tests relevant to the phase should be run and pass.
+Each phase should end with:
 
-Any warnings that aren't unused code (that will be used later) should be fixed.
+- a success criteria section
+- all code should compile
+- Any warnings that aren't unused code (that will be used later) should be fixed.
+- Tests relevant to the phase should be run and pass.
+- Do not commit changes between phases
 
 The final phase should be a cleanup phase:
 
