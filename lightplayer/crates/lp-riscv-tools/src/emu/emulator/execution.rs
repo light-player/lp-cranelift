@@ -174,7 +174,7 @@ impl Riscv32Emulator {
 
                 Ok(StepResult::Panic(panic_info))
             } else if syscall_info.number == 2 {
-                // SYSCALL_WRITE: Write string to host
+                // SYSCALL_WRITE: Write string to host (always prints)
                 // args[0] = pointer to string (as i32, cast to u32)
                 // args[1] = length of string
                 let msg_ptr = syscall_info.args[0] as u32;
@@ -196,6 +196,37 @@ impl Riscv32Emulator {
                             msg_ptr,
                             e
                         );
+                    }
+                }
+
+                // Return success (0 in a0)
+                self.regs[Gpr::A0.num() as usize] = 0;
+                Ok(StepResult::Continue)
+            } else if syscall_info.number == 3 {
+                // SYSCALL_DEBUG: Debug output (only prints if DEBUG=1)
+                // args[0] = pointer to string (as i32, cast to u32)
+                // args[1] = length of string
+                #[cfg(feature = "std")]
+                {
+                    if std::env::var("DEBUG").as_deref() == Ok("1") {
+                        let msg_ptr = syscall_info.args[0] as u32;
+                        let msg_len = syscall_info.args[1] as usize;
+
+                        // Read string from memory and print it
+                        match read_memory_string(&self.memory, msg_ptr, msg_len) {
+                            Ok(s) => {
+                                use std::io::Write;
+                                let _ = std::io::stderr().write_all(s.as_bytes());
+                                let _ = std::io::stderr().flush();
+                            }
+                            Err(e) => {
+                                crate::debug!(
+                                    "Failed to read debug syscall string from 0x{:x}: {}",
+                                    msg_ptr,
+                                    e
+                                );
+                            }
+                        }
                     }
                 }
 
