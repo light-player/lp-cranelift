@@ -19,12 +19,29 @@
 macro_rules! host_debug {
     ($($arg:tt)*) => {
         {
-            // Format the string first
-            #[cfg(feature = "std")]
-            let formatted = std::format!($($arg)*);
+            #[cfg(all(feature = "std", feature = "test"))]
+            {
+                // With std and test feature, use std::format! and call test implementation
+                let formatted = std::format!($($arg)*);
+                $crate::host::__host_debug(formatted.as_ptr(), formatted.len());
+            }
             #[cfg(not(feature = "std"))]
-            let formatted = alloc::format!($($arg)*);
-            $crate::host::__host_debug(formatted.as_ptr(), formatted.len());
+            {
+                // Without std, use core::format_args! and format into static buffer
+                $crate::host::_debug_format(core::format_args!($($arg)*));
+            }
+            #[cfg(all(feature = "std", not(feature = "test")))]
+            {
+                // With std but not test (shouldn't happen in lp-builtins, but handle gracefully)
+                // This would be for JIT context, but JIT should use lp-glsl macros instead
+                let formatted = std::format!($($arg)*);
+                unsafe extern "C" {
+                    fn __host_debug(ptr: *const u8, len: usize);
+                }
+                unsafe {
+                    __host_debug(formatted.as_ptr(), formatted.len());
+                }
+            }
         }
     };
 }
@@ -45,16 +62,48 @@ macro_rules! host_debug {
 macro_rules! host_println {
     () => {
         let newline = "\n";
-        $crate::host::__host_println(newline.as_ptr(), newline.len());
+        #[cfg(all(feature = "std", feature = "test"))]
+        {
+            $crate::host::__host_println(newline.as_ptr(), newline.len());
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            $crate::host::_println_format(core::format_args!("{}", newline));
+        }
+        #[cfg(all(feature = "std", not(feature = "test")))]
+        {
+            unsafe extern "C" {
+                fn __host_println(ptr: *const u8, len: usize);
+            }
+            unsafe {
+                __host_println(newline.as_ptr(), newline.len());
+            }
+        }
     };
     ($($arg:tt)*) => {
         {
-            // Format the string first
-            #[cfg(feature = "std")]
-            let formatted = std::format!($($arg)*);
+            #[cfg(all(feature = "std", feature = "test"))]
+            {
+                // With std and test feature, use std::format! and call test implementation
+                let formatted = std::format!($($arg)*);
+                $crate::host::__host_println(formatted.as_ptr(), formatted.len());
+            }
             #[cfg(not(feature = "std"))]
-            let formatted = alloc::format!($($arg)*);
-            $crate::host::__host_println(formatted.as_ptr(), formatted.len());
+            {
+                // Without std, use core::format_args! and format into static buffer
+                $crate::host::_println_format(core::format_args!($($arg)*));
+            }
+            #[cfg(all(feature = "std", not(feature = "test")))]
+            {
+                // With std but not test (shouldn't happen in lp-builtins, but handle gracefully)
+                let formatted = std::format!($($arg)*);
+                unsafe extern "C" {
+                    fn __host_println(ptr: *const u8, len: usize);
+                }
+                unsafe {
+                    __host_println(formatted.as_ptr(), formatted.len());
+                }
+            }
         }
     };
 }

@@ -22,6 +22,12 @@ pub use registry::HostId;
 //
 // No default implementations here to avoid symbol conflicts when linking.
 
+#[cfg(not(feature = "std"))]
+mod no_std_format;
+
+#[cfg(not(feature = "std"))]
+pub use no_std_format::{_debug_format, _println_format};
+
 #[cfg(feature = "test")]
 mod test;
 

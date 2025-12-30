@@ -1,5 +1,7 @@
 //! Fixed-point 16.16 square root.
 
+use crate::host_debug;
+
 /// Compute square root using Rust's native integer square root.
 ///
 /// Algorithm:
@@ -9,12 +11,23 @@
 /// 4. Truncate to i32
 #[unsafe(no_mangle)]
 pub extern "C" fn __lp_fixed32_sqrt(x: i32) -> i32 {
+    // Debug: Use host_println! to debug (works in emulator context)
+    // Note: This will only work when linked with lp-builtins-app
+    // For now, we'll use a simple approach - just always print via syscall
+    // We can't use host_println! here because it requires alloc::format!
+
     // Handle edge cases
     if x <= 0 {
         return 0;
     }
 
-    ((x as u64) << 16).isqrt() as i32
+    host_debug!("__lp_fixed32_sqrt({})", x);
+
+    let x_scaled = (x as u64) << 16;
+    let sqrt_scaled = x_scaled.isqrt();
+    let result = sqrt_scaled as i32;
+
+    result
 }
 
 #[cfg(test)]
