@@ -178,6 +178,13 @@ if [ ! -d "$WORKSPACE_ROOT/lightplayer" ]; then
     exit 1
 fi
 
+# Build builtins executable before running tests to catch any changes
+echo "Building lp-builtins-app..."
+"$SCRIPT_DIR/build-builtins.sh" || {
+    echo "Error: Failed to build lp-builtins-app" >&2
+    exit 1
+}
+
 # Change to lightplayer directory where lp-test workspace is located
 cd "$WORKSPACE_ROOT/lightplayer" || {
     echo "Error: Failed to change to lightplayer directory" >&2

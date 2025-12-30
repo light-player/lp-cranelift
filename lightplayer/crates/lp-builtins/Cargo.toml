@@ -12,4 +12,5 @@ crate-type = ["lib"]
 [features]
 default = []
 std = []
+test = []
 
