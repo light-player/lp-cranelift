@@ -31,7 +31,7 @@ pub extern "C" fn __lp_fixed32_log(x: i32) -> i32 {
     // Bring the value to the most accurate range (1 < x < 100)
     // Using e^4 ≈ 54.6, so dividing/multiplying by e^4 adjusts scaling by 4
     const E_TO_FOURTH: i32 = 3578144; // e^4 in fixed point (approximately)
-    
+
     while in_value > (100 << 16) {
         in_value = __lp_fixed32_div(in_value, E_TO_FOURTH);
         scaling += 4;
@@ -41,7 +41,7 @@ pub extern "C" fn __lp_fixed32_log(x: i32) -> i32 {
         let prev_value = in_value;
         in_value = __lp_fixed32_mul(in_value, E_TO_FOURTH);
         scaling -= 4;
-        
+
         // Safety check: if multiplication didn't change the value, we're stuck
         // This can happen if the value underflows to 0 or saturates incorrectly
         if in_value == prev_value {
@@ -49,7 +49,7 @@ pub extern "C" fn __lp_fixed32_log(x: i32) -> i32 {
             // This indicates underflow or saturation issue
             break;
         }
-        
+
         // Additional safety: if scaling becomes very negative, we've scaled too far
         // This shouldn't happen in normal cases, but protects against edge cases
         if scaling < -100 {
@@ -102,14 +102,13 @@ mod tests {
     fn test_log_basic() {
         let tests = [
             (1.0, 0.0),
-            (2.718281828459045, 1.0),   // log(e) = 1
-            (7.38905609893065, 2.0),    // log(e²) = 2
+            (2.718281828459045, 1.0),    // log(e) = 1
+            (7.38905609893065, 2.0),     // log(e²) = 2
             (0.36787944117144233, -1.0), // log(1/e) = -1
-            (0.5, -0.6931471805599453), // log(0.5)
+            (0.5, -0.6931471805599453),  // log(0.5)
         ];
 
         // Use 5% tolerance for log functions (Newton-Raphson can have some error)
         test_fixed32_function_relative(|x| __lp_fixed32_log(x), &tests, 0.05, 0.01);
     }
 }
-

@@ -12,6 +12,11 @@ OUTPUT_DIR="$LIGHTPLAYER_DIR/target/$TARGET/release"
 
 echo "Building lp-builtins-app for $TARGET with aggressive optimizations..."
 
+# Generate builtin boilerplate code
+echo "Generating builtin boilerplate..."
+cd "$LIGHTPLAYER_DIR"
+cargo run --bin lp-builtin-gen --manifest-path apps/lp-builtin-gen/Cargo.toml
+
 # Ensure target is installed
 if ! rustup target list --installed | grep -q "^$TARGET$"; then
     echo "Installing target $TARGET..."

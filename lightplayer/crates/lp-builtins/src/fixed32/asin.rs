@@ -34,13 +34,13 @@ pub extern "C" fn __lp_fixed32_asin(x: i32) -> i32 {
 
     // Compute 1 - x²
     let one_minus_x_sq = FIX16_ONE - __lp_fixed32_mul(x, x);
-    
+
     // Compute sqrt(1 - x²)
     let sqrt_val = __lp_fixed32_sqrt(one_minus_x_sq);
-    
+
     // Compute x / sqrt(1 - x²)
     let ratio = __lp_fixed32_div(x, sqrt_val);
-    
+
     // Compute atan(ratio)
     __lp_fixed32_atan(ratio)
 }
@@ -65,4 +65,3 @@ mod tests {
         test_fixed32_function_relative(|x| __lp_fixed32_asin(x), &tests, 0.03, 0.01);
     }
 }
-

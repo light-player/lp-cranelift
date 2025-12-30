@@ -9,7 +9,6 @@ const PI_DIV_4: i32 = 0x0000C90F; // 51471
 /// Fixed-point value of 3π/4 (Q16.16 format)
 const THREE_PI_DIV_4: i32 = 0x00025B2F; // 154415
 
-
 /// Compute atan2(y, x) using polynomial approximation.
 ///
 /// Algorithm ported from libfixmath.
@@ -25,25 +24,17 @@ pub extern "C" fn __lp_fixed32_atan2(y: i32, x: i32) -> i32 {
         let r = __lp_fixed32_div(x - abs_y, x + abs_y);
         let r_3 = __lp_fixed32_mul(__lp_fixed32_mul(r, r), r);
         // Polynomial: 0x00003240 * r³ - 0x0000FB50 * r + π/4
-        __lp_fixed32_mul(0x00003240, r_3)
-            - __lp_fixed32_mul(0x0000FB50, r)
-            + PI_DIV_4
+        __lp_fixed32_mul(0x00003240, r_3) - __lp_fixed32_mul(0x0000FB50, r) + PI_DIV_4
     } else {
         // Second/third quadrant: x < 0
         let r = __lp_fixed32_div(x + abs_y, abs_y - x);
         let r_3 = __lp_fixed32_mul(__lp_fixed32_mul(r, r), r);
         // Polynomial: 0x00003240 * r³ - 0x0000FB50 * r + 3π/4
-        __lp_fixed32_mul(0x00003240, r_3)
-            - __lp_fixed32_mul(0x0000FB50, r)
-            + THREE_PI_DIV_4
+        __lp_fixed32_mul(0x00003240, r_3) - __lp_fixed32_mul(0x0000FB50, r) + THREE_PI_DIV_4
     };
 
     // Negate if y < 0
-    if y < 0 {
-        -base_angle
-    } else {
-        base_angle
-    }
+    if y < 0 { -base_angle } else { base_angle }
 }
 
 #[cfg(test)]
@@ -55,9 +46,9 @@ mod tests {
     #[test]
     fn test_atan2_basic() {
         let tests = [
-            ((1.0f32, 1.0f32), 0.7853981633974483f32),   // atan2(1, 1) = π/4
-            ((1.0f32, 0.0f32), 1.5707963267948966f32),   // atan2(1, 0) = π/2
-            ((0.0f32, 1.0f32), 0.0f32),                  // atan2(0, 1) = 0
+            ((1.0f32, 1.0f32), 0.7853981633974483f32), // atan2(1, 1) = π/4
+            ((1.0f32, 0.0f32), 1.5707963267948966f32), // atan2(1, 0) = π/2
+            ((0.0f32, 1.0f32), 0.0f32),                // atan2(0, 1) = 0
             ((-1.0f32, 1.0f32), -0.7853981633974483f32), // atan2(-1, 1) = -π/4
         ];
 
@@ -69,7 +60,10 @@ mod tests {
 
             std::println!(
                 "Test: atan2({}, {}) -> Expected: {}, Actual: {}",
-                y, x, expected, result
+                y,
+                x,
+                expected,
+                result
             );
 
             assert!(
@@ -83,4 +77,3 @@ mod tests {
         }
     }
 }
-

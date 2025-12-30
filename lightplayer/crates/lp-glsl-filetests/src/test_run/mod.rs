@@ -275,8 +275,12 @@ pub fn run_test_file_with_line_filter(
                         if show_full_output {
                             use crate::{colors, should_color};
                             let file_line = format!("{}:{}", relative_path, directive.line_number);
-                            let test_expr = format!("{} ~= {}", directive.expression_str, format_glsl_value(&actual_value));
-                            
+                            let test_expr = format!(
+                                "{} ~= {}",
+                                directive.expression_str,
+                                format_glsl_value(&actual_value)
+                            );
+
                             if should_color() {
                                 eprintln!(
                                     "{}{}{}{}  {}{}{}",

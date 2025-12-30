@@ -36,13 +36,12 @@ mod tests {
     fn test_cosh_basic() {
         let tests = [
             (0.0, 1.0),
-            (1.0, 1.5430806348152437),   // cosh(1)
-            (-1.0, 1.5430806348152437),  // cosh(-1) = cosh(1)
-            (0.5, 1.1276259652063807),   // cosh(0.5)
+            (1.0, 1.5430806348152437),  // cosh(1)
+            (-1.0, 1.5430806348152437), // cosh(-1) = cosh(1)
+            (0.5, 1.1276259652063807),  // cosh(0.5)
         ];
 
         // Use 5% tolerance for hyperbolic functions (uses exp internally)
         test_fixed32_function_relative(|x| __lp_fixed32_cosh(x), &tests, 0.05, 0.01);
     }
 }
-

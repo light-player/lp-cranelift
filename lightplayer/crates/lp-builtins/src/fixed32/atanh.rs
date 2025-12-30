@@ -57,4 +57,3 @@ mod tests {
         test_fixed32_function_relative(|x| __lp_fixed32_atanh(x), &tests, 0.05, 0.01);
     }
 }
-

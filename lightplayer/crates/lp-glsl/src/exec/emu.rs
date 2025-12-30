@@ -1283,7 +1283,7 @@ impl GlslExecutable for GlslEmulatorModule {
         } else {
             sig.params.len()
         };
-        
+
         if data_args.len() != expected_params {
             return Err(GlslError::new(
                 ErrorCode::E0400,

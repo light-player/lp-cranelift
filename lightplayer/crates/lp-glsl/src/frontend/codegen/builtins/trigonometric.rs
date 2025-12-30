@@ -148,7 +148,7 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
         } else {
             // 2-arg version: atan(y, x) - GLSL spec: first arg is y, second is x
             let (y_vals, y_ty) = &args[0]; // First argument is y
-            let (x_vals, _) = &args[1];    // Second argument is x
+            let (x_vals, _) = &args[1]; // Second argument is x
 
             if y_vals.len() != x_vals.len() {
                 return Err(GlslError::new(

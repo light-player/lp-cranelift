@@ -100,7 +100,12 @@ mod tests {
 
             std::println!(
                 "Test: pow({}, {}) -> Expected: {}, Actual: {}, Error: {}, Tolerance: {}",
-                x, y, expected, result_float, abs_error, effective_tolerance
+                x,
+                y,
+                expected,
+                result_float,
+                abs_error,
+                effective_tolerance
             );
 
             assert!(
@@ -119,12 +124,12 @@ mod tests {
     #[test]
     fn test_pow_basic() {
         let tests = [
-            (2.0, 2.0, 4.0),      // 2^2 = 4
-            (2.0, 3.0, 8.0),      // 2^3 = 8
+            (2.0, 2.0, 4.0),                // 2^2 = 4
+            (2.0, 3.0, 8.0),                // 2^3 = 8
             (2.0, 0.5, 1.4142135623730951), // 2^0.5 = sqrt(2)
-            (3.0, 2.0, 9.0),      // 3^2 = 9
-            (4.0, 0.5, 2.0),      // 4^0.5 = 2
-            (1.0, 5.0, 1.0),      // 1^5 = 1
+            (3.0, 2.0, 9.0),                // 3^2 = 9
+            (4.0, 0.5, 2.0),                // 4^0.5 = 2
+            (1.0, 5.0, 1.0),                // 1^5 = 1
         ];
 
         // Use 5% tolerance for pow (uses exp2/log2 internally)
@@ -134,12 +139,11 @@ mod tests {
     #[test]
     fn test_pow_special_cases() {
         let tests = [
-            (2.0, 0.0, 1.0),      // pow(x, 0) = 1
-            (0.0, 2.0, 0.0),      // pow(0, y>0) = 0
-            (5.0, 1.0, 5.0),      // pow(x, 1) = x
+            (2.0, 0.0, 1.0), // pow(x, 0) = 1
+            (0.0, 2.0, 0.0), // pow(0, y>0) = 0
+            (5.0, 1.0, 5.0), // pow(x, 1) = x
         ];
 
         test_pow_helper(&tests, 0.05, 0.01);
     }
 }
-

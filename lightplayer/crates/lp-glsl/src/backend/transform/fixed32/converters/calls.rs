@@ -166,10 +166,8 @@ pub(crate) fn convert_call(
                 }
 
                 // Map all arguments
-                let mapped_args: Vec<Value> = old_args
-                    .iter()
-                    .map(|&v| map_value(value_map, v))
-                    .collect();
+                let mapped_args: Vec<Value> =
+                    old_args.iter().map(|&v| map_value(value_map, v)).collect();
 
                 // Get FuncId for the builtin from func_id_map
                 let builtin_name = builtin_id.name();

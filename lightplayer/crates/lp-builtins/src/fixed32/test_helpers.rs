@@ -85,7 +85,11 @@ pub fn test_fixed32_function_relative<F>(
 
         std::println!(
             "Test: f({}) -> Expected: {}, Actual: {}, Error: {}, Tolerance: {}",
-            input_float, expected_float, result_float, abs_error, effective_tolerance
+            input_float,
+            expected_float,
+            result_float,
+            abs_error,
+            effective_tolerance
         );
 
         assert!(
@@ -99,4 +103,3 @@ pub fn test_fixed32_function_relative<F>(
         );
     }
 }
-

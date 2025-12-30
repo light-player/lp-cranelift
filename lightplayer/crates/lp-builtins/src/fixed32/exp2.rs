@@ -15,7 +15,7 @@ const FIX16_LN2: i32 = 45426; // 0.693147 * 65536 ≈ 45426
 pub extern "C" fn __lp_fixed32_exp2(x: i32) -> i32 {
     // Compute x * ln(2)
     let x_times_ln2 = __lp_fixed32_mul(x, FIX16_LN2);
-    
+
     // Compute exp(x * ln(2)) = 2^x
     __lp_fixed32_exp(x_times_ln2)
 }
@@ -31,9 +31,9 @@ mod tests {
     fn test_exp2_basic() {
         let tests = [
             (0.0, 1.0),
-            (1.0, 2.0),   // 2^1 = 2
-            (2.0, 4.0),   // 2^2 = 4
-            (-1.0, 0.5),  // 2^-1 = 0.5
+            (1.0, 2.0),                // 2^1 = 2
+            (2.0, 4.0),                // 2^2 = 4
+            (-1.0, 0.5),               // 2^-1 = 0.5
             (0.5, 1.4142135623730951), // 2^0.5 = sqrt(2)
         ];
 
@@ -41,4 +41,3 @@ mod tests {
         test_fixed32_function_relative(|x| __lp_fixed32_exp2(x), &tests, 0.05, 0.01);
     }
 }
-

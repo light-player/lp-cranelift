@@ -1,8 +1,8 @@
 //! Fixed-point 16.16 tangent function.
 
+use super::cos::__lp_fixed32_cos;
 use super::div::__lp_fixed32_div;
 use super::sin::__lp_fixed32_sin;
-use super::cos::__lp_fixed32_cos;
 
 /// Compute tangent using sine and cosine: tan(x) = sin(x) / cos(x)
 ///
@@ -27,7 +27,7 @@ mod tests {
         let tests = [
             (0.0, 0.0),
             (0.7853981633974483, 1.0),   // π/4
-            (-0.7853981633974483, -1.0),  // -π/4
+            (-0.7853981633974483, -1.0), // -π/4
         ];
 
         // Use 3% tolerance for trig functions (~2.1% accuracy)
@@ -48,12 +48,11 @@ mod tests {
     #[test]
     fn test_tan_range_reduction() {
         let tests = [
-            (3.141592653589793, 0.0),    // π (should be ~0)
-            (6.283185307179586, 0.0),    // 2π (should be ~0)
+            (3.141592653589793, 0.0), // π (should be ~0)
+            (6.283185307179586, 0.0), // 2π (should be ~0)
         ];
 
         // Use larger tolerance for values near zero
         test_fixed32_function_relative(|x| __lp_fixed32_tan(x), &tests, 0.05, 0.01);
     }
 }
-

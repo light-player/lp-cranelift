@@ -124,35 +124,35 @@ pub fn handle_got_hi20(ctx: &mut RelocationContext, reloc: &RelocationInfo) -> R
         // Check if there's a jalr instruction 4 bytes after auipc (typical call pattern)
         let jalr_offset = offset + 4;
         let has_jalr = jalr_offset + 4 <= ctx.buffer.len();
-        
+
         if has_jalr {
             // Read jalr instruction
             let jalr_bytes = &ctx.buffer[jalr_offset..jalr_offset + 4];
-            let jalr_word = u32::from_le_bytes([
-                jalr_bytes[0],
-                jalr_bytes[1],
-                jalr_bytes[2],
-                jalr_bytes[3],
-            ]);
-            
+            let jalr_word =
+                u32::from_le_bytes([jalr_bytes[0], jalr_bytes[1], jalr_bytes[2], jalr_bytes[3]]);
+
             // Check if it's a jalr instruction (opcode bits [6:0] = 0x67)
             if (jalr_word & 0x7F) == 0x67 {
                 // This is a call pattern: auipc + jalr
                 // Patch auipc with hi20
                 let inst_bytes = &mut ctx.buffer[offset..offset + 4];
-                let inst_word =
-                    u32::from_le_bytes([inst_bytes[0], inst_bytes[1], inst_bytes[2], inst_bytes[3]]);
-                
+                let inst_word = u32::from_le_bytes([
+                    inst_bytes[0],
+                    inst_bytes[1],
+                    inst_bytes[2],
+                    inst_bytes[3],
+                ]);
+
                 let hi20 = ((pcrel >> 12) + ((pcrel & 0x800) != 0) as u32) & 0xFFFFF;
                 let patched_auipc = (inst_word & 0xFFF) | (hi20 << 12);
                 inst_bytes.copy_from_slice(&patched_auipc.to_le_bytes());
-                
+
                 // Patch jalr with lo12
                 let lo12 = pcrel & 0xFFF;
                 let patched_jalr = (jalr_word & 0xFFFFF) | (lo12 << 20);
                 let jalr_bytes_mut = &mut ctx.buffer[jalr_offset..jalr_offset + 4];
                 jalr_bytes_mut.copy_from_slice(&patched_jalr.to_le_bytes());
-                
+
                 debug!(
                     "    Patched auipc+jalr call: auipc 0x{:08x} → 0x{:08x} (hi20=0x{:x}), jalr 0x{:08x} → 0x{:08x} (lo12=0x{:x})",
                     inst_word, patched_auipc, hi20, jalr_word, patched_jalr, lo12
@@ -160,7 +160,7 @@ pub fn handle_got_hi20(ctx: &mut RelocationContext, reloc: &RelocationInfo) -> R
                 return Ok(());
             }
         }
-        
+
         // Fall back to just patching auipc (for non-call uses)
         let inst_bytes = &mut ctx.buffer[offset..offset + 4];
         let inst_word =

@@ -46,11 +46,11 @@ pub fn _debug_format(args: fmt::Arguments) {
     unsafe {
         // Reset buffer
         *core::ptr::addr_of_mut!(BUFFER_LEN) = 0;
-        
+
         // Format into buffer
         let mut writer = BufferWriter;
         let _ = writer.write_fmt(args);
-        
+
         // Call host function with buffer contents
         let len = *core::ptr::addr_of!(BUFFER_LEN);
         __host_debug(core::ptr::addr_of!(FORMAT_BUFFER).cast(), len);
@@ -66,14 +66,13 @@ pub fn _println_format(args: fmt::Arguments) {
     unsafe {
         // Reset buffer
         *core::ptr::addr_of_mut!(BUFFER_LEN) = 0;
-        
+
         // Format into buffer
         let mut writer = BufferWriter;
         let _ = writer.write_fmt(args);
-        
+
         // Call host function with buffer contents
         let len = *core::ptr::addr_of!(BUFFER_LEN);
         __host_println(core::ptr::addr_of!(FORMAT_BUFFER).cast(), len);
     }
 }
-

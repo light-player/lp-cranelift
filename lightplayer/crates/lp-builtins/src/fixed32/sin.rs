@@ -81,9 +81,9 @@ mod tests {
     #[test]
     fn test_sin_range_reduction() {
         let tests = [
-            (6.283185307179586, 0.0),    // 2π
-            (9.42477796076938, 0.0),    // 3π
-            (-6.283185307179586, 0.0),   // -2π
+            (6.283185307179586, 0.0),  // 2π
+            (9.42477796076938, 0.0),   // 3π
+            (-6.283185307179586, 0.0), // -2π
         ];
 
         test_fixed32_function_relative(|x| __lp_fixed32_sin(x), &tests, 0.03, 0.01);
@@ -100,4 +100,3 @@ mod tests {
         test_fixed32_function_relative(|x| __lp_fixed32_sin(x), &tests, 0.03, 0.01);
     }
 }
-

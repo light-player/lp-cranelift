@@ -19,7 +19,7 @@ pub extern "C" fn __host_debug(ptr: *const u8, len: usize) {
     args[0] = ptr;
     args[1] = len;
     let _ = syscall(SYSCALL_DEBUG, &args);
-    
+
     // Add trailing newline
     let newline = "\n";
     let ptr = newline.as_ptr() as usize as i32;

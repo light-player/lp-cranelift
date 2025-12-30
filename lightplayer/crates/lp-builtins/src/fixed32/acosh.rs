@@ -48,12 +48,11 @@ mod tests {
     fn test_acosh_basic() {
         let tests = [
             (1.0, 0.0),
-            (2.0, 1.3169578969248166),   // acosh(2)
-            (1.5, 0.9624236501192069),  // acosh(1.5)
+            (2.0, 1.3169578969248166), // acosh(2)
+            (1.5, 0.9624236501192069), // acosh(1.5)
         ];
 
         // Use 5% tolerance for inverse hyperbolic functions
         test_fixed32_function_relative(|x| __lp_fixed32_acosh(x), &tests, 0.05, 0.01);
     }
 }
-

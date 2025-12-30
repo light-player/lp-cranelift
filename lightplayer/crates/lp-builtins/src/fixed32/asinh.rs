@@ -42,8 +42,8 @@ mod tests {
     fn test_asinh_basic() {
         let tests = [
             (0.0, 0.0),
-            (1.0, 0.881373587019543),    // asinh(1)
-            (-1.0, -0.881373587019543),  // asinh(-1)
+            (1.0, 0.881373587019543),   // asinh(1)
+            (-1.0, -0.881373587019543), // asinh(-1)
             (0.5, 0.48121182505960347), // asinh(0.5)
         ];
 
@@ -51,4 +51,3 @@ mod tests {
         test_fixed32_function_relative(|x| __lp_fixed32_asinh(x), &tests, 0.05, 0.01);
     }
 }
-
