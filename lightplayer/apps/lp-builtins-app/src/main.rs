@@ -15,7 +15,11 @@ use core::{
     ptr::{addr_of_mut, read, write_volatile},
 };
 use lp_builtins::fixed32::{
-    __lp_fixed32_cos, __lp_fixed32_div, __lp_fixed32_mul, __lp_fixed32_sin, __lp_fixed32_sqrt,
+    __lp_fixed32_acos, __lp_fixed32_acosh, __lp_fixed32_asin, __lp_fixed32_asinh,
+    __lp_fixed32_atan, __lp_fixed32_atan2, __lp_fixed32_atanh, __lp_fixed32_cos, __lp_fixed32_cosh,
+    __lp_fixed32_div, __lp_fixed32_exp, __lp_fixed32_exp2, __lp_fixed32_log, __lp_fixed32_log2,
+    __lp_fixed32_mul, __lp_fixed32_pow, __lp_fixed32_sin, __lp_fixed32_sinh, __lp_fixed32_sqrt,
+    __lp_fixed32_tan, __lp_fixed32_tanh,
 };
 use lp_builtins::host_debug;
 
@@ -240,6 +244,22 @@ pub extern "C" fn main() -> () {
         let _div_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_div;
         let _sin_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_sin;
         let _cos_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_cos;
+        let _tan_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_tan;
+        let _asin_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_asin;
+        let _acos_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_acos;
+        let _atan_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_atan;
+        let _atan2_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_atan2;
+        let _exp_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_exp;
+        let _log_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_log;
+        let _exp2_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_exp2;
+        let _log2_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_log2;
+        let _sinh_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_sinh;
+        let _cosh_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_cosh;
+        let _tanh_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_tanh;
+        let _asinh_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_asinh;
+        let _acosh_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_acosh;
+        let _atanh_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_atanh;
+        let _pow_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_pow;
 
         // Force these to be included by using them in a way that can't be optimized away
         // We'll use volatile reads to prevent optimization
@@ -248,6 +268,22 @@ pub extern "C" fn main() -> () {
         let _ = core::ptr::read_volatile(&_div_fn as *const _);
         let _ = core::ptr::read_volatile(&_sin_fn as *const _);
         let _ = core::ptr::read_volatile(&_cos_fn as *const _);
+        let _ = core::ptr::read_volatile(&_tan_fn as *const _);
+        let _ = core::ptr::read_volatile(&_asin_fn as *const _);
+        let _ = core::ptr::read_volatile(&_acos_fn as *const _);
+        let _ = core::ptr::read_volatile(&_atan_fn as *const _);
+        let _ = core::ptr::read_volatile(&_atan2_fn as *const _);
+        let _ = core::ptr::read_volatile(&_exp_fn as *const _);
+        let _ = core::ptr::read_volatile(&_log_fn as *const _);
+        let _ = core::ptr::read_volatile(&_exp2_fn as *const _);
+        let _ = core::ptr::read_volatile(&_log2_fn as *const _);
+        let _ = core::ptr::read_volatile(&_sinh_fn as *const _);
+        let _ = core::ptr::read_volatile(&_cosh_fn as *const _);
+        let _ = core::ptr::read_volatile(&_tanh_fn as *const _);
+        let _ = core::ptr::read_volatile(&_asinh_fn as *const _);
+        let _ = core::ptr::read_volatile(&_acosh_fn as *const _);
+        let _ = core::ptr::read_volatile(&_atanh_fn as *const _);
+        let _ = core::ptr::read_volatile(&_pow_fn as *const _);
 
         // Reference host functions to prevent dead code elimination
         let _debug_fn: extern "C" fn(*const u8, usize) = host::__host_debug;

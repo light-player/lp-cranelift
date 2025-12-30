@@ -10,14 +10,31 @@ use cranelift_codegen::ir::{Function, Inst, InstBuilder, Value, types};
 use cranelift_frontend::FunctionBuilder;
 use hashbrown::HashMap;
 
-/// Map TestCase function name to BuiltinId.
+/// Map TestCase function name to BuiltinId and argument count.
 ///
 /// Returns None if the function name is not a math function that should be converted.
 /// Handles both standard C math function names (sinf, cosf) and intrinsic names (__lp_sin, __lp_cos).
-pub fn map_testcase_to_builtin(testcase_name: &str) -> Option<BuiltinId> {
+/// Returns (BuiltinId, argument_count) where argument_count is 1 or 2.
+pub fn map_testcase_to_builtin(testcase_name: &str) -> Option<(BuiltinId, usize)> {
     match testcase_name {
-        "sinf" | "__lp_sin" => Some(BuiltinId::Fixed32Sin),
-        "cosf" | "__lp_cos" => Some(BuiltinId::Fixed32Cos),
+        "sinf" | "__lp_sin" => Some((BuiltinId::Fixed32Sin, 1)),
+        "cosf" | "__lp_cos" => Some((BuiltinId::Fixed32Cos, 1)),
+        "tanf" | "__lp_tan" => Some((BuiltinId::Fixed32Tan, 1)),
+        "atanf" | "__lp_atan" => Some((BuiltinId::Fixed32Atan, 1)),
+        "asinf" | "__lp_asin" => Some((BuiltinId::Fixed32Asin, 1)),
+        "acosf" | "__lp_acos" => Some((BuiltinId::Fixed32Acos, 1)),
+        "atan2f" | "__lp_atan2" => Some((BuiltinId::Fixed32Atan2, 2)),
+        "expf" | "__lp_exp" => Some((BuiltinId::Fixed32Exp, 1)),
+        "logf" | "__lp_log" => Some((BuiltinId::Fixed32Log, 1)),
+        "exp2f" | "__lp_exp2" => Some((BuiltinId::Fixed32Exp2, 1)),
+        "log2f" | "__lp_log2" => Some((BuiltinId::Fixed32Log2, 1)),
+        "sinhf" | "__lp_sinh" => Some((BuiltinId::Fixed32Sinh, 1)),
+        "coshf" | "__lp_cosh" => Some((BuiltinId::Fixed32Cosh, 1)),
+        "tanhf" | "__lp_tanh" => Some((BuiltinId::Fixed32Tanh, 1)),
+        "asinhf" | "__lp_asinh" => Some((BuiltinId::Fixed32Asinh, 1)),
+        "acoshf" | "__lp_acosh" => Some((BuiltinId::Fixed32Acosh, 1)),
+        "atanhf" | "__lp_atanh" => Some((BuiltinId::Fixed32Atanh, 1)),
+        "powf" | "__lp_pow" => Some((BuiltinId::Fixed32Pow, 2)),
         _ => None,
     }
 }

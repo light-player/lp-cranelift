@@ -51,6 +51,13 @@ pub fn parse_run_directive(line: &str, line_number: usize) -> Result<RunDirectiv
         );
     };
 
+    // Strip comments from expected value (comments start with //)
+    let expected_with_tolerance = if let Some(comment_pos) = expected_with_tolerance.find("//") {
+        expected_with_tolerance[..comment_pos].trim()
+    } else {
+        expected_with_tolerance
+    };
+
     // Parse tolerance if present: (tolerance: 0.001)
     let (expected, tolerance) =
         if let Some(tolerance_start) = expected_with_tolerance.find("(tolerance:") {

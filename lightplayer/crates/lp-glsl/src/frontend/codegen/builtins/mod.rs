@@ -45,6 +45,10 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
             "mod" => self.builtin_mod(args),
             "sign" => self.builtin_sign(args),
             "pow" => self.builtin_pow(args),
+            "exp" => self.builtin_exp(args),
+            "log" => self.builtin_log(args),
+            "exp2" => self.builtin_exp2(args),
+            "log2" => self.builtin_log2(args),
 
             // Angle and Trigonometry Functions
             "radians" => self.builtin_radians(args),

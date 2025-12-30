@@ -25,7 +25,6 @@ pub use exec::GlslEmulatorModule;
 pub use exec::GlslJitModule;
 pub use exec::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode};
 pub use frontend::codegen;
-pub use frontend::intrinsics;
 pub use frontend::semantic;
 pub use frontend::{
     Backend, CompilationPipeline, CompiledShader, GlslCompiler, ParseResult, SemanticResult,

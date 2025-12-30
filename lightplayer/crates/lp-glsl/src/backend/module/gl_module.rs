@@ -26,9 +26,6 @@ pub struct GlModule<M: Module> {
     pub source_text: String,
     pub source_loc_manager: SourceLocManager,
     pub source_map: GlSourceMap,
-    // Intrinsic cache (for tracking intrinsic functions that need to be added to fns)
-    #[cfg(feature = "intrinsic-math")]
-    pub intrinsic_cache: Option<crate::frontend::intrinsics::loader::IntrinsicCache>,
 }
 
 // Separate constructors for each Module type (Rust needs concrete types)
@@ -105,8 +102,6 @@ impl GlModule<JITModule> {
                     source_text: String::new(),
                     source_loc_manager: SourceLocManager::new(),
                     source_map: GlSourceMap::new(),
-                    #[cfg(feature = "intrinsic-math")]
-                    intrinsic_cache: None,
                 })
             }
             _ => Err(GlslError::new(
@@ -163,8 +158,6 @@ impl GlModule<ObjectModule> {
                     source_text: String::new(),
                     source_loc_manager: SourceLocManager::new(),
                     source_map: GlSourceMap::new(),
-                    #[cfg(feature = "intrinsic-math")]
-                    intrinsic_cache: None,
                 })
             }
             _ => Err(GlslError::new(

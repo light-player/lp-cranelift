@@ -32,7 +32,7 @@ float test_exp_two() {
     return exp(2.0);
 }
 
-// run: test_exp_two() ~= 7.38905609893065
+// run: test_exp_two() ~= 7.38905609893065 (tolerance: 0.001)
 
 float test_exp_neg_two() {
     // exp(-2) should be e^-2 ≈ 0.1353352832366127

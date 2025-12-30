@@ -267,7 +267,7 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
     ) -> Result<(Vec<Value>, Type), GlslError> {
-        let (x_vals, _x_ty) = &args[0];
+        let (x_vals, x_ty) = &args[0];
         let (y_vals, _) = &args[1];
 
         if x_vals.len() != y_vals.len() {
@@ -277,12 +277,85 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
             ));
         }
 
-        // TODO: Cranelift doesn't have fpow instruction - need to implement via exp/log
-        // For now, return error
-        Err(GlslError::new(
-            ErrorCode::E0400,
-            "pow() builtin not yet implemented (needs exp/log)",
-        ))
+        // Use get_math_libcall_2arg for 2-arg function
+        let func_ref = self.get_math_libcall_2arg("powf")?;
+        let mut result_vals = Vec::new();
+
+        for i in 0..x_vals.len() {
+            // Call powf(x, y)
+            let call_inst = self.builder.ins().call(func_ref, &[x_vals[i], y_vals[i]]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// exp(x) - e raised to the power of x (component-wise)
+    pub fn builtin_exp(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("expf")?;
+        let mut result_vals = Vec::new();
+
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// log(x) - natural logarithm (component-wise)
+    pub fn builtin_log(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("logf")?;
+        let mut result_vals = Vec::new();
+
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// exp2(x) - 2 raised to the power of x (component-wise)
+    pub fn builtin_exp2(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("exp2f")?;
+        let mut result_vals = Vec::new();
+
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// log2(x) - base-2 logarithm (component-wise)
+    pub fn builtin_log2(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+        let func_ref = self.get_math_libcall("log2f")?;
+        let mut result_vals = Vec::new();
+
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+
+        Ok((result_vals, x_ty.clone()))
     }
 
     /// fract(x) = x - floor(x) (fractional part)

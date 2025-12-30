@@ -26,8 +26,7 @@ lp-builtins = { path = "../lp-builtins" }
 anyhow = { workspace = true, optional = true }
 
 [features]
-default = ["std", "intrinsic-math"]
-intrinsic-math = []  # Enable intrinsic math function implementations
+default = ["std"]
 emulator = ["lp-riscv-tools", "cranelift-object", "object", "cranelift-codegen/disas"]  # Enable RISC-V 32-bit emulator support and disassembly
 std = [
     "glsl/std",

@@ -198,6 +198,30 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
             return_type: BuiltinReturnType::SameAsParam(0),
         }]),
 
+        "exp" => Some(vec![BuiltinSignature {
+            name: "exp",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+
+        "log" => Some(vec![BuiltinSignature {
+            name: "log",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+
+        "exp2" => Some(vec![BuiltinSignature {
+            name: "exp2",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+
+        "log2" => Some(vec![BuiltinSignature {
+            name: "log2",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+
         // Angle and Trigonometry Functions (builtinfunctions.adoc:122-310)
         "radians" => Some(vec![BuiltinSignature {
             name: "radians",

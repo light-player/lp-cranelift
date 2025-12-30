@@ -150,22 +150,26 @@ pub(crate) fn convert_call(
 
         let new_func_ref = if let Some(func_name) = func_name_opt {
             // Check if this is a math function that should be converted to a builtin
-            if let Some(builtin_id) = map_testcase_to_builtin(func_name) {
+            if let Some((builtin_id, expected_arg_count)) = map_testcase_to_builtin(func_name) {
                 // Convert to builtin call (similar to convert_sqrt)
-                // This should be a unary function (sin, cos)
                 let old_args = args.as_slice(&old_func.dfg.value_lists);
-                if old_args.len() != 1 {
+                if old_args.len() != expected_arg_count {
                     return Err(GlslError::new(
                         ErrorCode::E0400,
                         format!(
-                            "Expected 1 argument for math function '{}', got {}",
+                            "Expected {} argument(s) for math function '{}', got {}",
+                            expected_arg_count,
                             func_name,
                             old_args.len()
                         ),
                     ));
                 }
 
-                let mapped_arg = map_value(value_map, old_args[0]);
+                // Map all arguments
+                let mapped_args: Vec<Value> = old_args
+                    .iter()
+                    .map(|&v| map_value(value_map, v))
+                    .collect();
 
                 // Get FuncId for the builtin from func_id_map
                 let builtin_name = builtin_id.name();
@@ -179,9 +183,11 @@ pub(crate) fn convert_call(
                     )
                 })?;
 
-                // Create signature for the builtin: (i32) -> i32
+                // Create signature for the builtin based on argument count
                 let mut sig = Signature::new(CallConv::SystemV);
-                sig.params.push(AbiParam::new(types::I32));
+                for _ in 0..expected_arg_count {
+                    sig.params.push(AbiParam::new(types::I32));
+                }
                 sig.returns.push(AbiParam::new(types::I32));
                 let sig_ref = builder.func.import_signature(sig);
 
@@ -200,8 +206,8 @@ pub(crate) fn convert_call(
                 };
                 let builtin_func_ref = builder.func.import_function(ext_func);
 
-                // Call the builtin function
-                let call_inst = builder.ins().call(builtin_func_ref, &[mapped_arg]);
+                // Call the builtin function with mapped arguments
+                let call_inst = builder.ins().call(builtin_func_ref, &mapped_args);
                 let result = builder.inst_results(call_inst)[0];
 
                 let old_result = get_first_result(old_func, old_inst);

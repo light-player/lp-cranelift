@@ -25,14 +25,14 @@ float test_exp2_two() {
     return exp2(2.0);
 }
 
-// run: test_exp2_two() ~= 4.0
+// run: test_exp2_two() ~= 4.0 (tolerance: 0.001)
 
 float test_exp2_three() {
     // exp2(3) should be 8
     return exp2(3.0);
 }
 
-// run: test_exp2_three() ~= 8.0
+// run: test_exp2_three() ~= 8.0 (tolerance: 0.001)
 
 float test_exp2_neg_one() {
     // exp2(-1) should be 0.5

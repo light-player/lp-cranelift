@@ -7,8 +7,6 @@ pub(crate) mod glsl_compiler;
 pub(crate) mod pipeline;
 // Public modules
 pub mod codegen;
-#[cfg(feature = "intrinsic-math")]
-pub mod intrinsics;
 pub mod semantic;
 pub mod src_loc;
 pub mod src_loc_manager;

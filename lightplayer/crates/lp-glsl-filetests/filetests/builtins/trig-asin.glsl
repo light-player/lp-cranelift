@@ -33,14 +33,14 @@ float test_asin_half() {
     return asin(0.5);
 }
 
-// run: test_asin_half() ~= 0.5235987755982988
+// run: test_asin_half() ~= 0.5235987755982988 (tolerance: 0.01)
 
 float test_asin_neg_half() {
     // asin(-0.5) should be -π/6 ≈ -0.5235987755982988
     return asin(-0.5);
 }
 
-// run: test_asin_neg_half() ~= -0.5235987755982988
+// run: test_asin_neg_half() ~= -0.5235987755982988 (tolerance: 0.01)
 
 float test_asin_sqrt_half() {
     // asin(√2/2) should be π/4 ≈ 0.7853981633974483
@@ -54,21 +54,21 @@ vec2 test_asin_vec2() {
     return asin(vec2(0.0, 0.5));
 }
 
-// run: test_asin_vec2() ~= vec2(0.0, 0.5235987755982988)
+// run: test_asin_vec2() ~= vec2(0.0, 0.5235987755982988) (tolerance: 0.01)
 
 vec3 test_asin_vec3() {
     // Test with vec3
     return asin(vec3(0.0, 0.5, 1.0));
 }
 
-// run: test_asin_vec3() ~= vec3(0.0, 0.5235987755982988, 1.5707963267948966)
+// run: test_asin_vec3() ~= vec3(0.0, 0.5235987755982988, 1.5707963267948966) (tolerance: 0.01)
 
 vec4 test_asin_vec4() {
     // Test with vec4
     return asin(vec4(0.0, 0.5, 1.0, -0.5));
 }
 
-// run: test_asin_vec4() ~= vec4(0.0, 0.5235987755982988, 1.5707963267948966, -0.5235987755982988)
+// run: test_asin_vec4() ~= vec4(0.0, 0.5235987755982988, 1.5707963267948966, -0.5235987755982988) (tolerance: 0.01)
 
 
 

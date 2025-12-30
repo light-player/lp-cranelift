@@ -126,28 +126,31 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
     }
 
     /// atan(x) or atan(y, x) - Arc tangent (component-wise)
+    ///
+    /// GLSL spec: atan(genFType y, genFType x) - first arg is y, second is x
     pub fn builtin_atan(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
     ) -> Result<(Vec<Value>, Type), GlslError> {
-        let (x_vals, x_ty) = &args[0];
+        let (y_over_x_vals, ty) = &args[0];
 
         if args.len() == 1 {
-            // 1-arg version: atan(x)
+            // 1-arg version: atan(y_over_x)
             let func_ref = self.get_math_libcall("atanf")?;
             let mut result_vals = Vec::new();
 
-            for &val in x_vals {
+            for &val in y_over_x_vals {
                 let call_inst = self.builder.ins().call(func_ref, &[val]);
                 result_vals.push(self.builder.inst_results(call_inst)[0]);
             }
 
-            Ok((result_vals, x_ty.clone()))
+            Ok((result_vals, ty.clone()))
         } else {
-            // 2-arg version: atan(y, x)
-            let (y_vals, _) = &args[1];
+            // 2-arg version: atan(y, x) - GLSL spec: first arg is y, second is x
+            let (y_vals, y_ty) = &args[0]; // First argument is y
+            let (x_vals, _) = &args[1];    // Second argument is x
 
-            if x_vals.len() != y_vals.len() {
+            if y_vals.len() != x_vals.len() {
                 return Err(GlslError::new(
                     ErrorCode::E0104,
                     "atan() 2-arg version requires matching vector sizes",
@@ -157,12 +160,13 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
             let func_ref = self.get_atan2_libcall()?;
             let mut result_vals = Vec::new();
 
-            for i in 0..x_vals.len() {
+            for i in 0..y_vals.len() {
+                // Call atan2f(y, x) - correct order per GLSL spec
                 let call_inst = self.builder.ins().call(func_ref, &[y_vals[i], x_vals[i]]);
                 result_vals.push(self.builder.inst_results(call_inst)[0]);
             }
 
-            Ok((result_vals, x_ty.clone()))
+            Ok((result_vals, y_ty.clone()))
         }
     }
 

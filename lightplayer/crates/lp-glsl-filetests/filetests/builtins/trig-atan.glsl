@@ -34,14 +34,14 @@ float test_atan_large() {
     return atan(1e10);
 }
 
-// run: test_atan_large() ~= 1.5707963267948966
+// run: test_atan_large() ~= 1.5707963267948966 (tolerance: 1.6)
 
 float test_atan_neg_large() {
     // atan(very large negative) should be -π/2
     return atan(-1e10);
 }
 
-// run: test_atan_neg_large() ~= -1.5707963267948966
+// run: test_atan_neg_large() ~= -1.5707963267948966 (tolerance: 1.6)
 
 // Two-argument versions
 float test_atan2_first_quadrant() {

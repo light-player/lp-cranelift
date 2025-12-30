@@ -46,10 +46,6 @@ pub struct CodegenContext<'a, M: Module> {
     // Entry block for accessing function parameters (including StructReturn)
     pub entry_block: Option<Block>,
 
-    // Intrinsic function cache (for math function implementations)
-    #[cfg(feature = "intrinsic-math")]
-    pub intrinsic_cache: Option<crate::frontend::intrinsics::loader::IntrinsicCache>,
-
     // Source location manager for mapping SourceLoc to GLSL source positions
     pub source_loc_manager: SourceLocManager,
 
@@ -83,8 +79,6 @@ impl<'a, M: Module> CodegenContext<'a, M> {
             source_text: None,
             return_type: None,
             entry_block: None,
-            #[cfg(feature = "intrinsic-math")]
-            intrinsic_cache: None,
             source_loc_manager: SourceLocManager::new(),
             source_map,
             current_file_id,
