@@ -29,9 +29,6 @@ pub mod elf_loader;
 #[cfg(feature = "std")]
 pub mod elf_linker;
 
-// Executable linker utility
-#[cfg(feature = "std")]
-pub mod executable_linker;
 
 // Instruction utilities
 pub mod auipc_imm;
@@ -56,5 +53,3 @@ pub use regs::Gpr;
 pub use elf_loader::{ElfLoadInfo, find_symbol_address, load_elf};
 #[cfg(feature = "std")]
 pub use elf_linker::{link_static_library, LinkerError};
-#[cfg(feature = "std")]
-pub use executable_linker::link_into_executable;

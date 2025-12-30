@@ -370,6 +370,7 @@ pub fn handle_pcrel_lo12_i(
 }
 
 /// Handle R_RISCV_32 (1): 32-bit absolute relocation (used for GOT entry initialization).
+#[allow(dead_code)]
 pub fn handle_abs32(
     ctx: &mut RelocationContext,
     reloc: &RelocationInfo,
@@ -408,7 +409,6 @@ pub fn handle_abs32(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use alloc::vec::Vec;
 
     /// Test PCREL_LO12_I calculation for the exact failing case

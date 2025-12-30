@@ -5,20 +5,23 @@
 
 #![cfg(feature = "std")]
 
-mod memory;
-mod parse;
 mod layout;
+mod memory;
+mod object;
+mod parse;
+mod relocations;
 mod sections;
 mod symbols;
-mod relocations;
 
+use crate::debug;
+use ::object::{Object, ObjectSection};
+use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
-use alloc::string::String;
-use object::{Object, ObjectSection};
-use crate::debug;
+use hashbrown::HashMap;
 
 // Re-export public types and functions
+pub use object::{ObjectLoadInfo, load_object_file};
 pub use symbols::find_symbol_address;
 
 /// Information extracted from an ELF file for emulator loading.
@@ -29,6 +32,12 @@ pub struct ElfLoadInfo {
     pub ram: Vec<u8>,
     /// Entry point address
     pub entry_point: u32,
+    /// Symbol map (symbol name -> address)
+    pub symbol_map: HashMap<String, u32>,
+    /// End address of code/ROM sections (where code sections end)
+    pub code_end: u32,
+    /// End offset of RAM sections (relative to RAM_START, where RAM sections end)
+    pub ram_end: u32,
 }
 
 /// Load a RISC-V ELF file and extract code and data sections for the emulator.
@@ -43,59 +52,110 @@ pub struct ElfLoadInfo {
 /// - Returns the entry point address
 pub fn load_elf(elf_data: &[u8]) -> Result<ElfLoadInfo, String> {
     debug!("=== Loading ELF file ===");
-    
+
     // Step 1: Parse ELF
     let obj = parse::parse_elf(elf_data)?;
-    
+
     // Step 2: Validate ELF
     parse::validate_elf(&obj)?;
-    
+
     // Step 3: Extract entry point
     let entry_point = parse::extract_entry_point(&obj);
-    
+
     // Step 4: Calculate memory layout
     let layout = layout::calculate_memory_layout(&obj, entry_point)?;
-    
+
     // Step 5: Allocate buffers
     let mut code = vec![0u8; layout.rom_size];
     let mut ram = vec![0u8; layout.ram_size];
-    
+
     // Step 6: Load sections
     sections::load_sections(&obj, &mut code, &mut ram)?;
-    
+
     // Step 7: Build symbol map
     // Find text section base for symbol address calculation
     let mut text_base = 0u64;
     for section in obj.sections() {
-        if section.kind() == object::SectionKind::Text {
+        if section.kind() == ::object::SectionKind::Text {
             text_base = section.address();
             break;
         }
     }
     let symbol_map = symbols::build_symbol_map(&obj, text_base);
-    
+
     // Step 8: Apply relocations
     relocations::apply_relocations(&obj, &mut code, &mut ram, &symbol_map)?;
-    
+
+    // Step 9: Calculate code_end and ram_end
+    // Find maximum end address of ROM sections
+    let mut code_end = 0u32;
+    for section in obj.sections() {
+        let section_addr = section.address();
+        let section_size = section.size();
+
+        // Skip debug sections
+        if let Ok(section_name) = section.name() {
+            if section_name.starts_with(".debug_") || section_name.starts_with(".zdebug_") {
+                continue;
+            }
+        }
+
+        if memory::is_rom_address(section_addr) && section_size > 0 {
+            let end_addr = (section_addr + section_size) as u32;
+            code_end = code_end.max(end_addr);
+        }
+    }
+
+    // Find maximum end offset of RAM sections (relative to RAM_START)
+    let mut ram_end = 0u32;
+    for section in obj.sections() {
+        let section_addr = section.address();
+        let section_size = section.size();
+
+        // Skip debug sections
+        if let Ok(section_name) = section.name() {
+            if section_name.starts_with(".debug_") || section_name.starts_with(".zdebug_") {
+                continue;
+            }
+        }
+
+        if memory::is_ram_address(section_addr) && section_size > 0 {
+            let ram_offset = memory::ram_address_to_offset(section_addr) as u32;
+            let end_offset = ram_offset + section_size as u32;
+            ram_end = ram_end.max(end_offset);
+        }
+    }
+
     debug!("=== ELF loading complete ===");
-    debug!("Code size: {} bytes, RAM size: {} bytes, Entry point: 0x{:x}", 
-           code.len(), ram.len(), entry_point);
-    
+    debug!(
+        "Code size: {} bytes, RAM size: {} bytes, Entry point: 0x{:x}",
+        code.len(),
+        ram.len(),
+        entry_point
+    );
+    debug!(
+        "Code end: 0x{:x}, RAM end offset: 0x{:x}",
+        code_end, ram_end
+    );
+
     Ok(ElfLoadInfo {
         code,
         ram,
         entry_point,
+        symbol_map,
+        code_end,
+        ram_end,
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::emu::{Riscv32Emulator, LogLevel, StepResult};
     use crate::Gpr;
+    use crate::emu::{LogLevel, Riscv32Emulator, StepResult};
     use std::println;
 
-    /// Find the builtins executable path (similar to executable_linker logic)
+    /// Find the builtins executable path
     fn find_builtins_executable() -> Option<Vec<u8>> {
         use std::env;
 
@@ -199,7 +259,10 @@ mod tests {
         let max_steps = 10000;
         loop {
             if steps >= max_steps {
-                println!("\n=== Emulator exceeded {} steps - possible infinite loop ===", max_steps);
+                println!(
+                    "\n=== Emulator exceeded {} steps - possible infinite loop ===",
+                    max_steps
+                );
                 println!("PC: 0x{:x}", emu.get_pc());
                 println!("\n=== Emulator State ===");
                 println!("{}", emu.dump_state());
@@ -226,7 +289,10 @@ mod tests {
                         } else if let Some(line) = panic_info.line {
                             println!("  at line {}", line);
                         } else {
-                            println!("  (no file/line information available, PC: 0x{:x})", panic_info.pc);
+                            println!(
+                                "  (no file/line information available, PC: 0x{:x})",
+                                panic_info.pc
+                            );
                         }
                         println!("PC: 0x{:x}", panic_info.pc);
                         println!("\n=== Emulator State ===");
@@ -260,7 +326,65 @@ mod tests {
             }
         }
 
-        assert!(steps > 0, "Bootstrap app should execute at least one instruction");
+        assert!(
+            steps > 0,
+            "Bootstrap app should execute at least one instruction"
+        );
+    }
+
+    #[test]
+    fn test_elf_load_info_fields() {
+        // Find the builtins executable
+        let builtins_exe = match find_builtins_executable() {
+            Some(bytes) => {
+                if bytes.is_empty() {
+                    println!("Skipping test: builtins executable is empty");
+                    return;
+                }
+                bytes
+            }
+            None => {
+                println!(
+                    "Skipping test: builtins executable not found. Build it with: scripts/build-builtins.sh"
+                );
+                return;
+            }
+        };
+
+        // Load the ELF
+        let load_info = match load_elf(&builtins_exe) {
+            Ok(info) => info,
+            Err(e) => {
+                panic!("Failed to load bootstrap app ELF: {}", e);
+            }
+        };
+
+        // Verify new fields are populated
+        assert!(
+            !load_info.symbol_map.is_empty(),
+            "Symbol map should not be empty"
+        );
+        assert!(load_info.code_end > 0, "Code end should be greater than 0");
+        assert!(load_info.ram_end > 0, "RAM end should be greater than 0");
+
+        // Verify code_end is within code buffer
+        assert!(
+            load_info.code_end as usize <= load_info.code.len(),
+            "Code end should be within code buffer"
+        );
+
+        // Verify ram_end is within ram buffer
+        assert!(
+            load_info.ram_end as usize <= load_info.ram.len(),
+            "RAM end should be within RAM buffer"
+        );
+
+        // Verify symbol map contains expected symbols (at least entry point symbol)
+        // The exact symbols depend on the executable, but we should have some
+        println!("Symbol map contains {} symbols", load_info.symbol_map.len());
+        println!(
+            "Code end: 0x{:x}, RAM end offset: 0x{:x}",
+            load_info.code_end, load_info.ram_end
+        );
     }
 }
-

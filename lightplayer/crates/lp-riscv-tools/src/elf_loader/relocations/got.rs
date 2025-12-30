@@ -8,6 +8,7 @@ use hashbrown::HashMap;
 #[derive(Debug, Clone)]
 pub struct GotEntry {
     /// Symbol name
+    #[allow(dead_code)]
     pub symbol_name: String,
     /// Address where the GOT entry is located
     pub address: u32,

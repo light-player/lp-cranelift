@@ -10,9 +10,8 @@ mod phase1;
 mod handlers;
 mod phase2;
 
-pub use section::SectionAddressInfo;
-pub use got::{GotEntry, GotTracker};
-pub use phase1::{RelocationInfo, analyze_relocations};
+pub use section::{SectionAddressInfo, BufferSlice};
+pub use phase1::analyze_relocations;
 pub use phase2::apply_relocations_phase2;
 
 use crate::debug;

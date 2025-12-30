@@ -8,24 +8,23 @@ use crate::error::{ErrorCode, GlslError};
 #[cfg(all(feature = "std", feature = "emulator"))]
 use alloc::vec::Vec;
 
-/// Link builtins executable into ELF and verify symbols are defined
+/// Link builtins executable with object file and verify symbols are defined
 ///
 /// # Arguments
-/// * `elf_bytes` - The ELF object file bytes to link into the executable
+/// * `elf_bytes` - The ELF object file bytes to load into the executable
 /// * `builtins_exe_bytes` - The lp-builtins-app executable bytes
 ///
 /// # Returns
-/// * `Ok(Vec<u8>)` - The linked ELF file bytes with builtins
-/// * `Err(GlslError)` - If linking or verification fails
+/// * `Ok(ElfLoadInfo)` - The loaded ELF info with object file loaded
+/// * `Err(GlslError)` - If loading or verification fails
 #[cfg(all(feature = "std", feature = "emulator"))]
 pub fn link_and_verify_builtins(
     elf_bytes: &[u8],
     builtins_exe_bytes: &[u8],
-) -> Result<Vec<u8>, GlslError> {
+) -> Result<lp_riscv_tools::ElfLoadInfo, GlslError> {
     use crate::backend::builtins::registry::BuiltinId;
-    use object::{File as ObjectFile, Object, ObjectSymbol, SymbolKind, SymbolSection};
 
-    crate::debug!("=== Linking object file into builtins executable ===");
+    crate::debug!("=== Loading object file into builtins executable ===");
     crate::debug!("Builtins executable size: {} bytes", builtins_exe_bytes.len());
     crate::debug!("Object file size: {} bytes", elf_bytes.len());
 
@@ -37,81 +36,64 @@ pub fn link_and_verify_builtins(
         ));
     }
 
-    // Link the object file into the executable
-    crate::debug!("Attempting to link object file into executable...");
-    let linked_elf = lp_riscv_tools::executable_linker::link_into_executable(builtins_exe_bytes, elf_bytes)
+    // Load the base executable
+    crate::debug!("Loading base executable...");
+    let mut load_info = lp_riscv_tools::load_elf(builtins_exe_bytes)
         .map_err(|e| {
             GlslError::new(
                 ErrorCode::E0400,
                 format!(
-                    "Failed to link object file into executable: {}. \
+                    "Failed to load base executable: {}. \
                      Ensure lp-builtins-app is correctly compiled.",
                     e
                 ),
             )
         })?;
 
-    crate::debug!("Linking succeeded!");
+    crate::debug!("Base executable loaded successfully!");
 
-    // Verify that builtin symbols are present and defined in the linked ELF
-    let obj = ObjectFile::parse(&linked_elf[..]).map_err(|e| {
+    // Load the object file into the base executable
+    crate::debug!("Loading object file...");
+    let obj_info = lp_riscv_tools::load_object_file(
+        elf_bytes,
+        &mut load_info.code,
+        &mut load_info.ram,
+        &mut load_info.symbol_map,
+    )
+    .map_err(|e| {
         GlslError::new(
             ErrorCode::E0400,
-            format!("Failed to parse linked ELF: {}", e),
+            format!(
+                "Failed to load object file: {}. \
+                 Ensure the object file is correctly compiled.",
+                e
+            ),
         )
     })?;
 
+    crate::debug!("Object file loaded successfully!");
+
+    // Verify that builtin symbols are present and defined in the merged symbol map
     let mut missing_symbols = Vec::new();
     let mut undefined_symbols = Vec::new();
 
-    crate::debug!("Checking for builtin symbols in linked ELF...");
-
-    // Debug: Count symbols (but don't print them all - too verbose!)
-    let mut symbol_count = 0;
-    let mut text_symbols = 0;
-    for symbol in obj.symbols() {
-        symbol_count += 1;
-        if symbol.kind() == SymbolKind::Text {
-            text_symbols += 1;
-        }
-    }
-    crate::debug!("ELF contains {} total symbols ({} text symbols)", symbol_count, text_symbols);
+    crate::debug!("Checking for builtin symbols in merged symbol map...");
+    crate::debug!("Symbol map contains {} symbols", load_info.symbol_map.len());
 
     for builtin in BuiltinId::all() {
         let symbol_name = builtin.name();
         crate::debug!("Checking for builtin symbol: {}", symbol_name);
-        let mut found_defined = false;
-        let mut found_undefined = false;
-
-        for symbol in obj.symbols() {
-            if let Ok(name) = symbol.name() {
-                                if name == symbol_name && symbol.kind() == SymbolKind::Text {
-                    crate::debug!(
-                        "  Found symbol {}: section={:?} address=0x{:x}",
-                        name,
-                        symbol.section(),
-                        symbol.address()
-                    );
-                                    if symbol.section() == SymbolSection::Undefined {
-                        found_undefined = true;
-                        crate::debug!("    -> Symbol is UNDEFINED");
-                    } else {
-                        found_defined = true;
-                        crate::debug!("    -> Symbol is DEFINED");
-                        break;
-                    }
-                }
+        
+        if let Some(&address) = load_info.symbol_map.get(symbol_name) {
+            if address == 0 {
+                crate::debug!("  -> Symbol {} found but address is 0 (undefined)", symbol_name);
+                undefined_symbols.push(symbol_name);
+            } else {
+                crate::debug!("  -> Symbol {} found at address 0x{:x} (defined)", symbol_name, address);
             }
-        }
-
-        if found_undefined && !found_defined {
-            crate::debug!("  -> Adding to undefined_symbols: {}", symbol_name);
-            undefined_symbols.push(symbol_name);
-        } else if !found_defined {
-            crate::debug!("  -> Adding to missing_symbols: {}", symbol_name);
-            missing_symbols.push(symbol_name);
         } else {
-            crate::debug!("  -> Symbol {} is properly defined", symbol_name);
+            crate::debug!("  -> Symbol {} not found in symbol map", symbol_name);
+            missing_symbols.push(symbol_name);
         }
     }
 
@@ -122,8 +104,8 @@ pub fn link_and_verify_builtins(
         return Err(GlslError::new(
             ErrorCode::E0400,
             format!(
-                "Builtin symbols are undefined after linking: {:?}. \
-                 These symbols were declared but not resolved by the linker. \
+                "Builtin symbols are undefined after loading: {:?}. \
+                 These symbols were declared but not resolved. \
                  Ensure lp-builtins library is built and linked correctly.",
                 undefined_symbols
             ),
@@ -134,13 +116,13 @@ pub fn link_and_verify_builtins(
         return Err(GlslError::new(
             ErrorCode::E0400,
             format!(
-                "Builtin symbols not found after linking: {:?}. \
+                "Builtin symbols not found after loading: {:?}. \
                  Ensure lp-builtins library is built and contains these symbols.",
                 missing_symbols
             ),
         ));
     }
 
-    Ok(linked_elf)
+    Ok(load_info)
 }
 

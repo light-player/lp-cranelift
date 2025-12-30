@@ -26,8 +26,10 @@ pub struct RelocationInfo {
     /// Address where relocation is applied (VMA + offset)
     pub address: u32,
     /// Section VMA
+    #[allow(dead_code)]
     pub section_vma: u64,
     /// Section LMA (for .data sections)
+    #[allow(dead_code)]
     pub section_lma: u64,
 }
 

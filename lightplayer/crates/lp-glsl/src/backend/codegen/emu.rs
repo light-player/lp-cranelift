@@ -49,7 +49,7 @@ pub fn build_emu_executable(
     transformed_clif: Option<String>,
 ) -> Result<GlslEmulatorModule, GlslError> {
     use lp_riscv_tools::Gpr;
-    use lp_riscv_tools::elf_loader::{find_symbol_address, load_elf};
+    use lp_riscv_tools::elf_loader::load_elf;
     use lp_riscv_tools::emu::LogLevel;
     use lp_riscv_tools::emu::emulator::Riscv32Emulator;
     use object::{Object, ObjectSection, ObjectSymbol};
@@ -307,51 +307,36 @@ pub fn build_emu_executable(
 
     // 3.5 Link builtins static library into the ELF if available
     #[cfg(feature = "std")]
-    {
+    let load_info = {
         // Use compile-time embedded library bytes
         let builtins_lib_bytes = builtins_lib::LP_BUILTINS_LIB_BYTES;
-        elf_bytes = crate::backend::codegen::builtins_linker::link_and_verify_builtins(
+        crate::backend::codegen::builtins_linker::link_and_verify_builtins(
             &elf_bytes,
             builtins_lib_bytes,
-        )?;
-    }
-
-    // 4. Load ELF and find main address
+        )?
+    };
+    #[cfg(not(feature = "std"))]
     let load_info = load_elf(&elf_bytes)
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to load ELF: {}", e)))?;
-    let obj = object::File::parse(&elf_bytes[..])
-        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to parse ELF: {}", e)))?;
 
-    // Find text section base address
-    let mut text_section_base = 0u64;
-    for section in obj.sections() {
-        if section.kind() == object::SectionKind::Text {
-            text_section_base = section.address();
-            break;
-        }
-    }
-
-    // Find main function address
-    let main_address = find_symbol_address(&obj, "main", text_section_base).map_err(|e| {
-        GlslError::new(
-            ErrorCode::E0400,
-            format!("Failed to find main address: {}", e),
-        )
-    })?;
+    // 4. Find main address from symbol map
+    let main_address = load_info.symbol_map.get("main")
+        .copied()
+        .ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0400,
+                "main function not found in symbol map",
+            )
+        })?;
 
     // 5. Collect trap information: convert function-relative offsets to absolute addresses
-    // Build a map of function names to their addresses in the binary (relative to text section base)
+    // Build a map of function names to their addresses in the binary
+    // Use symbol map directly (addresses are already absolute, code starts at 0)
     let mut func_addresses: HashMap<String, u32> = HashMap::new();
-    for symbol in obj.symbols() {
-        if let Ok(name) = symbol.name() {
-            if symbol.kind() == object::SymbolKind::Text {
-                let address = symbol.address();
-                if address >= text_section_base {
-                    // Address relative to text section base (matches find_symbol_address logic)
-                    let offset = (address - text_section_base) as u32;
-                    func_addresses.insert(String::from(name), offset);
-                }
-            }
+    for (name, &address) in &load_info.symbol_map {
+        // Filter for text symbols (functions) - addresses in code region (0x0 to 0x80000000)
+        if address < 0x80000000 {
+            func_addresses.insert(name.clone(), address);
         }
     }
 
@@ -442,7 +427,7 @@ mod tests {
         };
 
         let mut executable = build_emu_executable(gl_module, &options, None, None).unwrap();
-        // main_address will be set by find_symbol_address
+        // main_address will be set from symbol map
         // Note: main_address can be 0 if the function is at the start of the text section
 
         // Actually call the function and verify it returns 42
