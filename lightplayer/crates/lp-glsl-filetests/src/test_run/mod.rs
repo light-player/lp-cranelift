@@ -279,7 +279,7 @@ pub fn run_test_file_with_line_filter(
                             
                             if should_color() {
                                 eprintln!(
-                                    "{}{}✓ {}{}  {}{}{}",
+                                    "{}{}{}{}  {}{}{}",
                                     colors::LIGHT_GREEN,
                                     "✓ ",
                                     file_line,
