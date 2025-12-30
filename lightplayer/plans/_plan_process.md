@@ -11,6 +11,9 @@ Once created, ask me the questions ONE AT A TIME with:
 
 I will answer or ask more questions. We will then move on.
 
+We must ensure that we have a clear acceptance criteria for the plan. There should be a phase
+at the end for verifying the acceptance criteria and debugging.
+
 Once you're done with the questions, you will present me with a suggestion of plan phases,
 like this example:
 

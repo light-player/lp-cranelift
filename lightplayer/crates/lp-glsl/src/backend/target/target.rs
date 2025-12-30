@@ -128,7 +128,9 @@ impl Target {
 fn default_riscv32_flags() -> Result<Flags, GlslError> {
     let mut flag_builder = settings::builder();
     flag_builder
-        .set("is_pic", "false")
+        // Enable PIC for emulator target to generate GOT-based relocations for external symbols
+        // This matches how test_load_object_file_with_actual_builtins compiles code
+        .set("is_pic", "true")
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("failed to set is_pic: {}", e)))?;
     flag_builder
         .set("use_colocated_libcalls", "false")
@@ -155,7 +157,9 @@ fn default_riscv32_flags() -> Result<Flags, GlslError> {
 fn default_host_flags() -> Result<Flags, GlslError> {
     let mut flag_builder = settings::builder();
     flag_builder
-        .set("is_pic", "false")
+        // Enable PIC for emulator target to generate GOT-based relocations for external symbols
+        // This matches how test_load_object_file_with_actual_builtins compiles code
+        .set("is_pic", "true")
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("failed to set is_pic: {}", e)))?;
     flag_builder
         .set("use_colocated_libcalls", "false")

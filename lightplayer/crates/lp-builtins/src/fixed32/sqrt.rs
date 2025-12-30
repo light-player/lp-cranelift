@@ -16,17 +16,21 @@ pub extern "C" fn __lp_fixed32_sqrt(x: i32) -> i32 {
     // For now, we'll use a simple approach - just always print via syscall
     // We can't use host_println! here because it requires alloc::format!
 
+    host_debug!("[sqrt] entry x={}", x);
+
     // Handle edge cases
     if x <= 0 {
+        host_debug!("[sqrt] x<=0, returning 0");
         return 0;
     }
 
-    host_debug!("__lp_fixed32_sqrt({})", x);
+    host_debug!("[sqrt] computing sqrt({})", x);
 
     let x_scaled = (x as u64) << 16;
     let sqrt_scaled = x_scaled.isqrt();
     let result = sqrt_scaled as i32;
 
+    host_debug!("[sqrt] result={}", result);
     result
 }
 
