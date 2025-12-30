@@ -279,18 +279,17 @@ pub fn run_test_file_with_line_filter(
                             
                             if should_color() {
                                 eprintln!(
-                                    "{}{}✓ {}{} {}{}{}",
+                                    "{}{}✓ {}{}  {}{}{}",
                                     colors::LIGHT_GREEN,
                                     "✓ ",
                                     file_line,
                                     colors::RESET,
-                                    " ",
                                     colors::DIM,
                                     test_expr,
                                     colors::RESET
                                 );
                             } else {
-                                eprintln!("✓ {} {}", file_line, test_expr);
+                                eprintln!("✓ {}  {}", file_line, test_expr);
                             }
                         }
                     }
