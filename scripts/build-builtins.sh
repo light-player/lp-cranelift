@@ -43,6 +43,5 @@ LP_SYMBOLS=$(nm "$OUTPUT_DIR/lp-builtins-app" 2>/dev/null | grep "__lp_" | wc -l
 # Output formatted results
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
-echo -e "    ${GREEN}lp-builtins-app elf built to:${NC} $OUTPUT_DIR/lp-builtins-app"
-echo "    __lp_* symbols: $LP_SYMBOLS"
+echo -e "${GREEN}lp-builtins-app:${NC} built with $LP_SYMBOLS built-ins"
 
