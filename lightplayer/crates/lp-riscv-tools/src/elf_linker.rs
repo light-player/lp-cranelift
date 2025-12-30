@@ -8,7 +8,9 @@
 
 extern crate std;
 
-use alloc::collections::BTreeMap;
+use crate::debug;
+use crate::lazy_linking::{build_symbol_index, resolve_needed_members};
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -101,10 +103,14 @@ pub fn link_static_library(
     let endian = main_obj.endianness();
     let mut writer = WriteObject::new(BinaryFormat::Elf, arch, endian);
 
+    // 1a. Build symbol index from archive for lazy linking
+    let symbol_index = build_symbol_index(&archive_members, arch)?;
+
     // 2. Track state: section names -> SectionId, section sizes, symbol names -> SymbolId
     let mut symbol_map: BTreeMap<String, SymbolId> = BTreeMap::new();
     let mut section_name_map: BTreeMap<String, SectionId> = BTreeMap::new();
     let mut section_sizes: BTreeMap<String, u64> = BTreeMap::new();
+    let mut unresolved_symbols: BTreeMap<String, u32> = BTreeMap::new(); // symbol -> count of references
 
     // 3. Copy main ELF sections (normalize names for merging)
     for section in main_obj.sections() {
@@ -151,11 +157,73 @@ pub fn link_static_library(
         symbol_map.insert(String::from(name), symbol_id);
     }
 
+    // 4a. Collect undefined symbols from main ELF for lazy linking
+    let mut undefined_symbols: BTreeSet<String> = BTreeSet::new();
+    for symbol in main_obj.symbols() {
+        if symbol.is_undefined() {
+            if let Ok(name) = symbol.name() {
+                // Filter out local labels (starting with .L) and debug symbols
+                if !name.starts_with(".L") && !name.starts_with(".debug") {
+                    undefined_symbols.insert(String::from(name));
+                }
+            }
+        }
+    }
+    debug!(
+        "Found {} initial undefined symbols",
+        undefined_symbols.len()
+    );
+    if !undefined_symbols.is_empty() {
+        let symbol_list: Vec<String> = undefined_symbols.iter().take(10).cloned().collect();
+        debug!(
+            "  Initial symbols: {:?}{}",
+            symbol_list,
+            if undefined_symbols.len() > 10 {
+                "..."
+            } else {
+                ""
+            }
+        );
+    }
+
+    // 4b. Resolve which archive members are needed
+    let included_members =
+        resolve_needed_members(&archive_members, &symbol_index, &undefined_symbols, arch)?;
+    debug!(
+        "Processing {} included members out of {} total",
+        included_members.len(),
+        archive_members.len()
+    );
+
     // 5. Process archive members: append sections and copy defined symbols
-    for member_data in archive_members {
+    // Only process members that were determined to be needed by lazy linking
+    let mut sorted_members: Vec<usize> = included_members.iter().cloned().collect();
+    sorted_members.sort(); // Process in deterministic order
+    for member_idx in sorted_members {
+        let member_data = &archive_members[member_idx];
         let member_obj = object::File::parse(&member_data[..])?;
         if member_obj.architecture() != arch {
             continue;
+        }
+
+        // Debug: log which member is being processed and what symbols it defines
+        let mut member_symbols: Vec<String> = Vec::new();
+        for symbol in member_obj.symbols() {
+            if (symbol.kind() == SymbolKind::Text || symbol.kind() == SymbolKind::Data)
+                && !symbol.is_undefined()
+            {
+                if let Ok(name) = symbol.name() {
+                    if !name.starts_with(".L") && !name.starts_with(".debug") {
+                        member_symbols.push(String::from(name));
+                    }
+                }
+            }
+        }
+        if !member_symbols.is_empty() {
+            debug!(
+                "Processing included member {}: defines {:?}",
+                member_idx, member_symbols
+            );
         }
 
         // Track offsets for each section BEFORE appending (for symbol address adjustment)
@@ -238,8 +306,17 @@ pub fn link_static_library(
         }
 
         // Copy relocations from archive member (adjust offsets by section offset)
+        // Skip debug and exception handling sections - they're not needed for execution
         for section in member_obj.sections() {
             let original_name = section.name()?;
+            // Skip debug sections and exception handling frames
+            if original_name.starts_with(".debug_")
+                || original_name.starts_with(".zdebug_")
+                || original_name == ".eh_frame"
+                || original_name.starts_with(".eh_frame")
+            {
+                continue;
+            }
             let normalized_name = normalize_section_name(original_name, section.kind());
             let section_id = match section_name_map.get(&normalized_name) {
                 Some(&id) => id,
@@ -257,10 +334,20 @@ pub fn link_static_library(
                     RelocationTarget::Symbol(sym_idx) => {
                         let sym = member_obj.symbol_by_index(sym_idx)?;
                         let sym_name = sym.name()?;
-                        // Skip relocations for symbols not in our symbol map (external references)
+                        // Skip local labels (starting with .L) - they're local to the object file
+                        // and shouldn't be resolved across object boundaries
+                        if sym_name.starts_with(".L") {
+                            continue;
+                        }
+                        // Track unresolved symbols for error reporting
                         match symbol_map.get(sym_name) {
                             Some(&id) => id,
-                            None => continue, // External symbol not resolved - skip this relocation
+                            None => {
+                                *unresolved_symbols
+                                    .entry(String::from(sym_name))
+                                    .or_insert(0) += 1;
+                                continue; // External symbol not resolved - skip this relocation
+                            }
                         }
                     }
                     _ => continue, // Skip non-symbol relocations
@@ -280,8 +367,17 @@ pub fn link_static_library(
     }
 
     // 6. Copy relocations from main ELF (resolve by symbol name)
+    // Skip debug and exception handling sections - they're not needed for execution
     for section in main_obj.sections() {
         let name = section.name()?;
+        // Skip debug sections and exception handling frames
+        if name.starts_with(".debug_")
+            || name.starts_with(".zdebug_")
+            || name == ".eh_frame"
+            || name.starts_with(".eh_frame")
+        {
+            continue;
+        }
         let normalized_name = normalize_section_name(name, section.kind());
         let section_id = match section_name_map.get(&normalized_name) {
             Some(&id) => id,
@@ -293,9 +389,16 @@ pub fn link_static_library(
                 RelocationTarget::Symbol(sym_idx) => {
                     let sym = main_obj.symbol_by_index(sym_idx)?;
                     let sym_name = sym.name()?;
-                    *symbol_map.get(sym_name).ok_or_else(|| {
-                        LinkerError::ParseError(format!("Symbol '{}' not found", sym_name))
-                    })?
+                    // Track unresolved symbols for error reporting
+                    match symbol_map.get(sym_name) {
+                        Some(&id) => id,
+                        None => {
+                            *unresolved_symbols
+                                .entry(String::from(sym_name))
+                                .or_insert(0) += 1;
+                            continue; // External symbol not resolved - skip this relocation
+                        }
+                    }
                 }
                 _ => continue, // Skip non-symbol relocations
             };
@@ -311,6 +414,40 @@ pub fn link_static_library(
             )?;
         }
     }
+
+    // 7. Check for unresolved symbols and report errors
+    if !unresolved_symbols.is_empty() {
+        debug!(
+            "Found {} unresolved symbols after lazy linking",
+            unresolved_symbols.len()
+        );
+        let mut error_msg = String::from("Unresolved symbols found during linking:\n");
+        for (symbol, count) in unresolved_symbols.iter() {
+            if *count == 1 {
+                error_msg.push_str(&format!("  - '{}'\n", symbol));
+                debug!("  Unresolved: '{}'", symbol);
+            } else {
+                error_msg.push_str(&format!("  - '{}' (referenced {} times)\n", symbol, count));
+                debug!("  Unresolved: '{}' (referenced {} times)", symbol, count);
+            }
+        }
+        error_msg.push_str("\nThese symbols are not defined in the main ELF or archive members.");
+        return Err(LinkerError::ParseError(error_msg));
+    }
+
+    // 8. Summary debug output
+    let total_members = archive_members.len();
+    let included_count = included_members.len();
+    let excluded_count = total_members - included_count;
+    let reduction_percent = if total_members > 0 {
+        (excluded_count * 100) / total_members
+    } else {
+        0
+    };
+    debug!(
+        "Linking summary: {} total archive members, {} included, {} excluded ({}% reduction)",
+        total_members, included_count, excluded_count, reduction_percent
+    );
 
     writer
         .write()
@@ -358,7 +495,7 @@ fn convert_reloc_flags(
 
 /// Parse archive members from a .a file.
 /// Returns a vector of object file data for each member.
-fn parse_archive_members(archive_data: &[u8]) -> Result<Vec<Vec<u8>>, LinkerError> {
+pub(crate) fn parse_archive_members(archive_data: &[u8]) -> Result<Vec<Vec<u8>>, LinkerError> {
     // Check for archive magic
     if archive_data.len() < 8 || &archive_data[..8] != b"!<arch>\n" {
         return Err(LinkerError::ParseError(String::from(

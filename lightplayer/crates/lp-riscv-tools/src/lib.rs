@@ -29,6 +29,10 @@ pub mod elf_loader;
 #[cfg(feature = "std")]
 pub mod elf_linker;
 
+// Lazy linking utility
+#[cfg(feature = "std")]
+pub mod lazy_linking;
+
 // Instruction utilities
 pub mod auipc_imm;
 pub mod decode;

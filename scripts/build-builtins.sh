@@ -26,6 +26,9 @@ mkdir -p "$OUTPUT_DIR"
 # Using rustc directly would require handling dependencies manually
 cd "$LIGHTPLAYER_DIR"
 
+# Use nightly toolchain for compiler_builtins support
+export RUSTUP_TOOLCHAIN=nightly
+
 RUSTFLAGS="-C opt-level=2 \
            -C panic=abort \
            -C overflow-checks=off \
@@ -35,7 +38,8 @@ RUSTFLAGS="-C opt-level=2 \
 cargo build \
     --target $TARGET \
     --package lp-builtins \
-    --release
+    --release \
+    --features baremetal
 
 echo ""
 echo "Built library: $OUTPUT_DIR/liblp_builtins.a"
