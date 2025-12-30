@@ -273,12 +273,24 @@ pub fn run_test_file_with_line_filter(
                     Ok(()) => {
                         // Test passed - print success message in detailed mode
                         if show_full_output {
-                            eprintln!(
-                                "✓ test passed at line {}: {} ~= {}",
-                                directive.line_number,
-                                directive.expression_str,
-                                format_glsl_value(&actual_value)
-                            );
+                            use crate::{colors, should_color};
+                            let file_line = format!("{}:{}", relative_path, directive.line_number);
+                            let test_expr = format!("{} ~= {}", directive.expression_str, format_glsl_value(&actual_value));
+                            
+                            if should_color() {
+                                eprintln!(
+                                    "{}{}✓ {}{} {}{}{}",
+                                    colors::LIGHT_GREEN,
+                                    file_line,
+                                    colors::RESET,
+                                    " ",
+                                    colors::DIM,
+                                    test_expr,
+                                    colors::RESET
+                                );
+                            } else {
+                                eprintln!("✓ {} {}", file_line, test_expr);
+                            }
                         }
                     }
                     Err(_err_msg) => {
