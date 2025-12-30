@@ -29,11 +29,17 @@ pub fn copy_base_relocations(
     symbol_map: &BTreeMap<String, object::write::SymbolId>,
 ) -> Result<(), LinkerError> {
     debug!("Copying relocations from base executable...");
+    let mut total_base_relocs = 0;
     for section in base_elf.sections() {
         let section_name = section.name()?;
+        let has_relocs = section.relocations().next().is_some();
+        if has_relocs {
+            debug!("  Base section '{}' has relocations", section_name);
+        }
         if let Some(&(section_id, _)) = base_section_map.get(section_name) {
             let mut reloc_count = 0;
             for (offset, reloc) in section.relocations() {
+                total_base_relocs += 1;
                 reloc_count += 1;
                 
                 // Get symbol name for debugging
@@ -48,8 +54,23 @@ pub fn copy_base_relocations(
                     _ => "<unknown>".to_string(),
                 };
                 
-                debug!("  Base relocation {} in section '{}' at offset 0x{:x} targets '{}'", 
-                       reloc_count, section_name, offset, symbol_name);
+                // Get relocation type for debugging
+                let r_type = match reloc.flags() {
+                    RelocationFlags::Elf { r_type } => r_type,
+                    _ => 0,
+                };
+                let r_type_str = match r_type {
+                    1 => "R_RISCV_32",
+                    17 => "R_RISCV_CALL_PLT",
+                    19 => "R_RISCV_GOT_HI20",
+                    20 => "R_RISCV_PCREL_HI20",
+                    21 => "R_RISCV_PCREL_LO12_I",
+                    24 => "R_RISCV_PCREL_LO12_I",
+                    _ => "R_RISCV_UNKNOWN",
+                };
+                
+                debug!("  Base relocation {} in section '{}' at offset 0x{:x}: type={} ({}), target='{}', addend={}", 
+                       reloc_count, section_name, offset, r_type, r_type_str, symbol_name, reloc.addend());
                 
                 // Resolve relocation target
                 let target_symbol_id = match reloc.target() {
@@ -68,7 +89,7 @@ pub fn copy_base_relocations(
                 };
 
                 if let Some(target_symbol_id) = target_symbol_id {
-                    debug!("    -> Mapped to symbol ID in writer");
+                    debug!("    -> Mapped to symbol ID in writer, adding relocation");
                     // Add relocation
                     writer.add_relocation(
                         section_id,
@@ -80,14 +101,22 @@ pub fn copy_base_relocations(
                         },
                     )?;
                 } else {
-                    debug!("    -> WARNING: Target symbol not found in symbol map, skipping relocation");
+                    debug!("    -> WARNING: Target symbol '{}' not found in symbol map, skipping relocation", symbol_name);
+                    debug!("      (This relocation will NOT be applied at load time!)");
                 }
             }
             if reloc_count > 0 {
                 debug!("  Copied {} relocations from base section '{}'", reloc_count, section_name);
             }
+        } else {
+            // Check if section has relocations but wasn't in our map
+            let has_relocs = section.relocations().next().is_some();
+            if has_relocs {
+                debug!("  WARNING: Base section '{}' has relocations but is not in base_section_map!", section_name);
+            }
         }
     }
+    debug!("Total base relocations found: {}", total_base_relocs);
     Ok(())
 }
 

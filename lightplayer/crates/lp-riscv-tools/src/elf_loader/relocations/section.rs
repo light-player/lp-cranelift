@@ -28,8 +28,8 @@ pub enum BufferSlice {
 /// Resolve section addresses (VMA/LMA) and determine buffer locations.
 pub fn resolve_section_addresses(
     obj: &object::File,
-    rom: &[u8],
-    ram: &[u8],
+    _rom: &[u8],
+    _ram: &[u8],
     symbol_map: &HashMap<String, u32>,
 ) -> Result<HashMap<String, SectionAddressInfo>, String> {
     debug!("=== Resolving section addresses ===");
@@ -128,9 +128,7 @@ pub fn resolve_section_addresses(
                     next_rom_offset = end_addr;
                 }
             } else if is_ram_address(section_addr) {
-                let ram_offset = ram_address_to_offset(section_addr) as u64;
-                let end_offset = ram_offset + data.len() as u64;
-                // Track for sequential placement if needed
+                // Track RAM sections for sequential placement if needed
             }
             section_addr
         };

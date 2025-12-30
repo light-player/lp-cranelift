@@ -34,14 +34,14 @@ pub struct RelocationInfo {
 /// Analyze all relocations and identify GOT entries.
 pub fn analyze_relocations(
     obj: &object::File,
-    rom: &[u8],
-    ram: &[u8],
+    _rom: &[u8],
+    _ram: &[u8],
     symbol_map: &HashMap<String, u32>,
 ) -> Result<(Vec<RelocationInfo>, GotTracker, HashMap<String, super::section::SectionAddressInfo>), String> {
     debug!("=== Phase 1: Relocation Analysis ===");
     
     // Resolve section addresses
-    let section_addrs = resolve_section_addresses(obj, rom, ram, symbol_map)?;
+    let section_addrs = resolve_section_addresses(obj, _rom, _ram, symbol_map)?;
     
     // Collect all relocations
     let mut relocations = Vec::new();
@@ -131,8 +131,8 @@ pub fn analyze_relocations(
                     24 => "R_RISCV_PCREL_LO12_I",
                     _ => "R_RISCV_UNKNOWN",
                 };
-                debug!("  Relocation at 0x{:x}: {} → '{}' (addend: {})", 
-                       reloc.offset, r_type_str, reloc.symbol_name, reloc.addend);
+                debug!("  Relocation at 0x{:x} (address 0x{:x}): {} → '{}' (addend: {})", 
+                       reloc.offset, reloc.address, r_type_str, reloc.symbol_name, reloc.addend);
             }
             relocations.extend(section_relocs);
         }

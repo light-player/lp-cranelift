@@ -11,7 +11,7 @@ use super::section::SectionAddressInfo;
 use super::got::GotTracker;
 use super::handlers::{
     RelocationContext, handle_call_plt, handle_got_hi20, handle_pcrel_hi20,
-    handle_pcrel_lo12_i, handle_abs32,
+    handle_pcrel_lo12_i,
 };
 
 /// Apply relocations in dependency order.

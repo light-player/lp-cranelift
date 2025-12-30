@@ -12,6 +12,7 @@ mod symbols;
 mod relocations;
 mod user_main;
 mod verify;
+mod patch_elf;
 
 use alloc::collections::BTreeMap;
 use alloc::format;
@@ -117,6 +118,8 @@ pub fn link_into_executable(
     )?;
 
     // Step 8: Write deferred .data section and add __USER_MAIN_PTR relocation
+    // Capture .data section LMA before moving deferred_data_section
+    let data_section_lma = base_sections_result.deferred_data_section.as_ref().map(|d| d.address);
     user_main::write_deferred_data_section_and_relocation(
         &base_elf,
         &mut writer,
@@ -145,8 +148,13 @@ pub fn link_into_executable(
     )?;
 
     // Step 11: Write final ELF
-    let bytes = writer.write()
+    let mut bytes = writer.write()
         .map_err(|e| LinkerError::WriteError(format!("{}", e)))?;
+
+    // Step 11.5: Patch ELF to be executable with correct section addresses
+    // Also patch __data_source_start symbol to point to actual .data section LMA
+    // Note: data_section_lma was already captured at line 122 before deferred_data_section was moved
+    patch_elf::patch_elf_to_executable(&mut bytes, &base_section_map, endian, data_section_lma)?;
 
     // Step 12: Verify linked ELF
     verify::verify_linked_elf(&bytes, object_symbols_result.user_main_address)?;
@@ -420,6 +428,61 @@ mod tests {
 
         // Link object file into executable
         let linked_elf = link_into_executable(&builtins_exe, &main_obj).unwrap();
+
+        // Dump linked ELF to /tmp for inspection
+        {
+            use std::fs::File;
+            use std::io::Write;
+            let mut f = File::create("/tmp/test_linked_elf").unwrap();
+            f.write_all(&linked_elf).unwrap();
+            println!("\n=== Linked ELF written to /tmp/test_linked_elf ===");
+            println!("Inspect with: readelf -S /tmp/test_linked_elf");
+            println!("Inspect with: readelf -s /tmp/test_linked_elf");
+            println!("Inspect with: objdump -d -r /tmp/test_linked_elf");
+            println!("Compare with base executable:");
+            println!("  readelf -S target/riscv32imc-unknown-none-elf/release/lp-builtins-app");
+        }
+
+        // Dump base executable to /tmp for comparison
+        {
+            use std::fs::File;
+            use std::io::Write;
+            let mut f = File::create("/tmp/test_base_elf").unwrap();
+            f.write_all(&builtins_exe).unwrap();
+            println!("\n=== Base executable written to /tmp/test_base_elf ===");
+        }
+
+        // Compare section addresses between base and linked ELF
+        {
+            let base_obj = object::File::parse(&builtins_exe[..]).unwrap();
+            let linked_obj = object::File::parse(&linked_elf[..]).unwrap();
+            
+            println!("\n=== Section Address Comparison ===");
+            for section_name in [".text", ".rodata", ".data"] {
+                let base_section = base_obj.sections().find(|s| s.name().unwrap_or("") == section_name);
+                let linked_section = linked_obj.sections().find(|s| s.name().unwrap_or("") == section_name);
+                
+                match (base_section, linked_section) {
+                    (Some(base_sec), Some(linked_sec)) => {
+                        let base_addr = base_sec.address();
+                        let linked_addr = linked_sec.address();
+                        let diff = linked_addr.wrapping_sub(base_addr);
+                        let marker = if diff != 0 { " ⚠️  ADDRESS CHANGED!" } else { "" };
+                        println!("  {}: base=0x{:x}, linked=0x{:x}, diff=0x{:x}{}", 
+                                 section_name, base_addr, linked_addr, diff, marker);
+                    }
+                    (Some(_), None) => {
+                        println!("  {}: base=found, linked=NOT FOUND", section_name);
+                    }
+                    (None, Some(_)) => {
+                        println!("  {}: base=NOT FOUND, linked=found", section_name);
+                    }
+                    (None, None) => {
+                        println!("  {}: base=NOT FOUND, linked=NOT FOUND", section_name);
+                    }
+                }
+            }
+        }
 
         // Verify the linked ELF
         let obj = object::File::parse(&linked_elf[..]).unwrap();
