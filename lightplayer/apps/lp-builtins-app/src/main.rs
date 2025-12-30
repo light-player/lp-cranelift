@@ -265,6 +265,14 @@ pub extern "C" fn main() -> () {
         sqrt_res
     );
 
+    // Test sqrt(4.0) = 0x00040000 in fixed32
+    let sqrt_four = __lp_fixed32_sqrt(0x00040000);
+    println!(
+        "[lp-builtins-app::main()] __lp_fixed32_sqrt(0x00040000): 0x{:x} (expected 0x{:x} for sqrt(4.0)=2.0)",
+        sqrt_four,
+        0x00020000
+    );
+
     if user_init_ptr == 0 || user_init_ptr == 0xDEADBEEF {
         // No user _init set - halt gracefully
         println!("[lp-builtins-app::main()] no user _init specified. halting.");

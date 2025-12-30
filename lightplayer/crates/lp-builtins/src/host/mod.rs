@@ -15,39 +15,12 @@ pub use registry::HostId;
 // Users should use: lp_builtins::host_debug! and lp_builtins::host_println!
 // Or we can re-export them here if needed
 
-/// Debug function declaration.
-///
-/// This function is implemented differently depending on context:
-/// - Emulator: Implemented in `lp-builtins-app` (syscall-based)
-/// - Tests: Implemented here with `std` (gated by feature flag)
-/// - JIT: Implemented in `lp-glsl` (delegates to `lp-glsl::debug!`)
-///
-/// The function takes a pointer to a formatted string and its length.
-/// Parameters: (ptr: *const u8, len: usize)
-#[cfg(not(feature = "test"))]
-#[unsafe(no_mangle)]
-pub extern "C" fn __host_debug(_ptr: *const u8, _len: usize) {
-    // Default implementation: no-op (will be linked to actual implementation)
-    // This is only used when the test feature is disabled and no other
-    // implementation is linked in.
-}
-
-/// Println function declaration.
-///
-/// This function is implemented differently depending on context:
-/// - Emulator: Implemented in `lp-builtins-app` (syscall-based)
-/// - Tests: Implemented here with `std` (gated by feature flag)
-/// - JIT: Implemented in `lp-glsl` (delegates to `std::println!`)
-///
-/// The function takes a pointer to a formatted string and its length.
-/// Parameters: (ptr: *const u8, len: usize)
-#[cfg(not(feature = "test"))]
-#[unsafe(no_mangle)]
-pub extern "C" fn __host_println(_ptr: *const u8, _len: usize) {
-    // Default implementation: no-op (will be linked to actual implementation)
-    // This is only used when the test feature is disabled and no other
-    // implementation is linked in.
-}
+// Function declarations are provided by:
+// - Emulator: `lp-builtins-app` (syscall-based)
+// - Tests: `test` module (gated by feature flag)
+// - JIT: `lp-glsl` (delegates to `lp-glsl` macros)
+//
+// No default implementations here to avoid symbol conflicts when linking.
 
 #[cfg(feature = "test")]
 mod test;
