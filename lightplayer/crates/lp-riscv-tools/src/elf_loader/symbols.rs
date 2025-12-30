@@ -92,7 +92,7 @@ pub fn build_symbol_map(obj: &object::File, text_base: u64) -> HashMap<String, u
 pub fn find_symbol_address(
     obj: &object::File,
     symbol_name: &str,
-    text_section_base: u64,
+    _text_section_base: u64,
 ) -> Result<u32, String> {
     for symbol in obj.symbols() {
         // Don't filter by symbol kind - absolute address symbols (like __data_source_start)

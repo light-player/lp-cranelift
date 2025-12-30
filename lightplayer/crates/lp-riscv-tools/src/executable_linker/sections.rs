@@ -115,7 +115,7 @@ pub fn copy_object_sections(
 
         // For .text sections, merge into the existing .text section
         // For other sections, keep them separate
-        let (final_section_name, section_id) = if section_name == ".text" && base_section_map.contains_key(".text") {
+        let (_final_section_name, section_id) = if section_name == ".text" && base_section_map.contains_key(".text") {
             // Merge into existing .text section
             let &(existing_section_id, existing_address) = base_section_map.get(".text").unwrap();
             // Get current size of .text section to append after it

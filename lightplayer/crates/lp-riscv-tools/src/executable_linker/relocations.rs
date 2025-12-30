@@ -121,38 +121,66 @@ pub fn copy_object_relocations(
             continue;
         };
 
+        let mut reloc_count = 0;
         for (offset, reloc) in section.relocations() {
+            reloc_count += 1;
             // Adjust offset if we merged the section
             let adjusted_offset = offset + section_offset;
+
+            // Get relocation type for debugging
+            let r_type_str = match reloc.flags() {
+                RelocationFlags::Elf { r_type } => {
+                    match r_type {
+                        1 => "R_RISCV_32",
+                        17 => "R_RISCV_CALL_PLT",
+                        19 => "R_RISCV_GOT_HI20",
+                        20 => "R_RISCV_PCREL_HI20",
+                        21 => "R_RISCV_PCREL_LO12_I",
+                        _ => &format!("R_RISCV_{}", r_type),
+                    }
+                }
+                _ => "unknown",
+            };
 
             // Resolve relocation target
             let target_symbol_id = match reloc.target() {
                 RelocationTarget::Symbol(sym_idx) => {
                     if let Ok(sym) = object_elf.symbol_by_index(sym_idx) {
                         if let Ok(target_name) = sym.name() {
-                            // Skip local labels
-                            if target_name.starts_with(".L") {
-                                continue;
-                            }
+                            debug!("  Object relocation #{} in section '{}' at offset 0x{:x} (adjusted: 0x{:x}): type={}, target='{}', addend={}", 
+                                   reloc_count, section_name, offset, adjusted_offset, r_type_str, target_name, reloc.addend());
+                            
+                            // Don't skip local labels - they're needed for label-based relocations (like R_RISCV_PCREL_LO12_I)
+                            // These labels point to instructions (like auipc) and are referenced by relocations
+                            // We should have copied them in copy_object_symbols
                             let found = symbol_map.get(target_name).copied();
                             if found.is_none() {
-                                debug!("  Warning: Relocation target '{}' not found in symbol map (offset: 0x{:x})", target_name, adjusted_offset);
+                                debug!("    -> WARNING: Target symbol '{}' not found in symbol map", target_name);
+                                if target_name.starts_with(".L") {
+                                    debug!("    -> This is a label symbol - it should have been copied in copy_object_symbols");
+                                }
                             } else {
-                                debug!("  Relocation at offset 0x{:x} (adjusted from 0x{:x}) targets '{}'", adjusted_offset, offset, target_name);
+                                debug!("    -> Mapped to symbol ID in writer");
                             }
                             found
                         } else {
+                            debug!("    -> WARNING: Symbol has no name");
                             None
                         }
                     } else {
+                        debug!("    -> WARNING: Invalid symbol index {}", sym_idx.0);
                         None
                     }
                 }
-                _ => None,
+                _ => {
+                    debug!("    -> WARNING: Non-symbol relocation target");
+                    None
+                },
             };
 
             if let Some(target_symbol_id) = target_symbol_id {
                 // Add relocation with adjusted offset
+                debug!("    -> Adding relocation to writer");
                 writer.add_relocation(
                     section_id,
                     Relocation {
@@ -163,8 +191,11 @@ pub fn copy_object_relocations(
                     },
                 )?;
             } else {
-                debug!("  Warning: Relocation at offset 0x{:x} target not found in symbol map - skipping", adjusted_offset);
+                debug!("    -> SKIPPING relocation (no valid target symbol)");
             }
+        }
+        if reloc_count > 0 {
+            debug!("  Processed {} relocations from object section '{}'", reloc_count, section_name);
         }
     }
     Ok(())

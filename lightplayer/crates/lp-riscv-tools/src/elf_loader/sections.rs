@@ -3,7 +3,6 @@
 use crate::debug;
 use alloc::format;
 use alloc::string::{String, ToString};
-use hashbrown::HashMap;
 use object::{Object, ObjectSection, ObjectSymbol};
 use super::memory::{is_rom_address, is_ram_address, ram_address_to_offset};
 
@@ -14,7 +13,7 @@ use super::memory::{is_rom_address, is_ram_address, ram_address_to_offset};
 pub fn load_sections(
     obj: &object::File,
     rom: &mut [u8],
-    ram: &mut [u8],
+    _ram: &mut [u8],
 ) -> Result<(), String> {
     debug!("=== Loading sections ===");
     
@@ -40,7 +39,7 @@ pub fn load_sections(
     // First pass: determine section VMAs from symbols for data sections
     // Only use symbol addresses if the section address is 0 and symbols indicate RAM placement
     for symbol in obj.symbols() {
-        if let Ok(name) = symbol.name() {
+        if let Ok(_name) = symbol.name() {
             let symbol_section = symbol.section();
             if let Some(section_idx) = symbol_section.index() {
                 if let Ok(section) = obj.section_by_index(section_idx) {

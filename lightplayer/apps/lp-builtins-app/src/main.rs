@@ -6,7 +6,6 @@ mod print;
 // Re-export _print so macros can find it
 pub use print::_print;
 
-use core::arch::asm;
 use core::{
     arch::global_asm,
     fmt::Write,
@@ -17,8 +16,6 @@ use lp_builtins::fixed32::{__lp_fixed32_div, __lp_fixed32_mul, __lp_fixed32_sqrt
 
 /// Syscall number for panic
 const SYSCALL_PANIC: i32 = 1;
-/// Syscall number for write
-const SYSCALL_WRITE: i32 = 2;
 
 /// Number of syscall arguments
 const SYSCALL_ARGS: usize = 7;

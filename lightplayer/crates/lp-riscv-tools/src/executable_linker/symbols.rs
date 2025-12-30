@@ -168,10 +168,8 @@ pub fn copy_object_symbols(
 
     for symbol in object_elf.symbols() {
         if let Ok(name) = symbol.name() {
-            // Skip local labels
-            if name.starts_with(".L") {
-                continue;
-            }
+            // Don't skip local labels - they're needed for label-based relocations (like R_RISCV_PCREL_LO12_I)
+            // These labels point to instructions (like auipc) and are referenced by relocations
 
             // Find which section this symbol belongs to
             let section_name: String = match symbol.section() {
@@ -219,7 +217,9 @@ pub fn copy_object_symbols(
 
             // For "main", we don't add it to the symbol map as "main" (base executable's main takes precedence)
             // but we add it as "_user_main" so we can reference it in relocations
+            // For label symbols (starting with .L), always add them (they're local to the object file)
             // For other symbols, only add if not already present (base executable symbols take precedence)
+            let is_label = name.starts_with(".L");
             if name == "main" {
                 // Add user main() as "_user_main" so we can reference it in relocations
                 let user_main_symbol_id = writer.add_symbol(Symbol {
@@ -234,19 +234,31 @@ pub fn copy_object_symbols(
                 });
                 symbol_map.insert("_user_main".to_string(), user_main_symbol_id);
                 debug!("  Found user main() at 0x{:x} (added as _user_main for relocations)", adjusted_address);
-            } else if !symbol_map.contains_key(name) {
+            } else if is_label || !symbol_map.contains_key(name) {
+                // Always add label symbols (they're local to this object file)
+                // For other symbols, only add if not already present
+                // Map label symbols to Text kind (they point to instructions)
+                let symbol_kind = if is_label && (symbol.kind() == SymbolKind::Label || symbol.kind() == SymbolKind::Unknown) {
+                    SymbolKind::Text
+                } else {
+                    symbol.kind()
+                };
                 let symbol_id = writer.add_symbol(Symbol {
                     name: name.as_bytes().to_vec(),
                     value: adjusted_address,
                     size: symbol.size(),
-                    kind: symbol.kind(),
+                    kind: symbol_kind,
                     scope: symbol.scope(),
                     weak: symbol.is_weak(),
                     section,
                     flags: SymbolFlags::None,
                 });
                 symbol_map.insert(name.to_string(), symbol_id);
-                debug!("  Object symbol: {} at 0x{:x} (adjusted from 0x{:x})", name, adjusted_address, symbol.address());
+                if is_label {
+                    debug!("  Object label symbol: {} at 0x{:x} (adjusted from 0x{:x})", name, adjusted_address, symbol.address());
+                } else {
+                    debug!("  Object symbol: {} at 0x{:x} (adjusted from 0x{:x})", name, adjusted_address, symbol.address());
+                }
             }
         }
     }

@@ -6,7 +6,6 @@
 
 #![cfg(feature = "std")]
 
-mod parse;
 mod layout;
 mod sections;
 mod symbols;
@@ -161,7 +160,8 @@ mod tests {
     use super::*;
     use crate::elf_loader::{find_symbol_address, load_elf};
     use crate::emu::emulator::Riscv32Emulator;
-    use crate::{PanicInfo, StepResult};
+    use crate::StepResult;
+    use object::ObjectSection;
     use crate::emu::logging::LogLevel;
     use crate::regs::Gpr;
     use alloc::vec;
@@ -169,6 +169,7 @@ mod tests {
     use cranelift_codegen::ir::types;
     use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, Signature};
     use cranelift_codegen::{Context, isa::lookup};
+    use cranelift_codegen::settings::Configurable;
     use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
     use cranelift_module::{Linkage, Module};
     use cranelift_object::{ObjectBuilder, ObjectModule};
@@ -188,10 +189,12 @@ mod tests {
         };
 
         let isa_builder = lookup(triple).unwrap();
+        let mut flag_builder = cranelift_codegen::settings::builder();
+        // Enable PIC mode to generate GOT-based relocations for external symbols
+        // This is needed for relocatable code that can be linked into different addresses
+        flag_builder.set("is_pic", "true").unwrap();
         let isa = isa_builder
-            .finish(cranelift_codegen::settings::Flags::new(
-                cranelift_codegen::settings::builder(),
-            ))
+            .finish(cranelift_codegen::settings::Flags::new(flag_builder))
             .unwrap();
         let mut module = ObjectModule::new(
             ObjectBuilder::new(isa, "main", cranelift_module::default_libcall_names()).unwrap(),
@@ -327,6 +330,82 @@ mod tests {
 
         // Create main object file (calls __lp_fixed32_sqrt)
         let main_obj = create_main_object_with_builtin_call();
+
+        // Debug: Dump object file relocations
+        {
+            let obj_file = object::File::parse(&main_obj[..]).unwrap();
+            println!("\n=== Object file sections ===");
+            for section in obj_file.sections() {
+                if let Ok(section_name) = section.name() {
+                    let addr = section.address();
+                    let size = section.size();
+                    let kind = section.kind();
+                    println!("  Section '{}': addr=0x{:x}, size={}, kind={:?}", section_name, addr, size, kind);
+                    if section_name == ".text" {
+                        if let Ok(data) = section.data() {
+                            println!("    .text data (first 32 bytes):");
+                            let mut line = String::new();
+                            for i in 0..data.len().min(32) {
+                                if i % 16 == 0 {
+                                    if !line.is_empty() {
+                                        println!("{}", line);
+                                    }
+                                    line = format!("      {:04x}: ", i);
+                                }
+                                line.push_str(&format!("{:02x} ", data[i]));
+                            }
+                            if !line.is_empty() {
+                                println!("{}", line);
+                            }
+                        }
+                    }
+                }
+            }
+            println!("\n=== Object file relocations ===");
+            for section in obj_file.sections() {
+                if let Ok(section_name) = section.name() {
+                    let mut reloc_count = 0;
+                    let section_data = section.data().ok();
+                    for (offset, reloc) in section.relocations() {
+                        reloc_count += 1;
+                        let symbol_name = match reloc.target() {
+                            object::RelocationTarget::Symbol(sym_idx) => {
+                                if let Ok(sym) = obj_file.symbol_by_index(sym_idx) {
+                                    sym.name().map(String::from).unwrap_or_else(|_| String::from("<unnamed>"))
+                                } else {
+                                    format!("symbol_index_{}", sym_idx.0)
+                                }
+                            }
+                            _ => String::from("<unknown>"),
+                        };
+                        let r_type = match reloc.flags() {
+                            object::RelocationFlags::Elf { r_type } => r_type,
+                            _ => 0,
+                        };
+                        // Show bytes at relocation offset
+                        let bytes_str = if let Some(data) = &section_data {
+                            if (offset as usize + 4) <= data.len() {
+                                format!("bytes: {:02x}{:02x}{:02x}{:02x}", 
+                                       data[offset as usize], 
+                                       data[offset as usize + 1],
+                                       data[offset as usize + 2],
+                                       data[offset as usize + 3])
+                            } else {
+                                String::from("bytes: <out of bounds>")
+                            }
+                        } else {
+                            String::from("bytes: <no data>")
+                        };
+                        println!("  Section '{}': offset=0x{:x}, type={} (R_RISCV_{}), target='{}', addend={}, {}", 
+                                section_name, offset, r_type, r_type, symbol_name, reloc.addend(), bytes_str);
+                    }
+                    if reloc_count > 0 {
+                        println!("  Section '{}' has {} relocations", section_name, reloc_count);
+                    }
+                }
+            }
+            println!("=== End object file relocations ===\n");
+        }
 
         // Link object file into executable
         let linked_elf = link_into_executable(&builtins_exe, &main_obj).unwrap();

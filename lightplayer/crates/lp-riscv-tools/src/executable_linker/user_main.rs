@@ -87,7 +87,7 @@ fn add_user_main_relocation(
         // Calculate offset within .data section
         let offset = if ptr_address >= 0x80000000 {
             // Absolute RAM address - calculate offset from .data section start
-            (ptr_address - data_section_address) as u64
+            ptr_address - data_section_address
         } else {
             // Section-relative address
             ptr_address.wrapping_sub(data_section_address)
