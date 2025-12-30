@@ -32,12 +32,20 @@ You will then create a new file called 00-overview.md with the overview of the p
 
 Then you will create a new file for each phase, named like 01-phase-title.md.
 
+Then commit the plan to git with the message "lpc: create plan <name>"
+
 Each phase should end with a success criteria section, and all code should compile. Any
 tests relevant to the phase should be run and pass.
 
 Any warnings that aren't unused code (that will be used later) should be fixed.
 
-The final phase should be a cleanup phase, that fixes all warning, ensures all tests pass,
-and ensures all code is clean and readable.
+The final phase should be a cleanup phase:
 
-Then commit the changes.
+- remove any temporary code or TODOs, debug prints, etc.
+- fix all warnings
+- ensure all tests pass
+- ensure all code is clean and readable
+- remove the plan directory
+
+Then commit the changes with a message like "lpc: complete plan <name>". Include details of the
+effect of the plan in the commit message (but not the implementation details).
