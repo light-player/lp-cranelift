@@ -16,7 +16,10 @@ impl ValidationPass {
         for func in &shader.user_functions {
             validator::validate_function(func, &shader.function_registry, source)?;
         }
-        validator::validate_function(&shader.main_function, &shader.function_registry, source)?;
+        // Validate main function if present (optional for filetests)
+        if let Some(ref main_function) = shader.main_function {
+            validator::validate_function(main_function, &shader.function_registry, source)?;
+        }
         Ok(())
     }
 }

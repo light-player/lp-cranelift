@@ -7,7 +7,7 @@
 pub(crate) mod emu;
 pub(crate) mod executable;
 #[cfg(feature = "std")]
-pub mod execute_main;
+pub mod execute_fn;
 pub(crate) mod glsl_value;
 pub(crate) mod jit;
 

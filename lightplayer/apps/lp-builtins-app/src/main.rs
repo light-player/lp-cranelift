@@ -6,13 +6,13 @@ mod print;
 // Re-export _print so macros can find it
 pub use print::_print;
 
+use core::arch::asm;
 use core::{
     arch::global_asm,
     fmt::Write,
     mem::zeroed,
     ptr::{addr_of_mut, read, write_volatile},
 };
-use core::arch::asm;
 use lp_builtins::fixed32::{__lp_fixed32_div, __lp_fixed32_mul, __lp_fixed32_sqrt};
 
 /// Syscall number for panic
@@ -159,6 +159,7 @@ global_asm! {
 }
 
 /// This code is responsible for initializing the .bss and .data sections, and calling the placeholder main function.
+/// The main function will then optionally call user _init if present.
 #[unsafe(no_mangle)]
 unsafe extern "C" fn _code_entry() -> ! {
     unsafe extern "C" {
@@ -211,7 +212,7 @@ unsafe extern "C" fn _code_entry() -> ! {
     loop {}
 }
 
-/// User main pointer - will be overwritten by linker to point to actual user main()
+/// User _init pointer - will be overwritten by object loader to point to actual user _init()
 /// Initialized to sentinel value 0xDEADBEEF to make it obvious if relocation isn't applied
 #[used]
 #[unsafe(no_mangle)]
@@ -222,8 +223,8 @@ static mut __USER_MAIN_PTR: u32 = 0xDEADBEEF;
 ///
 /// This function:
 /// 1. References all __lp_* functions explicitly (prevents dead code elimination)
-/// 2. Reads __user_main_ptr from .data section
-/// 3. Jumps to that address if non-zero, otherwise panics
+/// 2. Reads __USER_MAIN_PTR from .data section
+/// 3. Jumps to user _init if set, otherwise halts gracefully
 #[unsafe(no_mangle)]
 pub extern "C" fn main() -> () {
     // Reference all builtin functions to prevent dead code elimination
@@ -241,30 +242,44 @@ pub extern "C" fn main() -> () {
         let _ = core::ptr::read_volatile(&_div_fn as *const _);
     }
 
-    // Read user main pointer
-    let user_main_ptr =
+    // Read user _init pointer
+    let user_init_ptr =
         unsafe { core::ptr::read_volatile(&raw const __USER_MAIN_PTR as *const u32) };
 
-
     println!("[lp-builtins-app::main()] lp-builtins-app: main()");
-    println!("[lp-builtins-app::main()] user_main_ptr: 0x{:x}", user_main_ptr);
+    println!(
+        "[lp-builtins-app::main()] user_init_ptr: 0x{:x}",
+        user_init_ptr
+    );
 
     let sqrt_res = __lp_fixed32_sqrt(0x10000);
-    println!("[lp-builtins-app::main()] __lp_fixed32_sqrt(0x10000): 0x{:x}", sqrt_res);
+    println!(
+        "[lp-builtins-app::main()] __lp_fixed32_sqrt(0x10000): 0x{:x}",
+        sqrt_res
+    );
 
-    if user_main_ptr == 0 || user_main_ptr == 0xDEADBEEF {
-        // No user main set - panic
-        panic!("__user_main_ptr not set (value: 0x{:x})", user_main_ptr);
+    if user_init_ptr == 0 || user_init_ptr == 0xDEADBEEF {
+        // No user _init set - halt gracefully
+        println!("[lp-builtins-app::main()] no user _init specified. halting.");
+        ebreak();
     }
 
-    println!("[lp-builtins-app::main()] about to jump");
+    println!(
+        "[lp-builtins-app::main()] jumping to user _init at 0x{:x}",
+        user_init_ptr
+    );
 
-    // Jump to user main
+    // Jump to user _init
+    // On RISC-V 32-bit, function pointers are 32 bits, so we can safely cast u32 to fn pointer
+    // We use a pointer cast to avoid transmute size mismatch on host compiler
     let res = unsafe {
-        let user_main: extern "C" fn() -> i32 = core::mem::transmute(user_main_ptr);
-        user_main()
+        let user_init_ptr_usize = user_init_ptr as usize;
+        let user_init: extern "C" fn() -> i32 = core::mem::transmute(user_init_ptr_usize);
+        user_init()
     };
 
-    println!("[lp-builtins-app::main()] returned from user main(): {}", res);
-
+    println!(
+        "[lp-builtins-app::main()] returned from user _init(): {}",
+        res
+    );
 }

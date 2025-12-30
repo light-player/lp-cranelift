@@ -320,14 +320,19 @@ pub fn handle_pcrel_lo12_i(
                     "Could not find corresponding PCREL_HI20 or GOT_HI20 relocation for PCREL_LO12_I at 0x{:x} (looking for relocation at auipc_pc=0x{:x})",
                     reloc.address, auipc_pc
                 ))?;
-            let target = ctx.symbol_map
+            let target = ctx
+                .symbol_map
                 .get(&hi20_reloc.symbol_name)
                 .copied()
                 .ok_or_else(|| {
                     format!(
                         "Could not resolve symbol '{}' for {} relocation at 0x{:x}",
                         hi20_reloc.symbol_name,
-                        if hi20_reloc.r_type == 19 { "GOT_HI20" } else { "PCREL_HI20" },
+                        if hi20_reloc.r_type == 19 {
+                            "GOT_HI20"
+                        } else {
+                            "PCREL_HI20"
+                        },
                         auipc_pc
                     )
                 })?;
@@ -335,7 +340,8 @@ pub fn handle_pcrel_lo12_i(
             // For function calls, we convert lw to addi to compute address directly instead of loading from memory
             let has_got_entry = ctx.got_tracker.has_entry(&hi20_reloc.symbol_name);
             // Convert to addi if: (1) GOT_HI20 without GOT entry, or (2) PCREL_HI20 without GOT entry (direct function call)
-            let is_got_without_entry = (hi20_reloc.r_type == 19 || hi20_reloc.r_type == 20) && !has_got_entry;
+            let is_got_without_entry =
+                (hi20_reloc.r_type == 19 || hi20_reloc.r_type == 20) && !has_got_entry;
             (target, is_got_without_entry)
         } else {
             return Err(format!(
@@ -363,7 +369,7 @@ pub fn handle_pcrel_lo12_i(
             let patched = (inst_word & 0xFFFF8F80) | (lo12 << 20) | 0x00000013;
             let inst_bytes = &mut ctx.buffer[offset..offset + 4];
             inst_bytes.copy_from_slice(&patched.to_le_bytes());
-            
+
             debug!(
                 "    Converted instruction: 0x{:08x} → 0x{:08x} (lw → addi, lo12=0x{:x})",
                 inst_word, patched, lo12

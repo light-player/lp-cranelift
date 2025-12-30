@@ -29,7 +29,6 @@ pub mod elf_loader;
 #[cfg(feature = "std")]
 pub mod elf_linker;
 
-
 // Instruction utilities
 pub mod auipc_imm;
 pub mod decode;
@@ -44,12 +43,13 @@ pub mod regs;
 // Re-exports for convenience
 pub use decode::decode_instruction;
 pub use emu::{
-    EmulatorError, InstLog, LogLevel, MemoryAccessKind, PanicInfo, Riscv32Emulator, StepResult, SyscallInfo,
+    EmulatorError, InstLog, LogLevel, MemoryAccessKind, PanicInfo, Riscv32Emulator, StepResult,
+    SyscallInfo,
 };
 pub use inst::{Inst, format_instruction};
 pub use regs::Gpr;
 
 #[cfg(feature = "std")]
-pub use elf_loader::{ElfLoadInfo, find_symbol_address, load_elf};
+pub use elf_linker::{LinkerError, link_static_library};
 #[cfg(feature = "std")]
-pub use elf_linker::{link_static_library, LinkerError};
+pub use elf_loader::{ElfLoadInfo, find_symbol_address, load_elf};

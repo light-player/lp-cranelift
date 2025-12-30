@@ -174,7 +174,6 @@ impl<M: Module> GlModule<M> {
         builtin: crate::backend::builtins::registry::BuiltinId,
         func: &mut cranelift_codegen::ir::Function,
     ) -> Result<cranelift_codegen::ir::FuncRef, GlslError> {
-        use crate::backend::builtins::registry::BuiltinId;
         use cranelift_module::FuncOrDataId;
 
         let name = builtin.name();

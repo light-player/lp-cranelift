@@ -32,5 +32,3 @@ pub fn emit_lvalue_as_rvalue<M: cranelift_module::Module>(
     let (vals, ty) = read_lvalue(ctx, &lvalue)?;
     Ok(RValue::from_aggregate(vals, ty))
 }
-
-

@@ -23,7 +23,8 @@ pub struct GlslEmulatorModule {
     // Store Cranelift signatures for proper function calling with arguments
     pub(crate) cranelift_signatures: HashMap<String, cranelift_codegen::ir::Signature>,
     pub(crate) binary: Vec<u8>,
-    pub(crate) main_address: u32,
+    // Function address map: function name -> address (populated from object file symbol map)
+    pub(crate) function_addresses: HashMap<String, u32>,
     // Store formatted CLIF IR for all functions after transformation
     pub(crate) transformed_clif: Option<String>,
     // Store formatted CLIF IR for all functions before transformation
@@ -70,30 +71,109 @@ impl GlslEmulatorModule {
         }
     }
 
-    /// Validate that only "main" function is being called
-    fn validate_main_only(name: &str) -> Result<(), GlslError> {
+    /// Validate function exists and get its address
+    fn get_function_address(&self, name: &str) -> Result<u32, GlslError> {
         use crate::error::ErrorCode;
-        if name != "main" {
-            return Err(GlslError::new(
-                ErrorCode::E0400,
-                format!("Only 'main' function is supported, got '{}'", name),
-            ));
-        }
-        Ok(())
+        self.function_addresses.get(name).copied().ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0101,
+                format!("Function '{}' not found in object file", name),
+            )
+        })
     }
 
-    /// Validate that no arguments are provided (returns error for emulator)
-    fn validate_no_args(args: &[GlslValue]) -> Result<(), GlslError> {
-        if !args.is_empty() {
-            return Err(GlslError::new(
-                crate::error::ErrorCode::E0400,
-                format!(
-                    "Emulator only supports calling main with no arguments (got {} args)",
-                    args.len()
-                ),
-            ));
+    /// Validate function signature exists
+    fn get_function_signature(
+        &self,
+        name: &str,
+    ) -> Result<&cranelift_codegen::ir::Signature, GlslError> {
+        use crate::error::ErrorCode;
+        self.cranelift_signatures.get(name).ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0101,
+                format!("Function signature for '{}' not found", name),
+            )
+        })
+    }
+
+    /// Convert GlslValue to DataValue for emulator function calls
+    fn glsl_value_to_data_value(
+        &self,
+        value: &GlslValue,
+        sig: &cranelift_codegen::ir::Signature,
+        arg_idx: &mut usize,
+    ) -> Result<Vec<cranelift_codegen::data_value::DataValue>, GlslError> {
+        use crate::error::ErrorCode;
+        use cranelift_codegen::data_value::DataValue;
+        use cranelift_codegen::ir::types;
+
+        let mut args = Vec::new();
+
+        if *arg_idx >= sig.params.len() {
+            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
         }
-        Ok(())
+
+        match value {
+            GlslValue::I32(v) => {
+                let param_ty = sig.params[*arg_idx].value_type;
+                match param_ty {
+                    types::I32 => args.push(DataValue::I32(*v)),
+                    types::I64 => args.push(DataValue::I64(*v as i64)),
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            format!("Type mismatch: expected {:?}, got I32", param_ty),
+                        ));
+                    }
+                }
+                *arg_idx += 1;
+            }
+            GlslValue::F32(v) => {
+                let param_ty = sig.params[*arg_idx].value_type;
+                match param_ty {
+                    types::F32 => {
+                        use cranelift_codegen::ir::immediates::Ieee32;
+                        args.push(DataValue::F32(Ieee32::with_bits(v.to_bits())));
+                    }
+                    types::I32 => {
+                        // Convert f32 to fixed-point i32
+                        let fixed =
+                            (*v * crate::frontend::codegen::constants::FIXED16X16_SCALE) as i32;
+                        args.push(DataValue::I32(fixed));
+                    }
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            format!("Type mismatch: expected {:?}, got F32", param_ty),
+                        ));
+                    }
+                }
+                *arg_idx += 1;
+            }
+            GlslValue::Bool(v) => {
+                let param_ty = sig.params[*arg_idx].value_type;
+                match param_ty {
+                    types::I8 => args.push(DataValue::I8(if *v { 1 } else { 0 })),
+                    types::I32 => args.push(DataValue::I32(if *v { 1 } else { 0 })),
+                    _ => {
+                        return Err(GlslError::new(
+                            ErrorCode::E0400,
+                            format!("Type mismatch: expected {:?}, got Bool", param_ty),
+                        ));
+                    }
+                }
+                *arg_idx += 1;
+            }
+            // Vectors and matrices need special handling - for now, return error
+            _ => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "Vector and matrix arguments not yet supported in emulator calls",
+                ));
+            }
+        }
+
+        Ok(args)
     }
 
     /// Allocate a buffer in the emulator's RAM and return its address.
@@ -617,18 +697,35 @@ impl GlslExecutable for GlslEmulatorModule {
     fn call_void(&mut self, name: &str, args: &[GlslValue]) -> Result<(), GlslError> {
         use crate::error::ErrorCode;
 
-        Self::validate_main_only(name)?;
-        Self::validate_no_args(args)?;
+        // Validate function exists and get address
+        let func_address = self.get_function_address(name)?;
 
-        // Get the actual Cranelift signature for main
-        let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
-            GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
-        })?;
+        // Get function signature (clone to avoid borrow conflicts with emulator)
+        let sig = self.get_function_signature(name)?.clone();
 
-        // Call main via emulator (no arguments) - use the actual main address from ELF
+        // Convert arguments to DataValue
+        let mut arg_idx = 0;
+        let mut data_args = Vec::new();
+        for arg in args {
+            data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature
+        if data_args.len() != sig.params.len() {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch: expected {}, got {}",
+                    sig.params.len(),
+                    data_args.len()
+                ),
+            ));
+        }
+
+        // Call function via emulator
         let _results = self
             .emulator
-            .call_function(self.main_address, &[], sig)
+            .call_function(func_address, &data_args, &sig)
             .map_err(|e| match e {
                 EmulatorError::Trap { code, pc, regs } => {
                     self.format_trap_error_from_emulator_error(code, pc, &regs, name)
@@ -646,18 +743,35 @@ impl GlslExecutable for GlslEmulatorModule {
     fn call_i32(&mut self, name: &str, args: &[GlslValue]) -> Result<i32, GlslError> {
         use crate::error::ErrorCode;
 
-        Self::validate_main_only(name)?;
-        Self::validate_no_args(args)?;
+        // Validate function exists and get address
+        let func_address = self.get_function_address(name)?;
 
-        // Get the actual Cranelift signature for main
-        let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
-            GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
-        })?;
+        // Get function signature (clone to avoid borrow conflicts)
+        let sig = self.get_function_signature(name)?.clone();
 
-        // Call main via emulator (no arguments) at its actual address
+        // Convert arguments to DataValue
+        let mut arg_idx = 0;
+        let mut data_args = Vec::new();
+        for arg in args {
+            data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature
+        if data_args.len() != sig.params.len() {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch: expected {}, got {}",
+                    sig.params.len(),
+                    data_args.len()
+                ),
+            ));
+        }
+
+        // Call function via emulator
         let results = self
             .emulator
-            .call_function(self.main_address, &[], sig)
+            .call_function(func_address, &data_args, &sig)
             .map_err(|e| match e {
                 EmulatorError::Trap { code, pc, regs } => {
                     self.format_trap_error_from_emulator_error(code, pc, &regs, name)
@@ -682,18 +796,35 @@ impl GlslExecutable for GlslEmulatorModule {
     fn call_f32(&mut self, name: &str, args: &[GlslValue]) -> Result<f32, GlslError> {
         use crate::error::ErrorCode;
 
-        Self::validate_main_only(name)?;
-        Self::validate_no_args(args)?;
+        // Validate function exists and get address
+        let func_address = self.get_function_address(name)?;
 
-        // Get the actual Cranelift signature for main
-        let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
-            GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
-        })?;
+        // Get function signature (clone to avoid borrow conflicts)
+        let sig = self.get_function_signature(name)?.clone();
 
-        // Call main via emulator (no arguments) at its actual address
+        // Convert arguments to DataValue
+        let mut arg_idx = 0;
+        let mut data_args = Vec::new();
+        for arg in args {
+            data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature
+        if data_args.len() != sig.params.len() {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch: expected {}, got {}",
+                    sig.params.len(),
+                    data_args.len()
+                ),
+            ));
+        }
+
+        // Call function via emulator
         let results = self
             .emulator
-            .call_function(self.main_address, &[], sig)
+            .call_function(func_address, &data_args, &sig)
             .map_err(|e| match e {
                 EmulatorError::Trap { code, pc, regs } => {
                     self.format_trap_error_from_emulator_error(code, pc, &regs, name)
@@ -722,18 +853,35 @@ impl GlslExecutable for GlslEmulatorModule {
     fn call_bool(&mut self, name: &str, args: &[GlslValue]) -> Result<bool, GlslError> {
         use crate::error::ErrorCode;
 
-        Self::validate_main_only(name)?;
-        Self::validate_no_args(args)?;
+        // Validate function exists and get address
+        let func_address = self.get_function_address(name)?;
 
-        // Get the actual Cranelift signature for main
-        let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
-            GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
-        })?;
+        // Get function signature (clone to avoid borrow conflicts)
+        let sig = self.get_function_signature(name)?.clone();
 
-        // Call main via emulator (no arguments) at its actual address
+        // Convert arguments to DataValue
+        let mut arg_idx = 0;
+        let mut data_args = Vec::new();
+        for arg in args {
+            data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature
+        if data_args.len() != sig.params.len() {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch: expected {}, got {}",
+                    sig.params.len(),
+                    data_args.len()
+                ),
+            ));
+        }
+
+        // Call function via emulator
         let results = self
             .emulator
-            .call_function(self.main_address, &[], sig)
+            .call_function(func_address, &data_args, &sig)
             .map_err(|e| {
                 self.build_enhanced_error(
                     ErrorCode::E0400,
@@ -758,13 +906,30 @@ impl GlslExecutable for GlslEmulatorModule {
         use crate::error::ErrorCode;
         use cranelift_codegen::ir::ArgumentPurpose;
 
-        Self::validate_main_only(name)?;
-        Self::validate_no_args(args)?;
+        // Validate function exists and get address
+        let func_address = self.get_function_address(name)?;
 
-        // Get the actual Cranelift signature for main
-        let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
-            GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
-        })?;
+        // Get function signature (clone to avoid borrow conflicts)
+        let sig = self.get_function_signature(name)?.clone();
+
+        // Convert arguments to DataValue
+        let mut arg_idx = 0;
+        let mut data_args = Vec::new();
+        for arg in args {
+            data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature
+        if data_args.len() != sig.params.len() {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch: expected {}, got {}",
+                    sig.params.len(),
+                    data_args.len()
+                ),
+            ));
+        }
 
         // Check if function uses StructReturn
         let uses_struct_return = sig
@@ -783,7 +948,7 @@ impl GlslExecutable for GlslEmulatorModule {
             // Call main via emulator with struct return (buffer allocation handled internally)
             let results = self
                 .emulator
-                .call_function_with_struct_return(self.main_address, &[], &sig, buffer_size)
+                .call_function_with_struct_return(func_address, &data_args, &sig, buffer_size)
                 .map_err(|e| match e {
                     EmulatorError::Trap { code, pc, regs } => {
                         self.format_trap_error_from_emulator_error(code, pc, &regs, name)
@@ -819,7 +984,7 @@ impl GlslExecutable for GlslEmulatorModule {
             // No StructReturn - read from return registers (legacy path)
             let results = self
                 .emulator
-                .call_function(self.main_address, &[], sig)
+                .call_function(func_address, &data_args, &sig)
                 .map_err(|e| {
                     self.build_enhanced_error(
                         ErrorCode::E0400,
@@ -856,13 +1021,30 @@ impl GlslExecutable for GlslEmulatorModule {
         use crate::error::ErrorCode;
         use cranelift_codegen::ir::ArgumentPurpose;
 
-        Self::validate_main_only(name)?;
-        Self::validate_no_args(args)?;
+        // Validate function exists and get address
+        let func_address = self.get_function_address(name)?;
 
-        // Get the actual Cranelift signature for main
-        let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
-            GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
-        })?;
+        // Get function signature (clone to avoid borrow conflicts)
+        let sig = self.get_function_signature(name)?.clone();
+
+        // Convert arguments to DataValue
+        let mut arg_idx = 0;
+        let mut data_args = Vec::new();
+        for arg in args {
+            data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature
+        if data_args.len() != sig.params.len() {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch: expected {}, got {}",
+                    sig.params.len(),
+                    data_args.len()
+                ),
+            ));
+        }
 
         // Check if function uses StructReturn
         let uses_struct_return = sig
@@ -881,7 +1063,7 @@ impl GlslExecutable for GlslEmulatorModule {
             // Call main via emulator with struct return (buffer allocation handled internally)
             let results = self
                 .emulator
-                .call_function_with_struct_return(self.main_address, &[], &sig, buffer_size)
+                .call_function_with_struct_return(func_address, &data_args, &sig, buffer_size)
                 .map_err(|e| match e {
                     EmulatorError::Trap { code, pc, regs } => {
                         self.format_trap_error_from_emulator_error(code, pc, &regs, name)
@@ -913,7 +1095,7 @@ impl GlslExecutable for GlslEmulatorModule {
             // No StructReturn - read from return registers (legacy path)
             let results = self
                 .emulator
-                .call_function(self.main_address, &[], sig)
+                .call_function(func_address, &data_args, &sig)
                 .map_err(|e| {
                     self.build_enhanced_error(
                         ErrorCode::E0400,
@@ -950,13 +1132,30 @@ impl GlslExecutable for GlslEmulatorModule {
         use crate::error::ErrorCode;
         use cranelift_codegen::ir::ArgumentPurpose;
 
-        Self::validate_main_only(name)?;
-        Self::validate_no_args(args)?;
+        // Validate function exists and get address
+        let func_address = self.get_function_address(name)?;
 
-        // Get the actual Cranelift signature for main
-        let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
-            GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
-        })?;
+        // Get function signature (clone to avoid borrow conflicts)
+        let sig = self.get_function_signature(name)?.clone();
+
+        // Convert arguments to DataValue
+        let mut arg_idx = 0;
+        let mut data_args = Vec::new();
+        for arg in args {
+            data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature
+        if data_args.len() != sig.params.len() {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch: expected {}, got {}",
+                    sig.params.len(),
+                    data_args.len()
+                ),
+            ));
+        }
 
         // Check if function uses StructReturn
         let uses_struct_return = sig
@@ -975,7 +1174,7 @@ impl GlslExecutable for GlslEmulatorModule {
             // Call main via emulator with struct return (buffer allocation handled internally)
             let results = self
                 .emulator
-                .call_function_with_struct_return(self.main_address, &[], &sig, buffer_size)
+                .call_function_with_struct_return(func_address, &data_args, &sig, buffer_size)
                 .map_err(|e| match e {
                     EmulatorError::Trap { code, pc, regs } => {
                         self.format_trap_error_from_emulator_error(code, pc, &regs, name)
@@ -1007,7 +1206,7 @@ impl GlslExecutable for GlslEmulatorModule {
             // No StructReturn - read from return registers (legacy path)
             let results = self
                 .emulator
-                .call_function(self.main_address, &[], sig)
+                .call_function(func_address, &data_args, &sig)
                 .map_err(|e| {
                     self.build_enhanced_error(
                         ErrorCode::E0400,
@@ -1044,13 +1243,30 @@ impl GlslExecutable for GlslEmulatorModule {
         use crate::error::ErrorCode;
         use cranelift_codegen::ir::ArgumentPurpose;
 
-        Self::validate_main_only(name)?;
-        Self::validate_no_args(args)?;
+        // Validate function exists and get address
+        let func_address = self.get_function_address(name)?;
 
-        // Get the actual Cranelift signature for main
-        let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
-            GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
-        })?;
+        // Get function signature (clone to avoid borrow conflicts)
+        let sig = self.get_function_signature(name)?.clone();
+
+        // Convert arguments to DataValue
+        let mut arg_idx = 0;
+        let mut data_args = Vec::new();
+        for arg in args {
+            data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature
+        if data_args.len() != sig.params.len() {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch: expected {}, got {}",
+                    sig.params.len(),
+                    data_args.len()
+                ),
+            ));
+        }
 
         // Check if function uses StructReturn
         let uses_struct_return = sig
@@ -1069,7 +1285,7 @@ impl GlslExecutable for GlslEmulatorModule {
             // Call main via emulator with struct return (buffer allocation handled internally)
             let results = self
                 .emulator
-                .call_function_with_struct_return(self.main_address, &[], &sig, buffer_size)
+                .call_function_with_struct_return(func_address, &data_args, &sig, buffer_size)
                 .map_err(|e| match e {
                     EmulatorError::Trap { code, pc, regs } => {
                         self.format_trap_error_from_emulator_error(code, pc, &regs, name)
@@ -1103,7 +1319,7 @@ impl GlslExecutable for GlslEmulatorModule {
             // No StructReturn - read from return registers (legacy path)
             let results = self
                 .emulator
-                .call_function(self.main_address, &[], sig)
+                .call_function(func_address, &data_args, &sig)
                 .map_err(|e| {
                     self.build_enhanced_error(
                         ErrorCode::E0400,
@@ -1140,13 +1356,30 @@ impl GlslExecutable for GlslEmulatorModule {
         use crate::error::ErrorCode;
         use cranelift_codegen::ir::ArgumentPurpose;
 
-        Self::validate_main_only(name)?;
-        Self::validate_no_args(args)?;
+        // Validate function exists and get address
+        let func_address = self.get_function_address(name)?;
 
-        // Get the actual Cranelift signature for main
-        let sig = self.cranelift_signatures.get("main").ok_or_else(|| {
-            GlslError::new(ErrorCode::E0101, "Function signature for 'main' not found")
-        })?;
+        // Get function signature (clone to avoid borrow conflicts)
+        let sig = self.get_function_signature(name)?.clone();
+
+        // Convert arguments to DataValue
+        let mut arg_idx = 0;
+        let mut data_args = Vec::new();
+        for arg in args {
+            data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature
+        if data_args.len() != sig.params.len() {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch: expected {}, got {}",
+                    sig.params.len(),
+                    data_args.len()
+                ),
+            ));
+        }
 
         // Check if function uses StructReturn
         let uses_struct_return = sig
@@ -1166,7 +1399,7 @@ impl GlslExecutable for GlslEmulatorModule {
             // Call main via emulator with struct return (buffer allocation handled internally)
             let results = self
                 .emulator
-                .call_function_with_struct_return(self.main_address, &[], &sig, buffer_size)
+                .call_function_with_struct_return(func_address, &data_args, &sig, buffer_size)
                 .map_err(|e| match e {
                     EmulatorError::Trap { code, pc, regs } => {
                         self.format_trap_error_from_emulator_error(code, pc, &regs, name)
@@ -1200,7 +1433,7 @@ impl GlslExecutable for GlslEmulatorModule {
             // No StructReturn - read from return registers (legacy path)
             let results = self
                 .emulator
-                .call_function(self.main_address, &[], sig)
+                .call_function(func_address, &data_args, &sig)
                 .map_err(|e| {
                     self.build_enhanced_error(
                         ErrorCode::E0400,

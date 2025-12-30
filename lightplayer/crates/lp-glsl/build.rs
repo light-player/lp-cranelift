@@ -16,9 +16,6 @@ fn main() {
     let workspace_root = find_workspace_root(&out_dir)
         .expect("Could not find workspace root (looking for Cargo.toml with [workspace])");
 
-    // Path to lp-builtins crate (workspace root is already lightplayer/)
-    let builtins_crate_path = workspace_root.join("crates").join("lp-builtins");
-
     // Path to the lp-builtins-app executable
     // Try release first (since build-builtins.sh builds in release mode), then fall back to profile
     let exe_path_release = workspace_root
@@ -31,7 +28,7 @@ fn main() {
         .join(target)
         .join(&profile)
         .join("lp-builtins-app");
-    
+
     // Prefer release build, fall back to profile-specific build
     let exe_path = if exe_path_release.exists() {
         exe_path_release
@@ -48,13 +45,8 @@ fn main() {
             "cargo:warning=lp-builtins-app executable not found at: {}",
             exe_path.display()
         );
-        println!(
-            "cargo:warning=Also checked: {}",
-            exe_path_profile.display()
-        );
-        println!(
-            "cargo:warning=Build it manually with: scripts/build-builtins.sh"
-        );
+        println!("cargo:warning=Also checked: {}", exe_path_profile.display());
+        println!("cargo:warning=Build it manually with: scripts/build-builtins.sh");
         // Generate empty bytes if executable doesn't exist
         let out_file = std::path::Path::new(&out_dir).join("lp_builtins_lib.rs");
         std::fs::write(&out_file, "pub const LP_BUILTINS_EXE_BYTES: &[u8] = &[];\n")
@@ -66,7 +58,8 @@ fn main() {
         );
         // Copy executable to OUT_DIR
         let out_file = std::path::Path::new(&out_dir).join("lp-builtins-app");
-        std::fs::copy(&exe_path, &out_file).expect("Failed to copy lp-builtins-app executable to OUT_DIR");
+        std::fs::copy(&exe_path, &out_file)
+            .expect("Failed to copy lp-builtins-app executable to OUT_DIR");
 
         // Generate a module that includes the executable bytes
         let include_file = std::path::Path::new(&out_dir).join("lp_builtins_lib.rs");

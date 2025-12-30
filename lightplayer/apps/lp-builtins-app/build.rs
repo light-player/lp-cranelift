@@ -6,4 +6,3 @@ fn main() {
     );
     println!("cargo:rustc-link-arg=-Tmemory.ld");
 }
-

@@ -6,18 +6,18 @@
 #![cfg(feature = "std")]
 
 mod layout;
+mod relocations;
 mod sections;
 mod symbols;
-mod relocations;
 
 #[cfg(test)]
 mod tests;
 
 // Re-export public types and functions
 pub use layout::calculate_object_layout;
+pub use relocations::apply_object_relocations;
 pub use sections::load_object_sections;
 pub use symbols::{build_object_symbol_map, merge_symbol_maps};
-pub use relocations::apply_object_relocations;
 
 extern crate alloc;
 
@@ -32,8 +32,8 @@ use crate::elf_loader::memory::RAM_START;
 
 /// Information about a loaded object file.
 pub struct ObjectLoadInfo {
-    /// Address of 'main' function if found
-    pub main_address: Option<u32>,
+    /// Address of '_init' function if found
+    pub init_address: Option<u32>,
     /// Object file's symbol map (with adjusted addresses)
     pub symbol_map: HashMap<String, u32>,
     /// Start address where .text section was placed
@@ -73,7 +73,7 @@ pub fn load_object_file(
 
     // Step 1: Parse object file
     let obj = parse::parse_elf(obj_file_bytes)?;
-    
+
     // Step 2: Validate object file
     parse::validate_elf(&obj)?;
 
@@ -81,8 +81,11 @@ pub fn load_object_file(
     // The buffers contain the base executable, so their current sizes indicate where it ends
     let base_code_end = code.len() as u32;
     let base_ram_end = ram.len() as u32;
-    
-    debug!("Base executable: code_end=0x{:x}, ram_end=0x{:x}", base_code_end, base_ram_end);
+
+    debug!(
+        "Base executable: code_end=0x{:x}, ram_end=0x{:x}",
+        base_code_end, base_ram_end
+    );
 
     // Step 4: Calculate layout for object file sections
     let layout = calculate_object_layout(&obj, base_code_end, base_ram_end)?;
@@ -91,36 +94,27 @@ pub fn load_object_file(
     let section_placement = load_object_sections(&obj, code, ram, &layout)?;
 
     // Step 6: Build object file's symbol map with adjusted addresses
-    let obj_symbol_map = build_object_symbol_map(
-        &obj,
-        layout.text_placement,
-        layout.data_placement,
-    );
+    let obj_symbol_map =
+        build_object_symbol_map(&obj, layout.text_placement, layout.data_placement);
 
     // Step 7: Merge symbol maps (base takes precedence)
     let merged_symbol_map = merge_symbol_maps(symbol_map, &obj_symbol_map);
 
     // Step 8: Apply relocations using merged symbol map
-    apply_object_relocations(
-        &obj,
-        code,
-        ram,
-        &merged_symbol_map,
-        &section_placement,
-    )?;
+    apply_object_relocations(&obj, code, ram, &merged_symbol_map, &section_placement)?;
 
     // Step 9: Update caller's symbol map with merged result
     *symbol_map = merged_symbol_map.clone();
 
-    // Step 10: Find 'main' symbol if present in object file and update __USER_MAIN_PTR
-    // Use object file's main (not base executable's main) for __USER_MAIN_PTR
-    let main_address = obj_symbol_map.get("main").copied();
-    
-    if let Some(main_addr) = main_address {
+    // Step 10: Find '_init' symbol if present in object file and update __USER_MAIN_PTR
+    // Use object file's _init (not base executable's _init) for __USER_MAIN_PTR
+    let init_address = obj_symbol_map.get("_init").copied();
+
+    if let Some(init_addr) = init_address {
         // Update __USER_MAIN_PTR in ROM LMA (not RAM) so init code copies the correct value
         // The .data section is loaded into ROM at LMA and copied to RAM by init code
-        if let Some(&user_main_ptr_vma) = merged_symbol_map.get("__USER_MAIN_PTR") {
-            if user_main_ptr_vma >= RAM_START {
+        if let Some(&user_init_ptr_vma) = merged_symbol_map.get("__USER_MAIN_PTR") {
+            if user_init_ptr_vma >= RAM_START {
                 // Find the .data section LMA by looking for __data_source_start symbol
                 // or by finding the .data section in the object file we parsed earlier
                 // Actually, we need to parse the base executable to find .data LMA
@@ -128,23 +122,24 @@ pub fn load_object_file(
                 if let Some(&data_source_start) = merged_symbol_map.get("__data_source_start") {
                     // __USER_MAIN_PTR is at RAM offset 0x0 (VMA 0x80000000)
                     // Calculate its offset within .data section
-                    let ram_offset = (user_main_ptr_vma - RAM_START) as usize;
+                    let ram_offset = (user_init_ptr_vma - RAM_START) as usize;
                     // The LMA is data_source_start + offset within section
                     let lma_offset = data_source_start as usize + ram_offset;
-                    
+
                     if lma_offset + 4 > code.len() {
                         return Err(format!(
                             "__USER_MAIN_PTR LMA 0x{:x} is out of code buffer bounds (len={})",
-                            lma_offset, code.len()
+                            lma_offset,
+                            code.len()
                         ));
                     }
-                    // Write main address as little-endian u32 to ROM LMA
-                    code[lma_offset..lma_offset + 4].copy_from_slice(&main_addr.to_le_bytes());
+                    // Write init address as little-endian u32 to ROM LMA
+                    code[lma_offset..lma_offset + 4].copy_from_slice(&init_addr.to_le_bytes());
                 } else {
                     // Fallback: update RAM directly (will be overwritten by init code, but might work if init already ran)
-                    let ram_offset = (user_main_ptr_vma - RAM_START) as usize;
+                    let ram_offset = (user_init_ptr_vma - RAM_START) as usize;
                     if ram_offset + 4 <= ram.len() {
-                        ram[ram_offset..ram_offset + 4].copy_from_slice(&main_addr.to_le_bytes());
+                        ram[ram_offset..ram_offset + 4].copy_from_slice(&init_addr.to_le_bytes());
                     }
                 }
             }
@@ -152,14 +147,15 @@ pub fn load_object_file(
     }
 
     debug!("=== Object file loading complete ===");
-    debug!("Object file: .text at 0x{:x}, .data at offset 0x{:x}", 
-           section_placement.text_start, section_placement.data_start);
+    debug!(
+        "Object file: .text at 0x{:x}, .data at offset 0x{:x}",
+        section_placement.text_start, section_placement.data_start
+    );
 
     Ok(ObjectLoadInfo {
-        main_address,
+        init_address,
         symbol_map: obj_symbol_map,
         text_start: section_placement.text_start,
         data_start: section_placement.data_start,
     })
 }
-

@@ -17,4 +17,3 @@ macro_rules! debug {
         // No-op in no_std mode
     };
 }
-

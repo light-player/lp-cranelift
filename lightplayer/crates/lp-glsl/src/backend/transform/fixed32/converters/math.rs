@@ -112,9 +112,7 @@ pub(crate) fn convert_sqrt(
     _format: FixedPointFormat,
     func_id_map: &HashMap<alloc::string::String, cranelift_module::FuncId>,
 ) -> Result<(), GlslError> {
-    use cranelift_codegen::ir::{
-        AbiParam, ExtFuncData, ExternalName, Signature, UserExternalName,
-    };
+    use cranelift_codegen::ir::{AbiParam, ExtFuncData, ExternalName, Signature, UserExternalName};
     use cranelift_codegen::isa::CallConv;
 
     let arg = extract_unary_operand(old_func, old_inst)?;

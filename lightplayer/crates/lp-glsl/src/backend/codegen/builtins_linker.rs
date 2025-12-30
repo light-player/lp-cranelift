@@ -25,7 +25,10 @@ pub fn link_and_verify_builtins(
     use crate::backend::builtins::registry::BuiltinId;
 
     crate::debug!("=== Loading object file into builtins executable ===");
-    crate::debug!("Builtins executable size: {} bytes", builtins_exe_bytes.len());
+    crate::debug!(
+        "Builtins executable size: {} bytes",
+        builtins_exe_bytes.len()
+    );
     crate::debug!("Object file size: {} bytes", elf_bytes.len());
 
     if builtins_exe_bytes.is_empty() {
@@ -38,23 +41,22 @@ pub fn link_and_verify_builtins(
 
     // Load the base executable
     crate::debug!("Loading base executable...");
-    let mut load_info = lp_riscv_tools::load_elf(builtins_exe_bytes)
-        .map_err(|e| {
-            GlslError::new(
-                ErrorCode::E0400,
-                format!(
-                    "Failed to load base executable: {}. \
+    let mut load_info = lp_riscv_tools::load_elf(builtins_exe_bytes).map_err(|e| {
+        GlslError::new(
+            ErrorCode::E0400,
+            format!(
+                "Failed to load base executable: {}. \
                      Ensure lp-builtins-app is correctly compiled.",
-                    e
-                ),
-            )
-        })?;
+                e
+            ),
+        )
+    })?;
 
     crate::debug!("Base executable loaded successfully!");
 
     // Load the object file into the base executable
     crate::debug!("Loading object file...");
-    let obj_info = lp_riscv_tools::load_object_file(
+    let _obj_info = lp_riscv_tools::elf_loader::load_object_file(
         elf_bytes,
         &mut load_info.code,
         &mut load_info.ram,
@@ -83,13 +85,20 @@ pub fn link_and_verify_builtins(
     for builtin in BuiltinId::all() {
         let symbol_name = builtin.name();
         crate::debug!("Checking for builtin symbol: {}", symbol_name);
-        
+
         if let Some(&address) = load_info.symbol_map.get(symbol_name) {
             if address == 0 {
-                crate::debug!("  -> Symbol {} found but address is 0 (undefined)", symbol_name);
+                crate::debug!(
+                    "  -> Symbol {} found but address is 0 (undefined)",
+                    symbol_name
+                );
                 undefined_symbols.push(symbol_name);
             } else {
-                crate::debug!("  -> Symbol {} found at address 0x{:x} (defined)", symbol_name, address);
+                crate::debug!(
+                    "  -> Symbol {} found at address 0x{:x} (defined)",
+                    symbol_name,
+                    address
+                );
             }
         } else {
             crate::debug!("  -> Symbol {} not found in symbol map", symbol_name);
@@ -125,4 +134,3 @@ pub fn link_and_verify_builtins(
 
     Ok(load_info)
 }
-

@@ -3,10 +3,10 @@
 extern crate alloc;
 
 use crate::debug;
+use ::object::{Object, ObjectSection};
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-use ::object::{Object, ObjectSection};
 
 use super::layout::ObjectLayout;
 
@@ -73,9 +73,10 @@ pub fn load_object_sections(
         match section_name {
             ".text" => {
                 // Load .text section into code buffer
-                let data = section.data()
+                let data = section
+                    .data()
                     .map_err(|e| format!("Failed to read .text section data: {}", e))?;
-                
+
                 if !data.is_empty() {
                     // Ensure code buffer is large enough
                     let required_size = (text_start as usize) + data.len();
@@ -86,15 +87,16 @@ pub fn load_object_sections(
                     // Copy section data
                     code[text_start as usize..text_start as usize + data.len()]
                         .copy_from_slice(data);
-                    
+
                     text_size = data.len();
                 }
             }
             ".data" => {
                 // Load .data section into RAM buffer
-                let data = section.data()
+                let data = section
+                    .data()
                     .map_err(|e| format!("Failed to read .data section data: {}", e))?;
-                
+
                 if !data.is_empty() {
                     // Ensure RAM buffer is large enough
                     let required_size = (data_start as usize) + data.len();
@@ -105,20 +107,21 @@ pub fn load_object_sections(
                     // Copy section data
                     ram[data_start as usize..data_start as usize + data.len()]
                         .copy_from_slice(data);
-                    
+
                     data_size = data.len();
                 }
             }
             ".rodata" => {
                 // Load .rodata section into code buffer (after .text)
-                let data = section.data()
+                let data = section
+                    .data()
                     .map_err(|e| format!("Failed to read .rodata section data: {}", e))?;
-                
+
                 if !data.is_empty() {
                     // Place .rodata after .text
                     let rodata_start = text_start + text_size as u32;
                     let rodata_start_aligned = (rodata_start + 3) & !3; // Align to 4 bytes
-                    
+
                     // Ensure code buffer is large enough
                     let required_size = (rodata_start_aligned as usize) + data.len();
                     if required_size > code.len() {
@@ -136,7 +139,7 @@ pub fn load_object_sections(
                     // Place .bss after .data
                     let bss_start = data_start + data_size as u32;
                     let bss_start_aligned = (bss_start + 3) & !3; // Align to 4 bytes
-                    
+
                     // Ensure RAM buffer is large enough
                     let required_size = (bss_start_aligned as usize) + section_size;
                     if required_size > ram.len() {
@@ -154,8 +157,10 @@ pub fn load_object_sections(
         }
     }
 
-    debug!("Object section loading complete: .text at 0x{:x} ({} bytes), .data at offset 0x{:x} ({} bytes)",
-           text_start, text_size, data_start, data_size);
+    debug!(
+        "Object section loading complete: .text at 0x{:x} ({} bytes), .data at offset 0x{:x} ({} bytes)",
+        text_start, text_size, data_start, data_size
+    );
 
     Ok(ObjectSectionPlacement {
         text_start,
@@ -164,4 +169,3 @@ pub fn load_object_sections(
         data_size,
     })
 }
-

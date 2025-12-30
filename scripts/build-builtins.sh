@@ -1,6 +1,5 @@
 #!/bin/bash
 # Build lp-builtins-app executable with aggressive optimizations
-# This ensures all dependency symbols (rlibc, compiler_builtins) are included
 
 set -e
 
@@ -25,9 +24,6 @@ mkdir -p "$OUTPUT_DIR"
 # Build using cargo but with RUSTFLAGS for optimization
 # Using rustc directly would require handling dependencies manually
 cd "$LIGHTPLAYER_DIR"
-
-# Use nightly toolchain for compiler_builtins support
-export RUSTUP_TOOLCHAIN=nightly
 
 RUSTFLAGS="-C opt-level=1 \
            -C panic=abort \

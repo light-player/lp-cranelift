@@ -1,11 +1,8 @@
 //! Emulator codegen - build executable from GlModule<ObjectModule>
 
 #[cfg(feature = "emulator")]
-#[allow(unused_imports)]
 mod builtins_lib {
     include!(concat!(env!("OUT_DIR"), "/lp_builtins_lib.rs"));
-    // For backward compatibility, alias the old name
-    pub const LP_BUILTINS_LIB_BYTES: &[u8] = LP_BUILTINS_EXE_BYTES;
 }
 
 #[cfg(feature = "emulator")]
@@ -49,10 +46,12 @@ pub fn build_emu_executable(
     transformed_clif: Option<String>,
 ) -> Result<GlslEmulatorModule, GlslError> {
     use lp_riscv_tools::Gpr;
+    use lp_riscv_tools::StepResult;
+    #[cfg(not(feature = "std"))]
     use lp_riscv_tools::elf_loader::load_elf;
     use lp_riscv_tools::emu::LogLevel;
     use lp_riscv_tools::emu::emulator::Riscv32Emulator;
-    use object::{Object, ObjectSection, ObjectSymbol};
+    use object::{Object, ObjectSymbol};
 
     // Builtin functions are already declared when the module was created
 
@@ -273,7 +272,7 @@ pub fn build_emu_executable(
 
     // 3. Finish module and get object file
     let product = gl_module.into_module().finish();
-    let mut elf_bytes = product
+    let elf_bytes = product
         .emit()
         .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to emit ELF: {}", e)))?;
 
@@ -305,29 +304,50 @@ pub fn build_emu_executable(
         }
     }
 
-    // 3.5 Link builtins static library into the ELF if available
+    // 3.5 Load builtins executable and object file
     #[cfg(feature = "std")]
     let load_info = {
-        // Use compile-time embedded library bytes
-        let builtins_lib_bytes = builtins_lib::LP_BUILTINS_LIB_BYTES;
+        // Use compile-time embedded executable bytes
+        let builtins_exe_bytes = builtins_lib::LP_BUILTINS_EXE_BYTES;
         crate::backend::codegen::builtins_linker::link_and_verify_builtins(
             &elf_bytes,
-            builtins_lib_bytes,
+            builtins_exe_bytes,
         )?
+        // link_and_verify_builtins already loads the object file and merges symbol maps
     };
     #[cfg(not(feature = "std"))]
-    let load_info = load_elf(&elf_bytes)
-        .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to load ELF: {}", e)))?;
+    let load_info = {
+        // In no_std mode, we can't load the builtins executable
+        // Fall back to just loading the ELF (this won't work for filetests but allows compilation)
+        load_elf(&elf_bytes)
+            .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to load ELF: {}", e)))?
+    };
 
-    // 4. Find main address from symbol map
-    let main_address = load_info.symbol_map.get("main")
-        .copied()
-        .ok_or_else(|| {
-            GlslError::new(
-                ErrorCode::E0400,
-                "main function not found in symbol map",
-            )
-        })?;
+    // 4. Populate function address map from merged symbol map
+    // Filter for function symbols (exclude data symbols, special symbols like __USER_MAIN_PTR)
+    let mut function_addresses: HashMap<String, u32> = HashMap::new();
+    let special_symbols = [
+        "__USER_MAIN_PTR",
+        "__data_source_start",
+        "__bss_target_start",
+        "__bss_target_end",
+        "__data_target_start",
+        "__data_target_end",
+        "__global_pointer$",
+        "__stack_start",
+    ];
+
+    for (name, &address) in &load_info.symbol_map {
+        // Skip special linker/data symbols
+        if special_symbols.contains(&name.as_str()) {
+            continue;
+        }
+        // Filter for text symbols (functions) - addresses in code region (0x0 to 0x80000000)
+        // Include builtin functions (__lp_*) and user functions
+        if address < 0x80000000 {
+            function_addresses.insert(name.clone(), address);
+        }
+    }
 
     // 5. Collect trap information: convert function-relative offsets to absolute addresses
     // Build a map of function names to their addresses in the binary
@@ -361,15 +381,99 @@ pub fn build_emu_executable(
 
     // 6. Create emulator with trap information
     let binary = load_info.code;
-    let mut emulator =
-        Riscv32Emulator::with_traps(binary.clone(), vec![0; options.max_memory], &traps)
-            .with_max_instructions(options.max_instructions)
-            .with_log_level(LogLevel::Instructions);
+    let ram_size = load_info.ram.len();
+    let mut emulator = Riscv32Emulator::with_traps(binary.clone(), load_info.ram, &traps)
+        .with_max_instructions(options.max_instructions)
+        .with_log_level(LogLevel::Instructions);
 
-    // 7. Set up stack and PC
-    emulator.set_register(Gpr::Sp, options.max_memory as i32);
-    // Note: PC will be set by call_function to main_address, but initialize it here for safety
-    emulator.set_pc(main_address);
+    // 7. Run bootstrap init: initialize .bss/.data and optionally call user _init
+    // Set up stack pointer (sp = x2) to point to high RAM
+    let sp_value = 0x80000000u32.wrapping_add((ram_size as u32).wrapping_sub(16));
+    emulator.set_register(Gpr::Sp, sp_value as i32);
+
+    // Set return address (ra = x1) to halt address so bootstrap code can return
+    let halt_address = 0x80000000u32.wrapping_add(ram_size as u32);
+    emulator.set_register(Gpr::Ra, halt_address as i32);
+
+    // Set PC to entry point to start bootstrap init
+    emulator.set_pc(load_info.entry_point);
+
+    // Execute bootstrap init code until it completes
+    // Bootstrap init will:
+    // 1. Initialize .bss and .data sections
+    // 2. Optionally call user _init if present (gracefully skipped if missing)
+    // 3. Halt via ebreak or return to halt_address
+    let mut init_steps = 0;
+    let max_init_steps = 10000;
+    let init_address = load_info.symbol_map.get("_init").copied();
+
+    crate::debug!(
+        "Running bootstrap init (entry_point=0x{:x}, _init={:?})",
+        load_info.entry_point,
+        init_address
+    );
+
+    loop {
+        if init_steps >= max_init_steps {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Bootstrap init exceeded {} steps - possible infinite loop (PC: 0x{:x})",
+                    max_init_steps,
+                    emulator.get_pc()
+                ),
+            ));
+        }
+
+        match emulator.step() {
+            Ok(step_result) => {
+                init_steps += 1;
+                let pc_after = emulator.get_pc();
+
+                // Handle panic result - bootstrap init failures are fatal
+                if let StepResult::Panic(panic_info) = step_result {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!(
+                            "Bootstrap init panic: {} (PC: 0x{:x})",
+                            panic_info.message, panic_info.pc
+                        ),
+                    ));
+                }
+
+                // Handle halt result - bootstrap init completed
+                if let StepResult::Halted = step_result {
+                    crate::debug!(
+                        "Bootstrap init completed (halted) after {} steps",
+                        init_steps
+                    );
+                    break;
+                }
+
+                // Check if PC is at halt address (bootstrap code returned)
+                if pc_after == halt_address {
+                    crate::debug!(
+                        "Bootstrap init completed (returned) after {} steps",
+                        init_steps
+                    );
+                    break;
+                }
+            }
+            Err(e) => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    format!(
+                        "Bootstrap init error after {} steps (PC: 0x{:x}): {}",
+                        init_steps,
+                        emulator.get_pc(),
+                        e
+                    ),
+                ));
+            }
+        }
+    }
+
+    crate::debug!("Bootstrap init completed successfully");
 
     // 8. Create GlslEmulatorModule
     // Preserve metadata from GlModule
@@ -378,7 +482,7 @@ pub fn build_emu_executable(
         signatures,
         cranelift_signatures,
         binary,
-        main_address,
+        function_addresses, // Populated from merged symbol map after object file loading
         transformed_clif,
         original_clif,
         vcode,
@@ -427,8 +531,6 @@ mod tests {
         };
 
         let mut executable = build_emu_executable(gl_module, &options, None, None).unwrap();
-        // main_address will be set from symbol map
-        // Note: main_address can be 0 if the function is at the start of the text section
 
         // Actually call the function and verify it returns 42
         let result = executable.call_i32("main", &[]).unwrap();

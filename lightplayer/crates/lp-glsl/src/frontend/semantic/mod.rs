@@ -18,7 +18,7 @@ pub mod validator;
 pub const MAIN_FUNCTION_NAME: &str = "main";
 
 pub struct TypedShader {
-    pub main_function: TypedFunction,
+    pub main_function: Option<TypedFunction>,
     pub user_functions: Vec<TypedFunction>,
     pub function_registry: functions::FunctionRegistry,
 }
@@ -59,10 +59,10 @@ impl SemanticAnalyzer {
         let (main_func, user_functions) = extraction_pass.into_results();
 
         // Pass 3: Validate
-        let main_function = main_func.ok_or_else(|| GlslError::no_main_function())?;
-
+        // Main function is optional for filetests (functions can be called directly)
+        // For backward compatibility, we still allow requiring main, but don't enforce it here
         let typed_shader = TypedShader {
-            main_function,
+            main_function: main_func,
             user_functions,
             function_registry: registry,
         };

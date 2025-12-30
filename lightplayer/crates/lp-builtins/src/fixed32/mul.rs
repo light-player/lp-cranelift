@@ -80,7 +80,10 @@ mod tests {
 
             std::println!(
                 "Test: {} * {} -> Expected: {}, Actual: {}",
-                a, b, expected, result
+                a,
+                b,
+                expected,
+                result
             );
 
             assert!(
@@ -121,7 +124,10 @@ mod tests {
 
             std::println!(
                 "Test: {} * {} -> Expected: {}, Actual: {}",
-                a, b, expected, result
+                a,
+                b,
+                expected,
+                result
             );
 
             assert!(
@@ -165,4 +171,3 @@ mod tests {
         );
     }
 }
-

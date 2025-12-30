@@ -9,25 +9,7 @@ rust-version.workspace = true
 [lib]
 crate-type = ["lib"]
 
-[[bin]]
-name = "lp-builtins"
-path = "src/main.rs"
-required-features = ["std"]
-
 [features]
 default = []
 std = []
-# Enable baremetal support: includes compiler_builtins (requires nightly) to provide
-# math operations (__adddf3, __muldf3, etc.) and rlibc for mem functions (memcpy, memset, memcmp)
-# that Rust normally includes automatically for binaries
-baremetal = ["dep:compiler_builtins", "dep:rlibc"]
-
-[dependencies]
-# Include compiler_builtins to provide math operations (__adddf3, __muldf3, etc.)
-# that Rust normally includes automatically for binaries
-# Only enabled when building with the baremetal feature (requires nightly)
-compiler_builtins = { version = "0.1", optional = true }
-# Include rlibc to provide memcpy, memset, memcmp for baremetal targets
-# rlibc provides these functions with #[no_mangle] so they can be linked
-rlibc = { version = "1.0", optional = true }
 

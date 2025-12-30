@@ -3,8 +3,8 @@
 extern crate alloc;
 
 use crate::debug;
-use alloc::string::String;
 use ::object::{Object, ObjectSection};
+use alloc::string::String;
 
 /// Object file layout information.
 ///
@@ -42,7 +42,10 @@ pub fn calculate_object_layout(
     base_ram_end: u32,
 ) -> Result<ObjectLayout, String> {
     debug!("=== Calculating object file layout ===");
-    debug!("Base code end: 0x{:x}, Base RAM end offset: 0x{:x}", base_code_end, base_ram_end);
+    debug!(
+        "Base code end: 0x{:x}, Base RAM end offset: 0x{:x}",
+        base_code_end, base_ram_end
+    );
 
     // Find .text and .data sections
     let mut text_size: u64 = 0;
@@ -73,16 +76,17 @@ pub fn calculate_object_layout(
     // Calculate placement addresses
     // text_placement: Start after base code_end, aligned to 4 bytes
     let text_placement = align_4_bytes(base_code_end);
-    
+
     // data_placement: Start after base ram_end, aligned to 4 bytes (relative to RAM_START)
     let data_placement = align_4_bytes(base_ram_end);
 
-    debug!("Object layout: .text at 0x{:x} (size={}), .data at offset 0x{:x} (size={})",
-           text_placement, text_size, data_placement, data_size);
+    debug!(
+        "Object layout: .text at 0x{:x} (size={}), .data at offset 0x{:x} (size={})",
+        text_placement, text_size, data_placement, data_size
+    );
 
     Ok(ObjectLayout {
         text_placement,
         data_placement,
     })
 }
-

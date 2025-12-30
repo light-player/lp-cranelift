@@ -129,40 +129,42 @@ impl GlslCompiler {
             gl_module.glsl_signatures.insert(name, glsl_sig);
         }
 
-        // 8. Compile main function to CLIF with FLOAT types
-        let main_sig = SignatureBuilder::build_with_triple(
-            &typed_ast.main_function.return_type,
-            &typed_ast.main_function.parameters,
-            pointer_type,
-            triple,
-        );
-        let main_func = {
-            // Pass gl_module directly
-            self.compile_main_function_to_clif(
-                &typed_ast.main_function,
-                &func_ids,
-                &typed_ast.function_registry,
-                &mut gl_module,
-                isa_ref.as_ref(),
-                semantic_result.source,
-                &mut source_loc_manager,
-                &mut source_map,
-                main_file_id,
-            )?
-        };
+        // 8. Compile main function to CLIF with FLOAT types (if present)
+        if let Some(ref main_function) = typed_ast.main_function {
+            let main_sig = SignatureBuilder::build_with_triple(
+                &main_function.return_type,
+                &main_function.parameters,
+                pointer_type,
+                triple,
+            );
+            let main_func = {
+                // Pass gl_module directly
+                self.compile_main_function_to_clif(
+                    main_function,
+                    &func_ids,
+                    &typed_ast.function_registry,
+                    &mut gl_module,
+                    isa_ref.as_ref(),
+                    semantic_result.source,
+                    &mut source_loc_manager,
+                    &mut source_map,
+                    main_file_id,
+                )?
+            };
 
-        // Add main function to GlModule
-        gl_module.add_function("main", Linkage::Export, main_sig, main_func)?;
+            // Add main function to GlModule
+            gl_module.add_function("main", Linkage::Export, main_sig, main_func)?;
 
-        // Store main function's GLSL signature
-        gl_module.glsl_signatures.insert(
-            String::from("main"),
-            crate::frontend::semantic::functions::FunctionSignature {
-                name: String::from("main"),
-                return_type: typed_ast.main_function.return_type.clone(),
-                parameters: typed_ast.main_function.parameters.clone(),
-            },
-        );
+            // Store main function's GLSL signature
+            gl_module.glsl_signatures.insert(
+                String::from("main"),
+                crate::frontend::semantic::functions::FunctionSignature {
+                    name: String::from("main"),
+                    return_type: main_function.return_type.clone(),
+                    parameters: main_function.parameters.clone(),
+                },
+            );
+        }
 
         // 9. Set metadata
         gl_module.function_registry = typed_ast.function_registry;
@@ -273,40 +275,42 @@ impl GlslCompiler {
             gl_module.glsl_signatures.insert(name, glsl_sig);
         }
 
-        // 8. Compile main function to CLIF with FLOAT types
-        let main_sig = SignatureBuilder::build_with_triple(
-            &typed_ast.main_function.return_type,
-            &typed_ast.main_function.parameters,
-            pointer_type,
-            triple,
-        );
-        let main_func = {
-            // Pass gl_module directly
-            self.compile_main_function_to_clif(
-                &typed_ast.main_function,
-                &func_ids,
-                &typed_ast.function_registry,
-                &mut gl_module,
-                isa_ref.as_ref(),
-                semantic_result.source,
-                &mut source_loc_manager,
-                &mut source_map,
-                main_file_id,
-            )?
-        };
+        // 8. Compile main function to CLIF with FLOAT types (if present)
+        if let Some(ref main_function) = typed_ast.main_function {
+            let main_sig = SignatureBuilder::build_with_triple(
+                &main_function.return_type,
+                &main_function.parameters,
+                pointer_type,
+                triple,
+            );
+            let main_func = {
+                // Pass gl_module directly
+                self.compile_main_function_to_clif(
+                    main_function,
+                    &func_ids,
+                    &typed_ast.function_registry,
+                    &mut gl_module,
+                    isa_ref.as_ref(),
+                    semantic_result.source,
+                    &mut source_loc_manager,
+                    &mut source_map,
+                    main_file_id,
+                )?
+            };
 
-        // Add main function to GlModule
-        gl_module.add_function("main", Linkage::Export, main_sig, main_func)?;
+            // Add main function to GlModule
+            gl_module.add_function("main", Linkage::Export, main_sig, main_func)?;
 
-        // Store main function's GLSL signature
-        gl_module.glsl_signatures.insert(
-            String::from("main"),
-            crate::frontend::semantic::functions::FunctionSignature {
-                name: String::from("main"),
-                return_type: typed_ast.main_function.return_type.clone(),
-                parameters: typed_ast.main_function.parameters.clone(),
-            },
-        );
+            // Store main function's GLSL signature
+            gl_module.glsl_signatures.insert(
+                String::from("main"),
+                crate::frontend::semantic::functions::FunctionSignature {
+                    name: String::from("main"),
+                    return_type: main_function.return_type.clone(),
+                    parameters: main_function.parameters.clone(),
+                },
+            );
+        }
 
         // 9. Set metadata
         gl_module.function_registry = typed_ast.function_registry;

@@ -10,9 +10,7 @@ path = "src/main.rs"
 test = false
 
 [dependencies]
-lp-builtins = { path = "../../crates/lp-builtins", features = ["baremetal"] }
+lp-builtins = { path = "../../crates/lp-builtins" }
 
 [build-dependencies]
-
-[target.riscv32imac-unknown-none-elf]
 

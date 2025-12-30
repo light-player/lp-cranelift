@@ -125,7 +125,10 @@ fn run_nostd_test() -> Result<(), String> {
                 } else {
                     "unknown location".to_string()
                 };
-                return Err(format!("Guest panicked at PC 0x{:x}: {} ({})", panic_info.pc, panic_info.message, msg));
+                return Err(format!(
+                    "Guest panicked at PC 0x{:x}: {} ({})",
+                    panic_info.pc, panic_info.message, msg
+                ));
             }
             Ok(StepResult::Syscall(info)) => {
                 // Handle syscall

@@ -8,16 +8,20 @@ use crate::frontend::semantic::types::Type;
 #[cfg(feature = "std")]
 use anyhow::Result;
 
-/// Execute main() and return the result as a GlslValue.
+/// Execute a function by name with arguments and return the result as a GlslValue.
 ///
 /// This function handles calling the appropriate method based on the return type
 /// and automatically formats errors with emulator state and CLIF IR when available.
 #[cfg(feature = "std")]
-pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
+pub fn execute_function(
+    executable: &mut dyn GlslExecutable,
+    name: &str,
+    args: &[GlslValue],
+) -> Result<GlslValue> {
     // Try to get the signature to determine return type
     let sig = executable
-        .get_function_signature("main")
-        .ok_or_else(|| anyhow::anyhow!("main function not found"))?;
+        .get_function_signature(name)
+        .ok_or_else(|| anyhow::anyhow!("function '{}' not found", name))?;
 
     // Helper to add emulator state to error if available
     fn format_error(e: crate::error::GlslError, executable: &dyn GlslExecutable) -> anyhow::Error {
@@ -31,38 +35,38 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
         }
     }
 
-    // Call main() based on return type
+    // Call function based on return type
     match &sig.return_type {
         Type::Float => executable
-            .call_f32("main", &[])
+            .call_f32(name, args)
             .map(GlslValue::F32)
             .map_err(|e| format_error(e, executable)),
         Type::Int => executable
-            .call_i32("main", &[])
+            .call_i32(name, args)
             .map(GlslValue::I32)
             .map_err(|e| format_error(e, executable)),
         Type::UInt => executable
-            .call_i32("main", &[])
+            .call_i32(name, args)
             .map(|i| GlslValue::U32(i as u32)) // Convert i32 to u32 (bit pattern preserved)
             .map_err(|e| format_error(e, executable)),
         Type::Bool => executable
-            .call_bool("main", &[])
+            .call_bool(name, args)
             .map(GlslValue::Bool)
             .map_err(|e| format_error(e, executable)),
         Type::Vec2 => executable
-            .call_vec("main", &[], 2)
+            .call_vec(name, args, 2)
             .map(|v| GlslValue::Vec2([v[0], v[1]]))
             .map_err(|e| format_error(e, executable)),
         Type::Vec3 => executable
-            .call_vec("main", &[], 3)
+            .call_vec(name, args, 3)
             .map(|v| GlslValue::Vec3([v[0], v[1], v[2]]))
             .map_err(|e| format_error(e, executable)),
         Type::Vec4 => executable
-            .call_vec("main", &[], 4)
+            .call_vec(name, args, 4)
             .map(|v| GlslValue::Vec4([v[0], v[1], v[2], v[3]]))
             .map_err(|e| format_error(e, executable)),
         Type::Mat2 => executable
-            .call_mat("main", &[], 2, 2)
+            .call_mat(name, args, 2, 2)
             .map(|v| {
                 // Convert flat array from emulator (column-major storage) to Mat2x2
                 // Input: v = [col0_row0, col0_row1, col1_row0, col1_row1] = [v[0], v[1], v[2], v[3]]
@@ -74,7 +78,7 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
             })
             .map_err(|e| format_error(e, executable)),
         Type::Mat3 => executable
-            .call_mat("main", &[], 3, 3)
+            .call_mat(name, args, 3, 3)
             .map(|v| {
                 // Convert flat array from emulator (column-major storage) to Mat3x3
                 // Input: v = [col0_row0, col0_row1, col0_row2, col1_row0, col1_row1, col1_row2, col2_row0, col2_row1, col2_row2]
@@ -87,7 +91,7 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
             })
             .map_err(|e| format_error(e, executable)),
         Type::Mat4 => executable
-            .call_mat("main", &[], 4, 4)
+            .call_mat(name, args, 4, 4)
             .map(|v| {
                 // Convert flat array from emulator (column-major storage) to Mat4x4
                 // Input: v = 16 elements in column-major order
@@ -108,43 +112,51 @@ pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
             .map_err(|e| format_error(e, executable)),
         // Integer vectors: stored as plain i32, read directly without fixed-point scaling
         Type::IVec2 => executable
-            .call_ivec("main", &[], 2)
+            .call_ivec(name, args, 2)
             .map(|v| GlslValue::IVec2([v[0], v[1]]))
             .map_err(|e| format_error(e, executable)),
         Type::IVec3 => executable
-            .call_ivec("main", &[], 3)
+            .call_ivec(name, args, 3)
             .map(|v| GlslValue::IVec3([v[0], v[1], v[2]]))
             .map_err(|e| format_error(e, executable)),
         Type::IVec4 => executable
-            .call_ivec("main", &[], 4)
+            .call_ivec(name, args, 4)
             .map(|v| GlslValue::IVec4([v[0], v[1], v[2], v[3]]))
             .map_err(|e| format_error(e, executable)),
         // Boolean vectors: stored as i8 in StructReturn, read as i8 and convert to bool
         Type::BVec2 => executable
-            .call_bvec("main", &[], 2)
+            .call_bvec(name, args, 2)
             .map(|v| GlslValue::BVec2([v[0], v[1]]))
             .map_err(|e| format_error(e, executable)),
         Type::BVec3 => executable
-            .call_bvec("main", &[], 3)
+            .call_bvec(name, args, 3)
             .map(|v| GlslValue::BVec3([v[0], v[1], v[2]]))
             .map_err(|e| format_error(e, executable)),
         Type::BVec4 => executable
-            .call_bvec("main", &[], 4)
+            .call_bvec(name, args, 4)
             .map(|v| GlslValue::BVec4([v[0], v[1], v[2], v[3]]))
             .map_err(|e| format_error(e, executable)),
         // Unsigned integer vectors: stored as plain i32 (interpreted as u32), read directly without fixed-point scaling
         Type::UVec2 => executable
-            .call_uvec("main", &[], 2)
+            .call_uvec(name, args, 2)
             .map(|v| GlslValue::UVec2([v[0], v[1]]))
             .map_err(|e| format_error(e, executable)),
         Type::UVec3 => executable
-            .call_uvec("main", &[], 3)
+            .call_uvec(name, args, 3)
             .map(|v| GlslValue::UVec3([v[0], v[1], v[2]]))
             .map_err(|e| format_error(e, executable)),
         Type::UVec4 => executable
-            .call_uvec("main", &[], 4)
+            .call_uvec(name, args, 4)
             .map(|v| GlslValue::UVec4([v[0], v[1], v[2], v[3]]))
             .map_err(|e| format_error(e, executable)),
         _ => anyhow::bail!("unsupported return type: {:?}", sig.return_type),
     }
+}
+
+/// Execute main() and return the result as a GlslValue.
+///
+/// This is a convenience wrapper around execute_function for backward compatibility.
+#[cfg(feature = "std")]
+pub fn execute_main(executable: &mut dyn GlslExecutable) -> Result<GlslValue> {
+    execute_function(executable, "main", &[])
 }

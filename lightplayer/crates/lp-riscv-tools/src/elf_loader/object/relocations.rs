@@ -3,16 +3,16 @@
 extern crate alloc;
 
 use crate::debug;
+use ::object::{Object, ObjectSection};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use hashbrown::HashMap;
-use ::object::{Object, ObjectSection};
 
-use super::sections::ObjectSectionPlacement;
-use super::super::relocations::{
-    analyze_relocations, apply_relocations_phase2, SectionAddressInfo, BufferSlice,
-};
 use super::super::memory::RAM_START;
+use super::super::relocations::{
+    BufferSlice, SectionAddressInfo, analyze_relocations, apply_relocations_phase2,
+};
+use super::sections::ObjectSectionPlacement;
 
 /// Apply relocations for object file.
 ///
@@ -40,12 +40,8 @@ pub fn apply_object_relocations(
     debug!("=== Applying object file relocations ===");
 
     // Phase 1: Analyze relocations (this works with section-relative addresses)
-    let (relocations, got_tracker, _section_addrs) = analyze_relocations(
-        obj,
-        code,
-        ram,
-        merged_symbol_map,
-    )?;
+    let (relocations, got_tracker, _section_addrs) =
+        analyze_relocations(obj, code, ram, merged_symbol_map)?;
 
     // Build adjusted section address map for object file sections
     // Object file sections are placed at specific addresses, so we need to adjust
@@ -91,8 +87,10 @@ pub fn apply_object_relocations(
                         },
                     },
                 );
-                debug!("  Section '.text': VMA=0x{:x}, LMA=0x{:x}, offset={}",
-                       vma, lma, section_placement.text_start);
+                debug!(
+                    "  Section '.text': VMA=0x{:x}, LMA=0x{:x}, offset={}",
+                    vma, lma, section_placement.text_start
+                );
             }
             ".data" => {
                 // .data section: VMA in RAM, LMA same as VMA (already copied to RAM)
@@ -108,13 +106,16 @@ pub fn apply_object_relocations(
                         },
                     },
                 );
-                debug!("  Section '.data': VMA=0x{:x}, LMA=0x{:x}, offset={}",
-                       vma, lma, section_placement.data_start);
+                debug!(
+                    "  Section '.data': VMA=0x{:x}, LMA=0x{:x}, offset={}",
+                    vma, lma, section_placement.data_start
+                );
             }
             ".rodata" => {
                 // .rodata section: placed in code buffer after .text
                 // Calculate placement (after .text, aligned)
-                let rodata_start = section_placement.text_start + section_placement.text_size as u32;
+                let rodata_start =
+                    section_placement.text_start + section_placement.text_size as u32;
                 let rodata_start_aligned = (rodata_start + 3) & !3;
                 let vma = rodata_start_aligned as u64;
                 let lma = vma;
@@ -128,8 +129,10 @@ pub fn apply_object_relocations(
                         },
                     },
                 );
-                debug!("  Section '.rodata': VMA=0x{:x}, LMA=0x{:x}, offset={}",
-                       vma, lma, rodata_start_aligned);
+                debug!(
+                    "  Section '.rodata': VMA=0x{:x}, LMA=0x{:x}, offset={}",
+                    vma, lma, rodata_start_aligned
+                );
             }
             ".bss" => {
                 // .bss section: placed in RAM buffer after .data
@@ -147,8 +150,10 @@ pub fn apply_object_relocations(
                         },
                     },
                 );
-                debug!("  Section '.bss': VMA=0x{:x}, LMA=0x{:x}, offset={}",
-                       vma, lma, bss_start_aligned);
+                debug!(
+                    "  Section '.bss': VMA=0x{:x}, LMA=0x{:x}, offset={}",
+                    vma, lma, bss_start_aligned
+                );
             }
             _ => {
                 // Other sections: skip for now
@@ -165,17 +170,18 @@ pub fn apply_object_relocations(
         // Get the original section address from the object file
         // Object files have section addresses starting at 0, so we can use section_vma from relocation
         let original_section_addr = reloc.section_vma;
-        
+
         // Get the adjusted section address and adjust the relocation
         let mut adjusted_reloc = reloc.clone();
         if let Some(adjusted_info) = adjusted_section_addrs.get(&reloc.section_name) {
             // Calculate the adjustment: new_section_addr - original_section_addr
             let adjustment = adjusted_info.vma.wrapping_sub(original_section_addr);
-            
+
             // Adjust the relocation address
-            adjusted_reloc.address = (adjusted_reloc.address as u64).wrapping_add(adjustment) as u32;
+            adjusted_reloc.address =
+                (adjusted_reloc.address as u64).wrapping_add(adjustment) as u32;
         }
-        
+
         adjusted_relocations.push(adjusted_reloc);
     }
 
@@ -192,4 +198,3 @@ pub fn apply_object_relocations(
     debug!("=== Object file relocations applied successfully ===");
     Ok(())
 }
-

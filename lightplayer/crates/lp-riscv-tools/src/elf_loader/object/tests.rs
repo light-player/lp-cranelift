@@ -5,11 +5,11 @@ mod tests {
     extern crate alloc;
     extern crate std;
 
+    use crate::elf_loader::load_elf;
+    use crate::elf_loader::load_object_file;
     use alloc::string::String;
     use alloc::vec;
     use alloc::vec::Vec;
-    use crate::elf_loader::load_elf;
-    use crate::elf_loader::load_object_file;
     use std::println;
 
     /// Helper to compile a simple Rust source file to an object file.
@@ -49,12 +49,18 @@ mod tests {
         let obj_path = temp_dir.join(std::format!("{}.o", name));
         let output = Command::new("rustc")
             .args(&[
-                "--target", target,
-                "--crate-type", "rlib",
-                "--emit", "obj",
-                "-C", "relocation-model=pic",
-                "-C", "opt-level=0",
-                "-o", obj_path.to_str()?,
+                "--target",
+                target,
+                "--crate-type",
+                "rlib",
+                "--emit",
+                "obj",
+                "-C",
+                "relocation-model=pic",
+                "-C",
+                "opt-level=0",
+                "-o",
+                obj_path.to_str()?,
                 source_path.to_str()?,
             ])
             .output()
@@ -126,16 +132,18 @@ mod tests {
             #![no_std]
             #![no_main]
 
-            #[no_mangle]
-            pub extern "C" fn main() -> i32 {
-                42
-            }
+        #[no_mangle]
+        pub extern "C" fn _init() -> i32 {
+            42
+        }
         "#;
 
         let obj_bytes = match compile_test_object(source, "test_main") {
             Some(bytes) => bytes,
             None => {
-                println!("Skipping test: could not compile test object file. Install rustc with riscv32imac-unknown-none-elf target.");
+                println!(
+                    "Skipping test: could not compile test object file. Install rustc with riscv32imac-unknown-none-elf target."
+                );
                 return;
             }
         };
@@ -150,7 +158,9 @@ mod tests {
                 bytes
             }
             None => {
-                println!("Skipping test: builtins executable not found. Build it with: scripts/build-builtins.sh");
+                println!(
+                    "Skipping test: builtins executable not found. Build it with: scripts/build-builtins.sh"
+                );
                 return;
             }
         };
@@ -176,19 +186,25 @@ mod tests {
         };
 
         // Verify object file was loaded
-        assert!(obj_info.text_start > 0, "Object file .text should be placed after base");
+        assert!(
+            obj_info.text_start > 0,
+            "Object file .text should be placed after base"
+        );
         // data_start is u32, so it's always >= 0
-        
-        // Verify main symbol was found
-        if let Some(main_addr) = obj_info.main_address {
-            assert!(main_addr > 0, "Main address should be valid");
-            println!("Object file main() found at 0x{:x}", main_addr);
+
+        // Verify _init symbol was found
+        if let Some(init_addr) = obj_info.init_address {
+            assert!(init_addr > 0, "Init address should be valid");
+            println!("Object file _init() found at 0x{:x}", init_addr);
         } else {
-            println!("No main symbol found in object file (this is OK for some object files)");
+            println!("No _init symbol found in object file (this is OK for some object files)");
         }
 
         // Verify symbol map was updated
-        assert!(!base_info.symbol_map.is_empty(), "Symbol map should contain symbols");
+        assert!(
+            !base_info.symbol_map.is_empty(),
+            "Symbol map should contain symbols"
+        );
     }
 
     #[test]
@@ -214,7 +230,7 @@ mod tests {
             }
 
             #[no_mangle]
-            pub extern "C" fn main() -> i32 {
+            pub extern "C" fn _init() -> i32 {
                 func2()
             }
         "#;
@@ -287,19 +303,37 @@ mod tests {
         };
 
         // Verify buffers were extended
-        assert!(base_info.code.len() >= code_size_before, "Code buffer should be extended");
-        assert!(base_info.ram.len() >= ram_size_before, "RAM buffer should be extended");
+        assert!(
+            base_info.code.len() >= code_size_before,
+            "Code buffer should be extended"
+        );
+        assert!(
+            base_info.ram.len() >= ram_size_before,
+            "RAM buffer should be extended"
+        );
 
         // Verify object files were placed sequentially
-        assert!(obj2_info.text_start >= obj1_info.text_start, "Second object should be after first");
+        assert!(
+            obj2_info.text_start >= obj1_info.text_start,
+            "Second object should be after first"
+        );
 
         // Verify symbol map contains both object files' symbols
-        assert!(base_info.symbol_map.contains_key("func1"), "func1 should be in symbol map");
-        assert!(base_info.symbol_map.contains_key("func2"), "func2 should be in symbol map");
+        assert!(
+            base_info.symbol_map.contains_key("func1"),
+            "func1 should be in symbol map"
+        );
+        assert!(
+            base_info.symbol_map.contains_key("func2"),
+            "func2 should be in symbol map"
+        );
 
-        // Verify last main wins
-        if let Some(main_addr) = obj2_info.main_address {
-            println!("Second object file's main() at 0x{:x} (last one wins)", main_addr);
+        // Verify last _init wins
+        if let Some(init_addr) = obj2_info.init_address {
+            println!(
+                "Second object file's _init() at 0x{:x} (last one wins)",
+                init_addr
+            );
         }
     }
 
@@ -307,9 +341,8 @@ mod tests {
     fn test_object_file_error_cases() {
         // Test with invalid object file bytes
         let invalid_bytes: &[u8] = b"not an object file";
-        
-        let mut base_info = match find_builtins_executable()
-            .and_then(|bytes| load_elf(&bytes).ok())
+
+        let mut base_info = match find_builtins_executable().and_then(|bytes| load_elf(&bytes).ok())
         {
             Some(info) => info,
             None => {
@@ -330,12 +363,12 @@ mod tests {
         println!("Correctly rejected invalid object file: {:?}", result.err());
     }
 
-    /// Create a main object file that calls __lp_fixed32_sqrt
-    fn create_main_object_with_builtin_call() -> Vec<u8> {
+    /// Create an _init object file that calls __lp_fixed32_sqrt
+    fn create_init_object_with_builtin_call() -> Vec<u8> {
         use cranelift_codegen::ir::types;
         use cranelift_codegen::ir::{AbiParam, Function, InstBuilder, Signature};
-        use cranelift_codegen::{Context, isa::lookup};
         use cranelift_codegen::settings::Configurable;
+        use cranelift_codegen::{Context, isa::lookup};
         use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
         use cranelift_module::{Linkage, Module};
         use cranelift_object::{ObjectBuilder, ObjectModule};
@@ -359,17 +392,17 @@ mod tests {
             .finish(cranelift_codegen::settings::Flags::new(flag_builder))
             .unwrap();
         let mut module = ObjectModule::new(
-            ObjectBuilder::new(isa, "main", cranelift_module::default_libcall_names()).unwrap(),
+            ObjectBuilder::new(isa, "_init", cranelift_module::default_libcall_names()).unwrap(),
         );
 
-        // Declare main function (returns i32 so we can verify the result)
-        let main_sig = Signature {
+        // Declare _init function (returns i32 so we can verify the result)
+        let init_sig = Signature {
             params: vec![],
             returns: vec![AbiParam::new(types::I32)],
             call_conv: cranelift_codegen::isa::CallConv::SystemV,
         };
-        let main_id = module
-            .declare_function("main", Linkage::Export, &main_sig)
+        let init_id = module
+            .declare_function("_init", Linkage::Export, &init_sig)
             .unwrap();
 
         // Declare __lp_fixed32_sqrt external function
@@ -382,11 +415,11 @@ mod tests {
             .declare_function("__lp_fixed32_sqrt", Linkage::Import, &sqrt_sig)
             .unwrap();
 
-        // Build main function
+        // Build _init function
         let mut ctx = Context::new();
         ctx.func = Function::with_name_signature(
-            cranelift_codegen::ir::UserFuncName::user(0, main_id.as_u32()),
-            main_sig.clone(),
+            cranelift_codegen::ir::UserFuncName::user(0, init_id.as_u32()),
+            init_sig.clone(),
         );
 
         {
@@ -409,7 +442,7 @@ mod tests {
             builder.finalize();
         }
 
-        module.define_function(main_id, &mut ctx).unwrap();
+        module.define_function(init_id, &mut ctx).unwrap();
 
         let product = module.finish();
         product.emit().unwrap()
@@ -439,22 +472,26 @@ mod tests {
 
         println!("Found builtins executable: {} bytes", builtins_exe.len());
 
-        // Create main object file (calls __lp_fixed32_sqrt)
-        let main_obj = create_main_object_with_builtin_call();
+        // Create _init object file (calls __lp_fixed32_sqrt)
+        let init_obj = create_init_object_with_builtin_call();
 
         // Load base executable
         let mut load_info = load_elf(&builtins_exe).expect("Failed to load base executable");
 
         // Load object file into base executable
         let obj_info = load_object_file(
-            &main_obj,
+            &init_obj,
             &mut load_info.code,
             &mut load_info.ram,
             &mut load_info.symbol_map,
-        ).expect("Failed to load object file");
+        )
+        .expect("Failed to load object file");
 
-        // Verify main symbol was found
-        assert!(obj_info.main_address.is_some(), "main symbol should be found in object file");
+        // Verify _init symbol was found
+        assert!(
+            obj_info.init_address.is_some(),
+            "_init symbol should be found in object file"
+        );
 
         // Verify __lp_fixed32_sqrt is in symbol map
         assert!(
@@ -478,7 +515,7 @@ mod tests {
         let halt_address = 0x80000000u32.wrapping_add(ram_size as u32);
         emu.set_register(Gpr::Ra, halt_address as i32);
 
-        // Set PC to entry point - this will initialize and call our main() via __USER_MAIN_PTR
+        // Set PC to entry point - this will initialize and call our _init() via __USER_MAIN_PTR
         emu.set_pc(load_info.entry_point);
 
         // Run until function returns (or max instructions)
@@ -501,9 +538,12 @@ mod tests {
 
                     // Handle panic result - break immediately
                     if let StepResult::Panic(panic_info) = step_result {
-                        panic!("Panic occurred in emulated program at PC 0x{:x}: {}", panic_info.pc, panic_info.message);
+                        panic!(
+                            "Panic occurred in emulated program at PC 0x{:x}: {}",
+                            panic_info.pc, panic_info.message
+                        );
                     }
-                    
+
                     // Handle halt result
                     if let StepResult::Halted = step_result {
                         println!("Emulator halted at step {}", steps);
@@ -534,13 +574,19 @@ mod tests {
                     }
                     // If we've executed some instructions but haven't called sqrt, that's a problem
                     if !called_sqrt && steps >= 15 {
-                        panic!("Emulator error after {} steps without calling sqrt: {} (a0=0x{:x})", steps, e, last_a0 as u32);
+                        panic!(
+                            "Emulator error after {} steps without calling sqrt: {} (a0=0x{:x})",
+                            steps, e, last_a0 as u32
+                        );
                     }
                     // If we called sqrt but got an error, that might be okay if we got a result
                     if called_sqrt {
                         break;
                     }
-                    panic!("Emulator error after {} steps: {} (a0=0x{:x})", steps, e, last_a0 as u32);
+                    panic!(
+                        "Emulator error after {} steps: {} (a0=0x{:x})",
+                        steps, e, last_a0 as u32
+                    );
                 }
             }
         }
@@ -551,7 +597,10 @@ mod tests {
 
         // Verify that __lp_fixed32_sqrt was called and returned a result
         // sqrt(1.0) = 1.0 = 0x10000 in fixed32 format
-        println!("Final a0 register value: 0x{:x} ({})", last_a0 as u32, last_a0);
+        println!(
+            "Final a0 register value: 0x{:x} ({})",
+            last_a0 as u32, last_a0
+        );
         // The function should return 0x10000, but if execution stopped early, we at least verified it was called
         if last_a0 != 0 {
             assert_eq!(
@@ -566,4 +615,3 @@ mod tests {
         }
     }
 }
-

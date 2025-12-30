@@ -44,6 +44,97 @@ pub fn parse_glsl_value(s: &str) -> Result<GlslValue> {
     anyhow::bail!("failed to parse GLSL value: {}", s)
 }
 
+/// Parse a function call expression (e.g., "add_float(1.5, 2.5)") into function name and arguments.
+/// Returns (function_name, argument_strings).
+pub fn parse_function_call(expression: &str) -> Result<(String, Vec<String>)> {
+    let expression = expression.trim();
+
+    // Find the opening parenthesis
+    let open_paren = expression
+        .find('(')
+        .ok_or_else(|| anyhow::anyhow!("function call must contain '(': {}", expression))?;
+
+    // Extract function name (everything before the opening parenthesis)
+    let func_name = expression[..open_paren].trim().to_string();
+    if func_name.is_empty() {
+        return Err(anyhow::anyhow!(
+            "function name is empty in expression: {}",
+            expression
+        ));
+    }
+
+    // Find the matching closing parenthesis
+    let args_str = &expression[open_paren + 1..];
+    let mut paren_depth = 1;
+    let mut close_paren_pos = None;
+
+    for (i, ch) in args_str.char_indices() {
+        match ch {
+            '(' => paren_depth += 1,
+            ')' => {
+                paren_depth -= 1;
+                if paren_depth == 0 {
+                    close_paren_pos = Some(i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let close_paren_pos = close_paren_pos
+        .ok_or_else(|| anyhow::anyhow!("unmatched parentheses in expression: {}", expression))?;
+
+    // Extract arguments string (between parentheses)
+    let args_str = &args_str[..close_paren_pos];
+
+    // Parse arguments (split by comma, respecting nested parentheses)
+    let mut args = Vec::new();
+    if !args_str.trim().is_empty() {
+        let mut current_arg = String::new();
+        let mut paren_depth = 0;
+
+        for ch in args_str.chars() {
+            match ch {
+                '(' => {
+                    paren_depth += 1;
+                    current_arg.push(ch);
+                }
+                ')' => {
+                    paren_depth -= 1;
+                    current_arg.push(ch);
+                }
+                ',' => {
+                    if paren_depth == 0 {
+                        // This comma is at the top level, split here
+                        args.push(current_arg.trim().to_string());
+                        current_arg.clear();
+                    } else {
+                        // This comma is inside nested parentheses, keep it
+                        current_arg.push(ch);
+                    }
+                }
+                _ => current_arg.push(ch),
+            }
+        }
+
+        // Add the last argument
+        if !current_arg.trim().is_empty() {
+            args.push(current_arg.trim().to_string());
+        }
+    }
+
+    Ok((func_name, args))
+}
+
+/// Parse function call arguments from strings to GlslValue.
+pub fn parse_function_arguments(arg_strings: &[String]) -> Result<Vec<GlslValue>> {
+    arg_strings
+        .iter()
+        .map(|arg_str| parse_glsl_value(arg_str))
+        .collect()
+}
+
 /// Compare actual and expected values.
 pub fn compare_results(
     actual: &GlslValue,

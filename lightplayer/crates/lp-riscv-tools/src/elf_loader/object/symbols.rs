@@ -3,10 +3,10 @@
 extern crate alloc;
 
 use crate::debug;
+use ::object::{Object, ObjectSection, ObjectSymbol, SymbolSection};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use hashbrown::HashMap;
-use ::object::{Object, ObjectSection, ObjectSymbol, SymbolSection};
 
 use super::super::memory::RAM_START;
 
@@ -30,7 +30,10 @@ pub fn build_object_symbol_map(
     data_placement: u32,
 ) -> HashMap<String, u32> {
     debug!("=== Building object file symbol map ===");
-    debug!("Text placement: 0x{:x}, Data placement offset: 0x{:x}", text_placement, data_placement);
+    debug!(
+        "Text placement: 0x{:x}, Data placement offset: 0x{:x}",
+        text_placement, data_placement
+    );
 
     let mut symbol_map: HashMap<String, u32> = HashMap::new();
 
@@ -73,7 +76,9 @@ pub fn build_object_symbol_map(
                     Some(".data") => {
                         // .data section symbol: adjust by RAM_START + data_placement
                         // symbol_addr is section-relative offset
-                        RAM_START.wrapping_add(data_placement).wrapping_add(symbol_addr as u32)
+                        RAM_START
+                            .wrapping_add(data_placement)
+                            .wrapping_add(symbol_addr as u32)
                     }
                     Some(".rodata") => {
                         // .rodata section symbol: placed in code buffer after .text
@@ -84,7 +89,9 @@ pub fn build_object_symbol_map(
                     Some(".bss") => {
                         // .bss section symbol: placed in RAM buffer after .data
                         // For now, place after .data (we'd need to track .bss placement)
-                        RAM_START.wrapping_add(data_placement).wrapping_add(symbol_addr as u32)
+                        RAM_START
+                            .wrapping_add(data_placement)
+                            .wrapping_add(symbol_addr as u32)
                     }
                     _ => {
                         // Unknown section or no section - use address as-is
@@ -148,4 +155,3 @@ pub fn merge_symbol_maps(
     }
     merged
 }
-

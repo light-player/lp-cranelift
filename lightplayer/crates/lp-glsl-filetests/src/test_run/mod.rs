@@ -100,9 +100,22 @@ pub fn run_test_file_with_line_filter(
             exp.line_number == directive.line_number || exp.line_number == directive.line_number + 1
         });
 
-        // Execute main() and get result
-        // Note: execute_main already includes emulator state in the error, so we don't add it again
-        let execution_result = execution::execute_main(&mut *executable);
+        // Parse function call from expression (e.g., "add_float(1.5, 2.5)")
+        let (func_name, arg_strings) = value_ops::parse_function_call(&directive.expression_str)
+            .with_context(|| {
+                format!(
+                    "failed to parse function call: {}",
+                    directive.expression_str
+                )
+            })?;
+
+        // Parse arguments to GlslValue
+        let args = value_ops::parse_function_arguments(&arg_strings)
+            .with_context(|| format!("failed to parse function arguments: {:?}", arg_strings))?;
+
+        // Execute function and get result
+        // Note: execute_function already includes emulator state in the error, so we don't add it again
+        let execution_result = execution::execute_function(&mut *executable, &func_name, &args);
 
         match (execution_result, trap_expectation) {
             (Ok(actual_value), Some(exp)) => {
@@ -268,7 +281,7 @@ pub fn run_test_file_with_line_filter(
                             );
                         }
                     }
-                    Err(err_msg) => {
+                    Err(_err_msg) => {
                         if bless_enabled {
                             // Update expectation in-place
                             file_update.update_run_expectation(
@@ -313,7 +326,10 @@ pub fn run_test_file_with_line_filter(
                             };
                             let run_line = format!(
                                 "// run: {} {} {}{}",
-                                directive.expression_str, op_str, directive.expected_str, tolerance_str
+                                directive.expression_str,
+                                op_str,
+                                directive.expected_str,
+                                tolerance_str
                             );
 
                             // Format expected and actual values nicely

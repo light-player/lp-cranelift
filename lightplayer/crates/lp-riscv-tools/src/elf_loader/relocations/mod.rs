@@ -4,15 +4,15 @@
 //! - Phase 1: Analyze all relocations and identify GOT entries
 //! - Phase 2: Apply relocations in dependency order
 
-mod section;
 mod got;
-mod phase1;
 mod handlers;
+mod phase1;
 mod phase2;
+mod section;
 
-pub use section::{SectionAddressInfo, BufferSlice};
 pub use phase1::analyze_relocations;
 pub use phase2::apply_relocations_phase2;
+pub use section::{BufferSlice, SectionAddressInfo};
 
 use crate::debug;
 use alloc::string::String;
@@ -26,15 +26,11 @@ pub fn apply_relocations(
     symbol_map: &HashMap<String, u32>,
 ) -> Result<(), String> {
     debug!("=== Applying relocations ===");
-    
+
     // Phase 1: Analyze relocations and identify GOT entries
-    let (relocations, got_tracker, section_addrs) = phase1::analyze_relocations(
-        obj,
-        rom,
-        ram,
-        symbol_map,
-    )?;
-    
+    let (relocations, got_tracker, section_addrs) =
+        phase1::analyze_relocations(obj, rom, ram, symbol_map)?;
+
     // Phase 2: Apply relocations
     phase2::apply_relocations_phase2(
         &relocations,
@@ -44,8 +40,7 @@ pub fn apply_relocations(
         ram,
         symbol_map,
     )?;
-    
+
     debug!("=== Relocations applied successfully ===");
     Ok(())
 }
-
