@@ -18,4 +18,4 @@ mod state;
 mod types;
 
 pub use state::{DEFAULT_RAM_START, Riscv32Emulator};
-pub use types::{StepResult, SyscallInfo};
+pub use types::{PanicInfo, StepResult, SyscallInfo};

@@ -1,5 +1,8 @@
 //! Public types for the RISC-V 32-bit emulator.
 
+extern crate alloc;
+
+use alloc::string::String;
 use cranelift_codegen::ir::TrapCode;
 
 /// Result of a single step.
@@ -13,6 +16,8 @@ pub enum StepResult {
     Halted,
     /// Trap encountered with trap code
     Trap(TrapCode),
+    /// Panic occurred, panic information available
+    Panic(PanicInfo),
 }
 
 /// Information about a syscall (ECALL).
@@ -22,4 +27,17 @@ pub struct SyscallInfo {
     pub number: i32,
     /// Syscall arguments (from a0-a6 registers)
     pub args: [i32; 7],
+}
+
+/// Information about a panic that occurred in the emulated program.
+#[derive(Debug, Clone)]
+pub struct PanicInfo {
+    /// Panic message
+    pub message: String,
+    /// Source file name (if available)
+    pub file: Option<String>,
+    /// Line number (if available)
+    pub line: Option<u32>,
+    /// Program counter where panic occurred
+    pub pc: u32,
 }

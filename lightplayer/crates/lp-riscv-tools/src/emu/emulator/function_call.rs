@@ -130,6 +130,13 @@ impl Riscv32Emulator {
                         regs: self.regs,
                     });
                 }
+                StepResult::Panic(info) => {
+                    return Err(EmulatorError::Panic {
+                        info,
+                        pc: self.pc,
+                        regs: self.regs,
+                    });
+                }
                 StepResult::Continue => {
                     // Continue execution
                 }
@@ -265,6 +272,13 @@ impl Riscv32Emulator {
                 StepResult::Trap(code) => {
                     return Err(EmulatorError::Trap {
                         code,
+                        pc: self.pc,
+                        regs: self.regs,
+                    });
+                }
+                StepResult::Panic(info) => {
+                    return Err(EmulatorError::Panic {
+                        info,
                         pc: self.pc,
                         regs: self.regs,
                     });

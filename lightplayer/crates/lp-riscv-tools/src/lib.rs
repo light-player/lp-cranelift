@@ -47,7 +47,7 @@ pub mod regs;
 // Re-exports for convenience
 pub use decode::decode_instruction;
 pub use emu::{
-    EmulatorError, InstLog, LogLevel, MemoryAccessKind, Riscv32Emulator, StepResult, SyscallInfo,
+    EmulatorError, InstLog, LogLevel, MemoryAccessKind, PanicInfo, Riscv32Emulator, StepResult, SyscallInfo,
 };
 pub use inst::{Inst, format_instruction};
 pub use regs::Gpr;

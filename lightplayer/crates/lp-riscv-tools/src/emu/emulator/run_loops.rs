@@ -24,6 +24,14 @@ impl Riscv32Emulator {
                         regs: self.regs,
                     });
                 }
+                StepResult::Panic(info) => {
+                    // Panic encountered - return error
+                    return Err(EmulatorError::Panic {
+                        info,
+                        pc: self.pc,
+                        regs: self.regs,
+                    });
+                }
                 StepResult::Continue => {
                     // Continue execution
                 }
@@ -60,6 +68,13 @@ impl Riscv32Emulator {
                         pc: self.pc,
                         instruction: 0,
                         reason: String::from("Unexpected trap in run_until_ecall"),
+                        regs: self.regs,
+                    });
+                }
+                StepResult::Panic(info) => {
+                    return Err(EmulatorError::Panic {
+                        info,
+                        pc: self.pc,
                         regs: self.regs,
                     });
                 }

@@ -1,10 +1,14 @@
 //! Instruction execution logic.
 
+extern crate alloc;
+
+use alloc::{format, string::String, vec::Vec};
 use super::super::{
     decoder::decode_instruction, error::EmulatorError, executor::execute_instruction,
+    memory::Memory,
 };
 use super::state::Riscv32Emulator;
-use super::types::{StepResult, SyscallInfo};
+use super::types::{PanicInfo, StepResult, SyscallInfo};
 use crate::{Gpr, Inst};
 
 impl Riscv32Emulator {
@@ -112,9 +116,99 @@ impl Riscv32Emulator {
                     self.regs[Gpr::A6.num() as usize],
                 ],
             };
-            Ok(StepResult::Syscall(syscall_info))
+            
+            // Check if this is a panic syscall (SYSCALL_PANIC = 1)
+            if syscall_info.number == 1 {
+                // Extract panic information from syscall args
+                // args[0] = message pointer (as i32, cast to u32)
+                // args[1] = message length
+                // args[2] = file pointer (as i32, 0 if unavailable)
+                // args[3] = file length
+                // args[4] = line number
+                let msg_ptr = syscall_info.args[0] as u32;
+                let msg_len = syscall_info.args[1] as usize;
+                let file_ptr = syscall_info.args[2] as u32;
+                let file_len = syscall_info.args[3] as usize;
+                let line = syscall_info.args[4] as u32;
+                
+                // Debug: print syscall args
+                crate::debug!("Panic syscall detected: msg_ptr=0x{:x}, msg_len={}, file_ptr=0x{:x}, file_len={}, line={}", 
+                             msg_ptr, msg_len, file_ptr, file_len, line);
+                
+                // Read panic message from memory
+                let message = read_memory_string(&self.memory, msg_ptr, msg_len)
+                    .unwrap_or_else(|_| format!("<failed to read panic message from 0x{:x}>", msg_ptr));
+                
+                // Read file name from memory (if pointer is not null)
+                let file = if file_ptr != 0 && file_len > 0 {
+                    match read_memory_string(&self.memory, file_ptr, file_len) {
+                        Ok(f) => {
+                            crate::debug!("Read file name from memory: '{}'", f);
+                            Some(f)
+                        }
+                        Err(e) => {
+                            crate::debug!("Failed to read file name from 0x{:x}: {}", file_ptr, e);
+                            None
+                        }
+                    }
+                } else {
+                    crate::debug!("File pointer is null or file_len is 0, skipping file read");
+                    None
+                };
+                
+                // Create panic info
+                let panic_info = PanicInfo {
+                    message,
+                    file,
+                    line: if line != 0 { Some(line) } else { None },
+                    pc: self.pc,
+                };
+                
+                Ok(StepResult::Panic(panic_info))
+            } else {
+                Ok(StepResult::Syscall(syscall_info))
+            }
         } else {
             Ok(StepResult::Continue)
+        }
+    }
+}
+
+/// Read a string from emulator memory.
+///
+/// # Arguments
+/// * `memory` - Reference to emulator memory
+/// * `ptr` - Pointer to string in memory (as u32)
+/// * `len` - Length of string in bytes
+///
+/// # Returns
+/// * `Ok(String)` - Successfully read string
+/// * `Err(String)` - Error message if memory access fails
+fn read_memory_string(memory: &Memory, ptr: u32, len: usize) -> Result<String, String> {
+    // Limit maximum string length to prevent excessive memory reads
+    const MAX_STRING_LEN: usize = 1024;
+    let len = len.min(MAX_STRING_LEN);
+    
+    if len == 0 {
+        return Ok(String::new());
+    }
+    
+    // Read bytes from memory
+    let mut bytes = Vec::with_capacity(len);
+    for i in 0..len {
+        match memory.read_u8(ptr.wrapping_add(i as u32)) {
+            Ok(byte) => bytes.push(byte),
+            Err(e) => return Err(format!("Failed to read byte at 0x{:x}: {}", ptr + i as u32, e)),
+        }
+    }
+    
+    // Convert to UTF-8 string, handling invalid UTF-8 gracefully
+    match String::from_utf8(bytes) {
+        Ok(s) => Ok(s),
+        Err(e) => {
+            // If UTF-8 conversion fails, use lossy conversion
+            let valid_bytes = e.as_bytes();
+            Ok(String::from_utf8_lossy(valid_bytes).into_owned())
         }
     }
 }

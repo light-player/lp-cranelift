@@ -161,6 +161,7 @@ mod tests {
     use super::*;
     use crate::elf_loader::{find_symbol_address, load_elf};
     use crate::emu::emulator::Riscv32Emulator;
+    use crate::{PanicInfo, StepResult};
     use crate::emu::logging::LogLevel;
     use crate::regs::Gpr;
     use alloc::vec;
@@ -452,9 +453,51 @@ mod tests {
 
             let _pc_before = emu.get_pc();
             match emu.step() {
-                Ok(_step_result) => {
+                Ok(step_result) => {
                     steps += 1;
                     let pc_after = emu.get_pc();
+
+                    // Handle panic result - break immediately
+                    if let StepResult::Panic(panic_info) = step_result {
+                        println!("\n=== Panic Detected ===");
+                        println!("Panic message: {}", panic_info.message);
+                        if let Some(ref file) = panic_info.file {
+                            if let Some(line) = panic_info.line {
+                                println!("  at {}:{}", file, line);
+                            } else {
+                                println!("  at {}", file);
+                            }
+                        } else if let Some(line) = panic_info.line {
+                            println!("  at line {}", line);
+                        } else {
+                            println!("  (no file/line information available)");
+                        }
+                        println!("PC: 0x{:x}", panic_info.pc);
+                        println!("\n=== Emulator State ===");
+                        println!("{}", emu.dump_state());
+                        println!("\n=== Execution Log (last 30 instructions) ===");
+                        let logs = emu.format_logs();
+                        let log_lines: Vec<&str> = logs.lines().collect();
+                        let start = if log_lines.len() > 30 {
+                            log_lines.len() - 30
+                        } else {
+                            0
+                        };
+                        for line in log_lines.iter().skip(start) {
+                            println!("{}", line);
+                        }
+                        println!("\n=== Debug Info ===");
+                        println!("{}", emu.format_debug_info(Some(emu.get_pc()), 30));
+                        
+                        // Panic is a test failure - break out of loop
+                        panic!("Panic occurred in emulated program: {}", panic_info.message);
+                    }
+                    
+                    // Handle halt result
+                    if let StepResult::Halted = step_result {
+                        println!("Emulator halted at step {}", steps);
+                        break;
+                    }
 
                     // Track a0 register (return value register in RISC-V)
                     last_a0 = emu.get_register(Gpr::A0);

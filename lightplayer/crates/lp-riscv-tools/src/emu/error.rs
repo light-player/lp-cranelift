@@ -62,6 +62,12 @@ pub enum EmulatorError {
         pc: u32,
         regs: [i32; 32],
     },
+    /// Panic occurred in the emulated program.
+    Panic {
+        info: super::PanicInfo,
+        pc: u32,
+        regs: [i32; 32],
+    },
 }
 
 /// Convert a TrapCode to a human-readable string.
@@ -95,6 +101,7 @@ impl EmulatorError {
             EmulatorError::UnknownOpcode { pc, .. } => *pc,
             EmulatorError::InvalidRegister { pc, .. } => *pc,
             EmulatorError::Trap { pc, .. } => *pc,
+            EmulatorError::Panic { pc, .. } => *pc,
         }
     }
 
@@ -108,6 +115,7 @@ impl EmulatorError {
             EmulatorError::UnknownOpcode { regs, .. } => Some(regs),
             EmulatorError::InvalidRegister { .. } => None,
             EmulatorError::Trap { regs, .. } => Some(regs),
+            EmulatorError::Panic { regs, .. } => Some(regs),
         }
     }
 }
@@ -182,6 +190,18 @@ impl core::fmt::Display for EmulatorError {
             EmulatorError::Trap { code, pc, .. } => {
                 let trap_name = trap_code_to_string(*code);
                 write!(f, "Trap: {} at PC 0x{:08x}", trap_name, pc)
+            }
+            EmulatorError::Panic { info, pc, .. } => {
+                write!(f, "Panic at PC 0x{:08x}: {}", pc, info.message)?;
+                if let Some(ref file) = info.file {
+                    write!(f, "\n  at {}", file)?;
+                    if let Some(line) = info.line {
+                        write!(f, ":{}", line)?;
+                    }
+                } else if let Some(line) = info.line {
+                    write!(f, "\n  at line {}", line)?;
+                }
+                Ok(())
             }
         }
     }

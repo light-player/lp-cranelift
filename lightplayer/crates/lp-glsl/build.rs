@@ -20,17 +20,37 @@ fn main() {
     let builtins_crate_path = workspace_root.join("crates").join("lp-builtins");
 
     // Path to the lp-builtins-app executable
-    let exe_path = workspace_root
+    // Try release first (since build-builtins.sh builds in release mode), then fall back to profile
+    let exe_path_release = workspace_root
+        .join("target")
+        .join(target)
+        .join("release")
+        .join("lp-builtins-app");
+    let exe_path_profile = workspace_root
         .join("target")
         .join(target)
         .join(&profile)
         .join("lp-builtins-app");
+    
+    // Prefer release build, fall back to profile-specific build
+    let exe_path = if exe_path_release.exists() {
+        exe_path_release
+    } else if exe_path_profile.exists() {
+        exe_path_profile.clone()
+    } else {
+        // Neither exists, use release path for error message
+        exe_path_release
+    };
 
     // Check if executable exists and copy to OUT_DIR for compile-time inclusion
     if !exe_path.exists() {
         println!(
             "cargo:warning=lp-builtins-app executable not found at: {}",
             exe_path.display()
+        );
+        println!(
+            "cargo:warning=Also checked: {}",
+            exe_path_profile.display()
         );
         println!(
             "cargo:warning=Build it manually with: scripts/build-builtins.sh"
