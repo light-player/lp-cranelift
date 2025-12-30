@@ -52,10 +52,8 @@ fn main() {
         std::fs::write(&out_file, "pub const LP_BUILTINS_EXE_BYTES: &[u8] = &[];\n")
             .expect("Failed to write empty builtins exe file");
     } else {
-        println!(
-            "cargo:warning=lp-builtins-app executable found at: {}",
-            exe_path.display()
-        );
+        // Executable found - set up rerun-if-changed (no warning needed for success case)
+        println!("cargo:rerun-if-changed={}", exe_path.display());
         // Copy executable to OUT_DIR
         let out_file = std::path::Path::new(&out_dir).join("lp-builtins-app");
         std::fs::copy(&exe_path, &out_file)
