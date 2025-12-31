@@ -85,11 +85,14 @@ Evaluate complexity and implement integer bit manipulation functions:
 - Functions registered appropriately (inline or builtin)
 - Code compiles without warnings
 
-## Phase 8: Frontend Codegen for Missing Functions
+## Phase 8: Frontend Codegen for Missing Functions ⏸️ **DEFERRED**
 Implement frontend codegen for functions that don't need fixed32:
 - Integer bit functions that are pure integer operations (tests referenced in Phase 7)
 - floatBitsToInt, intBitsToFloat - tests: `builtins/common-floatbitstoint.glsl`, `builtins/common-intbitstofloat.glsl`
+- Output parameter support for frexp/modf
 - Any other missing frontend implementations
+
+**Status:** Deferred - frontend codegen work separate from fixed32 math library
 
 **Success criteria:**
 - All frontend codegen functions implemented

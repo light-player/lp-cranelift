@@ -1,8 +1,7 @@
-## Safety
+# TODO
 
 - instruction counter limit trap
-- stack overflow traps
-
-## Optimizations
-
-- don't complie unused functions (esp intrinsics)
+- output parameter support (for frexp/modf)
+- pack/unpack functions frontend codegen
+- integer bit functions frontend codegen
+- floatBitsToInt/intBitsToFloat frontend codegen

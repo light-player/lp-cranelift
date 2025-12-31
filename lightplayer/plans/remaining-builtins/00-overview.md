@@ -30,7 +30,7 @@ Complete implementation of all remaining GLSL builtin functions to achieve 100% 
 5. **Matrix Complex Functions** - determinant, inverse ✅
 6. **Pack/Unpack Functions** - all pack/unpack variants ⏸️ (deferred - frontend codegen)
 7. **Integer Bit Functions** - evaluate and implement case-by-case ⏸️ (deferred - frontend codegen)
-8. **Frontend Codegen** - missing frontend implementations (includes output parameter support for frexp/modf)
+8. **Frontend Codegen** - missing frontend implementations ⏸️ (deferred - separate from fixed32 work)
 9. **Integration Testing and Cleanup** - final verification
 
 ## Success Criteria
