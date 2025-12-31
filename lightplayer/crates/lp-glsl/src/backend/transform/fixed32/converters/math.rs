@@ -37,6 +37,9 @@ pub fn map_testcase_to_builtin(testcase_name: &str) -> Option<(BuiltinId, usize)
         "divf" | "__lp_div" => Some((BuiltinId::Fixed32Div, 2)),
         "expf" | "__lp_exp" => Some((BuiltinId::Fixed32Exp, 1)),
         "exp2f" | "__lp_exp2" => Some((BuiltinId::Fixed32Exp2, 1)),
+        "fmaf" | "__lp_fma" => Some((BuiltinId::Fixed32Fma, 3)),
+        "inversesqrtf" | "__lp_inversesqrt" => Some((BuiltinId::Fixed32Inversesqrt, 1)),
+        "ldexpf" | "__lp_ldexp" => Some((BuiltinId::Fixed32Ldexp, 2)),
         "logf" | "__lp_log" => Some((BuiltinId::Fixed32Log, 1)),
         "log2f" | "__lp_log2" => Some((BuiltinId::Fixed32Log2, 1)),
         "modf" | "__lp_mod" => Some((BuiltinId::Fixed32Mod, 2)),
@@ -50,6 +53,10 @@ pub fn map_testcase_to_builtin(testcase_name: &str) -> Option<(BuiltinId, usize)
         _ => None,
     }
 }
+
+
+
+
 
 
 

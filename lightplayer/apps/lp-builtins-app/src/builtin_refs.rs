@@ -19,6 +19,9 @@ use lp_builtins::fixed32::{
     __lp_fixed32_div,
     __lp_fixed32_exp,
     __lp_fixed32_exp2,
+    __lp_fixed32_fma,
+    __lp_fixed32_inversesqrt,
+    __lp_fixed32_ldexp,
     __lp_fixed32_log,
     __lp_fixed32_log2,
     __lp_fixed32_mod,
@@ -49,6 +52,9 @@ pub fn ensure_builtins_referenced() {
         let _div_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_div;
         let _exp_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_exp;
         let _exp2_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_exp2;
+        let _fma_fn: extern "C" fn(i32, i32, i32) -> i32 = __lp_fixed32_fma;
+        let _inversesqrt_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_inversesqrt;
+        let _ldexp_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_ldexp;
         let _log_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_log;
         let _log2_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_log2;
         let _mod_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_mod;
@@ -74,6 +80,9 @@ pub fn ensure_builtins_referenced() {
         let _ = core::ptr::read_volatile(&_div_fn as *const _);
         let _ = core::ptr::read_volatile(&_exp_fn as *const _);
         let _ = core::ptr::read_volatile(&_exp2_fn as *const _);
+        let _ = core::ptr::read_volatile(&_fma_fn as *const _);
+        let _ = core::ptr::read_volatile(&_inversesqrt_fn as *const _);
+        let _ = core::ptr::read_volatile(&_ldexp_fn as *const _);
         let _ = core::ptr::read_volatile(&_log_fn as *const _);
         let _ = core::ptr::read_volatile(&_log2_fn as *const _);
         let _ = core::ptr::read_volatile(&_mod_fn as *const _);

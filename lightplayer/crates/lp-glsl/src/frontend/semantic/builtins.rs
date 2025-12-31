@@ -198,6 +198,12 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
             return_type: BuiltinReturnType::SameAsParam(0),
         }]),
 
+        "inversesqrt" => Some(vec![BuiltinSignature {
+            name: "inversesqrt",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+
         "exp" => Some(vec![BuiltinSignature {
             name: "exp",
             param_types: vec![BuiltinParamType::GenFType],

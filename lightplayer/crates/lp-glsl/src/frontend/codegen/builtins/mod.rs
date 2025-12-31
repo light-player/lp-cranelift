@@ -39,6 +39,7 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
             "clamp" => self.builtin_clamp(args),
             "abs" => self.builtin_abs(args),
             "sqrt" => self.builtin_sqrt(args),
+            "inversesqrt" => self.builtin_inversesqrt(args),
             "floor" => self.builtin_floor(args),
             "ceil" => self.builtin_ceil(args),
             "fract" => self.builtin_fract(args),
