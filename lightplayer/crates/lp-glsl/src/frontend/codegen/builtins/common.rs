@@ -375,6 +375,7 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
     }
 
     /// mod(x, y) = x - y * floor(x/y)
+    /// Uses mod builtin function
     pub fn builtin_mod(
         &mut self,
         args: Vec<(Vec<Value>, Type)>,
@@ -382,30 +383,23 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
         let (x_vals, x_ty) = &args[0];
         let (y_vals, _) = &args[1];
 
+        // Use get_math_libcall_2arg for 2-arg function
+        let func_ref = self.get_math_libcall_2arg("fmodf")?;
+
         let mut result_vals = Vec::new();
 
         // Handle scalar broadcast (mod(vec3, float))
         if x_vals.len() > 1 && y_vals.len() == 1 {
             let y_scalar = y_vals[0];
             for &x in x_vals {
-                // floor(x / y)
-                let div = self.builder.ins().fdiv(x, y_scalar);
-                let floored = self.builder.ins().floor(div);
-                // y * floor(x / y)
-                let y_times_floor = self.builder.ins().fmul(y_scalar, floored);
-                // x - y * floor(x / y)
-                result_vals.push(self.builder.ins().fsub(x, y_times_floor));
+                let call_inst = self.builder.ins().call(func_ref, &[x, y_scalar]);
+                result_vals.push(self.builder.inst_results(call_inst)[0]);
             }
         } else {
             // Component-wise mod
             for i in 0..x_vals.len() {
-                // floor(x / y)
-                let div = self.builder.ins().fdiv(x_vals[i], y_vals[i]);
-                let floored = self.builder.ins().floor(div);
-                // y * floor(x / y)
-                let y_times_floor = self.builder.ins().fmul(y_vals[i], floored);
-                // x - y * floor(x / y)
-                result_vals.push(self.builder.ins().fsub(x_vals[i], y_times_floor));
+                let call_inst = self.builder.ins().call(func_ref, &[x_vals[i], y_vals[i]]);
+                result_vals.push(self.builder.inst_results(call_inst)[0]);
             }
         }
 

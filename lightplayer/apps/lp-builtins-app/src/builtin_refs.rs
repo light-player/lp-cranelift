@@ -21,6 +21,7 @@ use lp_builtins::fixed32::{
     __lp_fixed32_exp2,
     __lp_fixed32_log,
     __lp_fixed32_log2,
+    __lp_fixed32_mod,
     __lp_fixed32_mul,
     __lp_fixed32_pow,
     __lp_fixed32_sin,
@@ -50,6 +51,7 @@ pub fn ensure_builtins_referenced() {
         let _exp2_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_exp2;
         let _log_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_log;
         let _log2_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_log2;
+        let _mod_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_mod;
         let _mul_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_mul;
         let _pow_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_pow;
         let _sin_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_sin;
@@ -74,6 +76,7 @@ pub fn ensure_builtins_referenced() {
         let _ = core::ptr::read_volatile(&_exp2_fn as *const _);
         let _ = core::ptr::read_volatile(&_log_fn as *const _);
         let _ = core::ptr::read_volatile(&_log2_fn as *const _);
+        let _ = core::ptr::read_volatile(&_mod_fn as *const _);
         let _ = core::ptr::read_volatile(&_mul_fn as *const _);
         let _ = core::ptr::read_volatile(&_pow_fn as *const _);
         let _ = core::ptr::read_volatile(&_sin_fn as *const _);

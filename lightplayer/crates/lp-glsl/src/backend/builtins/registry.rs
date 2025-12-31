@@ -33,6 +33,7 @@ pub enum BuiltinId {
     Fixed32Exp2,
     Fixed32Log,
     Fixed32Log2,
+    Fixed32Mod,
     Fixed32Mul,
     Fixed32Pow,
     Fixed32Sin,
@@ -60,6 +61,7 @@ impl BuiltinId {
             BuiltinId::Fixed32Exp2 => "__lp_fixed32_exp2",
             BuiltinId::Fixed32Log => "__lp_fixed32_log",
             BuiltinId::Fixed32Log2 => "__lp_fixed32_log2",
+            BuiltinId::Fixed32Mod => "__lp_fixed32_mod",
             BuiltinId::Fixed32Mul => "__lp_fixed32_mul",
             BuiltinId::Fixed32Pow => "__lp_fixed32_pow",
             BuiltinId::Fixed32Sin => "__lp_fixed32_sin",
@@ -74,7 +76,7 @@ impl BuiltinId {
     pub fn signature(&self) -> Signature {
         let mut sig = Signature::new(CallConv::SystemV);
         match self {
-            BuiltinId::Fixed32Atan2 | BuiltinId::Fixed32Div | BuiltinId::Fixed32Mul | BuiltinId::Fixed32Pow => {
+            BuiltinId::Fixed32Atan2 | BuiltinId::Fixed32Div | BuiltinId::Fixed32Mod | BuiltinId::Fixed32Mul | BuiltinId::Fixed32Pow => {
                 // (i32, i32) -> i32
                 sig.params.push(AbiParam::new(types::I32));
                 sig.params.push(AbiParam::new(types::I32));
@@ -106,6 +108,7 @@ impl BuiltinId {
             BuiltinId::Fixed32Exp2,
             BuiltinId::Fixed32Log,
             BuiltinId::Fixed32Log2,
+            BuiltinId::Fixed32Mod,
             BuiltinId::Fixed32Mul,
             BuiltinId::Fixed32Pow,
             BuiltinId::Fixed32Sin,
@@ -137,6 +140,7 @@ pub fn get_function_pointer(builtin: BuiltinId) -> *const u8 {
         BuiltinId::Fixed32Exp2 => fixed32::__lp_fixed32_exp2 as *const u8,
         BuiltinId::Fixed32Log => fixed32::__lp_fixed32_log as *const u8,
         BuiltinId::Fixed32Log2 => fixed32::__lp_fixed32_log2 as *const u8,
+        BuiltinId::Fixed32Mod => fixed32::__lp_fixed32_mod as *const u8,
         BuiltinId::Fixed32Mul => fixed32::__lp_fixed32_mul as *const u8,
         BuiltinId::Fixed32Pow => fixed32::__lp_fixed32_pow as *const u8,
         BuiltinId::Fixed32Sin => fixed32::__lp_fixed32_sin as *const u8,

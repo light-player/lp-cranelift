@@ -680,7 +680,25 @@ fn try_match_signature(sig: &BuiltinSignature, arg_types: &[Type]) -> Result<Typ
         }
         BuiltinReturnType::AlwaysFloat => Type::Float,
         BuiltinReturnType::AlwaysVec3 => Type::Vec3,
-        BuiltinReturnType::AlwaysBool => Type::Bool,
+        BuiltinReturnType::AlwaysBool => {
+            // Special case: isinf/isnan return bool vectors for vector inputs
+            if sig.name == "isinf" || sig.name == "isnan" {
+                let input_ty = &arg_types[0];
+                if input_ty.is_vector() {
+                    let dim = input_ty.component_count().unwrap();
+                    match dim {
+                        2 => Type::BVec2,
+                        3 => Type::BVec3,
+                        4 => Type::BVec4,
+                        _ => Type::Bool, // Fallback (shouldn't happen)
+                    }
+                } else {
+                    Type::Bool
+                }
+            } else {
+                Type::Bool
+            }
+        }
     };
 
     Ok(return_type)
