@@ -17,10 +17,6 @@ use std::cell::RefCell;
 use std::env;
 use std::path::Path;
 
-/// Thread-local shared emulator context.
-/// Each worker thread gets its own context, which is reused across all test files
-/// processed by that thread. Since ConcurrentRunner reuses threads, this provides
-/// good sharing while avoiding mutex contention.
 thread_local! {
     static SHARED_EMULATOR_CONTEXT: RefCell<Option<lp_glsl::backend::codegen::shared_emulator::SharedEmulatorContext>> =
         RefCell::new(None);
