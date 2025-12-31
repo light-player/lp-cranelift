@@ -16,22 +16,311 @@ use lp_glsl::glsl_emu_riscv32_with_metadata;
 use std::env;
 use std::path::Path;
 
+/// Statistics for test case execution within a file.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TestCaseStats {
+    /// Number of test cases that passed.
+    pub passed: usize,
+    /// Number of test cases that failed.
+    pub failed: usize,
+    /// Total number of test cases.
+    pub total: usize,
+}
+
 /// Run all tests in a test file.
 pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
-    run_test_file_with_line_filter(test_file, path, None, true)
+    let (result, _stats) = run_test_file_with_line_filter(test_file, path, None, true)?;
+    result
 }
 
 /// Run all tests in a test file with optional line number filtering.
+/// Returns the result and test case statistics.
 pub fn run_test_file_with_line_filter(
     test_file: &TestFile,
     path: &Path,
     line_filter: Option<usize>,
     show_full_output: bool,
-) -> Result<()> {
+) -> Result<(Result<()>, TestCaseStats)> {
     if !test_file.is_test_run {
         // Not a test run file, skip
-        return Ok(());
+        return Ok((Ok(()), TestCaseStats::default()));
     }
+
+    // Use summary mode (compile once, reuse emulator) when show_full_output is false
+    if !show_full_output {
+        return run_test_file_summary_mode(test_file, path, line_filter);
+    }
+
+    // Detail mode: compile per test case with function filtering
+    run_test_file_detail_mode(test_file, path, line_filter, show_full_output)
+}
+
+/// Run tests in summary mode: compile all functions once and reuse the same emulator.
+fn run_test_file_summary_mode(
+    test_file: &TestFile,
+    path: &Path,
+    line_filter: Option<usize>,
+) -> Result<(Result<()>, TestCaseStats)> {
+    // Compute relative path for rerun command
+    let filetests_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("filetests");
+    let relative_path = path
+        .strip_prefix(&filetests_dir)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .to_string();
+
+    // Determine target and options
+    let target_str = test_file.target.as_deref().unwrap_or("riscv32.fixed32");
+    let (run_mode, decimal_format) = target::parse_target(target_str)?;
+
+    let options = GlslOptions {
+        run_mode,
+        decimal_format,
+    };
+
+    // Count total test cases before compilation (so we can show counts even if compilation fails)
+    let mut stats = TestCaseStats::default();
+    for directive in &test_file.run_directives {
+        if let Some(filter_line) = line_filter {
+            if directive.line_number != filter_line {
+                continue;
+            }
+        }
+        stats.total += 1;
+    }
+
+    // Compile all functions from the test file once (no bootstrap filtering)
+    let mut executable = match glsl_emu_riscv32_with_metadata(
+        &test_file.glsl_source,
+        options.clone(),
+        Some(relative_path.clone()),
+    ) {
+        Ok(exec) => exec,
+        Err(e) => {
+            // Compilation failed - return stats with all test cases marked as failed
+            stats.failed = stats.total;
+            stats.passed = 0;
+            return Ok((
+                Err(anyhow::anyhow!(
+                    "Compilation failed for test file {}:\n\n{}",
+                    relative_path,
+                    e
+                )),
+                stats,
+            ));
+        }
+    };
+
+    let bless_enabled = env::var("CRANELIFT_TEST_BLESS").unwrap_or_default() == "1";
+    let file_update = FileUpdate::new(path);
+
+    let mut first_error: Option<anyhow::Error> = None;
+
+    // Process each run directive using the same emulator
+    for directive in &test_file.run_directives {
+        // Filter by line number if provided
+        if let Some(filter_line) = line_filter {
+            if directive.line_number != filter_line {
+                continue;
+            }
+        }
+
+        // Check if this test expects a trap
+        let trap_expectation = test_file.trap_expectations.iter().find(|exp| {
+            exp.line_number == directive.line_number || exp.line_number == directive.line_number + 1
+        });
+
+        // Parse function call from expression
+        let (func_name, arg_strings) = match value_ops::parse_function_call(&directive.expression_str) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                stats.failed += 1;
+                if first_error.is_none() {
+                    first_error = Some(anyhow::anyhow!(
+                        "failed to parse function call at line {}: {}",
+                        directive.line_number,
+                        e
+                    ));
+                }
+                continue;
+            }
+        };
+
+        // Parse arguments to GlslValue
+        let args = match value_ops::parse_function_arguments(&arg_strings) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                stats.failed += 1;
+                if first_error.is_none() {
+                    first_error = Some(anyhow::anyhow!(
+                        "failed to parse function arguments at line {}: {}",
+                        directive.line_number,
+                        e
+                    ));
+                }
+                continue;
+            }
+        };
+
+        // Execute function and get result
+        // Note: The emulator's call_function automatically resets the stack pointer for each call
+        let execution_result = execution::execute_function(&mut *executable, &func_name, &args);
+
+        match (execution_result, trap_expectation) {
+            (Ok(_actual_value), Some(_exp)) => {
+                // Expected a trap but got a value
+                stats.failed += 1;
+                if first_error.is_none() {
+                    first_error = Some(anyhow::anyhow!(
+                        "run test failed at line {}: expected trap but execution succeeded",
+                        directive.line_number
+                    ));
+                }
+            }
+            (Err(e), None) => {
+                // Got an error but didn't expect one - check if it's a trap
+                let error_str = format!("{:#}", e);
+                let is_trap = error_str.contains("Trap:")
+                    || error_str.contains("trap")
+                    || error_str.contains("execution trapped");
+
+                if is_trap {
+                    // Unexpected trap
+                    stats.failed += 1;
+                    if first_error.is_none() {
+                        first_error = Some(anyhow::anyhow!(
+                            "run test failed at line {}: unexpected trap",
+                            directive.line_number
+                        ));
+                    }
+                } else {
+                    // Other error - pass through
+                    stats.failed += 1;
+                    if first_error.is_none() {
+                        first_error = Some(e);
+                    }
+                }
+            }
+            (Err(_e), Some(exp)) => {
+                // Expected a trap and got one - verify it matches
+                let error_str = format!("{:#}", _e);
+
+                // Check trap code if specified
+                if let Some(expected_code) = exp.trap_code {
+                    if !error_str.contains(&format!("user{}", expected_code)) {
+                        stats.failed += 1;
+                        if first_error.is_none() {
+                            first_error = Some(anyhow::anyhow!(
+                                "run test failed at line {}: trap code mismatch (expected {}, got {})",
+                                directive.line_number,
+                                expected_code,
+                                error_str
+                            ));
+                        }
+                        continue;
+                    }
+                }
+
+                // Check trap message if specified
+                if let Some(ref expected_msg) = exp.trap_message {
+                    if !error_str.contains(expected_msg) {
+                        stats.failed += 1;
+                        if first_error.is_none() {
+                            first_error = Some(anyhow::anyhow!(
+                                "run test failed at line {}: trap message mismatch",
+                                directive.line_number
+                            ));
+                        }
+                        continue;
+                    }
+                }
+
+                // Trap matches expectation - test passes
+                stats.passed += 1;
+            }
+            (Ok(actual_value), None) => {
+                // Normal case: expected value, got value - continue with comparison
+                // Parse expected value
+                let expected_value = match value_ops::parse_glsl_value(&directive.expected_str) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        stats.failed += 1;
+                        if first_error.is_none() {
+                            first_error = Some(anyhow::anyhow!(
+                                "failed to parse expected value at line {}: {}",
+                                directive.line_number,
+                                e
+                            ));
+                        }
+                        continue;
+                    }
+                };
+
+                // Compare results
+                match value_ops::compare_results(
+                    &actual_value,
+                    &expected_value,
+                    directive.comparison,
+                    directive.tolerance,
+                ) {
+                    Ok(()) => {
+                        // Test passed
+                        stats.passed += 1;
+                    }
+                    Err(_err_msg) => {
+                        if bless_enabled {
+                            // Update expectation in-place
+                            match file_update.update_run_expectation(
+                                directive.line_number,
+                                &actual_value,
+                                directive.comparison,
+                            ) {
+                                Ok(()) => {
+                                    // Bless succeeded - test passes
+                                    stats.passed += 1;
+                                }
+                                Err(e) => {
+                                    stats.failed += 1;
+                                    if first_error.is_none() {
+                                        first_error = Some(e);
+                                    }
+                                }
+                            }
+                        } else {
+                            stats.failed += 1;
+                            if first_error.is_none() {
+                                first_error = Some(anyhow::anyhow!(
+                                    "run test failed at line {}: expected {}, got {}",
+                                    directive.line_number,
+                                    format_glsl_value(&expected_value),
+                                    format_glsl_value(&actual_value)
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let result = if stats.failed > 0 {
+        Err(first_error.unwrap_or_else(|| {
+            anyhow::anyhow!("{} test case(s) failed", stats.failed)
+        }))
+    } else {
+        Ok(())
+    };
+
+    Ok((result, stats))
+}
+
+/// Run tests in detail mode: compile per test case with function filtering.
+fn run_test_file_detail_mode(
+    test_file: &TestFile,
+    path: &Path,
+    line_filter: Option<usize>,
+    show_full_output: bool,
+) -> Result<(Result<()>, TestCaseStats)> {
 
     // Read the original file lines to pass to bootstrap generation
     let file_contents = std::fs::read_to_string(path)
@@ -61,6 +350,8 @@ pub fn run_test_file_with_line_filter(
     let bless_enabled = env::var("CRANELIFT_TEST_BLESS").unwrap_or_default() == "1";
     let file_update = FileUpdate::new(path);
 
+    let mut stats = TestCaseStats::default();
+
     // Process each run directive
     for directive in &test_file.run_directives {
         // Filter by line number if TEST_LINE is set
@@ -69,6 +360,8 @@ pub fn run_test_file_with_line_filter(
                 continue;
             }
         }
+
+        stats.total += 1;
         // Generate bootstrap code with span information
         let bootstrap_result = bootstrap::generate_bootstrap(
             &file_lines,
@@ -120,6 +413,7 @@ pub fn run_test_file_with_line_filter(
         match (execution_result, trap_expectation) {
             (Ok(actual_value), Some(exp)) => {
                 // Expected a trap but got a value
+                stats.failed += 1;
                 let bootstrap_code_display = if show_full_output {
                     format!(
                         "\n\n=== Bootstrapped GLSL Test ===\n{}",
@@ -160,6 +454,7 @@ pub fn run_test_file_with_line_filter(
 
                 if is_trap {
                     // Unexpected trap
+                    stats.failed += 1;
                     let bootstrap_code_display = if show_full_output {
                         format!(
                             "\n\n=== Bootstrapped GLSL Test ===\n{}",
@@ -198,6 +493,7 @@ pub fn run_test_file_with_line_filter(
                 // Check trap code if specified
                 if let Some(expected_code) = exp.trap_code {
                     if !error_str.contains(&format!("user{}", expected_code)) {
+                        stats.failed += 1;
                         let bootstrap_code_display = if show_full_output {
                             format!(
                                 "\n\n=== Bootstrapped GLSL Test ===\n{}",
@@ -228,6 +524,7 @@ pub fn run_test_file_with_line_filter(
                 // Check trap message if specified
                 if let Some(ref expected_msg) = exp.trap_message {
                     if !error_str.contains(expected_msg) {
+                        stats.failed += 1;
                         let bootstrap_code_display = if show_full_output {
                             format!(
                                 "\n\n=== Bootstrapped GLSL Test ===\n{}",
@@ -256,6 +553,7 @@ pub fn run_test_file_with_line_filter(
                 }
 
                 // Trap matches expectation - test passes
+                stats.passed += 1;
                 continue;
             }
             (Ok(actual_value), None) => {
@@ -272,6 +570,7 @@ pub fn run_test_file_with_line_filter(
                 ) {
                     Ok(()) => {
                         // Test passed - print success message in detailed mode
+                        stats.passed += 1;
                         if show_full_output {
                             use crate::{colors, should_color};
                             let file_line = format!("{}:{}", relative_path, directive.line_number);
@@ -305,7 +604,9 @@ pub fn run_test_file_with_line_filter(
                                 &actual_value,
                                 directive.comparison,
                             )?;
+                            stats.passed += 1;
                         } else {
+                            stats.failed += 1;
                             // Format bootstrap code for display (only when showing full output)
                             let bootstrap_code_display = if show_full_output {
                                 format!(
@@ -372,7 +673,13 @@ pub fn run_test_file_with_line_filter(
         }
     }
 
-    Ok(())
+    let result = if stats.failed > 0 {
+        Err(anyhow::anyhow!("{} test case(s) failed", stats.failed))
+    } else {
+        Ok(())
+    };
+
+    Ok((result, stats))
 }
 
 /// Format a compilation error with bootstrap code context.

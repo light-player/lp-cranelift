@@ -29,6 +29,8 @@ pub mod colors {
     pub const LIGHT_GREEN: &str = "\x1b[92m";
     /// Red color
     pub const RED: &str = "\x1b[31m";
+    /// Yellow color
+    pub const YELLOW: &str = "\x1b[33m";
     /// Dim/grey color
     pub const DIM: &str = "\x1b[2m";
     /// Bold text
@@ -62,15 +64,17 @@ fn relative_path(path: &Path, filetests_dir: &Path) -> String {
 
 /// Run a single filetest.
 pub fn run_filetest(path: &Path) -> Result<()> {
-    run_filetest_with_line_filter(path, None, true)
+    let (result, _stats) = run_filetest_with_line_filter(path, None, true)?;
+    result
 }
 
 /// Run a single filetest with optional line number filtering.
+/// Returns the result and test case statistics.
 pub fn run_filetest_with_line_filter(
     path: &Path,
     line_filter: Option<usize>,
     show_full_output: bool,
-) -> Result<()> {
+) -> Result<(Result<()>, test_run::TestCaseStats)> {
     let test_file = filetest::parse_test_file(path)?;
 
     // Validate line number if provided
@@ -122,10 +126,11 @@ pub fn run_filetest_with_line_filter(
         .iter()
         .any(|t| matches!(t, filetest::TestType::Run))
     {
-        test_run::run_test_file_with_line_filter(&test_file, path, line_filter, show_full_output)?;
+        let (result, stats) = test_run::run_test_file_with_line_filter(&test_file, path, line_filter, show_full_output)?;
+        Ok((result, stats))
+    } else {
+        Ok((Ok(()), test_run::TestCaseStats::default()))
     }
-
-    Ok(())
 }
 
 /// Represents a parsed file path that may include a line number.
@@ -153,6 +158,7 @@ enum TestState {
 struct TestEntry {
     spec: FileSpec,
     state: TestState,
+    stats: test_run::TestCaseStats,
 }
 
 /// Check if a string contains glob pattern characters
@@ -345,20 +351,26 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
         };
 
         // Catch panics in single-test mode too
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let (result, stats) = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             run_filetest_with_line_filter(&spec.path, spec.line_number, show_full_output)
-        }))
-        .unwrap_or_else(|e| {
-            // Convert panic to error
-            let panic_msg = if let Some(msg) = e.downcast_ref::<String>() {
-                msg.clone()
-            } else if let Some(msg) = e.downcast_ref::<&'static str>() {
-                msg.to_string()
-            } else {
-                format!("{:?}", e)
-            };
-            anyhow::bail!("panicked: {}", panic_msg)
-        });
+        })) {
+            Ok(Ok((inner_result, inner_stats))) => (inner_result, inner_stats),
+            Ok(Err(e)) => (Err(e), test_run::TestCaseStats::default()),
+            Err(e) => {
+                // Convert panic to error
+                let panic_msg = if let Some(msg) = e.downcast_ref::<String>() {
+                    msg.clone()
+                } else if let Some(msg) = e.downcast_ref::<&'static str>() {
+                    msg.to_string()
+                } else {
+                    format!("{:?}", e)
+                };
+                (
+                    Err(anyhow::anyhow!("panicked: {}", panic_msg)),
+                    test_run::TestCaseStats::default(),
+                )
+            }
+        };
 
         let (passed, failed) = match result {
             Ok(()) => {
@@ -378,7 +390,17 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
         };
 
         let elapsed = start_time.elapsed();
-        println!("\n{}", format_results_summary(passed, failed, elapsed));
+        println!(
+            "\n{}",
+            format_results_summary(
+                stats.passed,
+                stats.failed,
+                stats.total,
+                passed,
+                failed,
+                elapsed
+            )
+        );
 
         if failed > 0 {
             println!(
@@ -397,6 +419,7 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
         .map(|spec| TestEntry {
             spec,
             state: TestState::New,
+            stats: test_run::TestCaseStats::default(),
         })
         .collect();
 
@@ -405,6 +428,9 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
     let mut reported_tests = 0;
     let mut passed = 0;
     let mut failed = 0;
+    let mut total_test_cases = 0;
+    let mut passed_test_cases = 0;
+    let mut failed_test_cases = 0;
     let mut failed_tests = Vec::new();
 
     // Queue all tests
@@ -425,7 +451,8 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
         // Check for completed jobs
         while let Some(reply) = concurrent_runner.try_get() {
             match reply {
-                concurrent::Reply::Done { jobid, result } => {
+                concurrent::Reply::Done { jobid, result, stats } => {
+                    tests[jobid].stats = stats;
                     tests[jobid].state = TestState::Done(result);
                 }
             }
@@ -442,27 +469,80 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
                     relative_path_str
                 };
 
+                let stats = &tests[reported_tests].stats;
+                total_test_cases += stats.total;
+                passed_test_cases += stats.passed;
+                failed_test_cases += stats.failed;
+
+                // Determine color for counts based on pass/fail ratio
+                let counts_color = if stats.total > 0 {
+                    if stats.passed == stats.total {
+                        // All passed - green
+                        colors::GREEN
+                    } else if stats.passed > 0 {
+                        // Some passed - yellow
+                        colors::YELLOW
+                    } else {
+                        // All failed - red
+                        colors::RED
+                    }
+                } else {
+                    colors::GREEN // Default to green if no test cases
+                };
+
                 match result {
                     Ok(()) => {
-                        // Multi-test mode: minimal output with colored checkmark and dimmed path
+                        // Multi-test mode: minimal output with colored checkmark, test case counts, and dimmed path
+                        let status_marker = if should_color() {
+                            format!("{}{}{} ", colors::GREEN, "✓", colors::RESET)
+                        } else {
+                            "✓ ".to_string()
+                        };
+                        let counts_str = if stats.total > 0 {
+                            // Format as "passed/total" with right-aligned padding (max 99)
+                            let formatted = format!("{:2}/{:2}", stats.passed, stats.total);
+                            if should_color() {
+                                format!("{}{}{}", counts_color, formatted, colors::RESET)
+                            } else {
+                                formatted
+                            }
+                        } else {
+                            String::new()
+                        };
                         let path_colored = if should_color() {
-                            format!("{}{}{}", colors::GREEN, "✓ ", colors::RESET)
+                            format!("{}{} ", status_marker, counts_str)
                                 + &format!("{}{}{}", colors::DIM, display_path, colors::RESET)
                         } else {
-                            format!("✓ {}", display_path)
+                            format!("{}{} {}", status_marker, counts_str, display_path)
                         };
                         println!("{}", path_colored);
                         passed += 1;
                     }
                     Err(_e) => {
-                        // Multi-test mode: minimal output with colored X and dimmed path
+                        // Multi-test mode: minimal output with colored X, test case counts, and dimmed path
                         // Error details (including panic messages) are suppressed in multi-test mode
                         // Panics are caught by the concurrent runner and converted to errors
+                        let status_marker = if should_color() {
+                            format!("{}{}{} ", colors::RED, "✗", colors::RESET)
+                        } else {
+                            "✗ ".to_string()
+                        };
+                        let counts_str = if stats.total > 0 {
+                            // Format as "passed/total" with right-aligned padding (max 99)
+                            let formatted = format!("{:2}/{:2}", stats.passed, stats.total);
+                            if should_color() {
+                                format!("{}{}{}", counts_color, formatted, colors::RESET)
+                            } else {
+                                formatted
+                            }
+                        } else {
+                            String::new()
+                        };
                         let path_colored = if should_color() {
-                            format!("{}{}{}", colors::RED, "✗ ", colors::RESET)
+                            format!("{}{} ", status_marker, counts_str)
                                 + &format!("{}{}{}", colors::DIM, display_path, colors::RESET)
                         } else {
-                            format!("✗ {}", display_path)
+                            format!("{}{} {}", status_marker, counts_str, display_path)
                         };
                         println!("{}", path_colored);
                         failed += 1;
@@ -480,7 +560,8 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
         // If we can't report the next test yet, wait for more replies
         if let Some(reply) = concurrent_runner.get() {
             match reply {
-                concurrent::Reply::Done { jobid, result } => {
+                concurrent::Reply::Done { jobid, result, stats } => {
+                    tests[jobid].stats = stats;
                     tests[jobid].state = TestState::Done(result);
                 }
             }
@@ -493,7 +574,17 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
 
     let elapsed = start_time.elapsed();
     print_failed_tests_summary(&failed_tests, &filetests_dir, !show_full_output);
-    println!("\n{}", format_results_summary(passed, failed, elapsed));
+    println!(
+        "\n{}",
+        format_results_summary(
+            passed_test_cases,
+            failed_test_cases,
+            total_test_cases,
+            passed,
+            failed,
+            elapsed
+        )
+    );
 
     if failed > 0 {
         anyhow::bail!("{} test file(s) failed", failed);
@@ -503,8 +594,15 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
 }
 
 /// Format results summary with colors and timing.
-/// Returns a single line with passed and failed counts, colored appropriately.
-fn format_results_summary(passed: usize, failed: usize, elapsed: std::time::Duration) -> String {
+/// Returns a single line with test case and file counts, colored appropriately.
+fn format_results_summary(
+    passed_test_cases: usize,
+    _failed_test_cases: usize,
+    total_test_cases: usize,
+    passed_files: usize,
+    failed_files: usize,
+    elapsed: std::time::Duration,
+) -> String {
     let seconds = elapsed.as_secs_f64();
     let time_str = if seconds < 1.0 {
         format!("{:.0}ms", elapsed.as_millis())
@@ -517,18 +615,47 @@ fn format_results_summary(passed: usize, failed: usize, elapsed: std::time::Dura
     };
 
     if should_color() {
-        let passed_part = format!("{}{} passed{}", colors::GREEN, passed, colors::RESET);
-        if failed > 0 {
-            let failed_part = format!("{}{} failed{}", colors::RED, failed, colors::RESET);
-            format!("{}, {} in {}", passed_part, failed_part, time_str)
+        let test_cases_part = if total_test_cases > 0 {
+            format!(
+                "{}{} of {} tests{}",
+                colors::GREEN,
+                passed_test_cases,
+                total_test_cases,
+                colors::RESET
+            )
         } else {
-            format!("{} in {}", passed_part, time_str)
+            String::new()
+        };
+        let files_part = format!(
+            "{}{} of {} files passed{}",
+            colors::GREEN,
+            passed_files,
+            passed_files + failed_files,
+            colors::RESET
+        );
+
+        if total_test_cases > 0 {
+            format!("{}, {} in {}", test_cases_part, files_part, time_str)
+        } else {
+            format!("{} in {}", files_part, time_str)
         }
     } else {
-        if failed > 0 {
-            format!("{} passed, {} failed in {}", passed, failed, time_str)
+        if total_test_cases > 0 {
+            format!(
+                "{} of {} tests, {} of {} files passed in {}",
+                passed_test_cases,
+                total_test_cases,
+                passed_files,
+                passed_files + failed_files,
+                time_str
+            )
         } else {
-            format!("{} passed in {}", passed, time_str)
+            format!(
+                "{} of {} files passed in {}",
+                passed_files,
+                passed_files + failed_files,
+                time_str
+            )
         }
     }
 }

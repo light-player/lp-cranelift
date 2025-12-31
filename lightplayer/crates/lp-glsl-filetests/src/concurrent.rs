@@ -3,7 +3,6 @@
 //! This module provides the `ConcurrentRunner` struct which uses a pool of threads to run tests
 //! concurrently.
 
-use crate::run_filetest_with_line_filter;
 use std::panic::catch_unwind;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -26,6 +25,8 @@ pub enum Reply {
         jobid: usize,
         /// Test execution result.
         result: anyhow::Result<()>,
+        /// Test case statistics.
+        stats: crate::test_run::TestCaseStats,
     },
 }
 
@@ -143,28 +144,34 @@ fn worker_thread(
                 };
 
                 // Use AssertUnwindSafe to allow catching panics from code that isn't unwind-safe
-                let result = catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    run_filetest_with_line_filter(path.as_path(), line_filter, show_full_output)
-                }))
-                .unwrap_or_else(|e| {
-                    // The test panicked, leaving us a `Box<Any>`.
-                    // Panics are usually strings or &str.
-                    let panic_msg = if let Some(msg) = e.downcast_ref::<String>() {
-                        msg.clone()
-                    } else if let Some(msg) = e.downcast_ref::<&'static str>() {
-                        msg.to_string()
-                    } else {
-                        // Try to format the panic payload as debug string
-                        format!("{:?}", e)
-                    };
+                let (result, stats) = match catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    crate::run_filetest_with_line_filter(path.as_path(), line_filter, show_full_output)
+                })) {
+                    Ok(Ok((inner_result, inner_stats))) => (inner_result, inner_stats),
+                    Ok(Err(e)) => (Err(e), crate::test_run::TestCaseStats::default()),
+                    Err(e) => {
+                        // The test panicked, leaving us a `Box<Any>`.
+                        // Panics are usually strings or &str.
+                        let panic_msg = if let Some(msg) = e.downcast_ref::<String>() {
+                            msg.clone()
+                        } else if let Some(msg) = e.downcast_ref::<&'static str>() {
+                            msg.to_string()
+                        } else {
+                            // Try to format the panic payload as debug string
+                            format!("{:?}", e)
+                        };
 
-                    // Extract just the essential panic message (first line usually)
-                    let short_msg = panic_msg.lines().next().unwrap_or("panic").to_string();
+                        // Extract just the essential panic message (first line usually)
+                        let short_msg = panic_msg.lines().next().unwrap_or("panic").to_string();
 
-                    anyhow::bail!("panicked: {}", short_msg)
-                });
+                        (
+                            Err(anyhow::anyhow!("panicked: {}", short_msg)),
+                            crate::test_run::TestCaseStats::default(),
+                        )
+                    }
+                };
 
-                replies.send(Reply::Done { jobid, result }).unwrap();
+                replies.send(Reply::Done { jobid, result, stats }).unwrap();
             }
         })
         .unwrap()
