@@ -184,13 +184,7 @@ pub fn glsl_emu_riscv32(
     source: &str,
     options: GlslOptions,
 ) -> Result<Box<dyn GlslExecutable>, GlslError> {
-    glsl_emu_riscv32_with_metadata(
-        source,
-        options,
-        None,
-        #[cfg(all(feature = "std", feature = "emulator"))]
-        None,
-    )
+    glsl_emu_riscv32_with_metadata(source, options, None)
 }
 
 /// Requires `emulator` feature flag to be enabled
@@ -200,8 +194,6 @@ pub fn glsl_emu_riscv32_with_metadata(
     source: &str,
     options: GlslOptions,
     source_file_path: Option<String>,
-    #[cfg(all(feature = "std", feature = "emulator"))]
-    shared_context: Option<&mut crate::backend::codegen::shared_emulator::SharedEmulatorContext>,
 ) -> Result<Box<dyn GlslExecutable>, GlslError> {
     // Compile to GlModule (transformations already applied)
     let (module, original_clif, transformed_clif) =
@@ -230,11 +222,5 @@ pub fn glsl_emu_riscv32_with_metadata(
     // This can be added later if needed
     let _ = source_file_path;
 
-    module.build_executable(
-        &emulator_options,
-        original_clif,
-        transformed_clif,
-        #[cfg(all(feature = "std", feature = "emulator"))]
-        shared_context,
-    )
+    module.build_executable(&emulator_options, original_clif, transformed_clif)
 }

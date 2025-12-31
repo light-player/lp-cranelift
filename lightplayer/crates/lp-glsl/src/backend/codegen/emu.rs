@@ -1,7 +1,7 @@
 //! Emulator codegen - build executable from GlModule<ObjectModule>
 
 #[cfg(feature = "emulator")]
-pub(crate) mod builtins_lib {
+mod builtins_lib {
     include!(concat!(env!("OUT_DIR"), "/lp_builtins_lib.rs"));
 }
 
@@ -38,22 +38,12 @@ pub struct EmulatorOptions {
 
 /// Build emulator executable from GlModule<ObjectModule>
 /// Called by GlModule<ObjectModule>::build_executable()
-///
-/// # Arguments
-///
-/// * `gl_module` - The GLSL module to build executable from
-/// * `options` - Emulator options (max_memory, stack_size, max_instructions)
-/// * `original_clif` - Original CLIF IR (for error reporting)
-/// * `transformed_clif` - Transformed CLIF IR (for error reporting)
-/// * `shared_context` - Optional shared emulator context (for filetests optimization)
 #[cfg(feature = "emulator")]
 pub fn build_emu_executable(
     mut gl_module: GlModule<ObjectModule>,
     options: &EmulatorOptions,
     original_clif: Option<String>,
     transformed_clif: Option<String>,
-    #[cfg(all(feature = "std", feature = "emulator"))]
-    shared_context: Option<&mut crate::backend::codegen::shared_emulator::SharedEmulatorContext>,
 ) -> Result<GlslEmulatorModule, GlslError> {
     use lp_riscv_tools::Gpr;
     use lp_riscv_tools::StepResult;
@@ -314,114 +304,24 @@ pub fn build_emu_executable(
         }
     }
 
-    // 3.5 Load builtins executable and object file (or use shared context)
-    #[cfg(all(feature = "std", feature = "emulator"))]
-    let load_info_opt = if let Some(shared_context) = shared_context {
-        // Use shared context path: link object file, skip bootstrap init
-        crate::debug!("Using shared emulator context");
-        
-        // Link object file into shared context
-        let _obj_info = shared_context.link_object_file(&elf_bytes)?;
-        
-        // Get symbol map from shared context
-        let symbol_map = shared_context.get_symbol_map();
-        
-        // Build function address map from symbol map
-        let mut func_addresses: HashMap<String, u32> = HashMap::new();
-        let special_symbols = [
-            "__USER_MAIN_PTR",
-            "__data_source_start",
-            "__bss_target_start",
-            "__bss_target_end",
-            "__data_target_start",
-            "__data_target_end",
-            "__global_pointer$",
-            "__stack_start",
-        ];
-        
-        for (name, &address) in symbol_map {
-            // Skip special linker/data symbols
-            if special_symbols.contains(&name.as_str()) {
-                continue;
-            }
-            // Filter for text symbols (functions) - addresses in code region (0x0 to 0x80000000)
-            if address < 0x80000000 {
-                func_addresses.insert(name.clone(), address);
-            }
-        }
-        
-        // Convert trap offsets to absolute addresses
-        let mut traps: Vec<(u32, cranelift_codegen::ir::TrapCode)> = Vec::new();
-        let mut trap_source_info_vec: Vec<(
-            u32,
-            cranelift_codegen::ir::TrapCode,
-            cranelift_codegen::ir::SourceLoc,
-            String,
-        )> = Vec::new();
-        
-        for (func_name, trap_offset, trap_code, srcloc) in trap_info {
-            if let Some(&func_addr) = func_addresses.get(&func_name) {
-                let absolute_addr = func_addr + trap_offset;
-                traps.push((absolute_addr, trap_code));
-                trap_source_info_vec.push((absolute_addr, trap_code, srcloc, func_name));
-            }
-        }
-        
-        // Create emulator using shared context (bootstrap init already done)
-        let emulator = shared_context.create_emulator(options, &traps);
-        
-        // Build function address map for GlslEmulatorModule
-        let mut function_addresses: HashMap<String, u32> = HashMap::new();
-        for (name, &address) in symbol_map {
-            if special_symbols.contains(&name.as_str()) {
-                continue;
-            }
-            if address < 0x80000000 {
-                function_addresses.insert(name.clone(), address);
-            }
-        }
-        
-        // Store trap_source_info for later use
-        let trap_source_info = trap_source_info_vec;
-        
-        // Return early with GlslEmulatorModule (skip bootstrap init)
-        return Ok(GlslEmulatorModule {
-            emulator,
-            signatures,
-            cranelift_signatures,
-            binary: shared_context.code().to_vec(),
-            function_addresses,
-            transformed_clif,
-            original_clif,
-            vcode,
-            disassembly,
-            trap_source_info,
-            source_loc_manager,
-            source_map,
-            next_buffer_addr: 0x80000000,
-        });
-    } else {
-        // Existing path: load builtins executable and object file
+    // 3.5 Load builtins executable and object file
+    #[cfg(feature = "std")]
+    let load_info = {
+        // Use compile-time embedded executable bytes
         let builtins_exe_bytes = builtins_lib::LP_BUILTINS_EXE_BYTES;
-        Some(crate::backend::codegen::builtins_linker::link_and_verify_builtins(
+        crate::backend::codegen::builtins_linker::link_and_verify_builtins(
             &elf_bytes,
             builtins_exe_bytes,
-        )?)
+        )?
+        // link_and_verify_builtins already loads the object file and merges symbol maps
     };
-    
     #[cfg(not(feature = "std"))]
-    let load_info_opt = {
+    let load_info = {
         // In no_std mode, we can't load the builtins executable
         // Fall back to just loading the ELF (this won't work for filetests but allows compilation)
-        Some(load_elf(&elf_bytes)
-            .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to load ELF: {}", e)))?)
+        load_elf(&elf_bytes)
+            .map_err(|e| GlslError::new(ErrorCode::E0400, format!("Failed to load ELF: {}", e)))?
     };
-    
-    // Unwrap load_info (we know it's Some because shared_context path returns early)
-    let load_info = load_info_opt.unwrap();
-    let symbol_map = &load_info.symbol_map;
-    let binary = &load_info.code;
-    let ram_size = load_info.ram.len();
 
     // 4. Populate function address map from merged symbol map
     // Filter for function symbols (exclude data symbols, special symbols like __USER_MAIN_PTR)
@@ -437,7 +337,7 @@ pub fn build_emu_executable(
         "__stack_start",
     ];
 
-    for (name, &address) in symbol_map {
+    for (name, &address) in &load_info.symbol_map {
         // Skip special linker/data symbols
         if special_symbols.contains(&name.as_str()) {
             continue;
@@ -453,7 +353,7 @@ pub fn build_emu_executable(
     // Build a map of function names to their addresses in the binary
     // Use symbol map directly (addresses are already absolute, code starts at 0)
     let mut func_addresses: HashMap<String, u32> = HashMap::new();
-    for (name, &address) in symbol_map {
+    for (name, &address) in &load_info.symbol_map {
         // Filter for text symbols (functions) - addresses in code region (0x0 to 0x80000000)
         if address < 0x80000000 {
             func_addresses.insert(name.clone(), address);
@@ -480,6 +380,8 @@ pub fn build_emu_executable(
     }
 
     // 6. Create emulator with trap information
+    let binary = load_info.code;
+    let ram_size = load_info.ram.len();
     let mut emulator = Riscv32Emulator::with_traps(binary.clone(), load_info.ram, &traps)
         .with_max_instructions(options.max_instructions)
         .with_log_level(LogLevel::Instructions);
@@ -503,7 +405,7 @@ pub fn build_emu_executable(
     // 3. Halt via ebreak or return to halt_address
     let mut init_steps = 0;
     let max_init_steps = 10000;
-    let init_address = symbol_map.get("_init").copied();
+    let init_address = load_info.symbol_map.get("_init").copied();
 
     crate::debug!(
         "Running bootstrap init (entry_point=0x{:x}, _init={:?})",
@@ -579,7 +481,7 @@ pub fn build_emu_executable(
         emulator,
         signatures,
         cranelift_signatures,
-        binary: binary.clone(),
+        binary,
         function_addresses, // Populated from merged symbol map after object file loading
         transformed_clif,
         original_clif,

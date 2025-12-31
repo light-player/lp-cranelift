@@ -482,16 +482,12 @@ impl GlModule<ObjectModule> {
         options: &crate::backend::codegen::emu::EmulatorOptions,
         original_clif: Option<alloc::string::String>,
         transformed_clif: Option<alloc::string::String>,
-        #[cfg(all(feature = "std", feature = "emulator"))]
-        shared_context: Option<&mut crate::backend::codegen::shared_emulator::SharedEmulatorContext>,
     ) -> Result<alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>, GlslError> {
         crate::backend::codegen::emu::build_emu_executable(
             self,
             options,
             original_clif,
             transformed_clif,
-            #[cfg(all(feature = "std", feature = "emulator"))]
-            shared_context,
         )
         .map(|emu| {
             alloc::boxed::Box::new(emu)

@@ -13,38 +13,8 @@ use crate::filetest::{ComparisonOp, TestFile};
 use anyhow::{Context, Result};
 use lp_glsl::GlslOptions;
 use lp_glsl::glsl_emu_riscv32_with_metadata;
-use std::cell::RefCell;
 use std::env;
 use std::path::Path;
-
-thread_local! {
-    static SHARED_EMULATOR_CONTEXT: RefCell<Option<lp_glsl::backend::codegen::shared_emulator::SharedEmulatorContext>> =
-        RefCell::new(None);
-}
-
-/// Execute a function with mutable access to the thread-local shared emulator context.
-/// This initializes the context on first use per thread and provides mutable access through a closure.
-fn with_shared_emulator_context<F, R>(f: F) -> Result<R>
-where
-    F: FnOnce(&mut lp_glsl::backend::codegen::shared_emulator::SharedEmulatorContext) -> Result<R>,
-{
-    use lp_glsl::backend::codegen::shared_emulator::SharedEmulatorContext;
-    
-    SHARED_EMULATOR_CONTEXT.with(|context_cell| {
-        let mut context_opt = context_cell.borrow_mut();
-        
-        // Initialize context on first use for this thread
-        if context_opt.is_none() {
-            let builtins_exe_bytes = lp_glsl::backend::codegen::shared_emulator::get_builtins_executable_bytes();
-            let context = SharedEmulatorContext::new(builtins_exe_bytes)
-                .map_err(|e| anyhow::anyhow!("Failed to create shared emulator context: {}", e))?;
-            *context_opt = Some(context);
-        }
-        
-        // Provide mutable access through closure
-        f(context_opt.as_mut().unwrap())
-    })
-}
 
 /// Run all tests in a test file.
 pub fn run_test_file(test_file: &TestFile, path: &Path) -> Result<()> {
@@ -108,33 +78,21 @@ pub fn run_test_file_with_line_filter(
 
         // Compile and execute
         // Note: bootstrap_result.source now contains ONLY the function being tested + main()
-        // Use shared emulator context for performance
-        let mut executable = match with_shared_emulator_context(|shared_context| {
-            glsl_emu_riscv32_with_metadata(
-                &bootstrap_result.source,
-                options.clone(),
-                Some(relative_path.clone()),
-                Some(shared_context),
+        let mut executable = glsl_emu_riscv32_with_metadata(
+            &bootstrap_result.source,
+            options.clone(),
+            Some(relative_path.clone()),
+        )
+        .map_err(|e| {
+            format_compilation_error(
+                &e,
+                &bootstrap_result,
+                directive.line_number,
+                &directive.expression_str,
+                &relative_path,
+                show_full_output,
             )
-            .map_err(|e| anyhow::anyhow!("{}", e))
-        }) {
-            Ok(exec) => exec,
-            Err(e) => {
-                // Convert anyhow::Error to GlslError for error formatting
-                let glsl_error = lp_glsl::error::GlslError::new(
-                    lp_glsl::error::ErrorCode::E0400,
-                    format!("{}", e),
-                );
-                return Err(format_compilation_error(
-                    &glsl_error,
-                    &bootstrap_result,
-                    directive.line_number,
-                    &directive.expression_str,
-                    &relative_path,
-                    show_full_output,
-                ));
-            }
-        };
+        })?;
 
         // Check if this test expects a trap
         // Trap expectations can be on the same line or the immediately following line
