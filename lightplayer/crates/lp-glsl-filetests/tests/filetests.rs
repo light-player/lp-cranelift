@@ -41,10 +41,26 @@ fn println_colored(text: &str, color: &str) {
     }
 }
 
+/// Check if the builtins executable is available, returning an error if not.
+fn check_builtins_executable() -> Result<()> {
+    use lp_glsl::backend::codegen::shared_emulator;
+    let builtins_exe_bytes = shared_emulator::get_builtins_executable_bytes();
+    if builtins_exe_bytes.is_empty() {
+        anyhow::bail!(
+            "lp-builtins-app executable is not available.\n\
+             Build it with: scripts/build-builtins.sh"
+        );
+    }
+    Ok(())
+}
+
 /// Generate individual test functions for each .glsl file at runtime.
 /// This allows `cargo test` to show each file as a separate test.
 #[test]
 fn filetests() -> Result<()> {
+    // Check builtins executable availability early
+    check_builtins_executable()?;
+    
     let filetests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("filetests");
 
     // Check for filtering environment variables

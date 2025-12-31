@@ -245,6 +245,19 @@ fn parse_file_spec_with_glob(file_str: &str, filetests_dir: &Path) -> Result<Vec
     Ok(specs)
 }
 
+/// Check if the builtins executable is available, returning an error if not.
+fn check_builtins_executable() -> anyhow::Result<()> {
+    use lp_glsl::backend::codegen::shared_emulator;
+    let builtins_exe_bytes = shared_emulator::get_builtins_executable_bytes();
+    if builtins_exe_bytes.is_empty() {
+        anyhow::bail!(
+            "lp-builtins-app executable is not available.\n\
+             Build it with: scripts/build-builtins.sh"
+        );
+    }
+    Ok(())
+}
+
 /// Main entry point for `lp-test test`.
 ///
 /// Take a list of filenames which can be either `.glsl` files or directories.
@@ -259,6 +272,9 @@ fn parse_file_spec_with_glob(file_str: &str, filetests_dir: &Path) -> Result<Vec
 /// - Single test (1 file): Full detailed output with all error information
 /// - Multiple tests (>1 file): Minimal output with colored checkmarks
 pub fn run(files: &[String]) -> anyhow::Result<()> {
+    // Check builtins executable availability early
+    check_builtins_executable()?;
+    
     let filetests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("filetests");
     let mut test_specs = Vec::new();
 
