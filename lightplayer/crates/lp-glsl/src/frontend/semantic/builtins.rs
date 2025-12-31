@@ -428,6 +428,18 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
             },
         ]),
 
+        "isinf" => Some(vec![BuiltinSignature {
+            name: "isinf",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::AlwaysBool,
+        }]),
+
+        "isnan" => Some(vec![BuiltinSignature {
+            name: "isnan",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::AlwaysBool,
+        }]),
+
         // Matrix Functions (builtinfunctions.adoc:1538-1687)
         "matrixCompMult" => Some(vec![BuiltinSignature {
             name: "matrixCompMult",

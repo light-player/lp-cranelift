@@ -51,7 +51,7 @@ The final phase should be a cleanup phase:
 - fix all warnings
 - ensure all tests pass
 - ensure all code is clean and readable
-- remove the plan directory
+- move the plan directory to `lightplayer/plans/_done/`
 - run 'cargo +nightly fmt' to format the code on lightplayer/ directory
 
 Then commit the changes with a message like "lpc: complete plan <name>". Include details of the

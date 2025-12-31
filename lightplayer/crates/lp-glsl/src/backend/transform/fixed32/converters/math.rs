@@ -50,6 +50,25 @@ pub fn map_testcase_to_builtin(testcase_name: &str) -> Option<(BuiltinId, usize)
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /// Convert Ceil instruction.
 pub(crate) fn convert_ceil(
     old_func: &Function,
@@ -140,6 +159,106 @@ pub(crate) fn convert_nearest(
 
     let old_result = get_first_result(old_func, old_inst);
     value_map.insert(old_result, new_result);
+
+    Ok(())
+}
+
+/// Convert fract: fractional part (x - floor(x))
+///
+/// Since fract uses floor internally, and floor is already converted inline,
+/// fract should work automatically. However, if fract is called as a function,
+/// this converter handles it.
+pub(crate) fn convert_fract(
+    old_func: &Function,
+    old_inst: Inst,
+    builder: &mut FunctionBuilder,
+    value_map: &mut HashMap<Value, Value>,
+    format: FixedPointFormat,
+) -> Result<(), GlslError> {
+    let arg = extract_unary_operand(old_func, old_inst)?;
+    let mapped_arg = map_operand(value_map, arg);
+    let target_type = format.cranelift_type();
+    let shift_amount = format.shift_amount();
+
+    // fract(x) = x - floor(x)
+    // Compute floor(x) inline
+    let shift_const = builder.ins().iconst(target_type, shift_amount);
+    let rounded = builder.ins().sshr(mapped_arg, shift_const);
+    let floored = builder.ins().ishl(rounded, shift_const);
+    
+    // Subtract: x - floor(x)
+    let new_result = builder.ins().isub(mapped_arg, floored);
+
+    let old_result = get_first_result(old_func, old_inst);
+    value_map.insert(old_result, new_result);
+
+    Ok(())
+}
+
+/// Convert sign: returns 1.0 if x > 0, 0.0 if x == 0, -1.0 if x < 0
+pub(crate) fn convert_sign(
+    old_func: &Function,
+    old_inst: Inst,
+    builder: &mut FunctionBuilder,
+    value_map: &mut HashMap<Value, Value>,
+    format: FixedPointFormat,
+) -> Result<(), GlslError> {
+    use cranelift_codegen::ir::condcodes::IntCC;
+
+    let arg = extract_unary_operand(old_func, old_inst)?;
+    let mapped_arg = map_operand(value_map, arg);
+    let target_type = format.cranelift_type();
+
+    let zero = builder.ins().iconst(target_type, 0);
+    let one = builder.ins().iconst(target_type, 0x00010000i64); // 1.0 in fixed16x16
+    let minus_one = builder.ins().iconst(target_type, -0x00010000i64); // -1.0 in fixed16x16
+
+    // Check if x > 0
+    let gt_zero = builder.ins().icmp(IntCC::SignedGreaterThan, mapped_arg, zero);
+    // Check if x < 0
+    let lt_zero = builder.ins().icmp(IntCC::SignedLessThan, mapped_arg, zero);
+
+    // If x > 0, return 1.0, else continue with zero
+    let temp = builder.ins().select(gt_zero, one, zero);
+    // If x < 0, return -1.0, else use previous result
+    let new_result = builder.ins().select(lt_zero, minus_one, temp);
+
+    let old_result = get_first_result(old_func, old_inst);
+    value_map.insert(old_result, new_result);
+
+    Ok(())
+}
+
+/// Convert isinf: always returns false for fixed-point (no infinity)
+pub(crate) fn convert_isinf(
+    old_func: &Function,
+    old_inst: Inst,
+    builder: &mut FunctionBuilder,
+    value_map: &mut HashMap<Value, Value>,
+    _format: FixedPointFormat,
+) -> Result<(), GlslError> {
+    // Fixed-point doesn't have infinity, so isinf always returns false
+    let false_val = builder.ins().iconst(types::I8, 0);
+
+    let old_result = get_first_result(old_func, old_inst);
+    value_map.insert(old_result, false_val);
+
+    Ok(())
+}
+
+/// Convert isnan: always returns false for fixed-point (no NaN)
+pub(crate) fn convert_isnan(
+    old_func: &Function,
+    old_inst: Inst,
+    builder: &mut FunctionBuilder,
+    value_map: &mut HashMap<Value, Value>,
+    _format: FixedPointFormat,
+) -> Result<(), GlslError> {
+    // Fixed-point doesn't have NaN, so isnan always returns false
+    let false_val = builder.ins().iconst(types::I8, 0);
+
+    let old_result = get_first_result(old_func, old_inst);
+    value_map.insert(old_result, false_val);
 
     Ok(())
 }

@@ -484,4 +484,101 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
 
         Ok((result_vals, x_ty.clone()))
     }
+
+    /// isinf(x) - returns true if x is positive or negative infinity
+    /// For fixed-point: will be converted inline in transform to detect overflow sentinel values
+    pub fn builtin_isinf(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+
+        // Determine result type: bool for scalar, bvecN for vectors
+        let result_ty = if x_ty.is_vector() {
+            let dim = x_ty.component_count().unwrap();
+            match dim {
+                2 => Type::BVec2,
+                3 => Type::BVec3,
+                4 => Type::BVec4,
+                _ => return Err(GlslError::new(
+                    ErrorCode::E0105,
+                    format!("isinf() not supported for vector dimension {}", dim),
+                )),
+            }
+        } else {
+            Type::Bool
+        };
+
+        // Create signature: f32 -> i8 (bool)
+        use cranelift_codegen::ir::{AbiParam, ExtFuncData, Signature};
+        use cranelift_codegen::isa::CallConv;
+        let mut sig = Signature::new(CallConv::SystemV);
+        sig.params.push(AbiParam::new(types::F32));
+        sig.returns.push(AbiParam::new(types::I8));
+        let sig_ref = self.builder.func.import_signature(sig);
+        let ext_name = cranelift_codegen::ir::ExternalName::testcase("isinff".as_bytes());
+        let ext_func = ExtFuncData {
+            name: ext_name,
+            signature: sig_ref,
+            colocated: false,
+        };
+        let func_ref = self.builder.func.import_function(ext_func);
+
+        let mut result_vals = Vec::new();
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+
+        Ok((result_vals, result_ty))
+    }
+
+    /// isnan(x) - returns true if x is NaN
+    /// For fixed-point: will be converted inline in transform (always returns false)
+    /// Generate a function call using TestCase name so transform can detect and convert it inline
+    pub fn builtin_isnan(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+
+        // Determine result type: bool for scalar, bvecN for vectors
+        let result_ty = if x_ty.is_vector() {
+            let dim = x_ty.component_count().unwrap();
+            match dim {
+                2 => Type::BVec2,
+                3 => Type::BVec3,
+                4 => Type::BVec4,
+                _ => return Err(GlslError::new(
+                    ErrorCode::E0105,
+                    format!("isnan() not supported for vector dimension {}", dim),
+                )),
+            }
+        } else {
+            Type::Bool
+        };
+
+        // Create signature: f32 -> i8 (bool)
+        use cranelift_codegen::ir::{AbiParam, ExtFuncData, Signature};
+        use cranelift_codegen::isa::CallConv;
+        let mut sig = Signature::new(CallConv::SystemV);
+        sig.params.push(AbiParam::new(types::F32));
+        sig.returns.push(AbiParam::new(types::I8));
+        let sig_ref = self.builder.func.import_signature(sig);
+        let ext_name = cranelift_codegen::ir::ExternalName::testcase("isnanf".as_bytes());
+        let ext_func = ExtFuncData {
+            name: ext_name,
+            signature: sig_ref,
+            colocated: false,
+        };
+        let func_ref = self.builder.func.import_function(ext_func);
+
+        let mut result_vals = Vec::new();
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+
+        Ok((result_vals, result_ty))
+    }
 }

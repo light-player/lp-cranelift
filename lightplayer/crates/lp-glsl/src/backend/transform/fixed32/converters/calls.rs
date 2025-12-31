@@ -149,6 +149,107 @@ pub(crate) fn convert_call(
         };
 
         let new_func_ref = if let Some(func_name) = func_name_opt {
+            // Check if this is a function that should be converted inline (fract, sign, isinf, isnan)
+            let old_args = args.as_slice(&old_func.dfg.value_lists);
+            
+            // Handle inline conversions for simple functions
+            if func_name == "fractf" || func_name == "__lp_fract" {
+                if old_args.len() != 1 {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Expected 1 argument for fract, got {}", old_args.len()),
+                    ));
+                }
+                let arg = map_value(value_map, old_args[0]);
+                // fract(x) = x - floor(x)
+                let target_type = format.cranelift_type();
+                let shift_amount = format.shift_amount();
+                let shift_const = builder.ins().iconst(target_type, shift_amount);
+                let rounded = builder.ins().sshr(arg, shift_const);
+                let floored = builder.ins().ishl(rounded, shift_const);
+                let result = builder.ins().isub(arg, floored);
+                let old_result = get_first_result(old_func, old_inst);
+                value_map.insert(old_result, result);
+                return Ok(());
+            } else if func_name == "signf" || func_name == "__lp_sign" {
+                if old_args.len() != 1 {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Expected 1 argument for sign, got {}", old_args.len()),
+                    ));
+                }
+                use cranelift_codegen::ir::condcodes::IntCC;
+                let arg = map_value(value_map, old_args[0]);
+                let target_type = format.cranelift_type();
+                let zero = builder.ins().iconst(target_type, 0);
+                let one = builder.ins().iconst(target_type, 0x00010000i64); // 1.0 in fixed16x16
+                let minus_one = builder.ins().iconst(target_type, -0x00010000i64); // -1.0 in fixed16x16
+                let gt_zero = builder.ins().icmp(IntCC::SignedGreaterThan, arg, zero);
+                let lt_zero = builder.ins().icmp(IntCC::SignedLessThan, arg, zero);
+                let temp = builder.ins().select(gt_zero, one, zero);
+                let result = builder.ins().select(lt_zero, minus_one, temp);
+                let old_result = get_first_result(old_func, old_inst);
+                value_map.insert(old_result, result);
+                return Ok(());
+            } else if func_name == "isinff" || func_name == "__lp_isinf" {
+                if old_args.len() != 1 {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Expected 1 argument for isinf, got {}", old_args.len()),
+                    ));
+                }
+                use cranelift_codegen::ir::condcodes::IntCC;
+                // After transform, val is i32 (fixed-point)
+                // Check if val equals MAX_FIXED (0x7FFF_FFFF) or MIN_FIXED (i32::MIN)
+                // These are sentinel values from division by zero
+                let arg = map_value(value_map, old_args[0]);
+                let target_type = format.cranelift_type();
+                let max_fixed = builder.ins().iconst(target_type, 0x7FFF_FFFFi64);
+                let min_fixed = builder.ins().iconst(target_type, i32::MIN as i64);
+                let zero_i8 = builder.ins().iconst(types::I8, 0);
+                let one_i8 = builder.ins().iconst(types::I8, 1);
+                let is_max = builder.ins().icmp(IntCC::Equal, arg, max_fixed);
+                let is_min = builder.ins().icmp(IntCC::Equal, arg, min_fixed);
+                let is_inf = builder.ins().bor(is_max, is_min);
+                let old_result = get_first_result(old_func, old_inst);
+                value_map.insert(old_result, is_inf);
+                return Ok(());
+            } else if func_name == "isnanf" || func_name == "__lp_isnan" {
+                if old_args.len() != 1 {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Expected 1 argument for isnan, got {}", old_args.len()),
+                    ));
+                }
+                // Fixed-point doesn't have NaN, so isnan always returns false
+                let false_val = builder.ins().iconst(types::I8, 0);
+                let old_result = get_first_result(old_func, old_inst);
+                value_map.insert(old_result, false_val);
+                return Ok(());
+            } else if func_name == "isinff" || func_name == "__lp_isinf" {
+                if old_args.len() != 1 {
+                    return Err(GlslError::new(
+                        ErrorCode::E0400,
+                        format!("Expected 1 argument for isinf, got {}", old_args.len()),
+                    ));
+                }
+                use cranelift_codegen::ir::condcodes::IntCC;
+                // After transform, val is i32 (fixed-point)
+                // Check if val equals MAX_FIXED (0x7FFF_FFFF) or MIN_FIXED (i32::MIN)
+                // These are sentinel values from division by zero
+                let arg = map_value(value_map, old_args[0]);
+                let target_type = format.cranelift_type();
+                let max_fixed = builder.ins().iconst(target_type, 0x7FFF_FFFFi64);
+                let min_fixed = builder.ins().iconst(target_type, i32::MIN as i64);
+                let zero_i8 = builder.ins().iconst(types::I8, 0);
+                let is_max = builder.ins().icmp(IntCC::Equal, arg, max_fixed);
+                let is_min = builder.ins().icmp(IntCC::Equal, arg, min_fixed);
+                let is_inf = builder.ins().bor(is_max, is_min);
+                let old_result = get_first_result(old_func, old_inst);
+                value_map.insert(old_result, is_inf);
+                return Ok(());
+            }
+            
             // Check if this is a math function that should be converted to a builtin
             if let Some((builtin_id, expected_arg_count)) = map_testcase_to_builtin(func_name) {
                 // Convert to builtin call (similar to convert_sqrt)
