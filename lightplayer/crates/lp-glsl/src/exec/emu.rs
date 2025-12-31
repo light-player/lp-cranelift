@@ -106,16 +106,25 @@ impl GlslEmulatorModule {
         use crate::error::ErrorCode;
         use cranelift_codegen::data_value::DataValue;
         use cranelift_codegen::ir::types;
+        use cranelift_codegen::ir::ArgumentPurpose;
 
         let mut args = Vec::new();
 
-        if *arg_idx >= sig.params.len() {
+        // Find the next non-StructReturn parameter
+        let mut param_idx = *arg_idx;
+        while param_idx < sig.params.len()
+            && sig.params[param_idx].purpose == ArgumentPurpose::StructReturn
+        {
+            param_idx += 1;
+        }
+
+        if param_idx >= sig.params.len() {
             return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
         }
 
         match value {
             GlslValue::I32(v) => {
-                let param_ty = sig.params[*arg_idx].value_type;
+                let param_ty = sig.params[param_idx].value_type;
                 match param_ty {
                     types::I32 => args.push(DataValue::I32(*v)),
                     types::I64 => args.push(DataValue::I64(*v as i64)),
@@ -126,10 +135,10 @@ impl GlslEmulatorModule {
                         ));
                     }
                 }
-                *arg_idx += 1;
+                *arg_idx = param_idx + 1;
             }
             GlslValue::F32(v) => {
-                let param_ty = sig.params[*arg_idx].value_type;
+                let param_ty = sig.params[param_idx].value_type;
                 match param_ty {
                     types::F32 => {
                         use cranelift_codegen::ir::immediates::Ieee32;
@@ -148,10 +157,10 @@ impl GlslEmulatorModule {
                         ));
                     }
                 }
-                *arg_idx += 1;
+                *arg_idx = param_idx + 1;
             }
             GlslValue::Bool(v) => {
-                let param_ty = sig.params[*arg_idx].value_type;
+                let param_ty = sig.params[param_idx].value_type;
                 match param_ty {
                     types::I8 => args.push(DataValue::I8(if *v { 1 } else { 0 })),
                     types::I32 => args.push(DataValue::I32(if *v { 1 } else { 0 })),
@@ -162,7 +171,7 @@ impl GlslEmulatorModule {
                         ));
                     }
                 }
-                *arg_idx += 1;
+                *arg_idx = param_idx + 1;
             }
             // Vectors and matrices need special handling - for now, return error
             _ => {
@@ -920,6 +929,12 @@ impl GlslExecutable for GlslEmulatorModule {
         // Get function signature (clone to avoid borrow conflicts)
         let sig = self.get_function_signature(name)?.clone();
 
+        // Check if function uses StructReturn (before processing arguments)
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
+
         // Convert arguments to DataValue
         let mut arg_idx = 0;
         let mut data_args = Vec::new();
@@ -927,25 +942,26 @@ impl GlslExecutable for GlslEmulatorModule {
             data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
         }
 
-        // Validate argument count matches signature
-        if data_args.len() != sig.params.len() {
+        // Validate argument count matches signature (excluding StructReturn parameter)
+        let expected_params = if uses_struct_return {
+            // StructReturn parameter is added internally, don't count it
+            sig.params.len() - 1
+        } else {
+            sig.params.len()
+        };
+
+        if data_args.len() != expected_params {
             return Err(GlslError::new(
                 ErrorCode::E0400,
                 format!(
-                    "Argument count mismatch calling function '{}': expected {} parameter(s), got {} argument(s). Signature: {:?}",
+                    "Argument count mismatch calling function '{}': expected {} parameter(s) (excluding StructReturn), got {} argument(s). Signature: {:?}",
                     name,
-                    sig.params.len(),
+                    expected_params,
                     data_args.len(),
                     sig
                 ),
             ));
         }
-
-        // Check if function uses StructReturn
-        let uses_struct_return = sig
-            .params
-            .iter()
-            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
 
         if uses_struct_return {
             // Clone signature before mutable borrow
@@ -1037,6 +1053,12 @@ impl GlslExecutable for GlslEmulatorModule {
         // Get function signature (clone to avoid borrow conflicts)
         let sig = self.get_function_signature(name)?.clone();
 
+        // Check if function uses StructReturn (before processing arguments)
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
+
         // Convert arguments to DataValue
         let mut arg_idx = 0;
         let mut data_args = Vec::new();
@@ -1044,25 +1066,26 @@ impl GlslExecutable for GlslEmulatorModule {
             data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
         }
 
-        // Validate argument count matches signature
-        if data_args.len() != sig.params.len() {
+        // Validate argument count matches signature (excluding StructReturn parameter)
+        let expected_params = if uses_struct_return {
+            // StructReturn parameter is added internally, don't count it
+            sig.params.len() - 1
+        } else {
+            sig.params.len()
+        };
+
+        if data_args.len() != expected_params {
             return Err(GlslError::new(
                 ErrorCode::E0400,
                 format!(
-                    "Argument count mismatch calling function '{}': expected {} parameter(s), got {} argument(s). Signature: {:?}",
+                    "Argument count mismatch calling function '{}': expected {} parameter(s) (excluding StructReturn), got {} argument(s). Signature: {:?}",
                     name,
-                    sig.params.len(),
+                    expected_params,
                     data_args.len(),
                     sig
                 ),
             ));
         }
-
-        // Check if function uses StructReturn
-        let uses_struct_return = sig
-            .params
-            .iter()
-            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
 
         if uses_struct_return {
             // Clone signature before mutable borrow
@@ -1150,6 +1173,12 @@ impl GlslExecutable for GlslEmulatorModule {
         // Get function signature (clone to avoid borrow conflicts)
         let sig = self.get_function_signature(name)?.clone();
 
+        // Check if function uses StructReturn (before processing arguments)
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
+
         // Convert arguments to DataValue
         let mut arg_idx = 0;
         let mut data_args = Vec::new();
@@ -1157,25 +1186,26 @@ impl GlslExecutable for GlslEmulatorModule {
             data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
         }
 
-        // Validate argument count matches signature
-        if data_args.len() != sig.params.len() {
+        // Validate argument count matches signature (excluding StructReturn parameter)
+        let expected_params = if uses_struct_return {
+            // StructReturn parameter is added internally, don't count it
+            sig.params.len() - 1
+        } else {
+            sig.params.len()
+        };
+
+        if data_args.len() != expected_params {
             return Err(GlslError::new(
                 ErrorCode::E0400,
                 format!(
-                    "Argument count mismatch calling function '{}': expected {} parameter(s), got {} argument(s). Signature: {:?}",
+                    "Argument count mismatch calling function '{}': expected {} parameter(s) (excluding StructReturn), got {} argument(s). Signature: {:?}",
                     name,
-                    sig.params.len(),
+                    expected_params,
                     data_args.len(),
                     sig
                 ),
             ));
         }
-
-        // Check if function uses StructReturn
-        let uses_struct_return = sig
-            .params
-            .iter()
-            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
 
         if uses_struct_return {
             // Clone signature before mutable borrow
@@ -1385,6 +1415,12 @@ impl GlslExecutable for GlslEmulatorModule {
         // Get function signature (clone to avoid borrow conflicts)
         let sig = self.get_function_signature(name)?.clone();
 
+        // Check if function uses StructReturn (before processing arguments)
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
+
         // Convert arguments to DataValue
         let mut arg_idx = 0;
         let mut data_args = Vec::new();
@@ -1392,25 +1428,26 @@ impl GlslExecutable for GlslEmulatorModule {
             data_args.extend(self.glsl_value_to_data_value(arg, &sig, &mut arg_idx)?);
         }
 
-        // Validate argument count matches signature
-        if data_args.len() != sig.params.len() {
+        // Validate argument count matches signature (excluding StructReturn parameter)
+        let expected_params = if uses_struct_return {
+            // StructReturn parameter is added internally, don't count it
+            sig.params.len() - 1
+        } else {
+            sig.params.len()
+        };
+
+        if data_args.len() != expected_params {
             return Err(GlslError::new(
                 ErrorCode::E0400,
                 format!(
-                    "Argument count mismatch calling function '{}': expected {} parameter(s), got {} argument(s). Signature: {:?}",
+                    "Argument count mismatch calling function '{}': expected {} parameter(s) (excluding StructReturn), got {} argument(s). Signature: {:?}",
                     name,
-                    sig.params.len(),
+                    expected_params,
                     data_args.len(),
                     sig
                 ),
             ));
         }
-
-        // Check if function uses StructReturn
-        let uses_struct_return = sig
-            .params
-            .iter()
-            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
 
         if uses_struct_return {
             // Clone signature before mutable borrow
