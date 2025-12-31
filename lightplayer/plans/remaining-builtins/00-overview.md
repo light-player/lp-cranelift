@@ -28,8 +28,8 @@ Complete implementation of all remaining GLSL builtin functions to achieve 100% 
 3. **Exponential Functions** - inversesqrt ✅
 4. **Advanced Common Functions** - fma ✅, ldexp ✅, frexp ⏸️ (deferred), modf ⏸️ (deferred)
 5. **Matrix Complex Functions** - determinant, inverse ✅
-6. **Pack/Unpack Functions** - all pack/unpack variants
-7. **Integer Bit Functions** - evaluate and implement case-by-case
+6. **Pack/Unpack Functions** - all pack/unpack variants ⏸️ (deferred - frontend codegen)
+7. **Integer Bit Functions** - evaluate and implement case-by-case ⏸️ (deferred - frontend codegen)
 8. **Frontend Codegen** - missing frontend implementations (includes output parameter support for frexp/modf)
 9. **Integration Testing and Cleanup** - final verification
 

@@ -57,10 +57,12 @@ Implement matrix builtins for complex operations:
 - Functions registered in builtin generator
 - Code compiles without warnings
 
-## Phase 6: Pack/Unpack Functions
+## Phase 6: Pack/Unpack Functions ⏸️ **DEFERRED**
 Implement pack/unpack builtins:
 - packHalf2x16, packDouble2x32, packUnorm4x8 - tests: `builtins/pack-half.glsl`, `builtins/pack-double.glsl`, `builtins/pack-unorm.glsl`
 - unpackHalf2x16, unpackDouble2x32, unpackUnorm4x8 - tests: `builtins/unpack-half.glsl`, `builtins/unpack-double.glsl`, `builtins/unpack-unorm.glsl`
+
+**Status:** Deferred - requires frontend codegen for bit manipulation (not fixed32 math)
 
 **Success criteria:**
 - All pack/unpack functions implemented
@@ -68,12 +70,14 @@ Implement pack/unpack builtins:
 - Functions registered in builtin generator
 - Code compiles without warnings
 
-## Phase 7: Integer Bit Functions (Evaluation and Implementation)
+## Phase 7: Integer Bit Functions ⏸️ **DEFERRED**
 Evaluate complexity and implement integer bit manipulation functions:
 - Evaluate: bitCount, findLSB, findMSB, bitfieldReverse, imulextended, uaddcarry, umulextended, usubborrow
 - Implement as inline or builtin based on complexity (< 10 instructions = inline, else builtin)
 - Implement bitfieldExtract and bitfieldInsert as inline (already determined < 10 instructions)
 - Tests: `builtins/integer-bitcount.glsl`, `builtins/integer-bitfieldextract.glsl`, `builtins/integer-bitfieldinsert.glsl`, `builtins/integer-bitfieldreverse.glsl`, `builtins/integer-findlsb.glsl`, `builtins/integer-findmsb.glsl`, `builtins/integer-imulextended.glsl`, `builtins/integer-uaddcarry.glsl`, `builtins/integer-umulextended.glsl`, `builtins/integer-usubborrow.glsl`
+
+**Status:** Deferred - requires frontend codegen for pure integer operations (not fixed32 math)
 
 **Success criteria:**
 - All functions evaluated and implemented appropriately
