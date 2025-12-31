@@ -332,6 +332,18 @@ pub fn lookup_builtin(name: &str) -> Option<Vec<BuiltinSignature>> {
             return_type: BuiltinReturnType::SameAsParam(0),
         }]),
 
+        "round" => Some(vec![BuiltinSignature {
+            name: "round",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+
+        "roundEven" => Some(vec![BuiltinSignature {
+            name: "roundEven",
+            param_types: vec![BuiltinParamType::GenFType],
+            return_type: BuiltinReturnType::SameAsParam(0),
+        }]),
+
         "pow" => Some(vec![BuiltinSignature {
             name: "pow",
             param_types: vec![BuiltinParamType::GenFType, BuiltinParamType::GenFType],

@@ -45,6 +45,8 @@ pub fn map_testcase_to_builtin(testcase_name: &str) -> Option<(BuiltinId, usize)
         "modf" | "__lp_mod" => Some((BuiltinId::Fixed32Mod, 2)),
         "mulf" | "__lp_mul" => Some((BuiltinId::Fixed32Mul, 2)),
         "powf" | "__lp_pow" => Some((BuiltinId::Fixed32Pow, 2)),
+        "roundf" | "__lp_round" => Some((BuiltinId::Fixed32Round, 1)),
+        "roundevenf" | "__lp_roundeven" => Some((BuiltinId::Fixed32Roundeven, 1)),
         "sinf" | "__lp_sin" => Some((BuiltinId::Fixed32Sin, 1)),
         "sinhf" | "__lp_sinh" => Some((BuiltinId::Fixed32Sinh, 1)),
         "sqrtf" | "__lp_sqrt" => Some((BuiltinId::Fixed32Sqrt, 1)),
@@ -53,6 +55,10 @@ pub fn map_testcase_to_builtin(testcase_name: &str) -> Option<(BuiltinId, usize)
         _ => None,
     }
 }
+
+
+
+
 
 
 

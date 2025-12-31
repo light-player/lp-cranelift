@@ -39,6 +39,8 @@ pub enum BuiltinId {
     Fixed32Mod,
     Fixed32Mul,
     Fixed32Pow,
+    Fixed32Round,
+    Fixed32Roundeven,
     Fixed32Sin,
     Fixed32Sinh,
     Fixed32Sqrt,
@@ -70,6 +72,8 @@ impl BuiltinId {
             BuiltinId::Fixed32Mod => "__lp_fixed32_mod",
             BuiltinId::Fixed32Mul => "__lp_fixed32_mul",
             BuiltinId::Fixed32Pow => "__lp_fixed32_pow",
+            BuiltinId::Fixed32Round => "__lp_fixed32_round",
+            BuiltinId::Fixed32Roundeven => "__lp_fixed32_roundeven",
             BuiltinId::Fixed32Sin => "__lp_fixed32_sin",
             BuiltinId::Fixed32Sinh => "__lp_fixed32_sinh",
             BuiltinId::Fixed32Sqrt => "__lp_fixed32_sqrt",
@@ -82,12 +86,6 @@ impl BuiltinId {
     pub fn signature(&self) -> Signature {
         let mut sig = Signature::new(CallConv::SystemV);
         match self {
-            BuiltinId::Fixed32Atan2 | BuiltinId::Fixed32Div | BuiltinId::Fixed32Ldexp | BuiltinId::Fixed32Mod | BuiltinId::Fixed32Mul | BuiltinId::Fixed32Pow => {
-                // (i32, i32) -> i32
-                sig.params.push(AbiParam::new(types::I32));
-                sig.params.push(AbiParam::new(types::I32));
-                sig.returns.push(AbiParam::new(types::I32));
-            }
             BuiltinId::Fixed32Fma => {
                 // (i32, i32, i32) -> i32
                 sig.params.push(AbiParam::new(types::I32));
@@ -95,7 +93,13 @@ impl BuiltinId {
                 sig.params.push(AbiParam::new(types::I32));
                 sig.returns.push(AbiParam::new(types::I32));
             }
-            BuiltinId::Fixed32Acos | BuiltinId::Fixed32Acosh | BuiltinId::Fixed32Asin | BuiltinId::Fixed32Asinh | BuiltinId::Fixed32Atan | BuiltinId::Fixed32Atanh | BuiltinId::Fixed32Cos | BuiltinId::Fixed32Cosh | BuiltinId::Fixed32Exp | BuiltinId::Fixed32Exp2 | BuiltinId::Fixed32Inversesqrt | BuiltinId::Fixed32Log | BuiltinId::Fixed32Log2 | BuiltinId::Fixed32Sin | BuiltinId::Fixed32Sinh | BuiltinId::Fixed32Sqrt | BuiltinId::Fixed32Tan | BuiltinId::Fixed32Tanh => {
+            BuiltinId::Fixed32Atan2 | BuiltinId::Fixed32Div | BuiltinId::Fixed32Ldexp | BuiltinId::Fixed32Mod | BuiltinId::Fixed32Mul | BuiltinId::Fixed32Pow => {
+                // (i32, i32) -> i32
+                sig.params.push(AbiParam::new(types::I32));
+                sig.params.push(AbiParam::new(types::I32));
+                sig.returns.push(AbiParam::new(types::I32));
+            }
+            BuiltinId::Fixed32Acos | BuiltinId::Fixed32Acosh | BuiltinId::Fixed32Asin | BuiltinId::Fixed32Asinh | BuiltinId::Fixed32Atan | BuiltinId::Fixed32Atanh | BuiltinId::Fixed32Cos | BuiltinId::Fixed32Cosh | BuiltinId::Fixed32Exp | BuiltinId::Fixed32Exp2 | BuiltinId::Fixed32Inversesqrt | BuiltinId::Fixed32Log | BuiltinId::Fixed32Log2 | BuiltinId::Fixed32Round | BuiltinId::Fixed32Roundeven | BuiltinId::Fixed32Sin | BuiltinId::Fixed32Sinh | BuiltinId::Fixed32Sqrt | BuiltinId::Fixed32Tan | BuiltinId::Fixed32Tanh => {
                 // (i32) -> i32
                 sig.params.push(AbiParam::new(types::I32));
                 sig.returns.push(AbiParam::new(types::I32));
@@ -127,6 +131,8 @@ impl BuiltinId {
             BuiltinId::Fixed32Mod,
             BuiltinId::Fixed32Mul,
             BuiltinId::Fixed32Pow,
+            BuiltinId::Fixed32Round,
+            BuiltinId::Fixed32Roundeven,
             BuiltinId::Fixed32Sin,
             BuiltinId::Fixed32Sinh,
             BuiltinId::Fixed32Sqrt,
@@ -162,6 +168,8 @@ pub fn get_function_pointer(builtin: BuiltinId) -> *const u8 {
         BuiltinId::Fixed32Mod => fixed32::__lp_fixed32_mod as *const u8,
         BuiltinId::Fixed32Mul => fixed32::__lp_fixed32_mul as *const u8,
         BuiltinId::Fixed32Pow => fixed32::__lp_fixed32_pow as *const u8,
+        BuiltinId::Fixed32Round => fixed32::__lp_fixed32_round as *const u8,
+        BuiltinId::Fixed32Roundeven => fixed32::__lp_fixed32_roundeven as *const u8,
         BuiltinId::Fixed32Sin => fixed32::__lp_fixed32_sin as *const u8,
         BuiltinId::Fixed32Sinh => fixed32::__lp_fixed32_sinh as *const u8,
         BuiltinId::Fixed32Sqrt => fixed32::__lp_fixed32_sqrt as *const u8,

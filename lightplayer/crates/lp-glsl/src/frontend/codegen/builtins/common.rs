@@ -281,6 +281,44 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
         Ok((result_vals, x_ty.clone()))
     }
 
+    /// round(x) - round to nearest integer, halfway cases away from zero (component-wise)
+    pub fn builtin_round(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+
+        // Use get_math_libcall for 1-arg function
+        let func_ref = self.get_math_libcall("roundf")?;
+
+        let mut result_vals = Vec::new();
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
+    /// roundEven(x) - round to nearest integer, halfway cases to nearest even (component-wise)
+    pub fn builtin_roundeven(
+        &mut self,
+        args: Vec<(Vec<Value>, Type)>,
+    ) -> Result<(Vec<Value>, Type), GlslError> {
+        let (x_vals, x_ty) = &args[0];
+
+        // Use get_math_libcall for 1-arg function
+        let func_ref = self.get_math_libcall("roundevenf")?;
+
+        let mut result_vals = Vec::new();
+        for &val in x_vals {
+            let call_inst = self.builder.ins().call(func_ref, &[val]);
+            result_vals.push(self.builder.inst_results(call_inst)[0]);
+        }
+
+        Ok((result_vals, x_ty.clone()))
+    }
+
     /// pow(x, y) = x^y (component-wise)
     pub fn builtin_pow(
         &mut self,

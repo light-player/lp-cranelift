@@ -27,6 +27,8 @@ use lp_builtins::fixed32::{
     __lp_fixed32_mod,
     __lp_fixed32_mul,
     __lp_fixed32_pow,
+    __lp_fixed32_round,
+    __lp_fixed32_roundeven,
     __lp_fixed32_sin,
     __lp_fixed32_sinh,
     __lp_fixed32_sqrt,
@@ -60,6 +62,8 @@ pub fn ensure_builtins_referenced() {
         let _mod_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_mod;
         let _mul_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_mul;
         let _pow_fn: extern "C" fn(i32, i32) -> i32 = __lp_fixed32_pow;
+        let _round_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_round;
+        let _roundeven_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_roundeven;
         let _sin_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_sin;
         let _sinh_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_sinh;
         let _sqrt_fn: extern "C" fn(i32) -> i32 = __lp_fixed32_sqrt;
@@ -88,6 +92,8 @@ pub fn ensure_builtins_referenced() {
         let _ = core::ptr::read_volatile(&_mod_fn as *const _);
         let _ = core::ptr::read_volatile(&_mul_fn as *const _);
         let _ = core::ptr::read_volatile(&_pow_fn as *const _);
+        let _ = core::ptr::read_volatile(&_round_fn as *const _);
+        let _ = core::ptr::read_volatile(&_roundeven_fn as *const _);
         let _ = core::ptr::read_volatile(&_sin_fn as *const _);
         let _ = core::ptr::read_volatile(&_sinh_fn as *const _);
         let _ = core::ptr::read_volatile(&_sqrt_fn as *const _);

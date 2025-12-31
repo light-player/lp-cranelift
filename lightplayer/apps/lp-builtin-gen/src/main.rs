@@ -196,8 +196,26 @@ fn generate_registry(path: &Path, builtins: &[BuiltinInfo]) {
     output.push_str("        match self {\n");
 
     // Group by parameter count
+    let ternary_ops: Vec<_> = builtins.iter().filter(|b| b.param_count == 3).collect();
     let binary_ops: Vec<_> = builtins.iter().filter(|b| b.param_count == 2).collect();
     let unary_ops: Vec<_> = builtins.iter().filter(|b| b.param_count == 1).collect();
+
+    if !ternary_ops.is_empty() {
+        output.push_str("            ");
+        for (i, builtin) in ternary_ops.iter().enumerate() {
+            if i > 0 {
+                output.push_str(" | ");
+            }
+            output.push_str(&format!("BuiltinId::{}", builtin.enum_variant));
+        }
+        output.push_str(" => {\n");
+        output.push_str("                // (i32, i32, i32) -> i32\n");
+        output.push_str("                sig.params.push(AbiParam::new(types::I32));\n");
+        output.push_str("                sig.params.push(AbiParam::new(types::I32));\n");
+        output.push_str("                sig.params.push(AbiParam::new(types::I32));\n");
+        output.push_str("                sig.returns.push(AbiParam::new(types::I32));\n");
+        output.push_str("            }\n");
+    }
 
     if !binary_ops.is_empty() {
         output.push_str("            ");
@@ -357,7 +375,9 @@ fn generate_builtin_refs(path: &Path, builtins: &[BuiltinInfo]) {
 
     // Generate function pointer declarations
     for builtin in builtins {
-        let fn_type = if builtin.param_count == 2 {
+        let fn_type = if builtin.param_count == 3 {
+            "extern \"C\" fn(i32, i32, i32) -> i32"
+        } else if builtin.param_count == 2 {
             "extern \"C\" fn(i32, i32) -> i32"
         } else {
             "extern \"C\" fn(i32) -> i32"
