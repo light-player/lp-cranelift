@@ -180,6 +180,29 @@ pub fn infer_matrix_binary_result_type(
             .with_location(source_span_to_location(&span)))
         }
 
+        // Matrix == Matrix and Matrix != Matrix: aggregate comparison
+        Equal | NonEqual => {
+            if lhs_ty.is_matrix() && rhs_ty.is_matrix() {
+                if lhs_ty != rhs_ty {
+                    return Err(GlslError::new(
+                        ErrorCode::E0106,
+                        "matrix equality requires matching matrix types",
+                    )
+                    .with_location(source_span_to_location(&span))
+                    .with_note(format!(
+                        "left operand: `{:?}`, right operand: `{:?}`",
+                        lhs_ty, rhs_ty
+                    )));
+                }
+                return Ok(Type::Bool);
+            }
+            Err(GlslError::new(
+                ErrorCode::E0106,
+                "matrix equality requires both operands to be matrices",
+            )
+            .with_location(source_span_to_location(&span)))
+        }
+
         _ => Err(GlslError::new(
             ErrorCode::E0106,
             format!("operator {:?} not supported for matrices", op),

@@ -213,6 +213,66 @@ pub fn emit_matrix_binary<M: cranelift_module::Module>(
             .with_location(source_span_to_location(&span)))
         }
 
+        // Matrix == Matrix and Matrix != Matrix: aggregate comparison
+        Equal | NonEqual => {
+            if lhs_ty.is_matrix() && rhs_ty.is_matrix() {
+                if lhs_ty != rhs_ty {
+                    return Err(GlslError::new(
+                        ErrorCode::E0106,
+                        "matrix equality requires matching types",
+                    )
+                    .with_location(source_span_to_location(&span)));
+                }
+                // Aggregate comparison: compare all components and return bool (true if all equal)
+                let zero = ctx
+                    .builder
+                    .ins()
+                    .iconst(cranelift_codegen::ir::types::I8, 0);
+                let one = ctx
+                    .builder
+                    .ins()
+                    .iconst(cranelift_codegen::ir::types::I8, 1);
+
+                // Start with true (all components equal so far)
+                let mut all_equal_cmp: Option<cranelift_codegen::ir::Value> = None;
+
+                for i in 0..lhs_vals.len() {
+                    let lhs_comp = lhs_vals[i];
+                    let rhs_comp = rhs_vals[i];
+                    // Compare components (returns I1) - matrices are always float-based
+                    let cmp = ctx.builder.ins().fcmp(
+                        cranelift_codegen::ir::condcodes::FloatCC::Equal,
+                        lhs_comp,
+                        rhs_comp,
+                    );
+                    // AND with previous result (band works on I1)
+                    if let Some(prev) = all_equal_cmp {
+                        all_equal_cmp = Some(ctx.builder.ins().band(prev, cmp));
+                    } else {
+                        all_equal_cmp = Some(cmp);
+                    }
+                }
+
+                let all_equal = all_equal_cmp.unwrap();
+
+                // For ==, return all_equal; for !=, return NOT(all_equal)
+                if matches!(op, glsl::syntax::BinaryOp::Equal) {
+                    // ==: return one if all equal, zero otherwise
+                    let result = ctx.builder.ins().select(all_equal, one, zero);
+                    return Ok((vec![result], GlslType::Bool));
+                } else {
+                    // !=: return zero if all equal, one otherwise (swapped arguments)
+                    let result = ctx.builder.ins().select(all_equal, zero, one);
+                    return Ok((vec![result], GlslType::Bool));
+                }
+            }
+            Err(GlslError::new(
+                ErrorCode::E0106,
+                "matrix equality requires both operands to be matrices",
+            )
+            .with_location(source_span_to_location(&span)))
+        }
+
         _ => Err(GlslError::new(
             ErrorCode::E0106,
             format!("operator {:?} not supported for matrices", op),
