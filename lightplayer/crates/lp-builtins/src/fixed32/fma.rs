@@ -13,7 +13,7 @@ use super::mul::__lp_fixed32_mul;
 pub extern "C" fn __lp_fixed32_fma(a: i32, b: i32, c: i32) -> i32 {
     // Compute a * b using mul builtin
     let product = __lp_fixed32_mul(a, b);
-    
+
     // Add c (simple addition in fixed-point)
     product.wrapping_add(c)
 }
@@ -33,7 +33,11 @@ mod tests {
         let c = float_to_fixed(4.0);
         let result = __lp_fixed32_fma(a, b, c);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 10.0).abs() < 0.01, "Expected ~10.0, got {}", result_float);
+        assert!(
+            (result_float - 10.0).abs() < 0.01,
+            "Expected ~10.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -44,7 +48,11 @@ mod tests {
         let c = float_to_fixed(5.0);
         let result = __lp_fixed32_fma(a, b, c);
         let result_float = fixed_to_float(result);
-        assert!((result_float - (-1.0)).abs() < 0.01, "Expected ~-1.0, got {}", result_float);
+        assert!(
+            (result_float - (-1.0)).abs() < 0.01,
+            "Expected ~-1.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -55,7 +63,10 @@ mod tests {
         let c = float_to_fixed(0.5);
         let result = __lp_fixed32_fma(a, b, c);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 3.5).abs() < 0.01, "Expected ~3.5, got {}", result_float);
+        assert!(
+            (result_float - 3.5).abs() < 0.01,
+            "Expected ~3.5, got {}",
+            result_float
+        );
     }
 }
-

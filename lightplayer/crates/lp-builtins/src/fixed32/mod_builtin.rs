@@ -12,15 +12,15 @@ use super::mul::__lp_fixed32_mul;
 pub extern "C" fn __lp_fixed32_mod(x: i32, y: i32) -> i32 {
     // Compute x / y using div builtin
     let div_result = __lp_fixed32_div(x, y);
-    
+
     // floor(x / y): In fixed-point Q16.16, floor is just shifting right by 16 then left by 16
     // This truncates the fractional part (rounds toward negative infinity for negative numbers)
     // Use arithmetic shift to preserve sign
     let floored = (div_result as i32 >> 16) << 16;
-    
+
     // y * floor(x / y) using mul builtin
     let y_times_floor = __lp_fixed32_mul(y, floored);
-    
+
     // x - y * floor(x / y)
     x.wrapping_sub(y_times_floor)
 }
@@ -39,7 +39,11 @@ mod tests {
         let y = float_to_fixed(3.0);
         let result = __lp_fixed32_mod(x, y);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 1.0).abs() < 0.01, "Expected ~1.0, got {}", result_float);
+        assert!(
+            (result_float - 1.0).abs() < 0.01,
+            "Expected ~1.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -49,7 +53,11 @@ mod tests {
         let y = float_to_fixed(3.0);
         let result = __lp_fixed32_mod(x, y);
         let result_float = fixed_to_float(result);
-        assert!(result_float.abs() < 0.01, "Expected ~0.0, got {}", result_float);
+        assert!(
+            result_float.abs() < 0.01,
+            "Expected ~0.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -59,7 +67,11 @@ mod tests {
         let y = float_to_fixed(3.0);
         let result = __lp_fixed32_mod(x, y);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 2.0).abs() < 0.01, "Expected ~2.0, got {}", result_float);
+        assert!(
+            (result_float - 2.0).abs() < 0.01,
+            "Expected ~2.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -69,6 +81,10 @@ mod tests {
         let y = float_to_fixed(2.0);
         let result = __lp_fixed32_mod(x, y);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 1.5).abs() < 0.01, "Expected ~1.5, got {}", result_float);
+        assert!(
+            (result_float - 1.5).abs() < 0.01,
+            "Expected ~1.5, got {}",
+            result_float
+        );
     }
 }

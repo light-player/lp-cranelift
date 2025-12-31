@@ -59,7 +59,7 @@ impl Target {
     /// Create or get cached ISA for this target
     pub fn create_isa(&mut self) -> Result<&OwnedTargetIsa, GlslError> {
         match self {
-            Target::Rv32Emu { flags, isa } => {
+            Target::Rv32Emu { flags: _, isa } => {
                 if isa.is_none() {
                     #[cfg(feature = "emulator")]
                     {

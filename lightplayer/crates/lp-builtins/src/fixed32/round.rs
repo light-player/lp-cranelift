@@ -12,10 +12,10 @@ pub extern "C" fn __lp_fixed32_round(x: i32) -> i32 {
     if x == 0 {
         return 0;
     }
-    
+
     // Halfway point: 0x8000 (32768 = 0.5 in Q16.16)
     let half = 0x8000i32;
-    
+
     if x > 0 {
         // For positive: add 0.5, then truncate
         let added = x.wrapping_add(half);
@@ -40,7 +40,11 @@ mod tests {
         let x = float_to_fixed(1.7);
         let result = __lp_fixed32_round(x);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 2.0).abs() < 0.01, "Expected ~2.0, got {}", result_float);
+        assert!(
+            (result_float - 2.0).abs() < 0.01,
+            "Expected ~2.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -49,7 +53,11 @@ mod tests {
         let x = float_to_fixed(-1.7);
         let result = __lp_fixed32_round(x);
         let result_float = fixed_to_float(result);
-        assert!((result_float - (-2.0)).abs() < 0.01, "Expected ~-2.0, got {}", result_float);
+        assert!(
+            (result_float - (-2.0)).abs() < 0.01,
+            "Expected ~-2.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -58,7 +66,11 @@ mod tests {
         let x = float_to_fixed(1.5);
         let result = __lp_fixed32_round(x);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 2.0).abs() < 0.01, "Expected ~2.0, got {}", result_float);
+        assert!(
+            (result_float - 2.0).abs() < 0.01,
+            "Expected ~2.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -67,7 +79,10 @@ mod tests {
         let x = float_to_fixed(-1.5);
         let result = __lp_fixed32_round(x);
         let result_float = fixed_to_float(result);
-        assert!((result_float - (-2.0)).abs() < 0.01, "Expected ~-2.0, got {}", result_float);
+        assert!(
+            (result_float - (-2.0)).abs() < 0.01,
+            "Expected ~-2.0, got {}",
+            result_float
+        );
     }
 }
-

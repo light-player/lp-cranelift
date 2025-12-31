@@ -551,10 +551,12 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
                 2 => Type::BVec2,
                 3 => Type::BVec3,
                 4 => Type::BVec4,
-                _ => return Err(GlslError::new(
-                    ErrorCode::E0105,
-                    format!("isinf() not supported for vector dimension {}", dim),
-                )),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0105,
+                        format!("isinf() not supported for vector dimension {}", dim),
+                    ));
+                }
             }
         } else {
             Type::Bool
@@ -600,10 +602,12 @@ impl<'a, M: cranelift_module::Module> CodegenContext<'a, M> {
                 2 => Type::BVec2,
                 3 => Type::BVec3,
                 4 => Type::BVec4,
-                _ => return Err(GlslError::new(
-                    ErrorCode::E0105,
-                    format!("isnan() not supported for vector dimension {}", dim),
-                )),
+                _ => {
+                    return Err(GlslError::new(
+                        ErrorCode::E0105,
+                        format!("isnan() not supported for vector dimension {}", dim),
+                    ));
+                }
             }
         } else {
             Type::Bool

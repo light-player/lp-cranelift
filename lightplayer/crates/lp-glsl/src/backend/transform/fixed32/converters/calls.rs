@@ -151,7 +151,7 @@ pub(crate) fn convert_call(
         let new_func_ref = if let Some(func_name) = func_name_opt {
             // Check if this is a function that should be converted inline (fract, sign, isinf, isnan)
             let old_args = args.as_slice(&old_func.dfg.value_lists);
-            
+
             // Handle inline conversions for simple functions
             if func_name == "fractf" || func_name == "__lp_fract" {
                 if old_args.len() != 1 {
@@ -206,8 +206,8 @@ pub(crate) fn convert_call(
                 let target_type = format.cranelift_type();
                 let max_fixed = builder.ins().iconst(target_type, 0x7FFF_FFFFi64);
                 let min_fixed = builder.ins().iconst(target_type, i32::MIN as i64);
-                let zero_i8 = builder.ins().iconst(types::I8, 0);
-                let one_i8 = builder.ins().iconst(types::I8, 1);
+                let _zero_i8 = builder.ins().iconst(types::I8, 0);
+                let _one_i8 = builder.ins().iconst(types::I8, 1);
                 let is_max = builder.ins().icmp(IntCC::Equal, arg, max_fixed);
                 let is_min = builder.ins().icmp(IntCC::Equal, arg, min_fixed);
                 let is_inf = builder.ins().bor(is_max, is_min);
@@ -241,7 +241,7 @@ pub(crate) fn convert_call(
                 let target_type = format.cranelift_type();
                 let max_fixed = builder.ins().iconst(target_type, 0x7FFF_FFFFi64);
                 let min_fixed = builder.ins().iconst(target_type, i32::MIN as i64);
-                let zero_i8 = builder.ins().iconst(types::I8, 0);
+                let _zero_i8 = builder.ins().iconst(types::I8, 0);
                 let is_max = builder.ins().icmp(IntCC::Equal, arg, max_fixed);
                 let is_min = builder.ins().icmp(IntCC::Equal, arg, min_fixed);
                 let is_inf = builder.ins().bor(is_max, is_min);
@@ -249,7 +249,7 @@ pub(crate) fn convert_call(
                 value_map.insert(old_result, is_inf);
                 return Ok(());
             }
-            
+
             // Check if this is a math function that should be converted to a builtin
             if let Some((builtin_id, expected_arg_count)) = map_testcase_to_builtin(func_name) {
                 // Convert to builtin call (similar to convert_sqrt)

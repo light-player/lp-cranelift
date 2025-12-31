@@ -11,7 +11,7 @@ pub extern "C" fn __lp_fixed32_ldexp(x: i32, exp: i32) -> i32 {
     if exp == 0 {
         return x;
     }
-    
+
     if exp > 0 {
         // Left shift: x * 2^exp
         // But we need to be careful about overflow
@@ -37,7 +37,11 @@ mod tests {
         let x = float_to_fixed(1.0);
         let result = __lp_fixed32_ldexp(x, 1);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 2.0).abs() < 0.01, "Expected ~2.0, got {}", result_float);
+        assert!(
+            (result_float - 2.0).abs() < 0.01,
+            "Expected ~2.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -46,7 +50,11 @@ mod tests {
         let x = float_to_fixed(1.0);
         let result = __lp_fixed32_ldexp(x, 2);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 4.0).abs() < 0.01, "Expected ~4.0, got {}", result_float);
+        assert!(
+            (result_float - 4.0).abs() < 0.01,
+            "Expected ~4.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -55,7 +63,10 @@ mod tests {
         let x = float_to_fixed(0.5);
         let result = __lp_fixed32_ldexp(x, -1);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 0.25).abs() < 0.01, "Expected ~0.25, got {}", result_float);
+        assert!(
+            (result_float - 0.25).abs() < 0.01,
+            "Expected ~0.25, got {}",
+            result_float
+        );
     }
 }
-

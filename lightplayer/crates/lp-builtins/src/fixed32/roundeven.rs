@@ -14,14 +14,14 @@ pub extern "C" fn __lp_fixed32_roundeven(x: i32) -> i32 {
     if x == 0 {
         return 0;
     }
-    
+
     // Extract integer and fractional parts
     let integer_part = x >> 16;
     let fractional_part = x & 0xFFFF;
-    
+
     // Check if we're at halfway point (fractional part == 0x8000 = 0.5)
     let is_halfway = fractional_part == 0x8000;
-    
+
     if is_halfway {
         // Round to nearest even
         // If integer part is even, round toward zero (keep as is)
@@ -63,7 +63,11 @@ mod tests {
         let x = float_to_fixed(2.5);
         let result = __lp_fixed32_roundeven(x);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 2.0).abs() < 0.01, "Expected ~2.0, got {}", result_float);
+        assert!(
+            (result_float - 2.0).abs() < 0.01,
+            "Expected ~2.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -72,7 +76,11 @@ mod tests {
         let x = float_to_fixed(1.5);
         let result = __lp_fixed32_roundeven(x);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 2.0).abs() < 0.01, "Expected ~2.0, got {}", result_float);
+        assert!(
+            (result_float - 2.0).abs() < 0.01,
+            "Expected ~2.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -81,7 +89,11 @@ mod tests {
         let x = float_to_fixed(-2.5);
         let result = __lp_fixed32_roundeven(x);
         let result_float = fixed_to_float(result);
-        assert!((result_float - (-2.0)).abs() < 0.01, "Expected ~-2.0, got {}", result_float);
+        assert!(
+            (result_float - (-2.0)).abs() < 0.01,
+            "Expected ~-2.0, got {}",
+            result_float
+        );
     }
 
     #[test]
@@ -90,7 +102,10 @@ mod tests {
         let x = float_to_fixed(1.7);
         let result = __lp_fixed32_roundeven(x);
         let result_float = fixed_to_float(result);
-        assert!((result_float - 2.0).abs() < 0.01, "Expected ~2.0, got {}", result_float);
+        assert!(
+            (result_float - 2.0).abs() < 0.01,
+            "Expected ~2.0, got {}",
+            result_float
+        );
     }
 }
-

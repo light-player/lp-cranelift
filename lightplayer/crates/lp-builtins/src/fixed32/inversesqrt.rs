@@ -21,7 +21,7 @@ pub extern "C" fn __lp_fixed32_inversesqrt(x: i32) -> i32 {
 
     // Compute sqrt(x)
     let sqrt_x = __lp_fixed32_sqrt(x);
-    
+
     // Compute 1 / sqrt(x)
     __lp_fixed32_div(FIX16_ONE, sqrt_x)
 }
@@ -44,12 +44,6 @@ mod tests {
         ];
 
         // Use 5% tolerance (uses sqrt and div internally)
-        test_fixed32_function_relative(
-            |x| __lp_fixed32_inversesqrt(x),
-            &tests,
-            0.05,
-            0.01,
-        );
+        test_fixed32_function_relative(|x| __lp_fixed32_inversesqrt(x), &tests, 0.05, 0.01);
     }
 }
-
