@@ -3,14 +3,12 @@
 //! This module provides a helper struct to update test files in-place when
 //! expectations don't match, matching Cranelift's FileUpdate semantics.
 
-use anyhow::{Result, bail};
+use crate::parse::test_type::ComparisonOp;
+use anyhow::{bail, Result};
+use lp_glsl::GlslValue;
 use std::cell::Cell;
 use std::fs;
 use std::path::{Path, PathBuf};
-
-use crate::filetest::ComparisonOp;
-use crate::filetest_parse;
-use lp_glsl::GlslValue;
 
 /// A helper struct to update a file in-place as test expectations are
 /// automatically updated.
@@ -123,104 +121,10 @@ impl FileUpdate {
     }
 
     /// Update CLIF expectations for a test type (compile or transform.fixed32).
-    pub fn update_clif_expectations(&self, test_type: &str, new_clif: &str) -> Result<()> {
-        // Read the old test file
-        let old_test = fs::read_to_string(&self.path)?;
-        let lines: Vec<String> = old_test.lines().map(|s| s.to_string()).collect();
-        let lines_refs: Vec<&str> = lines.iter().map(|s| s.as_str()).collect();
-
-        // Find section boundaries
-        let boundaries = filetest_parse::find_section_boundaries(&lines);
-        let clif_boundaries = filetest_parse::find_clif_section_boundaries(
-            &lines,
-            boundaries.glsl_end,
-            boundaries.run_start,
-        );
-
-        let glsl_end = boundaries.glsl_end;
-        let run_start = boundaries.run_start;
-        let compile_section_start = clif_boundaries.compile_start;
-        let compile_section_end = clif_boundaries.compile_end;
-        let transform_section_start = clif_boundaries.transform_start;
-        let transform_section_end = clif_boundaries.transform_end;
-
-        // Determine which section to update
-        let (section_start, section_end) = match test_type {
-            "compile" => {
-                if let Some(start) = compile_section_start {
-                    (
-                        start + 1,
-                        compile_section_end.unwrap_or(transform_section_start.unwrap_or(run_start)),
-                    )
-                } else {
-                    // No marker found, update from glsl_end to first blank line or transform section
-                    let end = transform_section_start
-                        .or_else(|| {
-                            lines_refs[glsl_end..run_start]
-                                .iter()
-                                .position(|l| l.trim() == "//")
-                                .map(|pos| glsl_end + pos)
-                        })
-                        .unwrap_or(run_start);
-                    (glsl_end, end)
-                }
-            }
-            "transform.fixed32" => {
-                if let Some(start) = transform_section_start {
-                    (start + 1, transform_section_end.unwrap_or(run_start))
-                } else {
-                    // No marker found, update from after compile section or glsl_end
-                    let start = compile_section_end.unwrap_or(glsl_end);
-                    (start, run_start)
-                }
-            }
-            _ => bail!("unknown test type: {}", test_type),
-        };
-
-        // Build new file content
-        let mut new_test = String::new();
-
-        // Add everything before the section
-        for line in lines_refs.iter().take(section_start) {
-            new_test.push_str(line);
-            new_test.push('\n');
-        }
-
-        // Add section marker if it exists
-        if section_start > 0 && section_start <= lines_refs.len() {
-            let marker_line = lines_refs[section_start - 1].trim();
-            if marker_line.starts_with("// #compile:") || marker_line.starts_with("// #transform:")
-            {
-                new_test.push_str(lines_refs[section_start - 1]);
-                new_test.push('\n');
-            }
-        }
-
-        // Add new CLIF (with // prefix on each line)
-        for line in new_clif.lines() {
-            if !line.trim().is_empty() {
-                new_test.push_str("// ");
-                new_test.push_str(line);
-                new_test.push('\n');
-            } else {
-                new_test.push_str("//\n");
-            }
-        }
-
-        // Add blank separator line if needed
-        if section_end < run_start {
-            new_test.push_str("//\n");
-        }
-
-        // Add everything after the section
-        for line in lines_refs.iter().skip(section_end) {
-            new_test.push_str(line);
-            new_test.push('\n');
-        }
-
-        // Write file back
-        fs::write(&self.path, new_test)?;
-        Ok(())
+    /// TODO: Implement when CLIF tests are implemented.
+    pub fn update_clif_expectations(&self, _test_type: &str, _new_clif: &str) -> Result<()> {
+        // TODO: Implement CLIF expectation updates when CLIF tests are implemented
+        todo!("CLIF expectation updates not yet implemented")
     }
 }
 
@@ -328,3 +232,4 @@ pub fn format_glsl_value(value: &GlslValue) -> String {
         }
     }
 }
+

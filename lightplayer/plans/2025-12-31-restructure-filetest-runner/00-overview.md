@@ -93,4 +93,8 @@ src/
 5. File structure matches the proposed structure above
 6. All `mod.rs` files contain only re-exports
 7. Terminology is consistent ("test glsl" instead of "bootstrap", `OutputMode` instead of `show_full_output`)
+8. Filetests run correctly using the scripts:
+   - `scripts/glsl-filetests.sh matrix/mat4` (summary mode - multiple tests)
+   - `scripts/glsl-filetests.sh matrix/mat4/op-add.glsl` (detail mode - single test)
+   - Both should show appropriate output format (errors at end with rerun commands)
 

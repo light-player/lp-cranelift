@@ -45,5 +45,8 @@
 - Test compile and transform modules organized
 - Code compiles
 - No warnings
-- Tests still pass
+- **Tests added for utility functions:**
+  - `util/file_update::format_glsl_value()` - test value formatting
+  - `util/file_update::FileUpdate` - test file update operations
+- **All tests pass before moving to Phase 5**
 

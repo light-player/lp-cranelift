@@ -54,5 +54,10 @@
 - `OutputMode` enum used instead of boolean
 - Code compiles
 - No warnings
-- Tests still pass
+- **Tests added for utility functions:**
+  - `test_run/target::parse_target()` - test target parsing
+  - `test_run/parse_assert::parse_function_call()` - test function call parsing
+  - `test_run/parse_assert::parse_glsl_value()` - test value parsing
+  - `test_run/parse_assert::compare_results()` - test value comparison
+- **All tests pass before moving to Phase 4**
 

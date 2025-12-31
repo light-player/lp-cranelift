@@ -38,3 +38,4 @@ pub fn validate_clif_module(module: &GlModule<ObjectModule>, isa: &dyn TargetIsa
 
     Ok(())
 }
+

@@ -41,5 +41,11 @@
 - All imports updated
 - Code compiles
 - No warnings
-- Tests still pass
+- **Tests added for each parsing function:**
+  - `parse_test_type::parse_test_type()` - test all test types
+  - `parse_target::parse_target_directive()` - test target parsing
+  - `parse_run::parse_run_directive()` - test run directive parsing (exact and approx)
+  - `parse_trap::parse_trap_expectation()` - test trap expectation parsing
+  - `parse_source::extract_source_and_expectations()` - test source extraction
+- **All tests pass before moving to Phase 3**
 

@@ -5,67 +5,54 @@
 
 #![deny(missing_docs)]
 
-pub mod concurrent;
-pub mod file_update;
-pub mod filetest;
-pub mod filetest_parse;
+pub mod colors;
+pub mod discovery;
+pub mod output_mode;
+pub mod parse;
+pub mod runner;
 pub mod test_compile;
 pub mod test_run;
 pub mod test_transform;
-pub mod test_utils;
-pub mod validation;
+pub mod util;
 
 use anyhow::Result;
-use glob::{MatchOptions, glob_with};
+use glob::{glob_with, MatchOptions};
+use output_mode::OutputMode;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use walkdir::WalkDir;
 
-/// ANSI color codes for terminal output (matching Rust's test output style)
-pub mod colors {
-    /// Green color
-    pub const GREEN: &str = "\x1b[32m";
-    /// Light/bright green color
-    pub const LIGHT_GREEN: &str = "\x1b[92m";
-    /// Red color
-    pub const RED: &str = "\x1b[31m";
-    /// Yellow color
-    pub const YELLOW: &str = "\x1b[33m";
-    /// Dim/grey color
-    pub const DIM: &str = "\x1b[2m";
-    /// Bold text
-    pub const BOLD: &str = "\x1b[1m";
-    /// Reset color
-    pub const RESET: &str = "\x1b[0m";
-}
-
-/// Check if colors should be enabled.
-/// Respects NO_COLOR environment variable.
-fn should_color() -> bool {
-    std::env::var("NO_COLOR").is_err()
-}
-
-/// Format text with color if colors are enabled.
-fn colorize(text: &str, color: &str) -> String {
-    if should_color() {
-        format!("{}{}{}", color, text, colors::RESET)
-    } else {
-        text.to_string()
-    }
-}
-
-/// Compute relative path from filetests_dir to the given path.
-fn relative_path(path: &Path, filetests_dir: &Path) -> String {
-    path.strip_prefix(filetests_dir)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .to_string()
-}
-
 /// Run a single filetest.
 pub fn run_filetest(path: &Path) -> Result<()> {
-    let (result, _stats) = run_filetest_with_line_filter(path, None, true)?;
+    let (result, _stats) = run_filetest_with_line_filter(path, None, OutputMode::Detail)?;
     result
+}
+
+/// Count test cases in a file by counting `// run:` directives.
+/// This works even if parsing fails later, so we can show stats.
+pub(crate) fn count_test_cases(path: &Path, line_filter: Option<usize>) -> test_run::TestCaseStats {
+    let mut stats = test_run::TestCaseStats::default();
+    
+    // Try to read and count run directives
+    if let Ok(contents) = std::fs::read_to_string(path) {
+        for (line_num, line) in contents.lines().enumerate() {
+            let line_number = line_num + 1;
+            
+            // Apply line filter if provided
+            if let Some(filter_line) = line_filter {
+                if line_number != filter_line {
+                    continue;
+                }
+            }
+            
+            // Check if this line contains a run directive
+            if parse::parse_run::parse_run_directive_line(line).is_some() {
+                stats.total += 1;
+            }
+        }
+    }
+    
+    stats
 }
 
 /// Run a single filetest with optional line number filtering.
@@ -73,9 +60,18 @@ pub fn run_filetest(path: &Path) -> Result<()> {
 pub fn run_filetest_with_line_filter(
     path: &Path,
     line_filter: Option<usize>,
-    show_full_output: bool,
+    output_mode: OutputMode,
 ) -> Result<(Result<()>, test_run::TestCaseStats)> {
-    let test_file = filetest::parse_test_file(path)?;
+    // Count test cases early, even if parsing fails later
+    let early_stats = count_test_cases(path, line_filter);
+    
+    let test_file = match parse::parse_test_file(path) {
+        Ok(tf) => tf,
+        Err(e) => {
+            // Return error but preserve the test case count we already computed
+            return Ok((Err(e), early_stats));
+        }
+    };
 
     // Validate line number if provided
     if let Some(line_number) = line_filter {
@@ -92,41 +88,32 @@ pub fn run_filetest_with_line_filter(
     }
 
     // Run compile test if requested
-    if test_file.test_types.contains(&filetest::TestType::Compile) {
-        test_compile::run_compile_test(
-            &test_file.glsl_source,
-            &test_file
-                .clif_expectations
-                .pre_transform
-                .as_deref()
-                .unwrap_or(""),
-            path,
-        )?;
+    // TODO: Implement compile test in Phase 4
+    if test_file.test_types.contains(&parse::TestType::Compile) {
+        // test_compile::run_compile_test(...)?;
     }
 
     // Run transform test if requested
+    // TODO: Implement transform test in Phase 4
     if test_file
         .test_types
-        .contains(&filetest::TestType::TransformFixed32)
+        .contains(&parse::TestType::TransformFixed32)
     {
-        test_transform::run_transform_fixed32_test(
-            &test_file.glsl_source,
-            &test_file
-                .clif_expectations
-                .post_transform_fixed32
-                .as_deref()
-                .unwrap_or(""),
-            path,
-        )?;
+        // test_transform::run_transform_fixed32_test(...)?;
     }
 
     // Run execution tests if requested
     if test_file
         .test_types
         .iter()
-        .any(|t| matches!(t, filetest::TestType::Run))
+        .any(|t| matches!(t, parse::TestType::Run))
     {
-        let (result, stats) = test_run::run_test_file_with_line_filter(&test_file, path, line_filter, show_full_output)?;
+        let (result, stats) = test_run::run_test_file_with_line_filter(
+            &test_file,
+            path,
+            line_filter,
+            output_mode,
+        )?;
         Ok((result, stats))
     } else {
         Ok((Ok(()), test_run::TestCaseStats::default()))
@@ -140,25 +127,383 @@ struct FileSpec {
     line_number: Option<usize>,
 }
 
-/// Represents a failed test for summary reporting.
-struct FailedTest {
-    path: PathBuf,
-    line_number: Option<usize>,
-}
+/// Main entry point for `lp-test test`.
+///
+/// Take a list of filenames which can be either `.glsl` files or directories.
+/// Files can optionally include line numbers in the format `file.glsl:42`.
+/// Glob patterns are supported (e.g., `*.glsl`, `math/*`, `*add*`).
+///
+/// Files are interpreted as test cases and executed immediately.
+///
+/// Directories are scanned recursively for test cases ending in `.glsl`.
+///
+/// Mode is determined by test count:
+/// - Single test (1 file): Full detailed output with all error information
+/// - Multiple tests (>1 file): Minimal output with colored checkmarks
+pub fn run(files: &[String]) -> anyhow::Result<()> {
+    let filetests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("filetests");
+    let mut test_specs = Vec::new();
 
-/// Test execution state for tracking parallel execution.
-#[derive(Debug)]
-enum TestState {
-    New,
-    Queued,
-    Done(anyhow::Result<()>),
-}
+    // Parse all file specifications, expanding glob patterns as needed
+    for file_str in files {
+        let specs = parse_file_spec_with_glob(file_str, &filetests_dir)?;
 
-/// Test entry for parallel execution.
-struct TestEntry {
-    spec: FileSpec,
-    state: TestState,
-    stats: test_run::TestCaseStats,
+        for spec in specs {
+            // Handle directories by recursively finding all .glsl files
+            if spec.path.is_dir() {
+                for entry in WalkDir::new(&spec.path) {
+                    match entry {
+                        Ok(entry) => {
+                            let path = entry.path();
+                            if path.is_file()
+                                && path.extension().and_then(|s| s.to_str()) == Some("glsl")
+                            {
+                                test_specs.push(FileSpec {
+                                    path: path.to_path_buf(),
+                                    line_number: spec.line_number,
+                                });
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!(
+                                "Warning: error walking directory {}: {}",
+                                spec.path.display(),
+                                e
+                            );
+                        }
+                    }
+                }
+            } else if spec.path.is_file() {
+                // Validate that the path exists and is a .glsl file
+                if spec.path.extension().and_then(|s| s.to_str()) == Some("glsl") {
+                    test_specs.push(spec);
+                } else {
+                    eprintln!(
+                        "Warning: {} is not a .glsl file, skipping",
+                        spec.path.display()
+                    );
+                }
+            } else {
+                eprintln!("Warning: {} does not exist, skipping", spec.path.display());
+            }
+        }
+    }
+
+    if test_specs.is_empty() {
+        anyhow::bail!("no .glsl test files found");
+    }
+
+    // Sort for deterministic output
+    test_specs.sort_by(|a, b| a.path.cmp(&b.path));
+
+    println!("Running {} test file(s)...\n", test_specs.len());
+
+    let start_time = Instant::now();
+    let output_mode = OutputMode::from_test_count(test_specs.len());
+
+    // Use sequential execution for single test, concurrent for multiple tests
+    if test_specs.len() == 1 {
+        // Single test: run sequentially and show full details
+        let spec = &test_specs[0];
+        let relative_path_str = relative_path(&spec.path, &filetests_dir);
+        let display_path = if let Some(line) = spec.line_number {
+            format!("{}:{}", relative_path_str, line)
+        } else {
+            relative_path_str
+        };
+
+        let (result, stats) = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            run_filetest_with_line_filter(&spec.path, spec.line_number, output_mode)
+        })) {
+            Ok(Ok((inner_result, inner_stats))) => (inner_result, inner_stats),
+            Ok(Err(e)) => (Err(e), test_run::TestCaseStats::default()),
+            Err(e) => {
+                let panic_msg = if let Some(msg) = e.downcast_ref::<String>() {
+                    msg.clone()
+                } else if let Some(msg) = e.downcast_ref::<&'static str>() {
+                    msg.to_string()
+                } else {
+                    format!("{:?}", e)
+                };
+                (
+                    Err(anyhow::anyhow!("panicked: {}", panic_msg)),
+                    test_run::TestCaseStats::default(),
+                )
+            }
+        };
+
+        match result {
+            Ok(()) => {
+                println!("{}", colors::colorize(&format!("✓ {}", display_path), colors::GREEN));
+                let elapsed = start_time.elapsed();
+                println!(
+                    "\n{}",
+                    format_results_summary(
+                        stats.passed,
+                        stats.failed,
+                        stats.total,
+                        1,
+                        0,
+                        elapsed
+                    )
+                );
+                return Ok(());
+            }
+            Err(_e) => {
+                // Extract test expression and line number from error message
+                let error_str = format!("{:#}", _e);
+                let (test_expr, line_num) = extract_test_info_from_error(&error_str, spec.line_number);
+                let filename_only = Path::new(&display_path).file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(&display_path)
+                    .to_string();
+                let failure_line = if let Some(expr) = test_expr {
+                    if let Some(line) = line_num {
+                        format!("{}:{} {}", filename_only, line, expr)
+                    } else {
+                        format!("{} {}", filename_only, expr)
+                    }
+                } else {
+                    filename_only
+                };
+                println!("{}", colors::colorize(&format!("✗ {}", failure_line), colors::RED));
+                println!("\n{:#}", _e);
+                let elapsed = start_time.elapsed();
+                println!(
+                    "\n{}",
+                    format_results_summary(
+                        stats.passed,
+                        stats.failed,
+                        stats.total,
+                        0,
+                        1,
+                        elapsed
+                    )
+                );
+                anyhow::bail!("1 test file(s) failed");
+            }
+        }
+    }
+
+    // Multiple tests: use concurrent execution
+    use runner::concurrent::ConcurrentRunner;
+    
+    #[derive(Debug)]
+    enum TestState {
+        New,
+        Queued,
+        Done(Result<()>),
+    }
+    
+    struct TestEntry {
+        spec: FileSpec,
+        state: TestState,
+        stats: test_run::TestCaseStats,
+    }
+    
+    struct FailedTest {
+        path: PathBuf,
+        line_number: Option<usize>,
+    }
+
+    let mut tests: Vec<TestEntry> = test_specs
+        .into_iter()
+        .map(|spec| TestEntry {
+            spec,
+            state: TestState::New,
+            stats: test_run::TestCaseStats::default(),
+        })
+        .collect();
+
+    let mut concurrent_runner = ConcurrentRunner::new();
+    let mut next_test = 0;
+    let mut reported_tests = 0;
+    let mut passed = 0;
+    let mut failed = 0;
+    let mut total_test_cases = 0;
+    let mut passed_test_cases = 0;
+    let mut failed_test_cases = 0;
+    let mut failed_tests = Vec::new();
+
+    // Queue all tests
+    while next_test < tests.len() {
+        let jobid = next_test;
+        tests[jobid].state = TestState::Queued;
+        concurrent_runner.put(
+            jobid,
+            &tests[jobid].spec.path,
+            tests[jobid].spec.line_number,
+            output_mode,
+        );
+        next_test += 1;
+    }
+
+    // Process replies and report results in order
+    while reported_tests < tests.len() {
+        // Check for completed jobs
+        while let Some(reply) = concurrent_runner.try_get() {
+            match reply {
+                runner::concurrent::Reply::Done { jobid, result, stats } => {
+                    tests[jobid].stats = stats;
+                    tests[jobid].state = TestState::Done(result);
+                }
+            }
+        }
+
+        // Report next test in order if it's done
+        if reported_tests < tests.len() {
+            if let TestState::Done(ref result) = tests[reported_tests].state {
+                let spec = &tests[reported_tests].spec;
+                let relative_path_str = relative_path(&spec.path, &filetests_dir);
+                let display_path = if let Some(line) = spec.line_number {
+                    format!("{}:{}", relative_path_str, line)
+                } else {
+                    relative_path_str
+                };
+
+                let stats = &tests[reported_tests].stats;
+                total_test_cases += stats.total;
+                passed_test_cases += stats.passed;
+                failed_test_cases += stats.failed;
+
+                // Determine color for counts based on pass/fail ratio
+                let counts_color = if stats.total > 0 {
+                    if stats.passed == stats.total {
+                        // All passed - green
+                        colors::GREEN
+                    } else if stats.passed > 0 {
+                        // Some passed - yellow
+                        colors::YELLOW
+                    } else {
+                        // All failed - red
+                        colors::RED
+                    }
+                } else {
+                    colors::GREEN // Default to green if no test cases
+                };
+
+                match result {
+                    Ok(()) => {
+                        // Multi-test mode: minimal output with colored checkmark, test case counts, and dimmed path
+                        let status_marker = if colors::should_color() {
+                            format!("{}{}{} ", colors::GREEN, "✓", colors::RESET)
+                        } else {
+                            "✓ ".to_string()
+                        };
+                        let counts_str = if stats.total > 0 {
+                            let formatted = format!("{:2}/{:2}", stats.passed, stats.total);
+                            if colors::should_color() {
+                                format!("{}{}{}", counts_color, formatted, colors::RESET)
+                            } else {
+                                formatted
+                            }
+                        } else {
+                            String::new()
+                        };
+                        let path_colored = if colors::should_color() {
+                            format!("{}{} ", status_marker, counts_str)
+                                + &format!("{}{}{}", colors::DIM, display_path, colors::RESET)
+                        } else {
+                            format!("{}{} {}", status_marker, counts_str, display_path)
+                        };
+                        println!("{}", path_colored);
+                        passed += 1;
+                    }
+                    Err(_e) => {
+                        // Multi-test mode: minimal output with colored X, test case counts, and dimmed path
+                        // Error details (including panic messages) are suppressed in multi-test mode
+                        let status_marker = if colors::should_color() {
+                            format!("{}{}{} ", colors::RED, "✗", colors::RESET)
+                        } else {
+                            "✗ ".to_string()
+                        };
+                        let counts_str = if stats.total > 0 {
+                            let formatted = format!("{:2}/{:2}", stats.passed, stats.total);
+                            if colors::should_color() {
+                                format!("{}{}{}", counts_color, formatted, colors::RESET)
+                            } else {
+                                formatted
+                            }
+                        } else {
+                            String::new()
+                        };
+                        let path_colored = if colors::should_color() {
+                            format!("{}{} ", status_marker, counts_str)
+                                + &format!("{}{}{}", colors::DIM, display_path, colors::RESET)
+                        } else {
+                            format!("{}{} {}", status_marker, counts_str, display_path)
+                        };
+                        println!("{}", path_colored);
+                        failed += 1;
+                        failed_tests.push(FailedTest {
+                            path: spec.path.clone(),
+                            line_number: spec.line_number,
+                        });
+                    }
+                }
+                reported_tests += 1;
+                continue;
+            }
+        }
+
+        // If we can't report the next test yet, wait for more replies
+        if let Some(reply) = concurrent_runner.get() {
+            match reply {
+                runner::concurrent::Reply::Done { jobid, result, stats } => {
+                    tests[jobid].stats = stats;
+                    tests[jobid].state = TestState::Done(result);
+                }
+            }
+        }
+    }
+
+    // Shutdown threads
+    concurrent_runner.shutdown();
+    concurrent_runner.join();
+
+    let elapsed = start_time.elapsed();
+    
+    // Print failed tests summary if there are failures
+    if !failed_tests.is_empty() && !output_mode.show_full_output() {
+        println!("\n{} Failed tests", failed_tests.len());
+        println!("Run these commands to see test failure details\n");
+        for failed_test in &failed_tests {
+            let relative_path = relative_path(&failed_test.path, &filetests_dir);
+            let test_path = if let Some(line) = failed_test.line_number {
+                format!("{}:{}", relative_path, line)
+            } else {
+                relative_path
+            };
+            if colors::should_color() {
+                println!(
+                    "scripts/glsl-filetests.sh {}{}{}",
+                    colors::DIM,
+                    test_path,
+                    colors::RESET
+                );
+            } else {
+                println!("scripts/glsl-filetests.sh {}", test_path);
+            }
+        }
+    }
+    
+    println!(
+        "\n{}",
+        format_results_summary(
+            passed_test_cases,
+            failed_test_cases,
+            total_test_cases,
+            passed,
+            failed,
+            elapsed
+        )
+    );
+
+    if failed > 0 {
+        anyhow::bail!("{} test file(s) failed", failed);
+    }
+
+    Ok(())
 }
 
 /// Check if a string contains glob pattern characters
@@ -251,353 +596,59 @@ fn parse_file_spec_with_glob(file_str: &str, filetests_dir: &Path) -> Result<Vec
     Ok(specs)
 }
 
-/// Check if the builtins executable is available, returning an error if not.
-fn check_builtins_executable() -> anyhow::Result<()> {
-    // The builtins executable check will happen at runtime when tests try to compile.
-    // We can't easily check it here without accessing private modules, so we skip the check.
-    // Tests will fail with a clear error message if the builtins executable is missing.
-    Ok(())
+/// Compute relative path from filetests_dir to the given path.
+fn relative_path(path: &Path, filetests_dir: &Path) -> String {
+    path.strip_prefix(filetests_dir)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .to_string()
 }
 
-/// Main entry point for `lp-test test`.
-///
-/// Take a list of filenames which can be either `.glsl` files or directories.
-/// Files can optionally include line numbers in the format `file.glsl:42`.
-/// Glob patterns are supported (e.g., `*.glsl`, `math/*`, `*add*`).
-///
-/// Files are interpreted as test cases and executed immediately.
-///
-/// Directories are scanned recursively for test cases ending in `.glsl`.
-///
-/// Mode is determined by test count:
-/// - Single test (1 file): Full detailed output with all error information
-/// - Multiple tests (>1 file): Minimal output with colored checkmarks
-pub fn run(files: &[String]) -> anyhow::Result<()> {
-    // Check builtins executable availability early
-    check_builtins_executable()?;
+/// Extract test expression and line number from error message for failure marker display.
+fn extract_test_info_from_error(error_str: &str, fallback_line: Option<usize>) -> (Option<String>, Option<usize>) {
+    // Look for line number in rerun command (scripts/glsl-filetests.sh filename:line)
+    let mut line_num = fallback_line;
+    if let Some(script_pos) = error_str.find("scripts/glsl-filetests.sh") {
+        if let Some(colon_pos) = error_str[script_pos..].find(':') {
+            let after_colon = &error_str[script_pos + colon_pos + 1..];
+            if let Some(end_pos) = after_colon.find(&['\n', ' '][..]) {
+                if let Ok(num) = after_colon[..end_pos].trim().parse::<usize>() {
+                    line_num = Some(num);
+                }
+            }
+        }
+    }
     
-    let filetests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("filetests");
-    let mut test_specs = Vec::new();
-
-    // Parse all file specifications, expanding glob patterns as needed
-    for file_str in files {
-        let specs = parse_file_spec_with_glob(file_str, &filetests_dir)?;
-
-        for spec in specs {
-            // Handle directories by recursively finding all .glsl files
-            if spec.path.is_dir() {
-                for entry in WalkDir::new(&spec.path) {
-                    match entry {
-                        Ok(entry) => {
-                            let path = entry.path();
-                            if path.is_file()
-                                && path.extension().and_then(|s| s.to_str()) == Some("glsl")
-                            {
-                                test_specs.push(FileSpec {
-                                    path: path.to_path_buf(),
-                                    line_number: spec.line_number,
-                                });
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!(
-                                "Warning: error walking directory {}: {}",
-                                spec.path.display(),
-                                e
-                            );
-                        }
-                    }
-                }
-            } else if spec.path.is_file() {
-                // Validate that the path exists and is a .glsl file
-                if spec.path.extension().and_then(|s| s.to_str()) == Some("glsl") {
-                    test_specs.push(spec);
-                } else {
-                    eprintln!(
-                        "Warning: {} is not a .glsl file, skipping",
-                        spec.path.display()
-                    );
-                }
+    // Look for // run: line in error message
+    let test_expr = if let Some(run_start) = error_str.find("// run:") {
+        if let Some(run_end) = error_str[run_start..].find('\n') {
+            let run_line = &error_str[run_start + 7..run_start + run_end].trim();
+            // Extract expression part (everything before == or ~=) and the expected value
+            if let Some(op_pos) = run_line.rfind(" == ") {
+                let expr = run_line[..op_pos].trim();
+                let expected = run_line[op_pos + 4..].split_whitespace().next().unwrap_or("");
+                Some(format!("{} == {}", expr, expected))
+            } else if let Some(op_pos) = run_line.rfind(" ~= ") {
+                let expr = run_line[..op_pos].trim();
+                let expected = run_line[op_pos + 4..].split_whitespace().next().unwrap_or("");
+                Some(format!("{} ~= {}", expr, expected))
             } else {
-                eprintln!("Warning: {} does not exist, skipping", spec.path.display());
+                Some(run_line.to_string())
             }
-        }
-    }
-
-    if test_specs.is_empty() {
-        anyhow::bail!("no .glsl test files found");
-    }
-
-    // Sort for deterministic output
-    test_specs.sort_by(|a, b| a.path.cmp(&b.path));
-
-    println!("Running {} test file(s)...\n", test_specs.len());
-
-    // Start timing
-    let start_time = Instant::now();
-
-    // Determine if we're running a single test (show full output) or multiple tests (minimal output)
-    let show_full_output = test_specs.len() == 1;
-
-    // Use parallel execution for multiple tests, sequential for single test
-    if test_specs.len() == 1 {
-        // Single test: run sequentially and show full details
-        let spec = &test_specs[0];
-        let relative_path_str = relative_path(&spec.path, &filetests_dir);
-        let display_path = if let Some(line) = spec.line_number {
-            format!("{}:{}", relative_path_str, line)
         } else {
-            relative_path_str
-        };
-
-        // Catch panics in single-test mode too
-        let (result, stats) = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            run_filetest_with_line_filter(&spec.path, spec.line_number, show_full_output)
-        })) {
-            Ok(Ok((inner_result, inner_stats))) => (inner_result, inner_stats),
-            Ok(Err(e)) => (Err(e), test_run::TestCaseStats::default()),
-            Err(e) => {
-                // Convert panic to error
-                let panic_msg = if let Some(msg) = e.downcast_ref::<String>() {
-                    msg.clone()
-                } else if let Some(msg) = e.downcast_ref::<&'static str>() {
-                    msg.to_string()
-                } else {
-                    format!("{:?}", e)
-                };
-                (
-                    Err(anyhow::anyhow!("panicked: {}", panic_msg)),
-                    test_run::TestCaseStats::default(),
-                )
-            }
-        };
-
-        let (passed, failed) = match result {
-            Ok(()) => {
-                // Single test passed - show success with color
-                println!(
-                    "{}",
-                    colorize(&format!("✓ {}", display_path), colors::GREEN)
-                );
-                (1, 0)
-            }
-            Err(e) => {
-                // Single test failed - show failure marker and full error details
-                println!("{}", colorize(&format!("✗ {}", display_path), colors::RED));
-                println!("\n{:#}", e);
-                (0, 1)
-            }
-        };
-
-        let elapsed = start_time.elapsed();
-        println!(
-            "\n{}",
-            format_results_summary(
-                stats.passed,
-                stats.failed,
-                stats.total,
-                passed,
-                failed,
-                elapsed
-            )
-        );
-
-        if failed > 0 {
-            println!(
-                "\n{}",
-                colorize("Tip: Rerun with DEBUG=1 for detailed logging", colors::DIM)
-            );
-            anyhow::bail!("{} test file(s) failed", failed);
+            None
         }
-
-        return Ok(());
-    }
-
-    // Multiple tests: use parallel execution
-    let mut tests: Vec<TestEntry> = test_specs
-        .into_iter()
-        .map(|spec| TestEntry {
-            spec,
-            state: TestState::New,
-            stats: test_run::TestCaseStats::default(),
-        })
-        .collect();
-
-    let mut concurrent_runner = concurrent::ConcurrentRunner::new();
-    let mut next_test = 0;
-    let mut reported_tests = 0;
-    let mut passed = 0;
-    let mut failed = 0;
-    let mut total_test_cases = 0;
-    let mut passed_test_cases = 0;
-    let mut failed_test_cases = 0;
-    let mut failed_tests = Vec::new();
-
-    // Queue all tests
-    while next_test < tests.len() {
-        let jobid = next_test;
-        tests[jobid].state = TestState::Queued;
-        concurrent_runner.put(
-            jobid,
-            &tests[jobid].spec.path,
-            tests[jobid].spec.line_number,
-            show_full_output,
-        );
-        next_test += 1;
-    }
-
-    // Process replies and report results in order
-    while reported_tests < tests.len() {
-        // Check for completed jobs
-        while let Some(reply) = concurrent_runner.try_get() {
-            match reply {
-                concurrent::Reply::Done { jobid, result, stats } => {
-                    tests[jobid].stats = stats;
-                    tests[jobid].state = TestState::Done(result);
-                }
-            }
-        }
-
-        // Report next test in order if it's done
-        if reported_tests < tests.len() {
-            if let TestState::Done(ref result) = tests[reported_tests].state {
-                let spec = &tests[reported_tests].spec;
-                let relative_path_str = relative_path(&spec.path, &filetests_dir);
-                let display_path = if let Some(line) = spec.line_number {
-                    format!("{}:{}", relative_path_str, line)
-                } else {
-                    relative_path_str
-                };
-
-                let stats = &tests[reported_tests].stats;
-                total_test_cases += stats.total;
-                passed_test_cases += stats.passed;
-                failed_test_cases += stats.failed;
-
-                // Determine color for counts based on pass/fail ratio
-                let counts_color = if stats.total > 0 {
-                    if stats.passed == stats.total {
-                        // All passed - green
-                        colors::GREEN
-                    } else if stats.passed > 0 {
-                        // Some passed - yellow
-                        colors::YELLOW
-                    } else {
-                        // All failed - red
-                        colors::RED
-                    }
-                } else {
-                    colors::GREEN // Default to green if no test cases
-                };
-
-                match result {
-                    Ok(()) => {
-                        // Multi-test mode: minimal output with colored checkmark, test case counts, and dimmed path
-                        let status_marker = if should_color() {
-                            format!("{}{}{} ", colors::GREEN, "✓", colors::RESET)
-                        } else {
-                            "✓ ".to_string()
-                        };
-                        let counts_str = if stats.total > 0 {
-                            // Format as "passed/total" with right-aligned padding (max 99)
-                            let formatted = format!("{:2}/{:2}", stats.passed, stats.total);
-                            if should_color() {
-                                format!("{}{}{}", counts_color, formatted, colors::RESET)
-                            } else {
-                                formatted
-                            }
-                        } else {
-                            String::new()
-                        };
-                        let path_colored = if should_color() {
-                            format!("{}{} ", status_marker, counts_str)
-                                + &format!("{}{}{}", colors::DIM, display_path, colors::RESET)
-                        } else {
-                            format!("{}{} {}", status_marker, counts_str, display_path)
-                        };
-                        println!("{}", path_colored);
-                        passed += 1;
-                    }
-                    Err(_e) => {
-                        // Multi-test mode: minimal output with colored X, test case counts, and dimmed path
-                        // Error details (including panic messages) are suppressed in multi-test mode
-                        // Panics are caught by the concurrent runner and converted to errors
-                        let status_marker = if should_color() {
-                            format!("{}{}{} ", colors::RED, "✗", colors::RESET)
-                        } else {
-                            "✗ ".to_string()
-                        };
-                        let counts_str = if stats.total > 0 {
-                            // Format as "passed/total" with right-aligned padding (max 99)
-                            let formatted = format!("{:2}/{:2}", stats.passed, stats.total);
-                            if should_color() {
-                                format!("{}{}{}", counts_color, formatted, colors::RESET)
-                            } else {
-                                formatted
-                            }
-                        } else {
-                            String::new()
-                        };
-                        let path_colored = if should_color() {
-                            format!("{}{} ", status_marker, counts_str)
-                                + &format!("{}{}{}", colors::DIM, display_path, colors::RESET)
-                        } else {
-                            format!("{}{} {}", status_marker, counts_str, display_path)
-                        };
-                        println!("{}", path_colored);
-                        failed += 1;
-                        failed_tests.push(FailedTest {
-                            path: spec.path.clone(),
-                            line_number: spec.line_number,
-                        });
-                    }
-                }
-                reported_tests += 1;
-                continue;
-            }
-        }
-
-        // If we can't report the next test yet, wait for more replies
-        if let Some(reply) = concurrent_runner.get() {
-            match reply {
-                concurrent::Reply::Done { jobid, result, stats } => {
-                    tests[jobid].stats = stats;
-                    tests[jobid].state = TestState::Done(result);
-                }
-            }
-        }
-    }
-
-    // Shutdown threads
-    concurrent_runner.shutdown();
-    concurrent_runner.join();
-
-    let elapsed = start_time.elapsed();
-    print_failed_tests_summary(&failed_tests, &filetests_dir, !show_full_output);
-    println!(
-        "\n{}",
-        format_results_summary(
-            passed_test_cases,
-            failed_test_cases,
-            total_test_cases,
-            passed,
-            failed,
-            elapsed
-        )
-    );
-
-    if failed > 0 {
-        anyhow::bail!("{} test file(s) failed", failed);
-    }
-
-    Ok(())
+    } else {
+        None
+    };
+    
+    (test_expr, line_num)
 }
 
 /// Format results summary with colors and timing.
-/// Returns a single line with test case and file counts, colored appropriately.
 fn format_results_summary(
     passed_test_cases: usize,
-    _failed_test_cases: usize,
+    failed_test_cases: usize,
     total_test_cases: usize,
     passed_files: usize,
     failed_files: usize,
@@ -614,11 +665,15 @@ fn format_results_summary(
         format!("{}m {:.2}s", mins, remaining_secs)
     };
 
-    if should_color() {
+    if colors::should_color() {
+        // Use red if there are failures, green if all passed
+        let test_cases_color = if failed_test_cases > 0 { colors::RED } else { colors::GREEN };
+        let files_color = if failed_files > 0 { colors::RED } else { colors::GREEN };
+        
         let test_cases_part = if total_test_cases > 0 {
             format!(
-                "{}{} of {} tests{}",
-                colors::GREEN,
+                "{}{}/{} tests passed{}",
+                test_cases_color,
                 passed_test_cases,
                 total_test_cases,
                 colors::RESET
@@ -627,8 +682,8 @@ fn format_results_summary(
             String::new()
         };
         let files_part = format!(
-            "{}{} of {} files passed{}",
-            colors::GREEN,
+            "{}{}/{} files passed{}",
+            files_color,
             passed_files,
             passed_files + failed_files,
             colors::RESET
@@ -642,7 +697,7 @@ fn format_results_summary(
     } else {
         if total_test_cases > 0 {
             format!(
-                "{} of {} tests, {} of {} files passed in {}",
+                "{}/{} tests passed, {}/{} files passed in {}",
                 passed_test_cases,
                 total_test_cases,
                 passed_files,
@@ -651,74 +706,11 @@ fn format_results_summary(
             )
         } else {
             format!(
-                "{} of {} files passed in {}",
+                "{}/{} files passed in {}",
                 passed_files,
                 passed_files + failed_files,
                 time_str
             )
-        }
-    }
-}
-
-/// Print summary of failed tests.
-fn print_failed_tests_summary(
-    failed_tests: &[FailedTest],
-    filetests_dir: &Path,
-    show_summary: bool,
-) {
-    if show_summary && !failed_tests.is_empty() {
-        // Print title with count and bold styling
-        let title = if should_color() {
-            format!(
-                "{}{}{} Failed tests{}",
-                colors::RED,
-                colors::BOLD,
-                failed_tests.len(),
-                colors::RESET
-            )
-        } else {
-            format!("{} Failed tests", failed_tests.len())
-        };
-        println!("\n{}", title);
-
-        // Print explanation message
-        let explanation = if should_color() {
-            format!(
-                "{}Run these commands to see test failure details{}\n",
-                colors::DIM,
-                colors::RESET
-            )
-        } else {
-            "Run these commands to see test failure details\n".to_string()
-        };
-        println!("{}", explanation);
-
-        for failed_test in failed_tests {
-            // Compute relative path from filetests_dir
-            let relative_path = failed_test
-                .path
-                .strip_prefix(filetests_dir)
-                .unwrap_or(&failed_test.path)
-                .to_string_lossy()
-                .to_string();
-
-            let test_path = if let Some(line) = failed_test.line_number {
-                format!("{}:{}", relative_path, line)
-            } else {
-                relative_path.clone()
-            };
-
-            // Color the command prefix normally, path in dim color
-            if should_color() {
-                println!(
-                    "scripts/glsl-filetests.sh {}{}{}",
-                    colors::DIM,
-                    test_path,
-                    colors::RESET
-                );
-            } else {
-                println!("scripts/glsl-filetests.sh {}", test_path);
-            }
         }
     }
 }

@@ -1,8 +1,79 @@
-//! Source and CLIF expectation extraction logic.
+//! Extract GLSL source and CLIF expectations.
 
-use crate::filetest::{ClifExpectations, TestType};
-use crate::filetest_parse;
+use crate::parse::test_type::{ClifExpectations, TestType};
 use anyhow::Result;
+
+/// Section boundaries in a test file.
+#[derive(Debug, Clone, Copy)]
+pub struct SectionBoundaries {
+    /// Line index where GLSL source ends (exclusive).
+    pub glsl_end: usize,
+    /// Line index where run expectations start.
+    pub run_start: usize,
+}
+
+/// CLIF section boundaries within the expectations section.
+#[derive(Debug, Clone, Copy)]
+pub struct ClifSectionBoundaries {
+    /// Start of compile section (inclusive).
+    pub compile_start: Option<usize>,
+    /// End of compile section (exclusive).
+    pub compile_end: Option<usize>,
+    /// Start of transform section (inclusive).
+    pub transform_start: Option<usize>,
+    /// End of transform section (exclusive).
+    pub transform_end: Option<usize>,
+}
+
+/// Find CLIF section boundaries within the expectations section.
+/// `expectations_start` and `expectations_end` define the range to search within.
+/// TODO: Implement when CLIF tests are implemented.
+pub fn find_clif_section_boundaries(
+    _lines: &[String],
+    _expectations_start: usize,
+    _expectations_end: usize,
+) -> ClifSectionBoundaries {
+    // TODO: Implement CLIF section boundary detection when CLIF tests are implemented
+    ClifSectionBoundaries {
+        compile_start: None,
+        compile_end: None,
+        transform_start: None,
+        transform_end: None,
+    }
+}
+
+/// Find section boundaries in a test file.
+/// Returns the end of GLSL code and the start of run expectations.
+pub fn find_section_boundaries(lines: &[String]) -> SectionBoundaries {
+    // Find the end of GLSL code (last non-comment, non-directive line)
+    let mut glsl_end = 0;
+    for (i, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+        if !trimmed.is_empty()
+            && !trimmed.starts_with("//")
+            && !trimmed.starts_with("// test")
+            && !trimmed.starts_with("// target")
+            && !trimmed.starts_with("// run:")
+        {
+            glsl_end = i + 1;
+        }
+    }
+
+    // Find the start of run expectations (first `// #run:` or `// run:` after GLSL)
+    let mut run_start = lines.len();
+    for (i, line) in lines.iter().enumerate().skip(glsl_end) {
+        let trimmed = line.trim();
+        if trimmed.starts_with("// #run:") || trimmed.starts_with("// run:") {
+            run_start = i;
+            break;
+        }
+    }
+
+    SectionBoundaries {
+        glsl_end,
+        run_start,
+    }
+}
 
 /// Extract GLSL source code and CLIF expectations from file lines.
 pub fn extract_source_and_expectations(
@@ -13,7 +84,7 @@ pub fn extract_source_and_expectations(
     let mut clif_expectations = ClifExpectations::default();
 
     // Find section boundaries
-    let boundaries = filetest_parse::find_section_boundaries(lines);
+    let boundaries = find_section_boundaries(lines);
     let glsl_end = boundaries.glsl_end;
     let run_start = boundaries.run_start;
 
@@ -35,6 +106,15 @@ pub fn extract_source_and_expectations(
     }
 
     Ok((glsl_source, clif_expectations))
+}
+
+/// Local CLIF section boundaries (relative to the expectations section).
+#[derive(Debug, Clone, Copy)]
+struct LocalClifBoundaries {
+    compile_start: Option<usize>,
+    compile_end: Option<usize>,
+    transform_start: Option<usize>,
+    transform_end: Option<usize>,
 }
 
 /// Parse CLIF expectations from comment lines.
@@ -60,15 +140,6 @@ fn parse_clif_expectations(lines: &[&String], test_types: &[TestType]) -> Result
     }
 
     Ok(expectations)
-}
-
-/// Local CLIF section boundaries (relative to the expectations section).
-#[derive(Debug, Clone, Copy)]
-struct LocalClifBoundaries {
-    compile_start: Option<usize>,
-    compile_end: Option<usize>,
-    transform_start: Option<usize>,
-    transform_end: Option<usize>,
 }
 
 /// Find CLIF section boundaries within the expectations section (local indices).
@@ -149,3 +220,4 @@ fn extract_clif_from_lines(lines: &[&String]) -> String {
     }
     result.trim_end().to_string()
 }
+

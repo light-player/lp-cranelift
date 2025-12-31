@@ -3,18 +3,21 @@
 //! This module provides the `ConcurrentRunner` struct which uses a pool of threads to run tests
 //! concurrently.
 
+use crate::output_mode::OutputMode;
+use crate::test_run::TestCaseStats;
+use anyhow::Result;
 use std::panic::catch_unwind;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-/// Request sent to worker threads contains jobid, path, line filter, and show_full_output flag.
+/// Request sent to worker threads contains jobid, path, line filter, and output mode.
 struct Request {
     jobid: usize,
     path: PathBuf,
     line_filter: Option<usize>,
-    show_full_output: bool,
+    output_mode: OutputMode,
 }
 
 /// Reply from worker thread.
@@ -24,9 +27,9 @@ pub enum Reply {
         /// Job ID matching the request.
         jobid: usize,
         /// Test execution result.
-        result: anyhow::Result<()>,
+        result: Result<()>,
         /// Test case statistics.
-        stats: crate::test_run::TestCaseStats,
+        stats: TestCaseStats,
     },
 }
 
@@ -91,7 +94,7 @@ impl ConcurrentRunner {
         jobid: usize,
         path: &Path,
         line_filter: Option<usize>,
-        show_full_output: bool,
+        output_mode: OutputMode,
     ) {
         self.request_tx
             .as_ref()
@@ -100,7 +103,7 @@ impl ConcurrentRunner {
                 jobid,
                 path: path.to_owned(),
                 line_filter,
-                show_full_output,
+                output_mode,
             })
             .expect("all the worker threads are gone");
     }
@@ -137,7 +140,7 @@ fn worker_thread(
                     jobid,
                     path,
                     line_filter,
-                    show_full_output,
+                    output_mode,
                 } = match requests.lock().unwrap().recv() {
                     Err(..) => break, // TX end shut down. exit thread.
                     Ok(req) => req,
@@ -145,10 +148,15 @@ fn worker_thread(
 
                 // Use AssertUnwindSafe to allow catching panics from code that isn't unwind-safe
                 let (result, stats) = match catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    crate::run_filetest_with_line_filter(path.as_path(), line_filter, show_full_output)
+                    crate::run_filetest_with_line_filter(path.as_path(), line_filter, output_mode)
                 })) {
                     Ok(Ok((inner_result, inner_stats))) => (inner_result, inner_stats),
-                    Ok(Err(e)) => (Err(e), crate::test_run::TestCaseStats::default()),
+                    Ok(Err(e)) => {
+                        // Error occurred, but try to preserve test case count
+                        // Count test cases even on error so we can show stats
+                        let error_stats = crate::count_test_cases(path.as_path(), line_filter);
+                        (Err(e), error_stats)
+                    },
                     Err(e) => {
                         // The test panicked, leaving us a `Box<Any>`.
                         // Panics are usually strings or &str.
@@ -164,9 +172,12 @@ fn worker_thread(
                         // Extract just the essential panic message (first line usually)
                         let short_msg = panic_msg.lines().next().unwrap_or("panic").to_string();
 
+                        // Count test cases even on panic so we can show stats
+                        let panic_stats = crate::count_test_cases(path.as_path(), line_filter);
+
                         (
                             Err(anyhow::anyhow!("panicked: {}", short_msg)),
-                            crate::test_run::TestCaseStats::default(),
+                            panic_stats,
                         )
                     }
                 };

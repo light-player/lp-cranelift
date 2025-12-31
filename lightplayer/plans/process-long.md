@@ -1,6 +1,6 @@
 ## Plan process
 
-Create a new plan directory at `lightplayer/plans/<name>`. This will be the base directory for all the plan files.
+Create a new plan directory at `lightplayer/plans/<YY-MM-dd>-<name>`. This will be the base directory for all the plan files.
 
 Analyze the current scope of work, and create a plan file 00-questions.md with any questions we need to answer to build this.
 

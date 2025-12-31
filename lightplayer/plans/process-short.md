@@ -1,8 +1,10 @@
-## Plan process
+## Plan process (short plans)
 
-Create a new plan directory at `lightplayer/plans/<name>`. This will be the base directory for all the plan files.
+Create a new plan file at `lightplayer/plans/<YYYY-MM-dd>-<name>.md`.
 
-Analyze the current scope of work, and create a plan file 00-questions.md with any questions we need to answer to build this.
+This will be the file used to keep the plan.
+
+Analyze the current scope of work, and populate the plan with questions we need to answer to build this.
 
 Once created, ask me the questions ONE AT A TIME with:
 
@@ -28,14 +30,7 @@ like this example:
 
 I will then make suggestions to change the phases, or add more phases.
 
-Once I tell you that we're ready to start, you will save these phases to the
-plan directory as 00-phases.md.
-
-You will then create a new file called 00-overview.md with the overview of the plan.
-
-Then you will create a new file for each phase, named like 01-phase-title.md.
-
-Then commit the plan to git with the message "lpc: create plan <name>"
+Once I tell you that we're ready to start, you write out the plan phases to the plan file
 
 Each phase should end with:
 
@@ -51,8 +46,5 @@ The final phase should be a cleanup phase:
 - fix all warnings
 - ensure all tests pass
 - ensure all code is clean and readable
-- move the plan directory to `lightplayer/plans/_done/`
+- move the plan file to `lightplayer/plans/_done/`
 - run 'cargo +nightly fmt' to format the code on lightplayer/ directory
-
-Then commit the changes with a message like "lpc: complete plan <name>". Include details of the
-effect of the plan in the commit message (but not the implementation details).

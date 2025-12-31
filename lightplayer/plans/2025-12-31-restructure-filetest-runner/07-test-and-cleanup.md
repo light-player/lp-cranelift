@@ -11,6 +11,9 @@
    - Verify error details and rerun commands appear at the end
    - Test with `DEBUG=1` to verify debug sections appear
    - Test without `DEBUG=1` to verify debug sections are hidden
+   - Verify scripts work correctly:
+     - `scripts/glsl-filetests.sh matrix/mat4` (summary mode)
+     - `scripts/glsl-filetests.sh matrix/mat4/op-add.glsl` (detail mode)
 
 2. Verify file structure matches proposed structure:
    - All directories exist
