@@ -64,8 +64,11 @@ bvec4 test_vec4_equal_function_in_expression() {
     vec4 a = vec4(1.0, 3.0, 5.0, 7.0);
     vec4 b = vec4(1.0, 4.0, 5.0, 7.0);
     vec4 c = vec4(2.0, 3.0, 5.0, 6.0);
-    return equal(a, b) == equal(b, c);
-    // (true,false,true,true) == (false,false,true,false) = (false,false,true,false)
+    // Use equal() for component-wise comparison of bvec4 values
+    // equal(a, b) = (true, false, true, true)
+    // equal(b, c) = (false, false, true, false)
+    // equal((true, false, true, true), (false, false, true, false)) = (false, true, true, false)
+    return equal(equal(a, b), equal(b, c));
 }
 
-// run: test_vec4_equal_function_in_expression() == bvec4(false, false, true, false)
+// run: test_vec4_equal_function_in_expression() == bvec4(false, true, true, false)

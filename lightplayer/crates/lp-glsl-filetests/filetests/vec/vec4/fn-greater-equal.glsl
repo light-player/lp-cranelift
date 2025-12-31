@@ -80,8 +80,11 @@ bvec4 test_vec4_greater_equal_in_expression() {
     vec4 a = vec4(3.0, 7.0, 5.0, 9.0);
     vec4 b = vec4(2.0, 3.0, 6.0, 8.0);
     vec4 c = vec4(1.0, 5.0, 4.0, 7.0);
-    return greaterThanEqual(a, b) == greaterThanEqual(b, c);
-    // (true,true,false,true) == (true,false,true,true) = (true,false,false,false)
+    // Use equal() for component-wise comparison of bvec4 values
+    // greaterThanEqual(a, b) = (true, true, false, true)
+    // greaterThanEqual(b, c) = (true, false, true, true)
+    // equal((true, true, false, true), (true, false, true, true)) = (true, false, false, true)
+    return equal(greaterThanEqual(a, b), greaterThanEqual(b, c));
 }
 
-// run: test_vec4_greater_equal_in_expression() == bvec4(true, false, false, false)
+// run: test_vec4_greater_equal_in_expression() == bvec4(true, false, false, true)
