@@ -4,10 +4,10 @@
 Implement complex common functions: fma, frexp, ldexp, modf.
 
 ## Functions to Implement
-- **fma** (fused multiply-add) - tests: `builtins/common-fma.glsl`
-- **frexp** (extract mantissa and exponent) - tests: `builtins/common-frexp.glsl`
-- **ldexp** (scale by power of 2) - tests: `builtins/common-ldexp.glsl`
-- **modf** (split into integer and fractional parts) - tests: `builtins/common-modf.glsl`
+- **fma** (fused multiply-add) - tests: `builtins/common-fma.glsl` ✅
+- **ldexp** (scale by power of 2) - tests: `builtins/common-ldexp.glsl` ✅
+- **frexp** (extract mantissa and exponent) - tests: `builtins/common-frexp.glsl` ⏸️ **DEFERRED** - requires output parameter support (Phase 8)
+- **modf** (split into integer and fractional parts) - tests: `builtins/common-modf.glsl` ⏸️ **DEFERRED** - requires output parameter support (Phase 8)
 
 ## Implementation Details
 

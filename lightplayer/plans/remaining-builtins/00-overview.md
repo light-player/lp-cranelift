@@ -23,14 +23,14 @@ Complete implementation of all remaining GLSL builtin functions to achieve 100% 
   - Include unit tests with appropriate tolerance
 
 ## Phases
-1. **Inline Conversion Functions** - fract, sign, isinf/isnan
-2. **Common Builtin Functions** - mod, round, roundeven
-3. **Exponential Functions** - inversesqrt
-4. **Advanced Common Functions** - fma, frexp, ldexp, modf
-5. **Matrix Complex Functions** - determinant, inverse
+1. **Inline Conversion Functions** - fract, sign, isinf/isnan ✅
+2. **Common Builtin Functions** - mod, round, roundeven ✅
+3. **Exponential Functions** - inversesqrt ✅
+4. **Advanced Common Functions** - fma ✅, ldexp ✅, frexp ⏸️ (deferred), modf ⏸️ (deferred)
+5. **Matrix Complex Functions** - determinant, inverse ✅
 6. **Pack/Unpack Functions** - all pack/unpack variants
 7. **Integer Bit Functions** - evaluate and implement case-by-case
-8. **Frontend Codegen** - missing frontend implementations
+8. **Frontend Codegen** - missing frontend implementations (includes output parameter support for frexp/modf)
 9. **Integration Testing and Cleanup** - final verification
 
 ## Success Criteria
