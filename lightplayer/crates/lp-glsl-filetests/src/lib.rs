@@ -407,6 +407,9 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
                             format!("{}{} {}", status_marker, counts_str, display_path)
                         };
                         println!("{}", path_colored);
+                        // Flush stdout to ensure output appears immediately
+                        use std::io::Write;
+                        let _ = std::io::stdout().flush();
                         passed += 1;
                     }
                     Err(_e) => {
@@ -434,6 +437,9 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
                             format!("{}{} {}", status_marker, counts_str, display_path)
                         };
                         println!("{}", path_colored);
+                        // Flush stdout to ensure output appears immediately
+                        use std::io::Write;
+                        let _ = std::io::stdout().flush();
                         failed += 1;
                         failed_tests.push(FailedTest {
                             path: spec.path.clone(),
@@ -447,11 +453,27 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
         }
 
         // If we can't report the next test yet, wait for more replies
-        if let Some(reply) = concurrent_runner.get() {
+        // But first check if any more replies are available without blocking
+        // This prevents unnecessary blocking when multiple tests complete quickly
+        let mut got_reply = false;
+        while let Some(reply) = concurrent_runner.try_get() {
+            got_reply = true;
             match reply {
                 runner::concurrent::Reply::Done { jobid, result, stats } => {
                     tests[jobid].stats = stats;
                     tests[jobid].state = TestState::Done(result);
+                }
+            }
+        }
+        
+        // Only block if we didn't get any replies and the next test isn't done
+        if !got_reply {
+            if let Some(reply) = concurrent_runner.get() {
+                match reply {
+                    runner::concurrent::Reply::Done { jobid, result, stats } => {
+                        tests[jobid].stats = stats;
+                        tests[jobid].state = TestState::Done(result);
+                    }
                 }
             }
         }

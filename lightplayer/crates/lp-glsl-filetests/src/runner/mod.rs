@@ -11,4 +11,3 @@ pub fn run_tests(_filetests_dir: &Path, _output_mode: OutputMode) -> Result<()> 
     // TODO: Implement using new structure
     todo!("Phase 1: Stub implementation")
 }
-

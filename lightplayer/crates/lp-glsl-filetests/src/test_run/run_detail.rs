@@ -52,6 +52,7 @@ pub fn run(
     // let file_update = FileUpdate::new(path);
 
     let mut stats = TestCaseStats::default();
+    let mut errors = Vec::new();
 
     // Process each run directive
     for directive in &test_file.run_directives {
@@ -64,29 +65,44 @@ pub fn run(
 
         stats.total += 1;
         // Generate test GLSL code with span information
-        let test_glsl_result = test_glsl::generate_test_glsl(
+        let test_glsl_result = match test_glsl::generate_test_glsl(
             &file_lines,
             directive.line_number,
             &directive.expression_str,
-        )?;
+        ) {
+            Ok(result) => result,
+            Err(e) => {
+                stats.failed += 1;
+                let error_msg = format!("failed to generate test GLSL: {}", e);
+                eprintln!("{}", error_msg);
+                errors.push(e.context(error_msg));
+                continue;
+            }
+        };
 
         // Compile and execute
         // Note: test_glsl_result.source now contains ONLY the function being tested
-        let mut executable = glsl_emu_riscv32_with_metadata(
+        let mut executable = match glsl_emu_riscv32_with_metadata(
             &test_glsl_result.source,
             options.clone(),
             Some(relative_path.clone()),
-        )
-        .map_err(|e| {
-            format_compilation_error(
-                &e,
-                &test_glsl_result,
-                directive.line_number,
-                &directive.expression_str,
-                &relative_path,
-                output_mode,
-            )
-        })?;
+        ) {
+            Ok(exec) => exec,
+            Err(e) => {
+                stats.failed += 1;
+                let formatted_error = format_compilation_error(
+                    &e,
+                    &test_glsl_result,
+                    directive.line_number,
+                    &directive.expression_str,
+                    &relative_path,
+                    output_mode,
+                );
+                eprintln!("{}", formatted_error);
+                errors.push(anyhow::anyhow!("{}", formatted_error));
+                continue;
+            }
+        };
 
         // Check if this test expects a trap
         // Trap expectations can be on the same line or the immediately following line
@@ -95,18 +111,32 @@ pub fn run(
         });
 
         // Parse function call from expression (e.g., "add_float(1.5, 2.5)")
-        let (func_name, arg_strings) = parse_assert::parse_function_call(&directive.expression_str)
-            .map_err(|_e| {
-                anyhow::anyhow!(
-                    "failed to parse function call: {}",
-                    directive.expression_str
-                )
-            })?;
+        let (func_name, arg_strings) =
+            match parse_assert::parse_function_call(&directive.expression_str) {
+                Ok(result) => result,
+                Err(e) => {
+                    stats.failed += 1;
+                    let error_msg = format!(
+                        "failed to parse function call: {}",
+                        directive.expression_str
+                    );
+                    eprintln!("{}", error_msg);
+                    errors.push(e.context(error_msg));
+                    continue;
+                }
+            };
 
         // Parse arguments to GlslValue
-        let args = parse_assert::parse_function_arguments(&arg_strings).map_err(|_e| {
-            anyhow::anyhow!("failed to parse function arguments: {:?}", arg_strings)
-        })?;
+        let args = match parse_assert::parse_function_arguments(&arg_strings) {
+            Ok(result) => result,
+            Err(e) => {
+                stats.failed += 1;
+                let error_msg = format!("failed to parse function arguments: {:?}", arg_strings);
+                eprintln!("{}", error_msg);
+                errors.push(e.context(error_msg));
+                continue;
+            }
+        };
 
         // Execute function and get result
         // Note: execute_function already includes emulator state in the error, so we don't add it again
@@ -116,29 +146,29 @@ pub fn run(
             (Ok(actual_value), Some(exp)) => {
                 // Expected a trap but got a value
                 stats.failed += 1;
-                anyhow::bail!(
-                    "{}",
-                    format_error(
-                        ErrorType::ExpectedTrapGotValue,
-                        &format!(
-                            "expected trap but execution succeeded\n\nExpected: trap{}\nActual: value {}",
-                            if let Some(code) = exp.trap_code {
-                                format!(" (code {})", code)
-                            } else if let Some(ref msg) = exp.trap_message {
-                                format!(" (message containing '{}')", msg)
-                            } else {
-                                String::new()
-                            },
-                            format_glsl_value(&actual_value)
-                        ),
-                        &relative_path,
-                        directive.line_number,
-                        Some(&test_glsl_result.source),
-                        Some(&*executable),
-                        output_mode,
-                        Some(&directive.expression_str),
-                    )
+                let error_msg = format_error(
+                    ErrorType::ExpectedTrapGotValue,
+                    &format!(
+                        "expected trap but execution succeeded\n\nExpected: trap{}\nActual: value {}",
+                        if let Some(code) = exp.trap_code {
+                            format!(" (code {})", code)
+                        } else if let Some(ref msg) = exp.trap_message {
+                            format!(" (message containing '{}')", msg)
+                        } else {
+                            String::new()
+                        },
+                        format_glsl_value(&actual_value)
+                    ),
+                    &relative_path,
+                    directive.line_number,
+                    Some(&test_glsl_result.source),
+                    Some(&*executable),
+                    output_mode,
+                    Some(&directive.expression_str),
                 );
+                eprintln!("{}", error_msg);
+                errors.push(anyhow::anyhow!("{}", error_msg));
+                continue;
             }
             (Err(e), None) => {
                 // Got an error but didn't expect one - check if it's a trap
@@ -152,40 +182,40 @@ pub fn run(
                     stats.failed += 1;
                     // Extract just the error message (before emulator state)
                     let error_msg = extract_error_message(&error_str);
-                    anyhow::bail!(
-                        "{}",
-                        format_error(
-                            ErrorType::UnexpectedTrap,
-                            &format!(
-                                "unexpected trap\n\nExpected: value\nActual: trap\n\nError details:\n{}",
-                                error_msg
-                            ),
-                            &relative_path,
-                            directive.line_number,
-                            Some(&test_glsl_result.source),
-                            Some(&*executable),
-                            output_mode,
-                            Some(&directive.expression_str),
-                        )
+                    let formatted_error = format_error(
+                        ErrorType::UnexpectedTrap,
+                        &format!(
+                            "unexpected trap\n\nExpected: value\nActual: trap\n\nError details:\n{}",
+                            error_msg
+                        ),
+                        &relative_path,
+                        directive.line_number,
+                        Some(&test_glsl_result.source),
+                        Some(&*executable),
+                        output_mode,
+                        Some(&directive.expression_str),
                     );
+                    eprintln!("{}", formatted_error);
+                    errors.push(anyhow::anyhow!("{}", formatted_error));
+                    continue;
                 } else {
                     // Other error - format through unified formatter
                     // Extract just the error message (before emulator state)
                     let error_msg = extract_error_message(&error_str);
                     stats.failed += 1;
-                    anyhow::bail!(
-                        "{}",
-                        format_error(
-                            ErrorType::ExecutionTrap,
-                            &error_msg,
-                            &relative_path,
-                            directive.line_number,
-                            Some(&test_glsl_result.source),
-                            Some(&*executable),
-                            output_mode,
-                            Some(&directive.expression_str),
-                        )
+                    let formatted_error = format_error(
+                        ErrorType::ExecutionTrap,
+                        &error_msg,
+                        &relative_path,
+                        directive.line_number,
+                        Some(&test_glsl_result.source),
+                        Some(&*executable),
+                        output_mode,
+                        Some(&directive.expression_str),
                     );
+                    eprintln!("{}", formatted_error);
+                    errors.push(anyhow::anyhow!("{}", formatted_error));
+                    continue;
                 }
             }
             (Err(e), Some(exp)) => {
@@ -197,22 +227,22 @@ pub fn run(
                 if let Some(expected_code) = exp.trap_code {
                     if !error_str.contains(&format!("user{}", expected_code)) {
                         stats.failed += 1;
-                        anyhow::bail!(
-                            "{}",
-                            format_error(
-                                ErrorType::TrapMismatch,
-                                &format!(
-                                    "trap code mismatch\n\nExpected: trap code {}\nActual trap: {}",
-                                    expected_code, error_msg
-                                ),
-                                &relative_path,
-                                directive.line_number,
-                                Some(&test_glsl_result.source),
-                                Some(&*executable),
-                                output_mode,
-                                Some(&directive.expression_str),
-                            )
+                        let formatted_error = format_error(
+                            ErrorType::TrapMismatch,
+                            &format!(
+                                "trap code mismatch\n\nExpected: trap code {}\nActual trap: {}",
+                                expected_code, error_msg
+                            ),
+                            &relative_path,
+                            directive.line_number,
+                            Some(&test_glsl_result.source),
+                            Some(&*executable),
+                            output_mode,
+                            Some(&directive.expression_str),
                         );
+                        eprintln!("{}", formatted_error);
+                        errors.push(anyhow::anyhow!("{}", formatted_error));
+                        continue;
                     }
                 }
 
@@ -220,22 +250,22 @@ pub fn run(
                 if let Some(ref expected_msg) = exp.trap_message {
                     if !error_str.contains(expected_msg) {
                         stats.failed += 1;
-                        anyhow::bail!(
-                            "{}",
-                            format_error(
-                                ErrorType::TrapMismatch,
-                                &format!(
-                                    "trap message mismatch\n\nExpected: trap message containing '{}'\nActual trap: {}",
-                                    expected_msg, error_msg
-                                ),
-                                &relative_path,
-                                directive.line_number,
-                                Some(&test_glsl_result.source),
-                                Some(&*executable),
-                                output_mode,
-                                Some(&directive.expression_str),
-                            )
+                        let formatted_error = format_error(
+                            ErrorType::TrapMismatch,
+                            &format!(
+                                "trap message mismatch\n\nExpected: trap message containing '{}'\nActual trap: {}",
+                                expected_msg, error_msg
+                            ),
+                            &relative_path,
+                            directive.line_number,
+                            Some(&test_glsl_result.source),
+                            Some(&*executable),
+                            output_mode,
+                            Some(&directive.expression_str),
                         );
+                        eprintln!("{}", formatted_error);
+                        errors.push(anyhow::anyhow!("{}", formatted_error));
+                        continue;
                     }
                 }
 
@@ -246,7 +276,17 @@ pub fn run(
             (Ok(actual_value), None) => {
                 // Normal case: expected value, got value - continue with comparison
                 // Parse expected value
-                let expected_value = parse_assert::parse_glsl_value(&directive.expected_str)?;
+                let expected_value = match parse_assert::parse_glsl_value(&directive.expected_str) {
+                    Ok(value) => value,
+                    Err(e) => {
+                        stats.failed += 1;
+                        let error_msg =
+                            format!("failed to parse expected value: {}", directive.expected_str);
+                        eprintln!("{}", error_msg);
+                        errors.push(e.context(error_msg));
+                        continue;
+                    }
+                };
 
                 // Compare results
                 match parse_assert::compare_results(
@@ -336,22 +376,21 @@ pub fn run(
                             )
                         };
 
-                        anyhow::bail!(
-                            "{}",
-                            format_error(
-                                ErrorType::ComparisonFailure,
-                                &error_msg,
-                                &relative_path,
-                                directive.line_number,
-                                Some(&test_glsl_result.source),
-                                Some(&*executable),
-                                output_mode,
-                                Some(&format!(
-                                    "{}() {} {}",
-                                    directive.expression_str, op_str, directive.expected_str
-                                )),
-                            )
+                        let formatted_error = format_error(
+                            ErrorType::ComparisonFailure,
+                            &error_msg,
+                            &relative_path,
+                            directive.line_number,
+                            Some(&test_glsl_result.source),
+                            Some(&*executable),
+                            output_mode,
+                            Some(&format!(
+                                "{}() {} {}",
+                                directive.expression_str, op_str, directive.expected_str
+                            )),
                         );
+                        eprintln!("{}", formatted_error);
+                        errors.push(anyhow::anyhow!("{}", formatted_error));
                         // }
                     }
                 }
@@ -360,7 +399,17 @@ pub fn run(
     }
 
     let result = if stats.failed > 0 {
-        Err(anyhow::anyhow!("{} test case(s) failed", stats.failed))
+        // Combine all errors into one message
+        let error_summary = if errors.len() == 1 {
+            format!("{}", errors[0])
+        } else {
+            let mut summary = format!("{} test case(s) failed:\n\n", stats.failed);
+            for (i, err) in errors.iter().enumerate() {
+                summary.push_str(&format!("{}. {}\n", i + 1, err));
+            }
+            summary
+        };
+        Err(anyhow::anyhow!("{}", error_summary))
     } else {
         Ok(())
     };

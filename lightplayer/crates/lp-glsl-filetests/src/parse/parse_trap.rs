@@ -64,7 +64,10 @@ mod tests {
     #[test]
     fn test_parse_trap_expectation_none() {
         assert_eq!(parse_trap_expectation("// not a trap", 4).unwrap(), None);
-        assert_eq!(parse_trap_expectation("EXPECT_TRAP: message", 5).unwrap(), None);
+        assert_eq!(
+            parse_trap_expectation("EXPECT_TRAP: message", 5).unwrap(),
+            None
+        );
         assert_eq!(parse_trap_expectation("", 6).unwrap(), None);
     }
 
@@ -74,4 +77,3 @@ mod tests {
         assert!(parse_trap_expectation("// EXPECT_TRAP_CODE: abc", 8).is_err());
     }
 }
-
