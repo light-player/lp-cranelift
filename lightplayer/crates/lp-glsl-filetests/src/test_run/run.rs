@@ -2,7 +2,7 @@
 
 use crate::output_mode::OutputMode;
 use crate::parse::TestFile;
-use crate::test_run::{run_detail, run_summary, TestCaseStats};
+use crate::test_run::{TestCaseStats, run_detail, run_summary};
 use anyhow::Result;
 use std::path::Path;
 

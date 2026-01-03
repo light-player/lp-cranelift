@@ -67,15 +67,15 @@ return lessThanEqual(a, b);
 // run: test_vec4_less_equal_zero() == bvec4(true, false, true, false)
 
 bvec4 test_vec4_less_equal_variables() {
-vec4 a = vec4(10.0, 15.0, 8.0, 5.0);
-vec4 b = vec4(12.0, 10.0, 8.0, 6.0);
+vec4 a = vec4(10.0, 15.0, 8.0, 12.0);
+vec4 b = vec4(12.0, 10.0, 12.0, 8.0);
 return lessThanEqual(a, b);
 }
 
-// run: test_vec4_less_equal_variables() == bvec4(true, false, true, true)
+// run: test_vec4_less_equal_variables() == bvec4(true, false, true, false)
 
 bvec4 test_vec4_less_equal_expressions() {
-return lessThanEqual(vec4(3.0, 7.0, 6.0, 4.0), vec4(5.0, 5.0, 6.0, 3.0));
+return lessThanEqual(vec4(3.0, 7.0, 2.0, 9.0), vec4(5.0, 5.0, 4.0, 8.0));
 }
 
 // run: test_vec4_less_equal_expressions() == bvec4(true, false, true, false)

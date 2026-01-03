@@ -42,6 +42,14 @@ return equal(a, b);
 
 // run: test_uvec4_equal_function_zero() == bvec4(true, false, false, true)
 
+bvec4 test_uvec4_equal_function_max_values() {
+uvec4 a = uvec4(4294967295u, 4294967294u, 4294967293u, 4294967292u);
+uvec4 b = uvec4(4294967295u, 4294967294u, 4294967293u, 4294967292u);
+return equal(a, b);
+}
+
+// run: test_uvec4_equal_function_max_values() == bvec4(true, true, true, true)
+
 bvec4 test_uvec4_equal_function_variables() {
 uvec4 a = uvec4(8u, 12u, 6u, 9u);
 uvec4 b = uvec4(8u, 10u, 7u, 9u);

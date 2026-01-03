@@ -59,18 +59,18 @@ return lessThan(a, b);
 // run: test_ivec4_less_than_zero() == bvec4(true, false, true, false)
 
 bvec4 test_ivec4_less_than_variables() {
-ivec4 a = ivec4(10, 15, 9, 7);
-ivec4 b = ivec4(12, 10, 8, 6);
+ivec4 a = ivec4(10, 15, 8, 12);
+ivec4 b = ivec4(12, 10, 12, 8);
 return lessThan(a, b);
 }
 
-// run: test_ivec4_less_than_variables() == bvec4(true, false, false, false)
+// run: test_ivec4_less_than_variables() == bvec4(true, false, true, false)
 
 bvec4 test_ivec4_less_than_expressions() {
-return lessThan(ivec4(3, 7, 8, 4), ivec4(5, 5, 6, 3));
+return lessThan(ivec4(3, 7, 2, 9), ivec4(5, 5, 4, 8));
 }
 
-// run: test_ivec4_less_than_expressions() == bvec4(true, false, false, false)
+// run: test_ivec4_less_than_expressions() == bvec4(true, false, true, false)
 
 bvec4 test_ivec4_less_than_in_expression() {
 ivec4 a = ivec4(1, 5, 4, 7);

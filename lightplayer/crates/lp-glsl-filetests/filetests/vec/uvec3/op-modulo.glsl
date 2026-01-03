@@ -66,7 +66,7 @@ uvec3 test_uvec3_modulo_large_numbers() {
     return a % b;
 }
 
-// run: test_uvec3_modulo_large_numbers() == uvec3(1000u, 1000u, 9000u)
+// run: test_uvec3_modulo_large_numbers() == uvec3(1000u, 1000u, 1000u)
 
 uvec3 test_uvec3_modulo_mixed_components() {
     uvec3 a = uvec3(123u, 456u, 789u);

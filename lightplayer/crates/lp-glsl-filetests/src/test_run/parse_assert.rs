@@ -148,7 +148,6 @@ pub fn compare_results(
     comparison: ComparisonOp,
     tolerance: Option<f32>,
 ) -> Result<(), String> {
-    
     match comparison {
         ComparisonOp::Exact => {
             if actual.eq(expected) {
@@ -206,7 +205,11 @@ mod tests {
     #[test]
     fn test_parse_glsl_value_bool() {
         assert!(parse_glsl_value("true").unwrap().eq(&GlslValue::Bool(true)));
-        assert!(parse_glsl_value("false").unwrap().eq(&GlslValue::Bool(false)));
+        assert!(
+            parse_glsl_value("false")
+                .unwrap()
+                .eq(&GlslValue::Bool(false))
+        );
     }
 
     #[test]

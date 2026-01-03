@@ -11,16 +11,16 @@ use crate::vec::util::{
 pub fn generate(vec_type: VecType, dimension: Dimension) -> String {
     let type_name = format_type_name(vec_type, dimension);
     let bvec_type_name = format_bvec_type_name(dimension);
-    
+
     // Generate header with regeneration command
     let specifier = format!("vec/{}/fn-greater-than", type_name);
     let mut content = generate_header(&specifier);
-    
+
     // Add test run and target directives
     content.push_str("// test run\n");
     content.push_str("// target riscv32.fixed32\n");
     content.push_str("\n");
-    
+
     // Add section comment
     content.push_str(&format!(
         "// ============================================================================\n"
@@ -33,7 +33,7 @@ pub fn generate(vec_type: VecType, dimension: Dimension) -> String {
         "// ============================================================================\n"
     ));
     content.push_str("\n");
-    
+
     // Generate test cases
     content.push_str(&generate_test_mixed(vec_type, dimension));
     content.push_str("\n");
@@ -43,14 +43,14 @@ pub fn generate(vec_type: VecType, dimension: Dimension) -> String {
     content.push_str("\n");
     content.push_str(&generate_test_equal(vec_type, dimension));
     content.push_str("\n");
-    
+
     // Negative test only for signed types
     let negative_test = generate_test_negative(vec_type, dimension);
     if !negative_test.is_empty() {
         content.push_str(&negative_test);
         content.push_str("\n");
     }
-    
+
     content.push_str(&generate_test_zero(vec_type, dimension));
     content.push_str("\n");
     content.push_str(&generate_test_variables(vec_type, dimension));
@@ -58,14 +58,14 @@ pub fn generate(vec_type: VecType, dimension: Dimension) -> String {
     content.push_str(&generate_test_expressions(vec_type, dimension));
     content.push_str("\n");
     content.push_str(&generate_test_in_expression(vec_type, dimension));
-    
+
     content
 }
 
 fn generate_test_mixed(vec_type: VecType, dimension: Dimension) -> String {
     let type_name = format_type_name(vec_type, dimension);
     let bvec_type_name = format_bvec_type_name(dimension);
-    
+
     // a = [7, 6, 9, 2...], b = [5, 8, 7, 4...]
     // Result: [true, false, true, false...]
     let a_values: Vec<i32> = match dimension {
@@ -83,10 +83,10 @@ fn generate_test_mixed(vec_type: VecType, dimension: Dimension) -> String {
         Dimension::D3 => vec![true, false, true],
         Dimension::D4 => vec![true, false, true, false],
     };
-    
+
     let a_constructor = format_vector_constructor(vec_type, dimension, &a_values);
     let b_constructor = format_vector_constructor(vec_type, dimension, &b_values);
-    
+
     format!(
         "{} test_{}_greater_than_mixed() {{\n\
          // Function greaterThan() returns {} (component-wise comparison)\n\
@@ -111,7 +111,7 @@ fn generate_test_mixed(vec_type: VecType, dimension: Dimension) -> String {
 fn generate_test_all_true(vec_type: VecType, dimension: Dimension) -> String {
     let type_name = format_type_name(vec_type, dimension);
     let bvec_type_name = format_bvec_type_name(dimension);
-    
+
     // a = [5, 6, 7, 8...], b = [1, 2, 3, 4...]
     // Result: [true, true, true, true...]
     let a_values: Vec<i32> = match dimension {
@@ -129,10 +129,10 @@ fn generate_test_all_true(vec_type: VecType, dimension: Dimension) -> String {
         Dimension::D3 => vec![true, true, true],
         Dimension::D4 => vec![true, true, true, true],
     };
-    
+
     let a_constructor = format_vector_constructor(vec_type, dimension, &a_values);
     let b_constructor = format_vector_constructor(vec_type, dimension, &b_values);
-    
+
     format!(
         "{} test_{}_greater_than_all_true() {{\n\
          {} a = {};\n\
@@ -155,7 +155,7 @@ fn generate_test_all_true(vec_type: VecType, dimension: Dimension) -> String {
 fn generate_test_all_false(vec_type: VecType, dimension: Dimension) -> String {
     let type_name = format_type_name(vec_type, dimension);
     let bvec_type_name = format_bvec_type_name(dimension);
-    
+
     // a = [1, 2, 3, 4...], b = [5, 6, 7, 8...]
     // Result: [false, false, false, false...]
     let a_values: Vec<i32> = match dimension {
@@ -173,10 +173,10 @@ fn generate_test_all_false(vec_type: VecType, dimension: Dimension) -> String {
         Dimension::D3 => vec![false, false, false],
         Dimension::D4 => vec![false, false, false, false],
     };
-    
+
     let a_constructor = format_vector_constructor(vec_type, dimension, &a_values);
     let b_constructor = format_vector_constructor(vec_type, dimension, &b_values);
-    
+
     format!(
         "{} test_{}_greater_than_all_false() {{\n\
          {} a = {};\n\
@@ -199,7 +199,7 @@ fn generate_test_all_false(vec_type: VecType, dimension: Dimension) -> String {
 fn generate_test_equal(vec_type: VecType, dimension: Dimension) -> String {
     let type_name = format_type_name(vec_type, dimension);
     let bvec_type_name = format_bvec_type_name(dimension);
-    
+
     // a = [5, 6, 7, 8...], b = [5, 5, 8, 7...]
     // Result: [false, true, false, true...] (greaterThan returns false when equal)
     let a_values: Vec<i32> = match dimension {
@@ -217,10 +217,10 @@ fn generate_test_equal(vec_type: VecType, dimension: Dimension) -> String {
         Dimension::D3 => vec![false, true, false],
         Dimension::D4 => vec![false, true, false, true],
     };
-    
+
     let a_constructor = format_vector_constructor(vec_type, dimension, &a_values);
     let b_constructor = format_vector_constructor(vec_type, dimension, &b_values);
-    
+
     format!(
         "{} test_{}_greater_than_equal() {{\n\
          {} a = {};\n\
@@ -245,10 +245,10 @@ fn generate_test_negative(vec_type: VecType, dimension: Dimension) -> String {
     if matches!(vec_type, VecType::UVec) {
         return String::new();
     }
-    
+
     let type_name = format_type_name(vec_type, dimension);
     let bvec_type_name = format_bvec_type_name(dimension);
-    
+
     // a = [-1, -3, 2, -5...], b = [-5, -7, 0, -8...]
     // Result: [true, true, true, true...]
     let a_values: Vec<i32> = match dimension {
@@ -266,10 +266,10 @@ fn generate_test_negative(vec_type: VecType, dimension: Dimension) -> String {
         Dimension::D3 => vec![true, true, true],
         Dimension::D4 => vec![true, true, true, true],
     };
-    
+
     let a_constructor = format_vector_constructor(vec_type, dimension, &a_values);
     let b_constructor = format_vector_constructor(vec_type, dimension, &b_values);
-    
+
     format!(
         "{} test_{}_greater_than_negative() {{\n\
          {} a = {};\n\
@@ -292,28 +292,29 @@ fn generate_test_negative(vec_type: VecType, dimension: Dimension) -> String {
 fn generate_test_zero(vec_type: VecType, dimension: Dimension) -> String {
     let type_name = format_type_name(vec_type, dimension);
     let bvec_type_name = format_bvec_type_name(dimension);
-    
-    // a = [1, 0, 3, -1...], b = [0, 1, 2, 0...]
-    // Result: [true, false, true, false...]
-    let a_values: Vec<i32> = match dimension {
-        Dimension::D2 => vec![1, 0],
-        Dimension::D3 => vec![1, 0, 3],
-        Dimension::D4 => vec![1, 0, 3, -1],
+
+    // For unsigned types, avoid negative values in comparisons
+    let (a_values, b_values, expected) = if matches!(vec_type, VecType::UVec) {
+        // a = [1, 0, 3, 2...], b = [0, 1, 2, 4...]
+        // Result: [true, false, true, false...] (1>0, 0>1, 3>2, 2>4)
+        match dimension {
+            Dimension::D2 => (vec![1, 0], vec![0, 1], vec![true, false]),
+            Dimension::D3 => (vec![1, 0, 3], vec![0, 1, 2], vec![true, false, true]),
+            Dimension::D4 => (vec![1, 0, 3, 2], vec![0, 1, 2, 4], vec![true, false, true, false]),
+        }
+    } else {
+        // a = [1, 0, 3, -1...], b = [0, 1, 2, 0...]
+        // Result: [true, false, true, false...] (1>0, 0>1, 3>2, -1>0)
+        match dimension {
+            Dimension::D2 => (vec![1, 0], vec![0, 1], vec![true, false]),
+            Dimension::D3 => (vec![1, 0, 3], vec![0, 1, 2], vec![true, false, true]),
+            Dimension::D4 => (vec![1, 0, 3, -1], vec![0, 1, 2, 0], vec![true, false, true, false]),
+        }
     };
-    let b_values: Vec<i32> = match dimension {
-        Dimension::D2 => vec![0, 1],
-        Dimension::D3 => vec![0, 1, 2],
-        Dimension::D4 => vec![0, 1, 2, 0],
-    };
-    let expected: Vec<bool> = match dimension {
-        Dimension::D2 => vec![true, false],
-        Dimension::D3 => vec![true, false, true],
-        Dimension::D4 => vec![true, false, true, false],
-    };
-    
+
     let a_constructor = format_vector_constructor(vec_type, dimension, &a_values);
     let b_constructor = format_vector_constructor(vec_type, dimension, &b_values);
-    
+
     format!(
         "{} test_{}_greater_than_zero() {{\n\
          {} a = {};\n\
@@ -336,7 +337,7 @@ fn generate_test_zero(vec_type: VecType, dimension: Dimension) -> String {
 fn generate_test_variables(vec_type: VecType, dimension: Dimension) -> String {
     let type_name = format_type_name(vec_type, dimension);
     let bvec_type_name = format_bvec_type_name(dimension);
-    
+
     // a = [12, 10, 8, 6...], b = [10, 15, 9, 7...]
     // Result: [true, false, false, false...]
     let a_values: Vec<i32> = match dimension {
@@ -354,10 +355,10 @@ fn generate_test_variables(vec_type: VecType, dimension: Dimension) -> String {
         Dimension::D3 => vec![true, false, false],
         Dimension::D4 => vec![true, false, false, false],
     };
-    
+
     let a_constructor = format_vector_constructor(vec_type, dimension, &a_values);
     let b_constructor = format_vector_constructor(vec_type, dimension, &b_values);
-    
+
     format!(
         "{} test_{}_greater_than_variables() {{\n\
          {} a = {};\n\
@@ -380,7 +381,7 @@ fn generate_test_variables(vec_type: VecType, dimension: Dimension) -> String {
 fn generate_test_expressions(vec_type: VecType, dimension: Dimension) -> String {
     let type_name = format_type_name(vec_type, dimension);
     let bvec_type_name = format_bvec_type_name(dimension);
-    
+
     // [5, 5, 6, 3...] vs [3, 7, 8, 4...]
     // Result: [true, false, false, false...]
     let a_values: Vec<i32> = match dimension {
@@ -398,10 +399,10 @@ fn generate_test_expressions(vec_type: VecType, dimension: Dimension) -> String 
         Dimension::D3 => vec![true, false, false],
         Dimension::D4 => vec![true, false, false, false],
     };
-    
+
     let a_constructor = format_vector_constructor(vec_type, dimension, &a_values);
     let b_constructor = format_vector_constructor(vec_type, dimension, &b_values);
-    
+
     format!(
         "{} test_{}_greater_than_expressions() {{\n\
          return greaterThan({}, {});\n\
@@ -420,7 +421,7 @@ fn generate_test_expressions(vec_type: VecType, dimension: Dimension) -> String 
 fn generate_test_in_expression(vec_type: VecType, dimension: Dimension) -> String {
     let type_name = format_type_name(vec_type, dimension);
     let bvec_type_name = format_bvec_type_name(dimension);
-    
+
     // a = [3, 7, 5, 9...], b = [2, 3, 6, 8...], c = [1, 5, 4, 7...]
     // greaterThan(a, b) = [true, true, false, true...]
     // greaterThan(b, c) = [true, false, true, true...]
@@ -445,11 +446,11 @@ fn generate_test_in_expression(vec_type: VecType, dimension: Dimension) -> Strin
         Dimension::D3 => vec![true, false, false],
         Dimension::D4 => vec![true, false, false, true],
     };
-    
+
     let a_constructor = format_vector_constructor(vec_type, dimension, &a_values);
     let b_constructor = format_vector_constructor(vec_type, dimension, &b_values);
     let c_constructor = format_vector_constructor(vec_type, dimension, &c_values);
-    
+
     format!(
         "{} test_{}_greater_than_in_expression() {{\n\
          {} a = {};\n\
@@ -487,5 +488,3 @@ fn generate_test_in_expression(vec_type: VecType, dimension: Dimension) -> Strin
         format_bvec_expected(expected)
     )
 }
-
-

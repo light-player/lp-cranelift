@@ -68,14 +68,14 @@ return lessThanEqual(a, b);
 
 bvec3 test_ivec3_less_equal_variables() {
 ivec3 a = ivec3(10, 15, 8);
-ivec3 b = ivec3(12, 10, 8);
+ivec3 b = ivec3(12, 10, 12);
 return lessThanEqual(a, b);
 }
 
 // run: test_ivec3_less_equal_variables() == bvec3(true, false, true)
 
 bvec3 test_ivec3_less_equal_expressions() {
-return lessThanEqual(ivec3(3, 7, 6), ivec3(5, 5, 6));
+return lessThanEqual(ivec3(3, 7, 2), ivec3(5, 5, 4));
 }
 
 // run: test_ivec3_less_equal_expressions() == bvec3(true, false, true)

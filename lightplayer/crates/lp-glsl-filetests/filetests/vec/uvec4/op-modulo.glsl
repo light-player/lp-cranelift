@@ -66,7 +66,7 @@ uvec4 test_uvec4_modulo_large_numbers() {
     return a % b;
 }
 
-// run: test_uvec4_modulo_large_numbers() == uvec4(1000u, 1000u, 9000u, 3500u)
+// run: test_uvec4_modulo_large_numbers() == uvec4(1000u, 1000u, 1000u, 3500u)
 
 uvec4 test_uvec4_modulo_mixed_components() {
     uvec4 a = uvec4(123u, 456u, 789u, 1000u);

@@ -1,10 +1,10 @@
 //! Summary mode: compile once, reuse emulator.
 
 use crate::parse::TestFile;
+use crate::test_run::TestCaseStats;
 use crate::test_run::execution;
 use crate::test_run::parse_assert;
 use crate::test_run::target;
-use crate::test_run::TestCaseStats;
 use anyhow::Result;
 use lp_glsl::GlslOptions;
 use lp_glsl::glsl_emu_riscv32_with_metadata;
@@ -89,20 +89,21 @@ pub fn run(
         });
 
         // Parse function call from expression
-        let (func_name, arg_strings) = match parse_assert::parse_function_call(&directive.expression_str) {
-            Ok(parsed) => parsed,
-            Err(e) => {
-                stats.failed += 1;
-                if first_error.is_none() {
-                    first_error = Some(anyhow::anyhow!(
-                        "failed to parse function call at line {}: {}",
-                        directive.line_number,
-                        e
-                    ));
+        let (func_name, arg_strings) =
+            match parse_assert::parse_function_call(&directive.expression_str) {
+                Ok(parsed) => parsed,
+                Err(e) => {
+                    stats.failed += 1;
+                    if first_error.is_none() {
+                        first_error = Some(anyhow::anyhow!(
+                            "failed to parse function call at line {}: {}",
+                            directive.line_number,
+                            e
+                        ));
+                    }
+                    continue;
                 }
-                continue;
-            }
-        };
+            };
 
         // Parse arguments to GlslValue
         let args = match parse_assert::parse_function_arguments(&arg_strings) {
@@ -248,9 +249,7 @@ pub fn run(
     }
 
     let result = if stats.failed > 0 {
-        Err(first_error.unwrap_or_else(|| {
-            anyhow::anyhow!("{} test case(s) failed", stats.failed)
-        }))
+        Err(first_error.unwrap_or_else(|| anyhow::anyhow!("{} test case(s) failed", stats.failed)))
     } else {
         Ok(())
     };

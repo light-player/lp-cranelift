@@ -72,4 +72,3 @@ pub struct TestFile {
     /// CLIF expectations extracted from comments.
     pub clif_expectations: ClifExpectations,
 }
-

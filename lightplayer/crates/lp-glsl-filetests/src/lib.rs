@@ -16,7 +16,7 @@ pub mod test_transform;
 pub mod util;
 
 use anyhow::Result;
-use glob::{glob_with, MatchOptions};
+use glob::{MatchOptions, glob_with};
 use output_mode::OutputMode;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -32,26 +32,26 @@ pub fn run_filetest(path: &Path) -> Result<()> {
 /// This works even if parsing fails later, so we can show stats.
 pub(crate) fn count_test_cases(path: &Path, line_filter: Option<usize>) -> test_run::TestCaseStats {
     let mut stats = test_run::TestCaseStats::default();
-    
+
     // Try to read and count run directives
     if let Ok(contents) = std::fs::read_to_string(path) {
         for (line_num, line) in contents.lines().enumerate() {
             let line_number = line_num + 1;
-            
+
             // Apply line filter if provided
             if let Some(filter_line) = line_filter {
                 if line_number != filter_line {
                     continue;
                 }
             }
-            
+
             // Check if this line contains a run directive
             if parse::parse_run::parse_run_directive_line(line).is_some() {
                 stats.total += 1;
             }
         }
     }
-    
+
     stats
 }
 
@@ -64,7 +64,7 @@ pub fn run_filetest_with_line_filter(
 ) -> Result<(Result<()>, test_run::TestCaseStats)> {
     // Count test cases early, even if parsing fails later
     let early_stats = count_test_cases(path, line_filter);
-    
+
     let test_file = match parse::parse_test_file(path) {
         Ok(tf) => tf,
         Err(e) => {
@@ -108,12 +108,8 @@ pub fn run_filetest_with_line_filter(
         .iter()
         .any(|t| matches!(t, parse::TestType::Run))
     {
-        let (result, stats) = test_run::run_test_file_with_line_filter(
-            &test_file,
-            path,
-            line_filter,
-            output_mode,
-        )?;
+        let (result, stats) =
+            test_run::run_test_file_with_line_filter(&test_file, path, line_filter, output_mode)?;
         Ok((result, stats))
     } else {
         Ok((Ok(()), test_run::TestCaseStats::default()))
@@ -234,26 +230,24 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
 
         match result {
             Ok(()) => {
-                println!("{}", colors::colorize(&format!("✓ {}", display_path), colors::GREEN));
+                println!(
+                    "{}",
+                    colors::colorize(&format!("✓ {}", display_path), colors::GREEN)
+                );
                 let elapsed = start_time.elapsed();
                 println!(
                     "\n{}",
-                    format_results_summary(
-                        stats.passed,
-                        stats.failed,
-                        stats.total,
-                        1,
-                        0,
-                        elapsed
-                    )
+                    format_results_summary(stats.passed, stats.failed, stats.total, 1, 0, elapsed)
                 );
                 return Ok(());
             }
             Err(_e) => {
                 // Extract test expression and line number from error message
                 let error_str = format!("{:#}", _e);
-                let (test_expr, line_num) = extract_test_info_from_error(&error_str, spec.line_number);
-                let filename_only = Path::new(&display_path).file_name()
+                let (test_expr, line_num) =
+                    extract_test_info_from_error(&error_str, spec.line_number);
+                let filename_only = Path::new(&display_path)
+                    .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or(&display_path)
                     .to_string();
@@ -266,19 +260,15 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
                 } else {
                     filename_only
                 };
-                println!("{}", colors::colorize(&format!("✗ {}", failure_line), colors::RED));
+                println!(
+                    "{}",
+                    colors::colorize(&format!("✗ {}", failure_line), colors::RED)
+                );
                 println!("\n{:#}", _e);
                 let elapsed = start_time.elapsed();
                 println!(
                     "\n{}",
-                    format_results_summary(
-                        stats.passed,
-                        stats.failed,
-                        stats.total,
-                        0,
-                        1,
-                        elapsed
-                    )
+                    format_results_summary(stats.passed, stats.failed, stats.total, 0, 1, elapsed)
                 );
                 anyhow::bail!("1 test file(s) failed");
             }
@@ -287,20 +277,20 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
 
     // Multiple tests: use concurrent execution
     use runner::concurrent::ConcurrentRunner;
-    
+
     #[derive(Debug)]
     enum TestState {
         New,
         Queued,
         Done(Result<()>),
     }
-    
+
     struct TestEntry {
         spec: FileSpec,
         state: TestState,
         stats: test_run::TestCaseStats,
     }
-    
+
     struct FailedTest {
         path: PathBuf,
         line_number: Option<usize>,
@@ -343,7 +333,11 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
         // Check for completed jobs
         while let Some(reply) = concurrent_runner.try_get() {
             match reply {
-                runner::concurrent::Reply::Done { jobid, result, stats } => {
+                runner::concurrent::Reply::Done {
+                    jobid,
+                    result,
+                    stats,
+                } => {
                     tests[jobid].stats = stats;
                     tests[jobid].state = TestState::Done(result);
                 }
@@ -459,18 +453,26 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
         while let Some(reply) = concurrent_runner.try_get() {
             got_reply = true;
             match reply {
-                runner::concurrent::Reply::Done { jobid, result, stats } => {
+                runner::concurrent::Reply::Done {
+                    jobid,
+                    result,
+                    stats,
+                } => {
                     tests[jobid].stats = stats;
                     tests[jobid].state = TestState::Done(result);
                 }
             }
         }
-        
+
         // Only block if we didn't get any replies and the next test isn't done
         if !got_reply {
             if let Some(reply) = concurrent_runner.get() {
                 match reply {
-                    runner::concurrent::Reply::Done { jobid, result, stats } => {
+                    runner::concurrent::Reply::Done {
+                        jobid,
+                        result,
+                        stats,
+                    } => {
                         tests[jobid].stats = stats;
                         tests[jobid].state = TestState::Done(result);
                     }
@@ -484,7 +486,7 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
     concurrent_runner.join();
 
     let elapsed = start_time.elapsed();
-    
+
     // Print failed tests summary if there are failures
     if !failed_tests.is_empty() && !output_mode.show_full_output() {
         println!("\n{} Failed tests", failed_tests.len());
@@ -508,7 +510,7 @@ pub fn run(files: &[String]) -> anyhow::Result<()> {
             }
         }
     }
-    
+
     println!(
         "\n{}",
         format_results_summary(
@@ -627,7 +629,10 @@ fn relative_path(path: &Path, filetests_dir: &Path) -> String {
 }
 
 /// Extract test expression and line number from error message for failure marker display.
-fn extract_test_info_from_error(error_str: &str, fallback_line: Option<usize>) -> (Option<String>, Option<usize>) {
+fn extract_test_info_from_error(
+    error_str: &str,
+    fallback_line: Option<usize>,
+) -> (Option<String>, Option<usize>) {
     // Look for line number in rerun command (scripts/glsl-filetests.sh filename:line)
     let mut line_num = fallback_line;
     if let Some(script_pos) = error_str.find("scripts/glsl-filetests.sh") {
@@ -640,7 +645,7 @@ fn extract_test_info_from_error(error_str: &str, fallback_line: Option<usize>) -
             }
         }
     }
-    
+
     // Look for // run: line in error message
     let test_expr = if let Some(run_start) = error_str.find("// run:") {
         if let Some(run_end) = error_str[run_start..].find('\n') {
@@ -648,11 +653,17 @@ fn extract_test_info_from_error(error_str: &str, fallback_line: Option<usize>) -
             // Extract expression part (everything before == or ~=) and the expected value
             if let Some(op_pos) = run_line.rfind(" == ") {
                 let expr = run_line[..op_pos].trim();
-                let expected = run_line[op_pos + 4..].split_whitespace().next().unwrap_or("");
+                let expected = run_line[op_pos + 4..]
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("");
                 Some(format!("{} == {}", expr, expected))
             } else if let Some(op_pos) = run_line.rfind(" ~= ") {
                 let expr = run_line[..op_pos].trim();
-                let expected = run_line[op_pos + 4..].split_whitespace().next().unwrap_or("");
+                let expected = run_line[op_pos + 4..]
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("");
                 Some(format!("{} ~= {}", expr, expected))
             } else {
                 Some(run_line.to_string())
@@ -663,7 +674,7 @@ fn extract_test_info_from_error(error_str: &str, fallback_line: Option<usize>) -
     } else {
         None
     };
-    
+
     (test_expr, line_num)
 }
 
@@ -689,9 +700,17 @@ fn format_results_summary(
 
     if colors::should_color() {
         // Use red if there are failures, green if all passed
-        let test_cases_color = if failed_test_cases > 0 { colors::RED } else { colors::GREEN };
-        let files_color = if failed_files > 0 { colors::RED } else { colors::GREEN };
-        
+        let test_cases_color = if failed_test_cases > 0 {
+            colors::RED
+        } else {
+            colors::GREEN
+        };
+        let files_color = if failed_files > 0 {
+            colors::RED
+        } else {
+            colors::GREEN
+        };
+
         let test_cases_part = if total_test_cases > 0 {
             format!(
                 "{}{}/{} tests passed{}",

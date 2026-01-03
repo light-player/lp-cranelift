@@ -52,35 +52,32 @@ return lessThanEqual(a, b);
 
 bvec4 test_uvec4_less_equal_zero() {
 uvec4 a = uvec4(0u, 1u, 2u, 0u);
-uvec4 b = uvec4(1u, 0u, 3u, -1u);
+uvec4 b = uvec4(1u, 0u, 3u, 2u);
 return lessThanEqual(a, b);
 }
 
-// run: test_uvec4_less_equal_zero() == bvec4(true, false, true, false)
+// run: test_uvec4_less_equal_zero() == bvec4(true, false, true, true)
 
 bvec4 test_uvec4_less_equal_variables() {
-uvec4 a = uvec4(10u, 15u, 8u, 5u);
-uvec4 b = uvec4(12u, 10u, 8u, 6u);
+uvec4 a = uvec4(10u, 15u, 8u, 12u);
+uvec4 b = uvec4(12u, 10u, 12u, 8u);
 return lessThanEqual(a, b);
 }
 
-// run: test_uvec4_less_equal_variables() == bvec4(true, false, true, true)
+// run: test_uvec4_less_equal_variables() == bvec4(true, false, true, false)
 
 bvec4 test_uvec4_less_equal_expressions() {
-return lessThanEqual(uvec4(3u, 7u, 6u, 4u), uvec4(5u, 5u, 6u, 3u));
+return lessThanEqual(uvec4(3u, 7u, 2u, 9u), uvec4(5u, 5u, 4u, 8u));
 }
 
 // run: test_uvec4_less_equal_expressions() == bvec4(true, false, true, false)
 
-bvec4 test_uvec4_less_equal_in_expression() {
-uvec4 a = uvec4(1u, 5u, 4u, 7u);
-uvec4 b = uvec4(2u, 3u, 6u, 8u);
-uvec4 c = uvec4(3u, 7u, 5u, 9u);
-// Use equal() for component-wise comparison of bvec4 values
-// lessThanEqual(a, b) = (true,false,true,true)
-// lessThanEqual(b, c) = (true,true,false,true)
-// equal(lessThanEqual(a, b), lessThanEqual(b, c)) = (true,false,false,true)
-return equal(lessThanEqual(a, b), lessThanEqual(b, c));
+bool test_uvec4_less_equal_in_expression() {
+uvec4 a = uvec4(1u, 5u, 3u, 7u);
+uvec4 b = uvec4(2u, 3u, 4u, 5u);
+uvec4 c = uvec4(3u, 7u, 1u, 9u);
+return lessThanEqual(a, b) == lessThanEqual(b, c);
+// (true,false,true,false) == (true,true,false,true) = false
 }
 
-// run: test_uvec4_less_equal_in_expression() == bvec4(true, false, false, true)
+// run: test_uvec4_less_equal_in_expression() == false

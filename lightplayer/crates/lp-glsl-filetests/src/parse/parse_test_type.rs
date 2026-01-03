@@ -23,7 +23,10 @@ mod tests {
     #[test]
     fn test_parse_test_type_compile() {
         assert_eq!(parse_test_type("// test compile"), Some(TestType::Compile));
-        assert_eq!(parse_test_type("  // test compile  "), Some(TestType::Compile));
+        assert_eq!(
+            parse_test_type("  // test compile  "),
+            Some(TestType::Compile)
+        );
     }
 
     #[test]
@@ -53,4 +56,3 @@ mod tests {
         assert_eq!(parse_test_type(""), None);
     }
 }
-

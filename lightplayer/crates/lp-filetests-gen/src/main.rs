@@ -13,4 +13,3 @@ fn main() -> Result<()> {
     let args = cli::parse_args();
     generator::generate(&args)
 }
-

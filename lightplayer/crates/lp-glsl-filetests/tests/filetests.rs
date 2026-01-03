@@ -55,7 +55,7 @@ fn check_builtins_executable() -> Result<()> {
 fn filetests() -> Result<()> {
     // Check builtins executable availability early
     check_builtins_executable()?;
-    
+
     let filetests_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("filetests");
 
     // Check for filtering environment variables

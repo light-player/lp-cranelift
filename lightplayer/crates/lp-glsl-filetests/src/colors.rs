@@ -29,4 +29,3 @@ pub fn colorize(text: &str, color: &str) -> String {
         text.to_string()
     }
 }
-

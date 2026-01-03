@@ -10,4 +10,3 @@ pub mod vec;
 // Re-export commonly used types
 pub use generator::TestSpec;
 pub use types::{Dimension, VecType};
-

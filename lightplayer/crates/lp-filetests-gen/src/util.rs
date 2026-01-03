@@ -10,5 +10,3 @@ pub fn generate_header(specifier: &str) -> String {
         specifier
     )
 }
-
-

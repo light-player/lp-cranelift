@@ -1,3 +1,12 @@
+# Needed for demo
+
+- globals
+- *out* support for arguments as pointers for ABI/JIT
+- trap recovery / stack recovery
+- stack overflow trap
+- cycle counting of some sort to prevent infinite loops
+
+
 # Safety
 
 - instruction counter limit trap

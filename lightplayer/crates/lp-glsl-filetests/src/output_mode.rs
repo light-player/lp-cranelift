@@ -36,4 +36,3 @@ impl OutputMode {
         matches!(self, OutputMode::Detail | OutputMode::Debug)
     }
 }
-

@@ -8,7 +8,7 @@ use crate::test_run::TestCaseStats;
 use anyhow::Result;
 use std::panic::catch_unwind;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -156,7 +156,7 @@ fn worker_thread(
                         // Count test cases even on error so we can show stats
                         let error_stats = crate::count_test_cases(path.as_path(), line_filter);
                         (Err(e), error_stats)
-                    },
+                    }
                     Err(e) => {
                         // The test panicked, leaving us a `Box<Any>`.
                         // Panics are usually strings or &str.
@@ -175,14 +175,17 @@ fn worker_thread(
                         // Count test cases even on panic so we can show stats
                         let panic_stats = crate::count_test_cases(path.as_path(), line_filter);
 
-                        (
-                            Err(anyhow::anyhow!("panicked: {}", short_msg)),
-                            panic_stats,
-                        )
+                        (Err(anyhow::anyhow!("panicked: {}", short_msg)), panic_stats)
                     }
                 };
 
-                replies.send(Reply::Done { jobid, result, stats }).unwrap();
+                replies
+                    .send(Reply::Done {
+                        jobid,
+                        result,
+                        stats,
+                    })
+                    .unwrap();
             }
         })
         .unwrap()

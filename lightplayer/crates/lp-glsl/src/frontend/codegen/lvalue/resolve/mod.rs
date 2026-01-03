@@ -38,4 +38,3 @@ pub fn resolve_lvalue<M: cranelift_module::Module>(
         }
     }
 }
-

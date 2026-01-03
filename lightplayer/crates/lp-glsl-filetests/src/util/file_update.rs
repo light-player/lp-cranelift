@@ -4,7 +4,7 @@
 //! expectations don't match, matching Cranelift's FileUpdate semantics.
 
 use crate::parse::test_type::ComparisonOp;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use lp_glsl::GlslValue;
 use std::cell::Cell;
 use std::fs;
@@ -232,4 +232,3 @@ pub fn format_glsl_value(value: &GlslValue) -> String {
         }
     }
 }
-

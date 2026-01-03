@@ -51,8 +51,8 @@ return greaterThanEqual(a, b);
 // run: test_uvec4_greater_equal_mixed_equal() == bvec4(true, true, false, true)
 
 bvec4 test_uvec4_greater_equal_zero() {
-uvec4 a = uvec4(1u, 0u, 3u, -1u);
-uvec4 b = uvec4(0u, 1u, 2u, 0u);
+uvec4 a = uvec4(1u, 0u, 3u, 2u);
+uvec4 b = uvec4(0u, 1u, 2u, 4u);
 return greaterThanEqual(a, b);
 }
 

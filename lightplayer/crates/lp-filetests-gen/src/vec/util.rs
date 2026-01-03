@@ -25,14 +25,14 @@ pub fn format_type_name(vec_type: VecType, dimension: Dimension) -> String {
         Dimension::D3 => "3",
         Dimension::D4 => "4",
     };
-    
+
     let prefix = match vec_type {
         VecType::Vec => "vec",
         VecType::IVec => "ivec",
         VecType::UVec => "uvec",
         VecType::BVec => "bvec",
     };
-    
+
     format!("{}{}", prefix, dim_str)
 }
 
@@ -54,16 +54,21 @@ pub fn format_vector_constructor(
 ) -> String {
     let type_name = format_type_name(vec_type, dimension);
     let dim = dimension.as_usize();
-    
+
     if values.len() != dim {
-        panic!("Expected {} values for {:?}, got {}", dim, dimension, values.len());
+        panic!(
+            "Expected {} values for {:?}, got {}",
+            dim,
+            dimension,
+            values.len()
+        );
     }
-    
+
     let formatted_values: Vec<String> = values
         .iter()
         .map(|&v| format_literal(v, vec_type))
         .collect();
-    
+
     format!("{}({})", type_name, formatted_values.join(", "))
 }
 
@@ -78,4 +83,3 @@ pub fn format_bvec_comment(values: Vec<bool>) -> String {
     let formatted: Vec<String> = values.iter().map(|&v| v.to_string()).collect();
     format!("({})", formatted.join(","))
 }
-
