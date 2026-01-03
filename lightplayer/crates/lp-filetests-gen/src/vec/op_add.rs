@@ -548,8 +548,8 @@ fn generate_test_max_values(vec_type: VecType, dimension: Dimension) -> String {
 }
 
 fn generate_test_fractions(vec_type: VecType, dimension: Dimension) -> String {
-    // Skip fractions test for unsigned types (doesn't make sense)
-    if matches!(vec_type, VecType::UVec) {
+    // Skip fractions test for integer types (doesn't make sense for integers)
+    if matches!(vec_type, VecType::UVec | VecType::IVec) {
         return String::new();
     }
 

@@ -82,10 +82,3 @@ return a + b;
 
 // run: test_ivec4_add_mixed_components() == ivec4(-2, 2, 2, -2)
 
-ivec4 test_ivec4_add_fractions() {
-ivec4 a = vec4(1.5, 2.25, 3.75, 0.5);
-ivec4 b = vec4(0.5, 1.75, 0.25, 1.5);
-return a + b;
-}
-
-// run: test_ivec4_add_fractions() == vec4(2.0, 4.0, 4.0, 2.0)

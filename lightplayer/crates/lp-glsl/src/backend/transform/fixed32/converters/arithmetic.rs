@@ -6,10 +6,8 @@ use crate::backend::transform::fixed32::converters::{
 };
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::error::GlslError;
-use alloc::string::String;
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, condcodes::IntCC, types};
 use cranelift_frontend::FunctionBuilder;
-use cranelift_module::FuncId;
 use hashbrown::HashMap;
 
 /// Convert Fadd to fixed-point addition with saturation

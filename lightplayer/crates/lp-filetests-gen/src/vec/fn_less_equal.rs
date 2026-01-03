@@ -459,7 +459,6 @@ fn generate_test_in_expression(vec_type: VecType, dimension: Dimension) -> Strin
         );
     }
 
-    let bvec_type_name = format_bvec_type_name(dimension);
     let type_name = format_type_name(vec_type, dimension);
     let bvec_type_name = format_bvec_type_name(dimension);
 
