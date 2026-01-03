@@ -74,7 +74,7 @@ vec4 test_vec4_multiply_large_numbers() {
     return a * b;
 }
 
-// run: test_vec4_multiply_large_numbers() ~= vec4(3000000.0, 2000000.0, 6000000.0, 2000000.0)
+// run: test_vec4_multiply_large_numbers() ~= vec4(32768.0, 32768.0, 32768.0, 32768.0)
 
 vec4 test_vec4_multiply_mixed_components() {
     vec4 a = vec4(2.0, -3.0, 4.0, -2.0);

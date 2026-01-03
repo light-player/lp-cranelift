@@ -6,8 +6,10 @@ use crate::backend::transform::fixed32::converters::{
 };
 use crate::backend::transform::fixed32::types::FixedPointFormat;
 use crate::error::GlslError;
+use alloc::string::String;
 use cranelift_codegen::ir::{Function, Inst, InstBuilder, condcodes::IntCC, types};
 use cranelift_frontend::FunctionBuilder;
+use cranelift_module::FuncId;
 use hashbrown::HashMap;
 
 /// Convert Fadd to fixed-point addition with saturation
@@ -119,45 +121,63 @@ pub(crate) fn convert_fsub(
     Ok(())
 }
 
-/// Convert Fmul to fixed-point multiplication with scaling
+/// Convert Fmul to fixed-point multiplication by calling __lp_fixed32_mul builtin.
 pub(crate) fn convert_fmul(
     old_func: &Function,
     old_inst: Inst,
     builder: &mut FunctionBuilder,
     value_map: &mut HashMap<cranelift_codegen::ir::Value, cranelift_codegen::ir::Value>,
-    format: FixedPointFormat,
+    _format: FixedPointFormat,
+    func_id_map: &HashMap<alloc::string::String, cranelift_module::FuncId>,
 ) -> Result<(), GlslError> {
+    use cranelift_codegen::ir::{AbiParam, ExtFuncData, ExternalName, Signature, UserExternalName};
+    use cranelift_codegen::isa::CallConv;
+
     let (arg1_old, arg2_old) = extract_binary_operands(old_func, old_inst)?;
     let arg1 = map_operand(value_map, arg1_old);
     let arg2 = map_operand(value_map, arg2_old);
-    let target_type = format.cranelift_type();
-    let shift_amount = format.shift_amount();
 
-    // Fixed-point multiplication: (a * b) >> shift_amount
-    // Use i64 intermediate to avoid overflow when multiplying two i32 fixed-point numbers
-    // Sign-extend both operands to i64
-    let arg1_wide = builder.ins().sextend(types::I64, arg1);
-    let arg2_wide = builder.ins().sextend(types::I64, arg2);
+    // Get FuncId for __lp_fixed32_mul from func_id_map
+    let builtin_name = "__lp_fixed32_mul";
+    let func_id = func_id_map.get(builtin_name).ok_or_else(|| {
+        GlslError::new(
+            crate::error::ErrorCode::E0400,
+            format!(
+                "Builtin function '{}' not found in func_id_map",
+                builtin_name
+            ),
+        )
+    })?;
 
-    // Multiply in i64
-    let mul_result_wide = builder.ins().imul(arg1_wide, arg2_wide);
+    // Create signature for __lp_fixed32_mul: (i32, i32) -> i32
+    let mut sig = Signature::new(CallConv::SystemV);
+    sig.params.push(AbiParam::new(types::I32));
+    sig.params.push(AbiParam::new(types::I32));
+    sig.returns.push(AbiParam::new(types::I32));
+    let sig_ref = builder.func.import_signature(sig);
 
-    // Right shift to scale back
-    let shift_const = builder.ins().iconst(types::I64, shift_amount);
-    let shifted_wide = builder.ins().sshr(mul_result_wide, shift_const);
+    // Create UserExternalName with the FuncId
+    let user_name = UserExternalName {
+        namespace: 0, // Use namespace 0 for builtins
+        index: func_id.as_u32(),
+    };
+    let user_ref = builder.func.declare_imported_user_function(user_name);
+    let ext_name = ExternalName::User(user_ref);
 
-    // Saturate to fixed-point range BEFORE truncation
-    // This catches overflow cases where the i64 value exceeds the i32 range
-    let max_fixed_i64 = builder.ins().iconst(types::I64, 0x7FFF0000i64);
-    // Min is -2147483648 (i32::MIN, which is 0x80000000 in fixed-point)
-    let min_fixed_i64 = builder.ins().iconst(types::I64, -2147483648i64);
+    // For ObjectModule (emulator), colocated should be true so the linker can resolve
+    // the symbol directly. For JITModule, colocated doesn't matter as much since
+    // function pointers are resolved at runtime via symbol_lookup_fn.
+    // We use true here to ensure proper linking for emulator mode.
+    let ext_func = ExtFuncData {
+        name: ext_name,
+        signature: sig_ref,
+        colocated: true,
+    };
+    let mul_func_ref = builder.func.import_function(ext_func);
 
-    // Clamp at i64 level
-    let clamped_max_i64 = builder.ins().smin(shifted_wide, max_fixed_i64);
-    let clamped_i64 = builder.ins().smax(clamped_max_i64, min_fixed_i64);
-
-    // Truncate the clamped value
-    let result = builder.ins().ireduce(target_type, clamped_i64);
+    // Call __lp_fixed32_mul with the mapped arguments
+    let call_result = builder.ins().call(mul_func_ref, &[arg1, arg2]);
+    let result = builder.inst_results(call_result)[0];
 
     let old_result = get_first_result(old_func, old_inst);
     value_map.insert(old_result, result);

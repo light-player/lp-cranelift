@@ -1,6 +1,6 @@
 //! Fixed-point 16.16 multiplication with overflow/saturation handling.
 
-const MAX_FIXED: i32 = 0x7FFF_0000; // Maximum representable fixed-point value (not i32::MAX)
+const MAX_FIXED: i32 = 0x7FFF_FFFF; // Maximum representable fixed-point value (not i32::MAX)
 const MIN_FIXED: i32 = i32::MIN; // Minimum representable fixed-point value
 
 /// Fixed-point multiplication: (a * b) >> 16

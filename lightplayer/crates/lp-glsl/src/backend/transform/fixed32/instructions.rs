@@ -89,7 +89,14 @@ fn convert_instruction(
             converters::arithmetic::convert_fsub(old_func, old_inst, builder, value_map, format)?;
         }
         Opcode::Fmul => {
-            converters::arithmetic::convert_fmul(old_func, old_inst, builder, value_map, format)?;
+            converters::arithmetic::convert_fmul(
+                old_func,
+                old_inst,
+                builder,
+                value_map,
+                format,
+                func_id_map,
+            )?;
         }
         Opcode::Fdiv => {
             converters::arithmetic::convert_fdiv(old_func, old_inst, builder, value_map, format)?;
