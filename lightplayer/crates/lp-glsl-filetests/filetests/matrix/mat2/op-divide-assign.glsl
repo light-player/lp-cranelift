@@ -89,3 +89,4 @@ mat2 test_mat2_divide_assign_scalar_fractional() {
 
 
 
+

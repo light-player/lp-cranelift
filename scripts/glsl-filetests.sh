@@ -41,6 +41,7 @@ fi
 # Parse command line arguments
 SHOW_HELP=false
 SHOW_LIST=false
+REGEN_GEN_FILES=false
 TEST_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -51,6 +52,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --list|-l)
             SHOW_LIST=true
+            shift
+            ;;
+        -g)
+            REGEN_GEN_FILES=true
             shift
             ;;
         *)
@@ -73,6 +78,7 @@ USAGE:
 OPTIONS:
     -h, --help          Show this help message
     -l, --list          List all available test files
+    -g                  Regenerate .gen.glsl files before running tests
 
 PATTERNS:
     Patterns can be filenames, glob patterns, or directory paths.
@@ -96,6 +102,9 @@ EXAMPLES:
 
     # Run tests in math directory with specific pattern
     glsl-filetests.sh "math/float*"
+
+    # Regenerate .gen.glsl file before running tests
+    glsl-filetests.sh vec/vec4/fn-equal.gen.glsl -g
 
 PATTERN SYNTAX:
     *         Matches any sequence of characters
@@ -190,6 +199,15 @@ cd "$WORKSPACE_ROOT/lightplayer" || {
     echo "Error: Failed to change to lightplayer directory" >&2
     exit 1
 }
+
+# Regenerate .gen.glsl files if -g flag is set
+if [ "$REGEN_GEN_FILES" = true ]; then
+    # Pass all test args to the generator - it will handle expansion
+    cargo run -p lp-filetests-gen -- "${TEST_ARGS[@]}" --write || {
+        echo "Error: Failed to regenerate test files" >&2
+        exit 1
+    }
+fi
 
 # Run the GLSL filetests using lp-test binary with cargo run
 # This ensures cargo run picks up all compilation changes in the lightplayer workspace

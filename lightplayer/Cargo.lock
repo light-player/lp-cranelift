@@ -1452,6 +1452,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lp-filetests-gen"
+version = "40.0.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "walkdir",
+]
+
+[[package]]
 name = "lp-glsl"
 version = "40.0.0"
 dependencies = [

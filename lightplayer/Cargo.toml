@@ -2,6 +2,7 @@
 resolver = '2'
 members = [
     "crates/lp-builtins",
+    "crates/lp-filetests-gen",
     "crates/lp-glsl",
     "crates/lp-glsl-filetests",
     "crates/lp-jit-util",

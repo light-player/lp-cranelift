@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 /// Discover all test files in the given directory.
+/// Finds all files ending in `.glsl`, including `.gen.glsl` files.
 pub fn discover_test_files(filetests_dir: &Path) -> Result<Vec<PathBuf>> {
     let mut test_files = Vec::new();
     
@@ -12,7 +13,12 @@ pub fn discover_test_files(filetests_dir: &Path) -> Result<Vec<PathBuf>> {
         let entry = entry?;
         let path = entry.path();
         
-        if path.extension().and_then(|s| s.to_str()) == Some("glsl") {
+        // Check that it's a file and has .glsl extension
+        // This correctly handles both .glsl and .gen.glsl files
+        // because path.extension() returns "glsl" for both
+        if path.is_file()
+            && path.extension().and_then(|s| s.to_str()) == Some("glsl")
+        {
             test_files.push(path.to_path_buf());
         }
     }

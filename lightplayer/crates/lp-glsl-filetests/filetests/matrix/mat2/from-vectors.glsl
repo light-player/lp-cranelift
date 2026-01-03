@@ -73,3 +73,4 @@ mat2 test_mat2_from_vec2_function_result() {
 
 
 
+
