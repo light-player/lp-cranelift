@@ -134,7 +134,13 @@ nodes/*/runtime.rs
   TextureNodeRuntime { texture: Texture, status }
     Methods: texture() -> &Texture, texture_mut() -> &mut Texture
 
-  ShaderNodeRuntime { executable: Option<Box<dyn GlslExecutable>>, texture_id, status }
+  ShaderNodeRuntime { 
+    executable: Option<Box<dyn GlslExecutable>>, 
+    texture_id, 
+    status 
+  }
+    # Shader main signature: vec4 main(vec2 fragCoord, vec2 outputSize, float time)
+    # Validated during init() - compilation fails if signature doesn't match
 
   FixtureNodeRuntime { output_id, texture_id, kernel: SamplingKernel, channel_order, status }
 
@@ -218,7 +224,7 @@ This will eventually move to `lp-builtins` as part of the core GLSL system.
 
 All node runtimes implement `NodeLifecycle` trait with:
 
-- `init()`: Initialize from config, validate dependencies, allocate resources
+- `init()`: Initialize from config, validate dependencies (including shader signature validation), allocate resources, compile shaders
 - `update()`: Update state using type-specific render context
 - `destroy()`: Cleanup resources
 
@@ -249,7 +255,7 @@ This approach:
 ### Node Runtimes
 
 - **TextureNodeRuntime**: Wraps a `Texture` instance
-- **ShaderNodeRuntime**: Stores compiled `Box<dyn GlslExecutable>` (None if compilation failed). `GlslJitModule` implements `GlslExecutable` trait.
+- **ShaderNodeRuntime**: Stores compiled `Box<dyn GlslExecutable>` (None if compilation failed). Shader main signature: `vec4 main(vec2 fragCoord, vec2 outputSize, float time)`. During `init()`, validates GLSL has matching signature before compilation. During `update()`, iterates over all texture pixels, calls shader with pixel coordinates, texture size, and time, writes result via `texture.set_pixel()`.
 - **FixtureNodeRuntime**: Precomputes one `SamplingKernel` in `init()` (reused for all mapping points), samples textures and writes to outputs in `update()` via `FixtureRenderContext` (which provides mutable access to outputs). Each mapping point uses the same kernel but at its own center position.
 - **OutputNodeRuntime**: Holds firmware-specific `OutputHandle` and pixel buffer. Fixtures write to buffer via `FixtureRenderContext.get_output_mut().buffer_mut()` which returns `&mut [u8]`. `update()` reads buffer and calls `handle.write_pixels()` to send to hardware (ESP32) or update UI (host).
 

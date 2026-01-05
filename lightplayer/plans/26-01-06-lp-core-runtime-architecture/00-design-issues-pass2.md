@@ -17,14 +17,10 @@
 
 **Solution**: Add `buffer_mut() -> &mut [u8]` method to `OutputNodeRuntime`. Fixtures access via `get_output_mut().buffer_mut()` to get mutable slice for writing.
 
-### 18. Shader Execution Details
-**Problem**: Design doesn't specify how `ShaderNodeRuntime.update()` executes the shader:
-- How does it call `executable.call_*()`?
-- What parameters does it pass? (fragCoord? time?)
-- Does it iterate over all pixels in the texture?
-- How does it write results to texture?
+### 18. Shader Execution Details ✅ FIXED
+**Problem**: Design didn't specify how `ShaderNodeRuntime.update()` executes the shader.
 
-**Clarification Needed**: Define the shader execution flow.
+**Solution**: Shader main signature: `vec4 main(vec2 fragCoord, vec2 outputSize, float time)`. During `init()`, validate GLSL has matching signature before compilation. During `update()`: iterate over all texture pixels, call shader with `[x, y]` as fragCoord, `[width, height]` as outputSize, and `time.total_ms` as time. Write result via `texture.set_pixel()`. Eventually will use uniforms/globals, but for now everything is passed as parameters.
 
 ### 19. Texture Initialization
 **Problem**: Design doesn't specify how `Texture` is created in `TextureNodeRuntime.init()`:
