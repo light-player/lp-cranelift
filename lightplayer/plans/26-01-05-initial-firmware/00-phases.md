@@ -17,4 +17,7 @@
 15. Implement host LED visualization (egui)
 16. Integration: Link all components and establish basic communication
 17. Testing and cleanup
+18. Debug UI - Texture Visualization
+19. Debug UI - Mapping Overlay
+20. Debug UI - LED Visualization Enhancement
 
