@@ -1,9 +1,11 @@
 mod app;
+mod debug_ui;
 mod filesystem;
 mod led_output;
 mod transport;
 
 use app::LightPlayerApp as AppLogic;
+use debug_ui::render_textures_panel;
 use eframe::egui;
 use filesystem::HostFilesystem;
 use led_output::{render_leds, HostLedOutput};
@@ -61,6 +63,29 @@ impl eframe::App for AppState {
         if let Err(e) = self.app_logic.process_messages() {
             eprintln!("Error processing messages: {}", e);
         }
+
+        // Use a side panel for textures and main panel for LEDs
+        egui::SidePanel::right("debug_panel")
+            .resizable(true)
+            .default_width(400.0)
+            .show(ctx, |ui| {
+                ui.heading("Debug Panel");
+                ui.separator();
+
+                if let Some(project) = self.app_logic.project() {
+                    // Show project info
+                    ui.group(|ui| {
+                        ui.label(format!("Project: {}", project.name));
+                        ui.label(format!("UID: {}", project.uid));
+                    });
+                    ui.separator();
+
+                    // Show textures
+                    render_textures_panel(ui, project);
+                } else {
+                    ui.label("No project loaded");
+                }
+            });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("LightPlayer Host Firmware");
