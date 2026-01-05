@@ -67,12 +67,10 @@ FixtureRenderContext<'a> {
 
 **Solution**: Shaders always return vec4 (RGBA). `Texture::set_pixel()` writes based on format: RGB8 writes first 3 bytes, R8 writes first byte, RGBA8 writes all 4 bytes. `Texture` provides `format()` and `bytes_per_pixel()` methods for querying format. Fixtures can query format when sampling.
 
-### 9. Error Cascading
-**Problem**: If a shader fails to render (executable is None), what happens to fixtures that depend on that texture? Do they skip, fail, or use previous frame's data?
+### 9. Error Cascading ✅ FIXED
+**Problem**: If a shader fails to render (executable is None), what happens to fixtures that depend on that texture?
 
-**Current Design**: Says "partial failures allowed" but doesn't specify behavior.
-
-**Clarification Needed**: Define error handling strategy for dependent nodes.
+**Solution**: Graceful degradation. If `get_texture()` returns `None` (texture missing or failed), fixture's `update()` returns `Err` and sets status to `Error`. Output buffer keeps previous frame's values (as per design: "if fixture doesn't update, stays same as last frame"). Project continues running with partial failures.
 
 ### 10. OutputNodeRuntime.update() Purpose
 **Problem**: Design shows `OutputNodeRuntime` has `update()` method, but what does it do? Outputs are written to by fixtures.

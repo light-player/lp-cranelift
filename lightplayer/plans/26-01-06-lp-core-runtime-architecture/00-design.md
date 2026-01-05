@@ -42,7 +42,7 @@ nodes/id.rs
 
 util/texture.rs
   Texture { width, height, format: String, data: Vec<u8> }
-  Methods: 
+  Methods:
     format() -> &str
     bytes_per_pixel() -> usize
     get_pixel(x, y) -> Option<[u8; 4]>
@@ -248,3 +248,4 @@ Fluent API for constructing test projects:
 - Lifecycle methods return `Result<(), Error>`
 - Errors update `NodeStatus` in runtime
 - Partial failures allowed - project can init even if some nodes fail
+- **Error Cascading**: If a node's dependency fails (e.g., fixture's texture is missing), the node's `update()` returns `Err` and sets status to `Error`. Output buffers keep previous frame's values (graceful degradation). Project continues running.
