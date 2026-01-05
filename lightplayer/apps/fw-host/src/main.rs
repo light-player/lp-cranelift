@@ -1,8 +1,10 @@
 mod filesystem;
+mod led_output;
 mod transport;
 
 use eframe::egui;
 use filesystem::HostFilesystem;
+use led_output::{render_leds, HostLedOutput};
 use std::path::PathBuf;
 use transport::HostTransport;
 
@@ -11,6 +13,8 @@ fn main() -> eframe::Result<()> {
     let _fs = HostFilesystem::new(PathBuf::from("."));
     // Initialize transport (stdio)
     let _transport = HostTransport::new();
+    // Initialize LED output (128 LEDs, RGB = 3 bytes per pixel)
+    let led_output = HostLedOutput::new(128, 3);
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([800.0, 600.0])
@@ -21,17 +25,17 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "LightPlayer Host",
         options,
-        Box::new(|_cc| Ok(Box::new(LightPlayerApp::default()))),
+        Box::new(move |_cc| Ok(Box::new(LightPlayerApp::new(led_output)))),
     )
 }
 
 struct LightPlayerApp {
-    // App state will be added in later phases
+    led_output: HostLedOutput,
 }
 
-impl Default for LightPlayerApp {
-    fn default() -> Self {
-        Self {}
+impl LightPlayerApp {
+    fn new(led_output: HostLedOutput) -> Self {
+        Self { led_output }
     }
 }
 
@@ -41,7 +45,11 @@ impl eframe::App for LightPlayerApp {
             ui.heading("LightPlayer Host Firmware");
             ui.separator();
             ui.label("Host firmware simulator for LightPlayer");
-            ui.label("This will be used for development and testing.");
+            ui.label("LED Visualization:");
+            ui.separator();
+
+            // Render LEDs
+            render_leds(ui, &self.led_output);
         });
     }
 }
