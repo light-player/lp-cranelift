@@ -12,4 +12,5 @@ path = "src/main.rs"
 lp-core = { path = "../../crates/lp-core" }
 eframe = "0.28"
 egui = "0.28"
+serde_json = "1.0"
 
