@@ -182,14 +182,12 @@ fn draw_mapping_overlay(
     }
 }
 
-/// Render texture visualization in egui with optional mapping overlay
+/// Render texture visualization in egui (without mappings)
 pub fn render_texture(
     ui: &mut Ui,
     texture_id: u32,
     texture: &TextureNode,
     texture_data: Option<&[u8]>,
-    show_mappings: bool,
-    project: Option<&ProjectConfig>,
 ) {
     match texture {
         TextureNode::Memory { size, format } => {
@@ -232,35 +230,10 @@ pub fn render_texture(
             let display_width = width as f32 * scale;
             let display_height = height as f32 * scale;
 
-            // Create a response area for the image to get its rect
-            let image_response = ui.add(
+            // Display texture image
+            ui.add(
                 Image::new(&texture_handle).max_size(egui::Vec2::new(display_width, display_height))
             );
-
-            // Draw mapping overlay if enabled
-            if show_mappings {
-                if let Some(project) = project {
-                    // Find all fixtures and overlay their mappings
-                    for (fixture_id, fixture) in &project.nodes.fixtures {
-                        match fixture {
-                            FixtureNode::CircleList { mapping, .. } => {
-                                // Draw each mapping in this fixture
-                                for mapping_item in mapping {
-                                    draw_mapping_overlay(
-                                        ui.painter(),
-                                        image_response.rect,
-                                        width,
-                                        height,
-                                        *fixture_id,
-                                        mapping_item,
-                                        true, // Show labels
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -275,20 +248,114 @@ pub fn render_textures_panel(ui: &mut Ui, project: &ProjectConfig) {
         return;
     }
 
-    // Toggle for showing mappings
-    let mut show_mappings = true; // Could be stored in app state for persistence
-    ui.checkbox(&mut show_mappings, "Show mapping overlay");
-
-    if show_mappings && !project.nodes.fixtures.is_empty() {
-        ui.label(format!("Found {} fixture(s)", project.nodes.fixtures.len()));
-    }
-
-    ui.separator();
-
     // Display each texture
     for (id, texture) in &project.nodes.textures {
         ui.group(|ui| {
-            render_texture(ui, *id, texture, None, show_mappings, Some(project));
+            render_texture(ui, *id, texture, None);
+        });
+        ui.separator();
+    }
+}
+
+/// Render a fixture with its texture and mapping overlay
+fn render_fixture(
+    ui: &mut Ui,
+    fixture_id: u32,
+    fixture: &FixtureNode,
+    project: &ProjectConfig,
+) {
+    match fixture {
+        FixtureNode::CircleList {
+            output_id,
+            channel_order,
+            mapping,
+        } => {
+            // Display fixture metadata
+            ui.group(|ui| {
+                ui.label(format!("Fixture ID: {}", fixture_id));
+                ui.label(format!("Output ID: {}", output_id));
+                ui.label(format!("Channel Order: {}", channel_order));
+                ui.label(format!("Mappings: {}", mapping.len()));
+            });
+
+            ui.separator();
+
+            // Show texture with mapping overlay
+            // For now, show all textures with this fixture's mappings
+            // In the future, we could track which texture a fixture maps from
+            if project.nodes.textures.is_empty() {
+                ui.label("No textures available");
+                return;
+            }
+
+            // Display each texture with this fixture's mappings overlaid
+            for (texture_id, texture) in &project.nodes.textures {
+                match texture {
+                    TextureNode::Memory { size, format } => {
+                        let [width, height] = *size;
+
+                        // Get texture data (placeholder for now)
+                        let data = generate_placeholder_texture(width, height, format);
+                        let color_image = texture_data_to_color_image(&data, width, height, format);
+
+                        // Create texture handle
+                        let texture_handle: TextureHandle = ui.ctx().load_texture(
+                            format!("fixture_{}_texture_{}", fixture_id, texture_id),
+                            color_image,
+                            Default::default(),
+                        );
+
+                        // Display texture metadata
+                        ui.label(format!("Texture ID: {}", texture_id));
+                        ui.label(format!("Size: {}x{}", width, height));
+
+                        // Scale to fit available width
+                        let available_width = ui.available_width();
+                        let scale = (available_width / width as f32).min(1.0);
+                        let display_width = width as f32 * scale;
+                        let display_height = height as f32 * scale;
+
+                        // Display texture image with mapping overlay
+                        let image_response = ui.add(
+                            Image::new(&texture_handle)
+                                .max_size(egui::Vec2::new(display_width, display_height)),
+                        );
+
+                        // Draw mapping overlay for this fixture
+                        for mapping_item in mapping {
+                            draw_mapping_overlay(
+                                ui.painter(),
+                                image_response.rect,
+                                width,
+                                height,
+                                fixture_id,
+                                mapping_item,
+                                true, // Show labels
+                            );
+                        }
+
+                        ui.separator();
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Render all fixtures in a debug panel
+pub fn render_fixtures_panel(ui: &mut Ui, project: &ProjectConfig) {
+    ui.heading("Fixtures");
+    ui.separator();
+
+    if project.nodes.fixtures.is_empty() {
+        ui.label("No fixtures defined");
+        return;
+    }
+
+    // Display each fixture
+    for (id, fixture) in &project.nodes.fixtures {
+        ui.group(|ui| {
+            render_fixture(ui, *id, fixture, project);
         });
         ui.separator();
     }

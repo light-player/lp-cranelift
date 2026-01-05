@@ -5,7 +5,7 @@ mod led_output;
 mod transport;
 
 use app::LightPlayerApp as AppLogic;
-use debug_ui::render_textures_panel;
+use debug_ui::{render_fixtures_panel, render_textures_panel};
 use eframe::egui;
 use filesystem::HostFilesystem;
 use led_output::{render_leds, HostLedOutput};
@@ -84,6 +84,11 @@ impl eframe::App for AppState {
 
                     // Show textures
                     render_textures_panel(ui, project);
+                    
+                    ui.separator();
+                    
+                    // Show fixtures
+                    render_fixtures_panel(ui, project);
                 } else {
                     ui.label("No project loaded");
                 }
