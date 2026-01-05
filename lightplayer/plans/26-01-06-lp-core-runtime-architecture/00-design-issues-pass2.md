@@ -52,15 +52,10 @@
 
 **Solution**: `bytes_per_pixel` is derived from `OutputNodeConfig` chip type (e.g., "ws2812" = 3 bytes RGB). Stored in runtime for convenience but could be derived when needed. Buffer allocated in `init()`: `Vec::with_capacity(pixel_count * bytes_per_pixel)`, initialized to zeros. `pixel_count` comes from `config.count`.
 
-### 25. Multiple Fixtures Writing to Same Output
+### 25. Multiple Fixtures Writing to Same Output ✅ FIXED
 **Problem**: Multiple fixtures can write to the same output (same `output_id`). How do we handle this?
-- Do fixtures overwrite each other?
-- Do we accumulate/blend values?
-- Is there a write order dependency?
 
-**Current Design**: Says "if fixture doesn't update, stays same as last frame" - implies overwriting is fine.
-
-**Clarification Needed**: Define behavior when multiple fixtures write to same output.
+**Solution**: Multiple fixtures writing to the same output is a valid use case (fixtures can be strung together). Each fixture writes to specific channels/pixels based on its mapping. For now, no overlap validation - if mappings overlap, later fixtures overwrite earlier ones. Future: could add validation to ensure mappings don't overlap. This is acceptable for now.
 
 ### 26. Shader Texture Access
 **Problem**: `ShaderNodeRuntime` has `texture_id: TextureId`, but how does the shader access it? The shader GLSL code doesn't have texture access built-in yet. For now:
