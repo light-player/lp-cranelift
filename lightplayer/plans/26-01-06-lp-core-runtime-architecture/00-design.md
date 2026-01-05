@@ -40,19 +40,19 @@ nodes/id.rs
   #[derive(Serialize, Deserialize)]
   #[serde(transparent)]  # Serializes as u32 (becomes string in JSON)
   TextureId(u32)
-  
+
   #[derive(Serialize, Deserialize)]
   #[serde(transparent)]
   OutputId(u32)
-  
+
   #[derive(Serialize, Deserialize)]
   #[serde(transparent)]
   ShaderId(u32)
-  
+
   #[derive(Serialize, Deserialize)]
   #[serde(transparent)]
   FixtureId(u32)
-  
+
   From/Into conversions for u32
 
 util/texture.rs

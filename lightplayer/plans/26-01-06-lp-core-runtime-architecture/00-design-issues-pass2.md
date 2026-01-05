@@ -7,11 +7,10 @@
 
 **Solution**: Use type-safe IDs in configs with `#[serde(transparent)]` attribute. This allows serde to serialize/deserialize the inner `u32` value directly (which becomes a string in JSON). No conversion needed during init - configs and runtime both use type-safe IDs.
 
-### 16. FixtureNodeConfig.texture_id Missing
-**Problem**: Design says to add `texture_id` to `FixtureNodeConfig`, but current `FixtureNode` doesn't have it. Need to add this field.
+### 16. FixtureNodeConfig.texture_id Missing ✅ FIXED
+**Problem**: Design said to add `texture_id` to `FixtureNodeConfig`, but current `FixtureNode` doesn't have it.
 
-**Current**: `FixtureNode::CircleList { output_id, channel_order, mapping }`
-**Needed**: `FixtureNode::CircleList { output_id, texture_id, channel_order, mapping }`
+**Solution**: Add `texture_id: TextureId` to `FixtureNodeConfig::CircleList`. This is already documented in the design.
 
 ### 17. OutputNodeRuntime Buffer Access
 **Problem**: Design shows `buffer: Vec<u8>` in `OutputNodeRuntime`, but how do fixtures write to it? They get `&mut OutputNodeRuntime` via `get_output_mut()`. Do they:
