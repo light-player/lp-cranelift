@@ -1,8 +1,10 @@
 //! Project configuration structures
 
-use alloc::{collections::BTreeMap, format, string::String, vec::Vec};
+use alloc::{collections::BTreeMap, format, string::String};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
+
+use crate::nodes::{FixtureNode, Mapping, OutputNode, ShaderNode, TextureNode};
 
 /// Project configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,59 +27,6 @@ pub struct Nodes {
     pub fixtures: HashMap<u32, FixtureNode>,
 }
 
-/// Output node types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "$type")]
-pub enum OutputNode {
-    #[serde(rename = "gpio_strip")]
-    GpioStrip {
-        chip: String,
-        gpio_pin: u32,
-        count: u32,
-    },
-}
-
-/// Texture node types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "$type")]
-pub enum TextureNode {
-    #[serde(rename = "Memory")]
-    Memory {
-        size: [u32; 2],
-        format: String,
-    },
-}
-
-/// Shader node types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "$type")]
-pub enum ShaderNode {
-    #[serde(rename = "Single")]
-    Single {
-        glsl: String,
-        texture_id: u32,
-    },
-}
-
-/// Fixture node types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "$type")]
-pub enum FixtureNode {
-    #[serde(rename = "circle-list")]
-    CircleList {
-        output_id: u32,
-        channel_order: String,
-        mapping: Vec<Mapping>,
-    },
-}
-
-/// Mapping from shader output to LED channel
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Mapping {
-    pub channel: u32,
-    pub center: [f32; 2],
-    pub radius: f32,
-}
 
 /// Serialize HashMap<u32, T> with string keys
 fn serialize_u32_map<S, T>(map: &HashMap<u32, T>, serializer: S) -> Result<S::Ok, S::Error>
