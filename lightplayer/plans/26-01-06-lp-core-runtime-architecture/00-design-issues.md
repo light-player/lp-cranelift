@@ -80,7 +80,7 @@ FixtureRenderContext<'a> {
 ### 11. BaseRenderContext vs Individual Contexts ✅ FIXED
 **Problem**: Design showed `BaseRenderContext` with timing, but individual contexts had `base: BaseRenderContext`, requiring `ctx.base.delta_ms` access.
 
-**Solution**: Flattened structure - timing fields (`delta_ms`, `total_ms`) are directly in each context for simplicity.
+**Solution**: Use `Time` struct with `delta_ms` and `total_ms` fields. Each context has `time: Time` field. Access via `ctx.time.delta_ms` and `ctx.time.total_ms`.
 
 ### 12. ProjectRuntime.config Field
 **Problem**: Design shows `config: Option<ProjectConfig>` in `ProjectRuntime`, but it's only needed during `init()`. Why keep it?

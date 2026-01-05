@@ -69,17 +69,20 @@ runtime/contexts.rs
   InitContext<'a> { project_config: &'a ProjectConfig }
     Methods: get_texture_config, get_shader_config, etc.
   
-  ShaderRenderContext<'a> {
+  Time {
     delta_ms: u32,
     total_ms: u32,
+  }
+  
+  ShaderRenderContext<'a> {
+    time: Time,
     textures: &'a mut HashMap<TextureId, TextureNodeRuntime>,
   }
     Methods: 
       get_texture_mut(texture_id: TextureId) -> Option<&mut Texture>
   
   FixtureRenderContext<'a> {
-    delta_ms: u32,
-    total_ms: u32,
+    time: Time,
     textures: &'a HashMap<TextureId, TextureNodeRuntime>,
     outputs: &'a mut HashMap<OutputId, OutputNodeRuntime>,
   }
@@ -88,14 +91,12 @@ runtime/contexts.rs
       get_output_mut(output_id: OutputId) -> Option<&mut OutputNodeRuntime>
   
   OutputRenderContext {
-    delta_ms: u32,
-    total_ms: u32,
+    time: Time,
     // No access to other nodes needed
   }
   
   TextureRenderContext {
-    delta_ms: u32,
-    total_ms: u32,
+    time: Time,
     // No access to other nodes needed
   }
 
@@ -135,8 +136,8 @@ nodes/*/runtime.rs
 project/runtime.rs
   ProjectRuntime {
     uid: String,
-    total_ms: u32,
-    config: Option<ProjectConfig>,
+    time: Time,  # Tracks delta_ms and total_ms
+    # No config field - not needed after init
     textures: HashMap<TextureId, TextureNodeRuntime>,
     shaders: HashMap<ShaderId, ShaderNodeRuntime>,
     fixtures: HashMap<FixtureId, FixtureNodeRuntime>,
@@ -233,7 +234,7 @@ This approach:
 `ProjectRuntime` manages the lifecycle of all nodes:
 
 - `init()`: Initializes nodes in order (textures → shaders → fixtures → outputs), allows partial failures
-- `update(delta_ms)`: Updates nodes in hard-coded order (shaders → fixtures → outputs), updates `total_ms`. Creates appropriate type-specific contexts for each node:
+- `update(delta_ms)`: Updates nodes in hard-coded order (shaders → fixtures → outputs), updates `time.total_ms`. Creates appropriate type-specific contexts with `Time` struct. Creates appropriate type-specific contexts for each node:
   - Shaders get `ShaderRenderContext` with mutable texture access (for writing rendered pixels)
   - Fixtures get `FixtureRenderContext` with read-only texture access and mutable output buffer access (write pixel data)
   - Outputs get `OutputRenderContext` with no other node access. `OutputNodeRuntime.update()` reads its buffer and calls `handle.write_pixels()` to send to hardware/UI
