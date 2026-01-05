@@ -82,10 +82,7 @@
 
 **Solution**: `destroy()` is called when unloading the entire project. `ProjectRuntime.destroy()` calls `destroy()` on all nodes in reverse order (outputs → fixtures → shaders → textures). For now, only whole-project unloading is supported; per-node updates will be added later.
 
-### 31. LedOutput Trait Enhancement
-**Problem**: `LedOutput` trait is currently simple (just `write_pixels` and `get_pixel_count`). User notes it should cover setup (GPIO pin, etc.) and be HAL-style for built-in LED hardware.
+### 31. LedOutput Trait Enhancement ✅ FIXED
+**Problem**: `LedOutput` trait is currently simple. User notes it should cover setup (GPIO pin, etc.) and be HAL-style for built-in LED hardware.
 
-**Clarification Needed**: 
-- Should `LedOutput` have setup/init methods?
-- Or should setup be handled by `OutputProvider`?
-- How should GPIO pin configuration work?
+**Solution**: Setup is handled by `OutputProvider.create_output()` which takes config (including GPIO pin number from `config.gpio_pin` for `GpioStrip`) and sets up hardware. `LedOutput` trait remains simple (HAL-style) - setup is handled by provider. This keeps firmware-specific setup separate from the generic trait interface.
