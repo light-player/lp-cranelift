@@ -106,12 +106,12 @@ nodes/*/runtime.rs
   ShaderNodeRuntime { executable: Option<Box<dyn GlslExecutable>>, texture_id, status }
 
   FixtureNodeRuntime { output_id, texture_id, kernel: SamplingKernel, channel_order, status }
-  
+
   SamplingKernel {
     radius: f32,                    // Normalized sampling radius (same for all pixels)
     samples: Vec<SamplePoint>,       // Precomputed sample points (relative to center)
   }
-  
+
   SamplePoint {
     offset_u: f32,    // Offset from center in U direction (normalized)
     offset_v: f32,    // Offset from center in V direction (normalized)
@@ -131,9 +131,9 @@ project/runtime.rs
     outputs: HashMap<OutputId, OutputNodeRuntime>,
     nodes: RuntimeNodes,  # Status tracking for serialization
   }
-    Methods:
+    Methods: 
       init(output_provider: &dyn OutputProvider) -> Result<(), Error>
-      update(delta_ms: u32, output_provider: &mut dyn OutputProvider) -> Result<(), Error>
+      update(delta_ms: u32) -> Result<(), Error>
       # Creates type-specific contexts and calls node.update() with appropriate context
       set_status, get_status
 

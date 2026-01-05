@@ -52,10 +52,10 @@ FixtureRenderContext<'a> {
 
 **Solution**: Changed to single `SamplingKernel` per fixture (not Vec). Kernel has `radius` (normalized, same for all pixels) and `samples: Vec<SamplePoint>` with relative offsets and weights. One kernel is precomputed in `init()` and reused for all mapping points at their respective centers.
 
-### 6. OutputProvider in update()
-**Problem**: Design shows `update(delta_ms, output_provider: &mut dyn OutputProvider)` but outputs are already initialized. What does OutputProvider do during update?
+### 6. OutputProvider in update() ✅ FIXED
+**Problem**: Design showed `update(delta_ms, output_provider: &mut dyn OutputProvider)` but outputs are already initialized.
 
-**Clarification Needed**: Is this for creating new outputs dynamically, or for something else? Or should it be removed from update()?
+**Solution**: Removed `OutputProvider` from `update()`. Outputs are created in `init()`, so `update()` only needs `delta_ms`.
 
 ### 7. NodeStatus Synchronization
 **Problem**: Current `ProjectRuntime` has separate `RuntimeNodes` for serialization, but new design has `status` in each runtime struct. How do we keep them in sync?
