@@ -3,320 +3,170 @@
 ## File Structure
 
 ```
-lightplayer/crates/lp-core/src/
-├── lib.rs
-├── error.rs
+lp-core/src/
 ├── nodes/
-│   ├── mod.rs
-│   ├── id.rs                    # NEW: Type-safe ID wrappers
-│   ├── output.rs                # OutputNodeConfig (renamed from OutputNode)
-│   ├── texture.rs               # TextureNodeConfig (renamed), Texture abstraction
-│   ├── shader.rs                # ShaderNodeConfig (renamed)
-│   └── fixture.rs               # FixtureNodeConfig (renamed, add texture_id)
-├── project/
-│   ├── mod.rs
-│   ├── config.rs                # ProjectConfig, Nodes (with *NodeConfig)
-│   └── runtime.rs               # ProjectRuntime (enhanced with runtime instances)
-├── runtime/                      # NEW: Runtime types and lifecycle
-│   ├── mod.rs
+│   ├── id.rs                    # NEW: TextureId, OutputId, ShaderId, FixtureId
+│   ├── output/
+│   │   ├── mod.rs
+│   │   ├── config.rs           # OutputNodeConfig (renamed from output.rs)
+│   │   └── runtime.rs          # OutputNodeRuntime
+│   ├── texture/
+│   │   ├── mod.rs
+│   │   ├── config.rs           # TextureNodeConfig (renamed)
+│   │   └── runtime.rs          # TextureNodeRuntime
+│   ├── shader/
+│   │   ├── mod.rs
+│   │   ├── config.rs           # ShaderNodeConfig (renamed)
+│   │   └── runtime.rs          # ShaderNodeRuntime
+│   └── fixture/
+│       ├── mod.rs
+│       ├── config.rs           # FixtureNodeConfig (renamed, add texture_id)
+│       └── runtime.rs          # FixtureNodeRuntime
+├── util/
+│   └── texture.rs              # NEW: Texture core abstraction (low-level)
+├── runtime/
 │   ├── lifecycle.rs             # NodeLifecycle trait
-│   ├── contexts.rs              # InitContext, RenderContext
-│   ├── output.rs                # OutputNodeRuntime
-│   ├── texture.rs               # TextureNodeRuntime
-│   ├── shader.rs                # ShaderNodeRuntime
-│   └── fixture.rs               # FixtureNodeRuntime
-├── builder.rs                    # NEW: ProjectBuilder
-├── protocol.rs                   # Existing
-├── traits.rs                     # Existing
-└── util.rs                       # Existing
+│   └── contexts.rs              # InitContext, RenderContext
+├── project/
+│   ├── config.rs                # ProjectConfig, Nodes
+│   └── runtime.rs               # ProjectRuntime
+└── builder.rs                   # NEW: ProjectBuilder
 ```
 
-## Types and Functions Summary
-
-### nodes/id.rs (NEW)
+## Types Summary
 
 ```
-TextureId(u32)
-OutputId(u32)
-ShaderId(u32)
-FixtureId(u32)
+nodes/id.rs
+  TextureId(u32), OutputId(u32), ShaderId(u32), FixtureId(u32)
+  From/Into conversions
 
-impl From<u32> for TextureId
-impl From<TextureId> for u32
-// ... similar for other IDs
-```
+util/texture.rs
+  Texture { width, height, format, data: Vec<u8> }
+  Methods: get_pixel, set_pixel, sample, compute_all
 
-### nodes/texture.rs
-
-```
-// Config (renamed from TextureNode)
-enum TextureNodeConfig {
-    Memory { size: [u32; 2], format: String }
-}
-
-// NEW: Runtime abstraction
-struct Texture {
-    width: u32,
-    height: u32,
-    format: String,
-    data: Vec<u8>,  // or raw pointer for contiguous memory
-}
-
-impl Texture {
-    fn new(width: u32, height: u32, format: String) -> Self
-    fn get_pixel(&self, x: u32, y: u32) -> Option<[u8; 4]>
-    fn set_pixel(&mut self, x: u32, y: u32, color: [u8; 4])
-    fn sample(&self, u: f32, v: f32) -> Option<[u8; 4]>
-    fn compute_all<F>(&mut self, f: F) where F: Fn(u32, u32) -> [u8; 4]
-    // ... other helper methods
-}
-```
-
-### nodes/fixture.rs
-
-```
-enum FixtureNodeConfig {
-    CircleList {
-        output_id: OutputId,      // Changed from u32
-        texture_id: TextureId,     // NEW: Added texture_id
-        channel_order: String,
-        mapping: Vec<Mapping>,
-    }
-}
-```
-
-### runtime/lifecycle.rs (NEW)
-
-```
-trait NodeLifecycle {
+runtime/lifecycle.rs
+  trait NodeLifecycle {
     type Config;
+    fn init(&mut self, config: &Self::Config, ctx: &InitContext) -> Result<(), Error>
+    fn update(&mut self, ctx: &RenderContext) -> Result<(), Error>
+    fn destroy(&mut self) -> Result<(), Error>
+  }
 
-    fn init(
-        &mut self,
-        config: &Self::Config,
-        ctx: &InitContext,
-    ) -> Result<(), Error>;
-
-    fn update(
-        &mut self,
-        ctx: &RenderContext,
-    ) -> Result<(), Error>;
-
-    fn destroy(&mut self) -> Result<(), Error>;
-}
-```
-
-### runtime/contexts.rs (NEW)
-
-```
-struct InitContext<'a> {
-    project_config: &'a ProjectConfig,
-    // Provides access to configs for validation
-    // No access to runtimes (they don't exist yet)
-}
-
-impl InitContext {
-    fn get_texture_config(&self, id: TextureId) -> Option<&TextureNodeConfig>
-    fn get_shader_config(&self, id: ShaderId) -> Option<&ShaderNodeConfig>
-    // ... similar for other node types
-}
-
-struct RenderContext<'a> {
+runtime/contexts.rs
+  InitContext<'a> { project_config: &'a ProjectConfig }
+    Methods: get_texture_config, get_shader_config, etc.
+  
+  RenderContext<'a> {
     delta_ms: u32,
     total_ms: u32,
-    // Provides access to runtime instances
     textures: &'a HashMap<TextureId, TextureNodeRuntime>,
     shaders: &'a HashMap<ShaderId, ShaderNodeRuntime>,
     fixtures: &'a HashMap<FixtureId, FixtureNodeRuntime>,
     outputs: &'a HashMap<OutputId, OutputNodeRuntime>,
-}
+  }
+    Methods: get_texture, get_shader, get_output (mutable), etc.
 
-impl RenderContext {
-    fn get_texture(&self, id: TextureId) -> Option<&Texture>
-    fn get_shader(&self, id: ShaderId) -> Option<&ShaderNodeRuntime>
-    fn get_output(&mut self, id: OutputId) -> Option<&mut OutputNodeRuntime>
-    // ... similar for other node types
-}
-```
+nodes/*/config.rs
+  OutputNodeConfig, TextureNodeConfig, ShaderNodeConfig, FixtureNodeConfig
+  (FixtureNodeConfig adds texture_id field)
 
-### runtime/texture.rs (NEW)
+nodes/*/runtime.rs
+  OutputNodeRuntime { handle: Option<OutputHandle>, pixel_count, bytes_per_pixel, status }
+  TextureNodeRuntime { texture: Texture, status }
+  ShaderNodeRuntime { executable: Option<JitExecutable>, texture_id, status }
+  FixtureNodeRuntime { output_id, texture_id, kernels: Vec<SamplingKernel>, channel_order, status }
+  
+  All implement NodeLifecycle
 
-```
-struct TextureNodeRuntime {
-    texture: Texture,
-    status: NodeStatus,
-}
-
-impl NodeLifecycle for TextureNodeRuntime {
-    type Config = TextureNodeConfig;
-
-    fn init(&mut self, config: &Self::Config, ctx: &InitContext) -> Result<(), Error>
-    fn update(&mut self, ctx: &RenderContext) -> Result<(), Error>
-    fn destroy(&mut self) -> Result<(), Error>
-}
-```
-
-### runtime/shader.rs (NEW)
-
-```
-struct ShaderNodeRuntime {
-    executable: Option<JitExecutable>,  // Compiled shader code
-    texture_id: TextureId,
-    status: NodeStatus,
-}
-
-impl NodeLifecycle for ShaderNodeRuntime {
-    type Config = ShaderNodeConfig;
-
-    fn init(&mut self, config: &Self::Config, ctx: &InitContext) -> Result<(), Error>
-    fn update(&mut self, ctx: &RenderContext) -> Result<(), Error>
-    fn destroy(&mut self) -> Result<(), Error>
-}
-```
-
-### runtime/fixture.rs (NEW)
-
-```
-struct SamplingKernel {
-    center: [f32; 2],
-    radius: f32,
-    samples: Vec<(f32, f32, f32)>,  // (u, v, weight)
-}
-
-struct FixtureNodeRuntime {
-    output_id: OutputId,
-    texture_id: TextureId,
-    kernels: Vec<SamplingKernel>,  // Precomputed in init()
-    channel_order: String,
-    status: NodeStatus,
-}
-
-impl NodeLifecycle for FixtureNodeRuntime {
-    type Config = FixtureNodeConfig;
-
-    fn init(&mut self, config: &Self::Config, ctx: &InitContext) -> Result<(), Error>
-    fn update(&mut self, ctx: &RenderContext) -> Result<(), Error>
-    fn destroy(&mut self) -> Result<(), Error>
-}
-```
-
-### runtime/output.rs (NEW)
-
-```
-struct OutputNodeRuntime {
-    handle: Option<OutputHandle>,  // Firmware-specific handle (trait object?)
-    pixel_count: usize,
-    bytes_per_pixel: usize,
-    status: NodeStatus,
-}
-
-// Trait for firmware-specific output (implemented by firmware)
-trait OutputHandle {
-    fn write_pixels(&mut self, pixels: &[u8]) -> Result<(), Error>;
-}
-
-impl NodeLifecycle for OutputNodeRuntime {
-    type Config = OutputNodeConfig;
-
-    fn init(&mut self, config: &Self::Config, ctx: &InitContext) -> Result<(), Error>
-    fn update(&mut self, ctx: &RenderContext) -> Result<(), Error>
-    fn destroy(&mut self) -> Result<(), Error>
-}
-```
-
-### project/runtime.rs
-
-```
-struct ProjectRuntime {
+project/runtime.rs
+  ProjectRuntime {
     uid: String,
-    total_ms: u32,  // NEW: Frame timing
-
-    // Config reference (for init)
+    total_ms: u32,
     config: Option<ProjectConfig>,
-
-    // Runtime instances
     textures: HashMap<TextureId, TextureNodeRuntime>,
     shaders: HashMap<ShaderId, ShaderNodeRuntime>,
     fixtures: HashMap<FixtureId, FixtureNodeRuntime>,
     outputs: HashMap<OutputId, OutputNodeRuntime>,
+    nodes: RuntimeNodes,  # Status tracking for serialization
+  }
+    Methods: init(), update(delta_ms), set_status, get_status
+  
+  trait OutputProvider {
+    fn create_output(&self, config: &OutputNodeConfig) -> Result<Box<dyn OutputHandle>, Error>
+  }
+  
+  trait OutputHandle {
+    fn write_pixels(&mut self, pixels: &[u8]) -> Result<(), Error>
+  }
+  
+  enum NodeStatus { Ok, Error { status_message: String } }  # Warn removed
 
-    // Status tracking (existing)
-    nodes: RuntimeNodes,  // Status only, for serialization
-}
-
-impl ProjectRuntime {
-    fn new(uid: String) -> Self
-    fn init(&mut self, config: &ProjectConfig, output_provider: &dyn OutputProvider) -> Result<(), Error>
-    fn update(&mut self, delta_ms: u32, output_provider: &mut dyn OutputProvider) -> Result<(), Error>
-
-    // Status management
-    fn set_status(&mut self, node_type: NodeType, node_id: u32, status: NodeStatus)
-    fn get_status(&self, node_type: NodeType, node_id: u32) -> Option<&NodeStatus>
-}
-
-// NEW: Trait for firmware to provide output handles
-trait OutputProvider {
-    fn create_output(&self, config: &OutputNodeConfig) -> Result<Box<dyn OutputHandle>, Error>;
-}
+builder.rs
+  ProjectBuilder {
+    uid, name, next_id, nodes
+  }
+    Methods: new(), with_uid(), with_name(), add_texture() -> (Self, TextureId),
+            add_shader(texture_id) -> (Self, ShaderId), add_output() -> (Self, OutputId),
+            add_fixture(output_id, texture_id) -> (Self, FixtureId), build() -> Result
 ```
 
-### project/config.rs
+## Design Details
 
-```
-struct ProjectConfig {
-    uid: String,
-    name: String,
-    nodes: Nodes,
-}
+### Type-Safe IDs
 
-struct Nodes {
-    outputs: HashMap<u32, OutputNodeConfig>,    // Changed from OutputNode
-    textures: HashMap<u32, TextureNodeConfig>, // Changed from TextureNode
-    shaders: HashMap<u32, ShaderNodeConfig>,     // Changed from ShaderNode
-    fixtures: HashMap<u32, FixtureNodeConfig>,   // Changed from FixtureNode
-}
-```
+All node references use newtype wrappers (`TextureId`, `OutputId`, etc.) instead of raw `u32` for compile-time type safety. IDs implement `From<u32>` and `Into<u32>` for conversion.
 
-### builder.rs (NEW)
+### Texture Abstraction
 
-```
-struct ProjectBuilder {
-    uid: Option<String>,
-    name: Option<String>,
-    next_id: u32,
-    nodes: Nodes,
-}
+The `Texture` struct in `util/texture.rs` is a low-level utility for managing pixel buffers. It provides:
+- Fixed-size buffer (not resizable)
+- Format metadata (RGB8, RGBA8, R8)
+- Sampling methods (get_pixel, sample with normalized coordinates)
+- Helper methods like `compute_all` for batch operations
 
-impl ProjectBuilder {
-    fn new() -> Self
-    fn with_uid(mut self, uid: String) -> Self
-    fn with_name(mut self, name: String) -> Self
+This will eventually move to `lp-builtins` as part of the core GLSL system.
 
-    fn add_texture(mut self, config: TextureNodeConfig) -> (Self, TextureId)
-    fn add_shader(mut self, texture_id: TextureId, config: ShaderNodeConfig) -> (Self, ShaderId)
-    fn add_output(mut self, config: OutputNodeConfig) -> (Self, OutputId)
-    fn add_fixture(mut self, output_id: OutputId, texture_id: TextureId, config: FixtureNodeConfig) -> (Self, FixtureId)
+### Node Lifecycle
 
-    fn build(self) -> Result<ProjectConfig, Error>
-}
-```
+All node runtimes implement `NodeLifecycle` trait with:
+- `init()`: Initialize from config, validate dependencies, allocate resources
+- `update()`: Update state (render shaders, sample textures, write outputs)
+- `destroy()`: Cleanup resources
 
-### project/runtime.rs - NodeStatus (UPDATED)
+The trait uses an associated `Config` type so each runtime has typed access to its specific config.
 
-```
-enum NodeStatus {
-    Ok,
-    Error { status_message: String },
-    // Warn removed
-}
-```
+### Contexts
 
-## Key Design Decisions
+**InitContext**: Provides read-only access to project config during initialization. Used for dependency validation.
 
-1. **Type Safety**: All IDs are newtype wrappers for compile-time safety
-2. **Separation**: Clear separation between config (serializable) and runtime (stateful)
-3. **Contexts**: InitContext for initialization, RenderContext for updates
-4. **Lifecycle**: Trait-based approach with associated Config type
-5. **Partial Failure**: All nodes initialize in default state, failures tracked via status
-6. **Firmware Abstraction**: OutputProvider trait allows firmware to provide output handles
-7. **Update Order**: Hard-coded order (shaders → fixtures → outputs) in ProjectRuntime::update()
+**RenderContext**: Provides read/write access to runtime instances during updates. Includes frame timing (`delta_ms`, `total_ms`). Methods return `Option` to handle missing or failed nodes gracefully.
+
+### Node Runtimes
+
+- **TextureNodeRuntime**: Wraps a `Texture` instance
+- **ShaderNodeRuntime**: Stores compiled `JitExecutable` (None if compilation failed)
+- **FixtureNodeRuntime**: Precomputes sampling kernels in `init()`, samples textures and writes to outputs in `update()`
+- **OutputNodeRuntime**: Holds firmware-specific `OutputHandle` for writing LED data
+
+### Project Runtime
+
+`ProjectRuntime` manages the lifecycle of all nodes:
+- `init()`: Initializes nodes in order (textures → shaders → fixtures → outputs), allows partial failures
+- `update(delta_ms)`: Updates nodes in hard-coded order (shaders → fixtures → outputs), updates `total_ms`
+- Tracks status for serialization via `RuntimeNodes`
+
+### Project Builder
+
+Fluent API for constructing test projects:
+- Auto-generates IDs
+- Methods return IDs for linking (e.g., `add_shader(texture_id)`)
+- Validates at `build()` time
+- Returns `Result<ProjectConfig, Error>`
+
+### Error Handling
+
+- Removed `Warn` status, only `Ok`/`Error`
+- Lifecycle methods return `Result<(), Error>`
+- Errors update `NodeStatus` in runtime
+- Partial failures allowed - project can init even if some nodes fail
+
