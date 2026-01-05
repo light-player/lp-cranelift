@@ -129,6 +129,7 @@ nodes/*/runtime.rs
     buffer: Vec<u8>,  # Pixel buffer (written by fixtures, read by update())
     status
   }
+    Methods: buffer_mut() -> &mut [u8]  # Provides mutable access to buffer for fixtures
 
   TextureNodeRuntime { texture: Texture, status }
     Methods: texture() -> &Texture, texture_mut() -> &mut Texture
@@ -250,7 +251,7 @@ This approach:
 - **TextureNodeRuntime**: Wraps a `Texture` instance
 - **ShaderNodeRuntime**: Stores compiled `Box<dyn GlslExecutable>` (None if compilation failed). `GlslJitModule` implements `GlslExecutable` trait.
 - **FixtureNodeRuntime**: Precomputes one `SamplingKernel` in `init()` (reused for all mapping points), samples textures and writes to outputs in `update()` via `FixtureRenderContext` (which provides mutable access to outputs). Each mapping point uses the same kernel but at its own center position.
-- **OutputNodeRuntime**: Holds firmware-specific `OutputHandle` and pixel buffer. Fixtures write to buffer via `FixtureRenderContext`. `update()` reads buffer and calls `handle.write_pixels()` to send to hardware (ESP32) or update UI (host).
+- **OutputNodeRuntime**: Holds firmware-specific `OutputHandle` and pixel buffer. Fixtures write to buffer via `FixtureRenderContext.get_output_mut().buffer_mut()` which returns `&mut [u8]`. `update()` reads buffer and calls `handle.write_pixels()` to send to hardware (ESP32) or update UI (host).
 
 ### Project Runtime
 

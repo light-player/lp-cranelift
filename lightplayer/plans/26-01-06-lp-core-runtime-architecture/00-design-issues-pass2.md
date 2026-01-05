@@ -12,12 +12,10 @@
 
 **Solution**: Add `texture_id: TextureId` to `FixtureNodeConfig::CircleList`. This is already documented in the design.
 
-### 17. OutputNodeRuntime Buffer Access
-**Problem**: Design shows `buffer: Vec<u8>` in `OutputNodeRuntime`, but how do fixtures write to it? They get `&mut OutputNodeRuntime` via `get_output_mut()`. Do they:
-- Write directly: `output.buffer[channel] = value`?
-- Use a method: `output.write_channel(channel, value)`?
+### 17. OutputNodeRuntime Buffer Access ✅ FIXED
+**Problem**: Design showed `buffer: Vec<u8>` in `OutputNodeRuntime`, but wasn't clear how fixtures write to it.
 
-**Clarification Needed**: How should fixtures write to output buffers?
+**Solution**: Add `buffer_mut() -> &mut [u8]` method to `OutputNodeRuntime`. Fixtures access via `get_output_mut().buffer_mut()` to get mutable slice for writing.
 
 ### 18. Shader Execution Details
 **Problem**: Design doesn't specify how `ShaderNodeRuntime.update()` executes the shader:
