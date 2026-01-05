@@ -47,6 +47,7 @@ fn main() -> eframe::Result<()> {
             Ok(Box::new(AppState {
                 app_logic,
                 led_output: led_output_viz,
+                selected_led: None,
             }))
         }),
     )
@@ -55,6 +56,7 @@ fn main() -> eframe::Result<()> {
 struct AppState {
     app_logic: AppLogic,
     led_output: HostLedOutput,
+    selected_led: Option<usize>,
 }
 
 impl eframe::App for AppState {
@@ -99,11 +101,33 @@ impl eframe::App for AppState {
             }
 
             ui.separator();
-            ui.label("LED Visualization:");
+            ui.heading("LED Visualization");
+            
+            // Show selected LED info
+            if let Some(led_idx) = self.selected_led {
+                ui.group(|ui| {
+                    ui.label(format!("Selected LED: #{}", led_idx));
+                    let pixels = self.led_output.get_pixels();
+                    let pixel_data = pixels.lock().unwrap();
+                    let bytes_per_pixel = self.led_output.bytes_per_pixel();
+                    let pixel_start = led_idx * bytes_per_pixel;
+                    if pixel_start + bytes_per_pixel <= pixel_data.len() {
+                        let r = pixel_data[pixel_start];
+                        let g = if bytes_per_pixel > 1 { pixel_data[pixel_start + 1] } else { 0 };
+                        let b = if bytes_per_pixel > 2 { pixel_data[pixel_start + 2] } else { 0 };
+                        ui.label(format!("RGB: ({}, {}, {})", r, g, b));
+                        ui.label(format!("Hex: #{:02X}{:02X}{:02X}", r, g, b));
+                    }
+                });
+                ui.separator();
+            }
+
             ui.separator();
 
-            // Render LEDs
-            render_leds(ui, &self.led_output);
+            // Render LEDs with interactivity
+            if let Some(clicked) = render_leds(ui, &self.led_output, self.selected_led) {
+                self.selected_led = Some(clicked);
+            }
         });
     }
 }

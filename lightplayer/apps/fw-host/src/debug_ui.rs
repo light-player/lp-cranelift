@@ -143,8 +143,8 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
 fn draw_mapping_overlay(
     painter: &Painter,
     texture_rect: egui::Rect,
-    texture_width: u32,
-    texture_height: u32,
+    _texture_width: u32,
+    _texture_height: u32,
     fixture_id: u32,
     mapping: &Mapping,
     show_labels: bool,
