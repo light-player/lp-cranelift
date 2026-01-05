@@ -129,13 +129,15 @@ project/runtime.rs
     shaders: HashMap<ShaderId, ShaderNodeRuntime>,
     fixtures: HashMap<FixtureId, FixtureNodeRuntime>,
     outputs: HashMap<OutputId, OutputNodeRuntime>,
-    nodes: RuntimeNodes,  # Status tracking for serialization
+    # No separate RuntimeNodes - runtime instances are source of truth
   }
     Methods: 
       init(output_provider: &dyn OutputProvider) -> Result<(), Error>
       update(delta_ms: u32) -> Result<(), Error>
       # Creates type-specific contexts and calls node.update() with appropriate context
-      set_status, get_status
+      get_runtime_nodes() -> RuntimeNodes  # Derived from runtime instances for serialization
+      set_status(node_type, node_id, status)  # Updates status in runtime instance
+      get_status(node_type, node_id) -> Option<&NodeStatus>  # Reads from runtime instance
 
   trait OutputProvider {
     fn create_output(&self, config: &OutputNodeConfig) -> Result<Box<dyn OutputHandle>, Error>
@@ -221,7 +223,7 @@ This approach:
   - Shaders get `ShaderRenderContext` with mutable texture access (for writing rendered pixels)
   - Fixtures get `FixtureRenderContext` with read-only texture access and mutable output access
   - Outputs get `OutputRenderContext` with no other node access
-- Tracks status for serialization via `RuntimeNodes`
+- Runtime instances are the source of truth for status. `get_runtime_nodes()` derives `RuntimeNodes` from runtime instances for serialization.
 
 ### Project Builder
 
