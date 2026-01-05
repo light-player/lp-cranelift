@@ -20,20 +20,10 @@ Methods: get_texture(texture_id: TextureId) -> Option<&Texture>
 - Option B: Shaders return rendered data, ProjectRuntime writes to textures
 - Option C: `ShaderRenderContext` has mutable access to textures HashMap
 
-### 2. FixtureRenderContext Borrow Checker
-**Problem**: `FixtureRenderContext` has `&'a mut HashMap<OutputId, OutputNodeRuntime>`, but when we call `fixture.update(&mut fixture, ctx)` we're mutably borrowing both the fixture AND the outputs HashMap.
+### 2. FixtureRenderContext Borrow Checker ✅ NOT AN ISSUE
+**Problem**: Initially thought `FixtureRenderContext` borrow checker issue when calling `fixture.update(&mut fixture, ctx)`.
 
-**Current Design**:
-```
-FixtureRenderContext<'a> {
-  textures: &'a HashMap<TextureId, TextureNodeRuntime>,
-  outputs: &'a mut HashMap<OutputId, OutputNodeRuntime>,
-}
-```
-
-**Issue**: How does `ProjectRuntime::update()` create this context? It needs to mutably borrow `self.outputs` while also having `&mut self.fixtures`.
-
-**Solution**: Need to clarify how contexts are created - probably need to borrow outputs separately, or use a different pattern.
+**Resolution**: Not an issue. We're not passing the fixtures HashMap to fixtures - only textures and outputs. These are different fields in `ProjectRuntime`, so Rust allows both borrows. No conflict.
 
 ### 3. JitExecutable Type Mismatch ✅ FIXED
 **Problem**: Design mentioned `JitExecutable` but codebase has `GlslJitModule` and `GlslExecutable` trait.
@@ -82,12 +72,10 @@ FixtureRenderContext<'a> {
 
 **Solution**: Use `Time` struct with `delta_ms` and `total_ms` fields. Each context has `time: Time` field. Access via `ctx.time.delta_ms` and `ctx.time.total_ms`.
 
-### 12. ProjectRuntime.config Field
-**Problem**: Design shows `config: Option<ProjectConfig>` in `ProjectRuntime`, but it's only needed during `init()`. Why keep it?
+### 12. ProjectRuntime.config Field ✅ FIXED
+**Problem**: Design showed `config: Option<ProjectConfig>` in `ProjectRuntime`, but it's only needed during `init()`.
 
-**Clarification Needed**: 
-- Is it needed for re-initialization?
-- Or can we drop it after init?
+**Solution**: Removed `config` field. Config is passed to `init()` but not stored. If re-initialization is needed, caller passes config again.
 
 ## Minor Issues
 

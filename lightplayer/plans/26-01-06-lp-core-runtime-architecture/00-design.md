@@ -166,7 +166,7 @@ builder.rs
   ProjectBuilder {
     uid, name, next_id, nodes
   }
-    Methods: 
+    Methods:
       new() -> Self
       with_uid(&mut self, uid: String) -> &mut Self
       with_name(&mut self, name: String) -> &mut Self
