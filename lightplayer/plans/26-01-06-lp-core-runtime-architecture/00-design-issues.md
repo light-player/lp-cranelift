@@ -57,13 +57,10 @@ FixtureRenderContext<'a> {
 
 **Solution**: Removed `OutputProvider` from `update()`. Outputs are created in `init()`, so `update()` only needs `delta_ms`.
 
-### 7. NodeStatus Synchronization
-**Problem**: Current `ProjectRuntime` has separate `RuntimeNodes` for serialization, but new design has `status` in each runtime struct. How do we keep them in sync?
+### 7. NodeStatus Synchronization ✅ FIXED
+**Problem**: Current `ProjectRuntime` had separate `RuntimeNodes` for serialization, but new design has `status` in each runtime struct.
 
-**Solution Options**:
-- Option A: Update both when status changes
-- Option B: Derive RuntimeNodes from runtime instances when serializing
-- Option C: Remove status from runtime structs, keep only in RuntimeNodes
+**Solution**: Removed separate `RuntimeNodes` field. Runtime instances are the source of truth. `get_runtime_nodes()` derives `RuntimeNodes` from runtime instances when needed for serialization. `set_status()` and `get_status()` operate directly on runtime instances.
 
 ### 8. Texture Format Handling
 **Problem**: Design doesn't specify how shaders know texture format when writing, or how fixtures know format when reading.
