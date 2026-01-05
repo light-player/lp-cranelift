@@ -77,13 +77,10 @@
 
 **Resolution**: Nodes use `InitContext.get_texture_config()` etc. to validate dependencies. This is fine.
 
-### 30. Destroy() Method Usage
+### 30. Destroy() Method Usage ✅ FIXED
 **Problem**: Design includes `destroy()` in lifecycle, but when is it called?
-- On project unload?
-- On node removal?
-- Never (just drop)?
 
-**Clarification Needed**: When and how is `destroy()` used?
+**Solution**: `destroy()` is called when unloading the entire project. `ProjectRuntime.destroy()` calls `destroy()` on all nodes in reverse order (outputs → fixtures → shaders → textures). For now, only whole-project unloading is supported; per-node updates will be added later.
 
 ### 31. LedOutput Trait Enhancement
 **Problem**: `LedOutput` trait is currently simple (just `write_pixels` and `get_pixel_count`). User notes it should cover setup (GPIO pin, etc.) and be HAL-style for built-in LED hardware.

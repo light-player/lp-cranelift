@@ -241,7 +241,9 @@ All node runtimes implement `NodeLifecycle` trait with:
 
 - `init()`: Initialize from config, validate dependencies (including shader signature validation), allocate resources, compile shaders
 - `update()`: Update state using type-specific render context
-- `destroy()`: Cleanup resources
+- `destroy()`: Cleanup resources (called when unloading entire project)
+
+For now, we only support unloading/reloading the whole project. `ProjectRuntime` calls `destroy()` on all nodes when being replaced. Future: per-node updates will be supported later.
 
 The trait uses two associated types:
 
@@ -283,6 +285,7 @@ This approach:
   - Shaders get `ShaderRenderContext` with mutable texture access (for writing rendered pixels)
   - Fixtures get `FixtureRenderContext` with read-only texture access and mutable output buffer access (write pixel data)
   - Outputs get `OutputRenderContext` with no other node access. `OutputNodeRuntime.update()` reads its buffer and calls `handle.write_pixels()` to send to hardware/UI
+- `destroy()`: Calls `destroy()` on all nodes in reverse order (outputs → fixtures → shaders → textures) when unloading entire project. For now, only whole-project unloading is supported; per-node updates will be added later.
 - Runtime instances are the source of truth for status. `get_runtime_nodes()` derives `RuntimeNodes` from runtime instances for serialization.
 
 ### Project Builder
