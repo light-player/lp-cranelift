@@ -3,21 +3,38 @@
 use lp_core::error::Error;
 use lp_core::traits::Transport;
 use std::io::{self, BufRead, BufReader, Write};
+use std::sync::mpsc;
+use std::thread;
 
 /// Host transport implementation using stdin/stdout
 pub struct HostTransport {
-    stdin: BufReader<io::Stdin>,
     stdout: io::Stdout,
-    buffer: String,
+    receiver: Option<mpsc::Receiver<String>>,
 }
 
 impl HostTransport {
     /// Create a new host transport
     pub fn new() -> Self {
+        let (tx, rx) = mpsc::channel();
+        
+        // Spawn a background thread to read from stdin
+        thread::spawn(move || {
+            let stdin = BufReader::new(io::stdin());
+            for line in stdin.lines() {
+                match line {
+                    Ok(msg) => {
+                        if tx.send(msg).is_err() {
+                            break; // Receiver dropped, exit thread
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+        
         Self {
-            stdin: BufReader::new(io::stdin()),
             stdout: io::stdout(),
-            buffer: String::new(),
+            receiver: Some(rx),
         }
     }
 }
@@ -44,15 +61,20 @@ impl Transport for HostTransport {
     }
 
     fn receive_message(&mut self) -> Result<String, Error> {
-        // Read until we get a complete line (ending with \n)
-        self.buffer.clear();
-        self.stdin
-            .read_line(&mut self.buffer)
-            .map_err(|e| Error::Protocol(format!("Failed to read from stdin: {}", e)))?;
-
-        // Remove trailing newline if present
-        let message = self.buffer.trim_end_matches('\n').to_string();
-        Ok(message)
+        // Try to receive from the background thread (non-blocking)
+        match self.receiver.as_ref() {
+            Some(receiver) => match receiver.try_recv() {
+                Ok(msg) => Ok(msg),
+                Err(mpsc::TryRecvError::Empty) => {
+                    // No data available, return an error that indicates this
+                    Err(Error::Protocol("No message available".to_string()))
+                }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    Err(Error::Protocol("Stdin reader thread disconnected".to_string()))
+                }
+            },
+            None => Err(Error::Protocol("No receiver available".to_string())),
+        }
     }
 }
 

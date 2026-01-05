@@ -222,9 +222,11 @@ vec4 main(in vec2 fragCoord) {
                 }
             },
             Err(e) => {
-                // In a real implementation, we'd handle this more gracefully
-                // For now, just log the error
-                eprintln!("Error receiving message: {}", e);
+                // "No message available" is expected when stdin is empty, so we ignore it
+                // Other errors are logged
+                if !e.to_string().contains("No message available") {
+                    eprintln!("Error receiving message: {}", e);
+                }
             }
         }
         Ok(())
