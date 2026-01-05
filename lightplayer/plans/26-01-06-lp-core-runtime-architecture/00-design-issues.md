@@ -40,10 +40,10 @@ FixtureRenderContext<'a> {
 
 **Solution**: Changed to `Option<Box<dyn GlslExecutable>>`. `GlslJitModule` implements `GlslExecutable` trait, allowing flexibility for different backends.
 
-### 4. Texture Extraction from TextureNodeRuntime
-**Problem**: `ShaderRenderContext` stores `HashMap<TextureId, TextureNodeRuntime>`, but `get_texture()` returns `&Texture`. How do we extract Texture from TextureNodeRuntime?
+### 4. Texture Extraction from TextureNodeRuntime ✅ FIXED
+**Problem**: `ShaderRenderContext` stores `HashMap<TextureId, TextureNodeRuntime>`, but `get_texture_mut()` returns `&mut Texture`. How do we extract Texture from TextureNodeRuntime?
 
-**Solution**: Need a method on `TextureNodeRuntime` like `texture(&self) -> &Texture` or `texture_mut(&mut self) -> &mut Texture`.
+**Solution**: Added `texture()` and `texture_mut()` methods on `TextureNodeRuntime`. `ShaderRenderContext::get_texture_mut()` uses `textures.get_mut().map(|rt| rt.texture_mut())`.
 
 ## Design Gaps
 

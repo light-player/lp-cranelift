@@ -99,8 +99,12 @@ nodes/*/config.rs
 
 nodes/*/runtime.rs
   OutputNodeRuntime { handle: Option<Box<dyn OutputHandle>>, pixel_count, bytes_per_pixel, status }
+  
   TextureNodeRuntime { texture: Texture, status }
+    Methods: texture() -> &Texture, texture_mut() -> &mut Texture
+  
   ShaderNodeRuntime { executable: Option<Box<dyn GlslExecutable>>, texture_id, status }
+  
   FixtureNodeRuntime { output_id, texture_id, kernels: Vec<SamplingKernel>, channel_order, status }
 
   All implement NodeLifecycle
