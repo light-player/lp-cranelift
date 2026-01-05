@@ -4,7 +4,7 @@ use alloc::{collections::BTreeMap, format, string::String};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
-use crate::nodes::{FixtureNode, Mapping, OutputNode, ShaderNode, TextureNode};
+use crate::nodes::{FixtureNode, OutputNode, ShaderNode, TextureNode};
 
 /// Project configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +58,7 @@ where
 mod tests {
     use super::*;
     use alloc::{string::ToString, vec};
+    use crate::nodes::Mapping;
 
     #[test]
     fn test_serialize_deserialize() {
