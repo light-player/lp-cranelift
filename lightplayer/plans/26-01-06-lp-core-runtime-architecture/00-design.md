@@ -47,38 +47,51 @@ util/texture.rs
 runtime/lifecycle.rs
   trait NodeLifecycle {
     type Config;
+    type RenderContext;
     fn init(&mut self, config: &Self::Config, ctx: &InitContext) -> Result<(), Error>
-    fn update(&mut self, ctx: &RenderContext) -> Result<(), Error>
+    fn update(&mut self, ctx: &Self::RenderContext) -> Result<(), Error>
     fn destroy(&mut self) -> Result<(), Error>
   }
   
-  // Fixtures need output access, so separate trait
-  trait FixtureLifecycle {
-    type Config;
-    fn init(&mut self, config: &Self::Config, ctx: &InitContext) -> Result<(), Error>
-    fn update(&mut self, ctx: &RenderContext, output_writer: &mut dyn OutputWriter) -> Result<(), Error>
-    fn destroy(&mut self) -> Result<(), Error>
-  }
+  // Each node type implements with its specific context:
+  // TextureNodeRuntime: RenderContext = TextureRenderContext
+  // ShaderNodeRuntime: RenderContext = ShaderRenderContext
+  // FixtureNodeRuntime: RenderContext = FixtureRenderContext
+  // OutputNodeRuntime: RenderContext = OutputRenderContext
 
 runtime/contexts.rs
   InitContext<'a> { project_config: &'a ProjectConfig }
     Methods: get_texture_config, get_shader_config, etc.
-
-  RenderContext<'a> {
+  
+  BaseRenderContext {
     delta_ms: u32,
     total_ms: u32,
+  }
+  
+  ShaderRenderContext<'a> {
+    base: BaseRenderContext,
     textures: &'a HashMap<TextureId, TextureNodeRuntime>,
-    shaders: &'a HashMap<ShaderId, ShaderNodeRuntime>,
-    // Note: No direct access to fixtures/outputs to avoid borrow checker issues
   }
-    Methods: get_texture() -> Option<&Texture>, get_shader() -> Option<&ShaderNodeRuntime>
+    Methods: get_texture(texture_id: TextureId) -> Option<&Texture>
   
-  OutputWriter trait {
-    fn write_channel(&mut self, output_id: OutputId, channel: u32, value: u8) -> Result<(), Error>
-    fn write_channels(&mut self, output_id: OutputId, channels: &[u8]) -> Result<(), Error>
+  FixtureRenderContext<'a> {
+    base: BaseRenderContext,
+    textures: &'a HashMap<TextureId, TextureNodeRuntime>,
+    outputs: &'a mut HashMap<OutputId, OutputNodeRuntime>,
+  }
+    Methods: 
+      get_texture(texture_id: TextureId) -> Option<&Texture>
+      get_output_mut(output_id: OutputId) -> Option<&mut OutputNodeRuntime>
+  
+  OutputRenderContext {
+    base: BaseRenderContext,
+    // No access to other nodes needed
   }
   
-  // ProjectRuntime implements OutputWriter, passed separately to fixture.update()
+  TextureRenderContext {
+    base: BaseRenderContext,
+    // No access to other nodes needed
+  }
 
 nodes/*/config.rs
   OutputNodeConfig, TextureNodeConfig, ShaderNodeConfig, FixtureNodeConfig
@@ -106,13 +119,8 @@ project/runtime.rs
     Methods: 
       init(output_provider: &dyn OutputProvider) -> Result<(), Error>
       update(delta_ms: u32, output_provider: &mut dyn OutputProvider) -> Result<(), Error>
+      # Creates type-specific contexts and calls node.update() with appropriate context
       set_status, get_status
-  
-  impl OutputWriter for ProjectRuntime {
-    # Provides write access to outputs, used by fixtures
-    fn write_channel(&mut self, output_id: OutputId, channel: u32, value: u8) -> Result<(), Error>
-    fn write_channels(&mut self, output_id: OutputId, channels: &[u8]) -> Result<(), Error>
-  }
   
   trait OutputProvider {
     fn create_output(&self, config: &OutputNodeConfig) -> Result<Box<dyn OutputHandle>, Error>
@@ -152,29 +160,38 @@ This will eventually move to `lp-builtins` as part of the core GLSL system.
 
 ### Node Lifecycle
 
-Most node runtimes implement `NodeLifecycle` trait with:
+All node runtimes implement `NodeLifecycle` trait with:
 
 - `init()`: Initialize from config, validate dependencies, allocate resources
-- `update()`: Update state (render shaders, sample textures)
+- `update()`: Update state using type-specific render context
 - `destroy()`: Cleanup resources
 
-Fixtures use `FixtureLifecycle` trait instead, which takes an additional `output_writer: &mut dyn OutputWriter` parameter in `update()`. This avoids borrow checker issues by separating the mutable access to the fixture from mutable access to outputs.
+The trait uses two associated types:
+- `Config`: The config type for this node
+- `RenderContext`: The specific render context type this node needs
 
-The trait uses an associated `Config` type so each runtime has typed access to its specific config.
+This ensures type safety - each node can only access what it needs, and the compiler enforces this.
 
 ### Contexts
 
 **InitContext**: Provides read-only access to project config during initialization. Used for dependency validation.
 
-**RenderContext**: Provides read-only access to textures and shaders during updates. Includes frame timing (`delta_ms`, `total_ms`). Methods return `Option` to handle missing or failed nodes gracefully. Does NOT provide access to fixtures or outputs to avoid borrow checker issues.
+**Type-Specific Render Contexts**: Each node type has its own render context with only the access it needs:
+- **TextureRenderContext**: Only timing (no other node access needed)
+- **ShaderRenderContext**: Timing + read-only access to textures
+- **FixtureRenderContext**: Timing + read-only access to textures + mutable access to outputs
+- **OutputRenderContext**: Only timing (no other node access needed)
 
-**OutputWriter**: Trait for writing to outputs. `ProjectRuntime` implements this and passes `&mut self` as `&mut dyn OutputWriter` to fixtures. This allows fixtures to write to outputs without conflicting borrows.
+This approach:
+- Provides type safety (each node can only access what it needs)
+- Avoids borrow checker issues (contexts are created per-node with appropriate borrows)
+- Makes dependencies explicit in the type system
 
 ### Node Runtimes
 
 - **TextureNodeRuntime**: Wraps a `Texture` instance
 - **ShaderNodeRuntime**: Stores compiled `JitExecutable` (None if compilation failed)
-- **FixtureNodeRuntime**: Precomputes sampling kernels in `init()`, samples textures and writes to outputs in `update()` via `OutputWriter` trait
+- **FixtureNodeRuntime**: Precomputes sampling kernels in `init()`, samples textures and writes to outputs in `update()` via `FixtureRenderContext` (which provides mutable access to outputs)
 - **OutputNodeRuntime**: Holds firmware-specific `OutputHandle` for writing LED data
 
 ### Project Runtime
@@ -182,8 +199,10 @@ The trait uses an associated `Config` type so each runtime has typed access to i
 `ProjectRuntime` manages the lifecycle of all nodes:
 
 - `init()`: Initializes nodes in order (textures → shaders → fixtures → outputs), allows partial failures
-- `update(delta_ms)`: Updates nodes in hard-coded order (shaders → fixtures → outputs), updates `total_ms`. Passes `&mut self` as `&mut dyn OutputWriter` to fixtures to avoid borrow checker issues.
-- Implements `OutputWriter` trait to provide write access to outputs
+- `update(delta_ms)`: Updates nodes in hard-coded order (shaders → fixtures → outputs), updates `total_ms`. Creates appropriate type-specific contexts for each node:
+  - Shaders get `ShaderRenderContext` with read-only texture access
+  - Fixtures get `FixtureRenderContext` with read-only texture access and mutable output access
+  - Outputs get `OutputRenderContext` with no other node access
 - Tracks status for serialization via `RuntimeNodes`
 
 ### Project Builder
