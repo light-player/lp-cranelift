@@ -47,13 +47,10 @@
 
 **Resolution**: Fixed by issue #15 - configs now use type-safe IDs.
 
-### 24. OutputNodeRuntime Buffer Size
+### 24. OutputNodeRuntime Buffer Size ✅ FIXED
 **Problem**: `OutputNodeRuntime` has `buffer: Vec<u8>`, but how is size determined?
-- From `OutputNodeConfig.count` and `bytes_per_pixel`?
-- What's `bytes_per_pixel`? (3 for RGB, 4 for RGBA?)
-- Should it be stored in runtime or derived from config?
 
-**Clarification Needed**: How is buffer size determined and stored?
+**Solution**: `bytes_per_pixel` is derived from `OutputNodeConfig` chip type (e.g., "ws2812" = 3 bytes RGB). Stored in runtime for convenience but could be derived when needed. Buffer allocated in `init()`: `Vec::with_capacity(pixel_count * bytes_per_pixel)`, initialized to zeros. `pixel_count` comes from `config.count`.
 
 ### 25. Multiple Fixtures Writing to Same Output
 **Problem**: Multiple fixtures can write to the same output (same `output_id`). How do we handle this?
