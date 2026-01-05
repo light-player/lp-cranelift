@@ -22,13 +22,10 @@
 
 **Solution**: Shader main signature: `vec4 main(vec2 fragCoord, vec2 outputSize, float time)`. During `init()`, validate GLSL has matching signature before compilation. During `update()`: iterate over all texture pixels, call shader with `[x, y]` as fragCoord, `[width, height]` as outputSize, and `time.total_ms` as time. Write result via `texture.set_pixel()`. Eventually will use uniforms/globals, but for now everything is passed as parameters.
 
-### 19. Texture Initialization
-**Problem**: Design doesn't specify how `Texture` is created in `TextureNodeRuntime.init()`:
-- How is buffer allocated? (`Vec::with_capacity()` based on width*height*bytes_per_pixel?)
-- What's the initial buffer state? (zeros? uninitialized?)
-- How do we get `bytes_per_pixel` from format string?
+### 19. Texture Initialization ✅ FIXED
+**Problem**: Design didn't specify how `Texture` is created in `TextureNodeRuntime.init()`.
 
-**Clarification Needed**: Define texture initialization process.
+**Solution**: `Texture::new(width, height, format)` constructor allocates buffer using `Vec::with_capacity(width * height * bytes_per_pixel(format))`, initializes to zeros, and validates format. `bytes_per_pixel()` helper derives from format string. `TextureNodeRuntime.init()` creates texture via this constructor.
 
 ### 20. OutputHandle vs LedOutput Trait
 **Problem**: Design introduces `OutputHandle` trait, but codebase already has `LedOutput` trait in `traits/led_output.rs`. Are these:

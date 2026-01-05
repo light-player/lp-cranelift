@@ -57,9 +57,15 @@ nodes/id.rs
 
 util/texture.rs
   Texture { width, height, format: String, data: Vec<u8> }
+  
+  Texture::new(width: u32, height: u32, format: String) -> Texture
+    # Allocates buffer: Vec::with_capacity(width * height * bytes_per_pixel(format))
+    # Initializes buffer to zeros
+    # Validates format string
+  
   Methods:
     format() -> &str
-    bytes_per_pixel() -> usize
+    bytes_per_pixel() -> usize  # Derives from format string
     get_pixel(x, y) -> Option<[u8; 4]>
     set_pixel(x, y, color: [u8; 4])  # Writes based on format (RGB8=first 3 bytes, R8=first byte, etc)
     sample(u, v) -> Option<[u8; 4]>
@@ -134,10 +140,10 @@ nodes/*/runtime.rs
   TextureNodeRuntime { texture: Texture, status }
     Methods: texture() -> &Texture, texture_mut() -> &mut Texture
 
-  ShaderNodeRuntime { 
-    executable: Option<Box<dyn GlslExecutable>>, 
-    texture_id, 
-    status 
+  ShaderNodeRuntime {
+    executable: Option<Box<dyn GlslExecutable>>,
+    texture_id,
+    status
   }
     # Shader main signature: vec4 main(vec2 fragCoord, vec2 outputSize, float time)
     # Validated during init() - compilation fails if signature doesn't match
@@ -254,7 +260,7 @@ This approach:
 
 ### Node Runtimes
 
-- **TextureNodeRuntime**: Wraps a `Texture` instance
+- **TextureNodeRuntime**: Wraps a `Texture` instance. `init()` creates texture via `Texture::new()` with config size and format, initializing buffer to zeros.
 - **ShaderNodeRuntime**: Stores compiled `Box<dyn GlslExecutable>` (None if compilation failed). Shader main signature: `vec4 main(vec2 fragCoord, vec2 outputSize, float time)`. During `init()`, validates GLSL has matching signature before compilation. During `update()`, iterates over all texture pixels, calls shader with pixel coordinates, texture size, and time, writes result via `texture.set_pixel()`.
 - **FixtureNodeRuntime**: Precomputes one `SamplingKernel` in `init()` (reused for all mapping points), samples textures and writes to outputs in `update()` via `FixtureRenderContext` (which provides mutable access to outputs). Each mapping point uses the same kernel but at its own center position.
 - **OutputNodeRuntime**: Holds firmware-specific `OutputHandle` and pixel buffer. Fixtures write to buffer via `FixtureRenderContext.get_output_mut().buffer_mut()` which returns `&mut [u8]`. `update()` reads buffer and calls `handle.write_pixels()` to send to hardware (ESP32) or update UI (host).
