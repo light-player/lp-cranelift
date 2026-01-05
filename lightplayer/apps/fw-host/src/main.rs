@@ -1,12 +1,16 @@
 mod filesystem;
+mod transport;
 
 use eframe::egui;
 use filesystem::HostFilesystem;
 use std::path::PathBuf;
+use transport::HostTransport;
 
 fn main() -> eframe::Result<()> {
     // Initialize filesystem with current directory as base
     let _fs = HostFilesystem::new(PathBuf::from("."));
+    // Initialize transport (stdio)
+    let _transport = HostTransport::new();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([800.0, 600.0])
