@@ -42,13 +42,104 @@ impl LightPlayerApp {
                         LogLevel::Warn,
                         &format!("Failed to load project.json: {}", e),
                     );
+                    // Create default project on load failure
+                    self.create_default_project();
                 }
             }
         } else {
             self.log(LogLevel::Info, "No project.json found, starting with empty project");
+            self.create_default_project();
         }
 
         Ok(())
+    }
+
+    /// Create a default project with basic setup
+    fn create_default_project(&mut self) {
+        use hashbrown::HashMap;
+        use lp_core::nodes::{
+            FixtureNode, Mapping, OutputNode, ShaderNode, TextureNode,
+        };
+        use lp_core::project::config::{Nodes, ProjectConfig};
+
+        // Create default project
+        let mut project = ProjectConfig {
+            uid: "default".to_string(),
+            name: "Default Project".to_string(),
+            nodes: Nodes {
+                outputs: HashMap::new(),
+                textures: HashMap::new(),
+                shaders: HashMap::new(),
+                fixtures: HashMap::new(),
+            },
+        };
+
+        // Add output: 128 LEDs on GPIO 4
+        project.nodes.outputs.insert(
+            1,
+            OutputNode::GpioStrip {
+                chip: "ws2812".to_string(),
+                gpio_pin: 4,
+                count: 128,
+            },
+        );
+
+        // Add texture: 64x64 RGB8
+        project.nodes.textures.insert(
+            2,
+            TextureNode::Memory {
+                size: [64, 64],
+                format: "RGB8".to_string(),
+            },
+        );
+
+        // Add shader: simple gray shader
+        project.nodes.shaders.insert(
+            3,
+            ShaderNode::Single {
+                glsl: r#"
+vec4 main(in vec2 fragCoord) {
+    return vec4(0.5, 0.5, 0.5, 1.0);
+}
+"#
+                .to_string(),
+                texture_id: 2,
+            },
+        );
+
+        // Add fixture: circle-list mapping
+        // Map LEDs in a grid pattern across the 64x64 texture
+        let mut mapping = Vec::new();
+        let led_count = 128;
+        let cols = 16; // 16 columns
+        let rows = led_count / cols; // 8 rows
+        
+        for i in 0..led_count {
+            let row = i / cols;
+            let col = i % cols;
+            // Map to normalized coordinates [0, 1]
+            let x = (col as f32 + 0.5) / cols as f32;
+            let y = (row as f32 + 0.5) / rows as f32;
+            
+            mapping.push(Mapping {
+                channel: i as u32,
+                center: [x, y],
+                radius: 0.05, // Small sampling radius
+            });
+        }
+        
+        project.nodes.fixtures.insert(
+            4,
+            FixtureNode::CircleList {
+                output_id: 1,
+                channel_order: "rgb".to_string(),
+                mapping,
+            },
+        );
+
+        self.project = Some(project.clone());
+        self.runtime = Some(ProjectRuntime::new(project.uid.clone()));
+        self.log(LogLevel::Info, "Created default project");
     }
 
     /// Load project from filesystem

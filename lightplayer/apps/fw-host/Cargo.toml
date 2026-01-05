@@ -13,4 +13,5 @@ lp-core = { path = "../../crates/lp-core" }
 eframe = "0.28"
 egui = "0.28"
 serde_json = "1.0"
+hashbrown = { version = "0.15", default-features = false, features = ["alloc", "default-hasher"] }
 
