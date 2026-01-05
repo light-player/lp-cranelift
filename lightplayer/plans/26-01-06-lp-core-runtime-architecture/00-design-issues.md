@@ -91,12 +91,10 @@ FixtureRenderContext<'a> {
 
 ## Minor Issues
 
-### 13. Builder API Return Types
-**Problem**: Builder methods return `(Self, Id)` tuples. This is awkward - can't chain easily.
+### 13. Builder API Return Types ✅ FIXED
+**Problem**: Builder methods returned `(Self, Id)` tuples, making chaining awkward.
 
-**Example**: `let (builder, tex_id) = builder.add_texture(...); let (builder, shader_id) = builder.add_shader(tex_id, ...);`
-
-**Better**: Could use `&mut self` and return just the ID, or use a different pattern.
+**Solution**: Changed to `&mut self` methods that return just the ID. Allows: `let tex_id = builder.add_texture(...); let shader_id = builder.add_shader(tex_id, ...);`
 
 ### 14. Texture in util/ vs nodes/texture/
 **Problem**: `Texture` is in `util/texture.rs` but `TextureNodeRuntime` uses it. Should there be a relationship or import?

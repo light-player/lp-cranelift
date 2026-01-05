@@ -68,19 +68,19 @@ runtime/lifecycle.rs
 runtime/contexts.rs
   InitContext<'a> { project_config: &'a ProjectConfig }
     Methods: get_texture_config, get_shader_config, etc.
-  
+
   Time {
     delta_ms: u32,
     total_ms: u32,
   }
-  
+
   ShaderRenderContext<'a> {
     time: Time,
     textures: &'a mut HashMap<TextureId, TextureNodeRuntime>,
   }
-    Methods: 
+    Methods:
       get_texture_mut(texture_id: TextureId) -> Option<&mut Texture>
-  
+
   FixtureRenderContext<'a> {
     time: Time,
     textures: &'a HashMap<TextureId, TextureNodeRuntime>,
@@ -89,12 +89,12 @@ runtime/contexts.rs
     Methods:
       get_texture(texture_id: TextureId) -> Option<&Texture>
       get_output_mut(output_id: OutputId) -> Option<&mut OutputNodeRuntime>
-  
+
   OutputRenderContext {
     time: Time,
     // No access to other nodes needed
   }
-  
+
   TextureRenderContext {
     time: Time,
     // No access to other nodes needed
@@ -166,9 +166,15 @@ builder.rs
   ProjectBuilder {
     uid, name, next_id, nodes
   }
-    Methods: new(), with_uid(), with_name(), add_texture() -> (Self, TextureId),
-            add_shader(texture_id) -> (Self, ShaderId), add_output() -> (Self, OutputId),
-            add_fixture(output_id, texture_id) -> (Self, FixtureId), build() -> Result
+    Methods: 
+      new() -> Self
+      with_uid(&mut self, uid: String) -> &mut Self
+      with_name(&mut self, name: String) -> &mut Self
+      add_texture(&mut self, config: TextureNodeConfig) -> TextureId
+      add_shader(&mut self, texture_id: TextureId, config: ShaderNodeConfig) -> ShaderId
+      add_output(&mut self, config: OutputNodeConfig) -> OutputId
+      add_fixture(&mut self, output_id: OutputId, texture_id: TextureId, config: FixtureNodeConfig) -> FixtureId
+      build(self) -> Result<ProjectConfig, Error>
 ```
 
 ## Design Details
