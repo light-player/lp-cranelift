@@ -26,6 +26,7 @@ lp-core/src/
 │   └── texture.rs              # NEW: Texture core abstraction (low-level)
 ├── runtime/
 │   ├── lifecycle.rs             # NodeLifecycle trait
+│   ├── frame_time.rs            # FrameTime struct
 │   └── contexts.rs              # InitContext, RenderContext
 ├── project/
 │   ├── config.rs                # ProjectConfig, Nodes
@@ -96,14 +97,14 @@ runtime/contexts.rs
   }
 
   ShaderRenderContext<'a> {
-    time: Time,
+    time: FrameTime,
     textures: &'a mut HashMap<TextureId, TextureNodeRuntime>,
   }
     Methods:
       get_texture_mut(texture_id: TextureId) -> Option<&mut Texture>
 
   FixtureRenderContext<'a> {
-    time: Time,
+    time: FrameTime,
     textures: &'a HashMap<TextureId, TextureNodeRuntime>,
     outputs: &'a mut HashMap<OutputId, OutputNodeRuntime>,
   }
@@ -266,7 +267,7 @@ This approach:
 ### Node Runtimes
 
 - **TextureNodeRuntime**: Wraps a `Texture` instance. `init()` creates texture via `Texture::new()` with config size and format, initializing buffer to zeros.
-- **ShaderNodeRuntime**: Stores compiled `Box<dyn GlslExecutable>` (None if compilation failed). Shader main signature: `vec4 main(vec2 fragCoord, vec2 outputSize, float time)`. During `init()`, validates GLSL has matching signature before compilation. During `update()`, iterates over all texture pixels, calls shader with pixel coordinates, texture size, and time, writes result via `texture.set_pixel()`. Note: `set_pixel()` abstraction is slower than optimized pointer-based code, but shader call overhead is much larger, so acceptable for now. Shaders currently only write to textures (no texture reading/sampling) - texture sampling will be added later when GLSL compiler supports it.
+- **ShaderNodeRuntime**: Stores compiled `Box<dyn GlslExecutable>` (None if compilation failed). Shader main signature: `vec4 main(vec2 fragCoord, vec2 outputSize, float time)`. During `init()`, validates GLSL has matching signature before compilation. During `update()`, iterates over all texture pixels, calls shader with pixel coordinates, texture size, and `frame_time.total_ms` as time, writes result via `texture.set_pixel()`. Note: `set_pixel()` abstraction is slower than optimized pointer-based code, but shader call overhead is much larger, so acceptable for now. Shaders currently only write to textures (no texture reading/sampling) - texture sampling will be added later when GLSL compiler supports it.
 - **FixtureNodeRuntime**: Precomputes one `SamplingKernel` in `init()` (reused for all mapping points), samples textures and writes to outputs in `update()` via `FixtureRenderContext` (which provides mutable access to outputs). Each mapping point uses the same kernel but at its own center position.
 - **OutputNodeRuntime**: Holds firmware-specific `LedOutput` (HAL-style LED hardware access) and pixel buffer. `init()` derives `bytes_per_pixel` from config chip type (e.g., "ws2812" = 3 bytes RGB) and allocates buffer (`pixel_count * bytes_per_pixel`). `OutputProvider.create_output()` sets up hardware (GPIO pin, etc.) and returns `Box<dyn LedOutput>`. Fixtures write to buffer via `FixtureRenderContext.get_output_mut().buffer_mut()` which returns `&mut [u8]`. Multiple fixtures can write to the same output (valid use case - fixtures can be strung together). Each fixture writes to specific channels/pixels based on its mapping. For now, no overlap validation - if mappings overlap, later fixtures overwrite earlier ones. Future: could add validation to ensure mappings don't overlap. `update()` reads buffer and calls `handle.write_pixels()` to send to hardware (ESP32) or update UI (host). Note: `LedOutput` is for built-in LED hardware; future outputs (UDP, etc.) will have different traits.
 

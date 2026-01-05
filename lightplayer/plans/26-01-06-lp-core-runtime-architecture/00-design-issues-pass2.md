@@ -62,13 +62,10 @@
 
 **Solution**: Shaders write to textures via `Texture::set_pixel()` abstraction. This is slower than optimized pointer-based code, but shader call overhead is much larger, so acceptable for now. Shaders currently only write to textures (no texture reading/sampling) - texture sampling will be added later when GLSL compiler supports it.
 
-### 27. Time Struct Location
-**Problem**: `Time` struct is shown in `runtime/contexts.rs`, but `ProjectRuntime` also uses it. Should it be:
-- In `runtime/contexts.rs` (shared)?
-- In `project/runtime.rs` (where it's used)?
-- In a separate `util/time.rs`?
+### 27. Time Struct Location ✅ FIXED
+**Problem**: `Time` struct location and naming.
 
-**Clarification Needed**: Where should `Time` struct live?
+**Solution**: Renamed to `FrameTime` and placed in its own file `runtime/frame_time.rs`. Used by `ProjectRuntime` (as `frame_time` field) and all render contexts. This keeps timing code separate and reusable.
 
 ### 28. NodeStatus in Runtime vs RuntimeNodes ✅ FIXED (via #7)
 **Problem**: Design says runtime instances are source of truth, but `RuntimeNodes` is still needed for serialization.
