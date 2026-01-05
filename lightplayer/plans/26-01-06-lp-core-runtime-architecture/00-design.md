@@ -99,13 +99,24 @@ nodes/*/config.rs
 
 nodes/*/runtime.rs
   OutputNodeRuntime { handle: Option<Box<dyn OutputHandle>>, pixel_count, bytes_per_pixel, status }
-  
+
   TextureNodeRuntime { texture: Texture, status }
     Methods: texture() -> &Texture, texture_mut() -> &mut Texture
-  
+
   ShaderNodeRuntime { executable: Option<Box<dyn GlslExecutable>>, texture_id, status }
+
+  FixtureNodeRuntime { output_id, texture_id, kernel: SamplingKernel, channel_order, status }
   
-  FixtureNodeRuntime { output_id, texture_id, kernels: Vec<SamplingKernel>, channel_order, status }
+  SamplingKernel {
+    radius: f32,                    // Normalized sampling radius (same for all pixels)
+    samples: Vec<SamplePoint>,       // Precomputed sample points (relative to center)
+  }
+  
+  SamplePoint {
+    offset_u: f32,    // Offset from center in U direction (normalized)
+    offset_v: f32,    // Offset from center in V direction (normalized)
+    weight: f32,      // Weight for this sample (for averaging)
+  }
 
   All implement NodeLifecycle
 
@@ -198,7 +209,7 @@ This approach:
 
 - **TextureNodeRuntime**: Wraps a `Texture` instance
 - **ShaderNodeRuntime**: Stores compiled `Box<dyn GlslExecutable>` (None if compilation failed). `GlslJitModule` implements `GlslExecutable` trait.
-- **FixtureNodeRuntime**: Precomputes sampling kernels in `init()`, samples textures and writes to outputs in `update()` via `FixtureRenderContext` (which provides mutable access to outputs)
+- **FixtureNodeRuntime**: Precomputes one `SamplingKernel` in `init()` (reused for all mapping points), samples textures and writes to outputs in `update()` via `FixtureRenderContext` (which provides mutable access to outputs). Each mapping point uses the same kernel but at its own center position.
 - **OutputNodeRuntime**: Holds firmware-specific `OutputHandle` for writing LED data
 
 ### Project Runtime

@@ -47,10 +47,10 @@ FixtureRenderContext<'a> {
 
 ## Design Gaps
 
-### 5. SamplingKernel Definition Missing
-**Problem**: Design mentions `Vec<SamplingKernel>` but doesn't define the struct.
+### 5. SamplingKernel Definition Missing ✅ FIXED
+**Problem**: Design mentioned `Vec<SamplingKernel>` but didn't define the struct.
 
-**Needed**: Define `SamplingKernel` structure with center, radius, sample points, weights.
+**Solution**: Changed to single `SamplingKernel` per fixture (not Vec). Kernel has `radius` (normalized, same for all pixels) and `samples: Vec<SamplePoint>` with relative offsets and weights. One kernel is precomputed in `init()` and reused for all mapping points at their respective centers.
 
 ### 6. OutputProvider in update()
 **Problem**: Design shows `update(delta_ms, output_provider: &mut dyn OutputProvider)` but outputs are already initialized. What does OutputProvider do during update?
