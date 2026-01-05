@@ -57,12 +57,12 @@ nodes/id.rs
 
 util/texture.rs
   Texture { width, height, format: String, data: Vec<u8> }
-  
+
   Texture::new(width: u32, height: u32, format: String) -> Texture
     # Allocates buffer: Vec::with_capacity(width * height * bytes_per_pixel(format))
     # Initializes buffer to zeros
     # Validates format string
-  
+
   Methods:
     format() -> &str
     bytes_per_pixel() -> usize  # Derives from format string
@@ -129,7 +129,7 @@ nodes/*/config.rs
 
 nodes/*/runtime.rs
   OutputNodeRuntime {
-    handle: Option<Box<dyn OutputHandle>>,
+    handle: Option<Box<dyn LedOutput>>,  # HAL-style LED hardware access
     pixel_count,
     bytes_per_pixel,
     buffer: Vec<u8>,  # Pixel buffer (written by fixtures, read by update())
@@ -183,12 +183,14 @@ project/runtime.rs
       get_status(node_type, node_id) -> Option<&NodeStatus>  # Reads from runtime instance
 
   trait OutputProvider {
-    fn create_output(&self, config: &OutputNodeConfig) -> Result<Box<dyn OutputHandle>, Error>
+    fn create_output(&self, config: &OutputNodeConfig) -> Result<Box<dyn LedOutput>, Error>
+    # Creates and configures LED hardware (GPIO pin, etc.) based on config
+    # Returns owned LedOutput instance for lifecycle management
   }
-
-  trait OutputHandle {
-    fn write_pixels(&mut self, pixels: &[u8]) -> Result<(), Error>
-  }
+  
+  # LedOutput trait (from traits/led_output.rs) - HAL-style LED hardware access
+  # This is for built-in LED hardware. Future outputs (UDP, etc.) will have different traits.
+  # Methods: write_pixels(&mut self, pixels: &[u8]), get_pixel_count()
 
   enum NodeStatus { Ok, Error { status_message: String } }  # Warn removed
 
@@ -263,7 +265,7 @@ This approach:
 - **TextureNodeRuntime**: Wraps a `Texture` instance. `init()` creates texture via `Texture::new()` with config size and format, initializing buffer to zeros.
 - **ShaderNodeRuntime**: Stores compiled `Box<dyn GlslExecutable>` (None if compilation failed). Shader main signature: `vec4 main(vec2 fragCoord, vec2 outputSize, float time)`. During `init()`, validates GLSL has matching signature before compilation. During `update()`, iterates over all texture pixels, calls shader with pixel coordinates, texture size, and time, writes result via `texture.set_pixel()`.
 - **FixtureNodeRuntime**: Precomputes one `SamplingKernel` in `init()` (reused for all mapping points), samples textures and writes to outputs in `update()` via `FixtureRenderContext` (which provides mutable access to outputs). Each mapping point uses the same kernel but at its own center position.
-- **OutputNodeRuntime**: Holds firmware-specific `OutputHandle` and pixel buffer. Fixtures write to buffer via `FixtureRenderContext.get_output_mut().buffer_mut()` which returns `&mut [u8]`. `update()` reads buffer and calls `handle.write_pixels()` to send to hardware (ESP32) or update UI (host).
+- **OutputNodeRuntime**: Holds firmware-specific `LedOutput` (HAL-style LED hardware access) and pixel buffer. `OutputProvider.create_output()` sets up hardware (GPIO pin, etc.) and returns `Box<dyn LedOutput>`. Fixtures write to buffer via `FixtureRenderContext.get_output_mut().buffer_mut()` which returns `&mut [u8]`. `update()` reads buffer and calls `handle.write_pixels()` to send to hardware (ESP32) or update UI (host). Note: `LedOutput` is for built-in LED hardware; future outputs (UDP, etc.) will have different traits.
 
 ### Project Runtime
 

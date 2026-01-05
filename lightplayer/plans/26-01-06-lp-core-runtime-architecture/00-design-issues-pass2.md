@@ -27,28 +27,25 @@
 
 **Solution**: `Texture::new(width, height, format)` constructor allocates buffer using `Vec::with_capacity(width * height * bytes_per_pixel(format))`, initializes to zeros, and validates format. `bytes_per_pixel()` helper derives from format string. `TextureNodeRuntime.init()` creates texture via this constructor.
 
-### 20. OutputHandle vs LedOutput Trait
-**Problem**: Design introduces `OutputHandle` trait, but codebase already has `LedOutput` trait in `traits/led_output.rs`. Are these:
-- The same thing (rename `LedOutput` to `OutputHandle`)?
-- Different (one for firmware abstraction, one for runtime)?
-- Should `OutputHandle` wrap `LedOutput`?
+### 20. OutputHandle vs LedOutput Trait ✅ FIXED
+**Problem**: Design introduced `OutputHandle` trait, but codebase already has `LedOutput` trait.
 
-**Clarification Needed**: Relationship between `OutputHandle` and existing `LedOutput` trait.
+**Solution**: Use `LedOutput` trait (HAL-style LED hardware access). `OutputProvider.create_output()` sets up hardware (GPIO pin, etc.) based on config and returns `Box<dyn LedOutput>`. `LedOutput` is for built-in LED hardware; future outputs (UDP packets, etc.) will have different traits. `LedOutput` trait may need enhancement for setup/initialization - see issue #31.
 
-### 21. RuntimeNodes Serialization with Type-Safe IDs
-**Problem**: `RuntimeNodes` stores `HashMap<u32, NodeStatus>` for serialization, but runtime uses type-safe IDs (`TextureId`, etc.). `get_runtime_nodes()` needs to convert IDs to `u32`:
-- How do we extract `u32` from `TextureId`? (via `Into<u32>`)
-- Do we need separate maps per node type, or one unified map?
+### 21. RuntimeNodes Serialization with Type-Safe IDs ✅ NOT AN ISSUE
+**Problem**: `RuntimeNodes` stores `HashMap<u32, NodeStatus>` for serialization, but runtime uses type-safe IDs.
 
-**Current Design**: `RuntimeNodes` has separate maps per type, which is good. Just need to convert IDs when building.
+**Resolution**: IDs implement `Into<u32>`, so conversion is straightforward when building `RuntimeNodes` from runtime instances.
 
-### 22. ShaderNodeConfig.texture_id Type
-**Problem**: `ShaderNodeConfig` has `texture_id: u32` (for JSON), but `ShaderNodeRuntime` has `texture_id: TextureId`. Need to convert during init.
+### 22. ShaderNodeConfig.texture_id Type ✅ FIXED (via #15)
+**Problem**: `ShaderNodeConfig` has `texture_id: u32` but runtime uses `TextureId`.
 
-**Clarification**: This is fine, just need to document the conversion happens in `init()`.
+**Resolution**: Fixed by issue #15 - configs now use type-safe IDs.
 
-### 23. FixtureNodeConfig.output_id and texture_id Types
-**Problem**: Same as #22 - configs use `u32`, runtimes use type-safe IDs. Need conversion.
+### 23. FixtureNodeConfig.output_id and texture_id Types ✅ FIXED (via #15)
+**Problem**: Same as #22 - configs use `u32`, runtimes use type-safe IDs.
+
+**Resolution**: Fixed by issue #15 - configs now use type-safe IDs.
 
 ### 24. OutputNodeRuntime Buffer Size
 **Problem**: `OutputNodeRuntime` has `buffer: Vec<u8>`, but how is size determined?
@@ -83,17 +80,15 @@
 
 **Clarification Needed**: Where should `Time` struct live?
 
-### 28. NodeStatus in Runtime vs RuntimeNodes
-**Problem**: Design says runtime instances are source of truth, but `RuntimeNodes` is still needed for serialization. The current `ProjectRuntime` structure has `nodes: RuntimeNodes` which conflicts with the new design.
+### 28. NodeStatus in Runtime vs RuntimeNodes ✅ FIXED (via #7)
+**Problem**: Design says runtime instances are source of truth, but `RuntimeNodes` is still needed for serialization.
 
-**Clarification**: Need to remove `nodes: RuntimeNodes` from `ProjectRuntime` struct definition in the design.
+**Resolution**: Fixed by issue #7 - removed separate `RuntimeNodes` field, derive when needed.
 
-### 29. InitContext Access Pattern
-**Problem**: `InitContext` provides access to configs, but how does a node validate its dependencies? For example:
-- `ShaderNodeRuntime.init()` needs to check that `texture_id` exists in config
-- `FixtureNodeRuntime.init()` needs to check that `output_id` and `texture_id` exist
+### 29. InitContext Access Pattern ✅ NOT AN ISSUE
+**Problem**: `InitContext` provides access to configs, but how does a node validate its dependencies?
 
-**Clarification**: This seems fine - nodes can use `InitContext.get_texture_config()` etc. to validate.
+**Resolution**: Nodes use `InitContext.get_texture_config()` etc. to validate dependencies. This is fine.
 
 ### 30. Destroy() Method Usage
 **Problem**: Design includes `destroy()` in lifecycle, but when is it called?
@@ -103,3 +98,10 @@
 
 **Clarification Needed**: When and how is `destroy()` used?
 
+### 31. LedOutput Trait Enhancement
+**Problem**: `LedOutput` trait is currently simple (just `write_pixels` and `get_pixel_count`). User notes it should cover setup (GPIO pin, etc.) and be HAL-style for built-in LED hardware.
+
+**Clarification Needed**: 
+- Should `LedOutput` have setup/init methods?
+- Or should setup be handled by `OutputProvider`?
+- How should GPIO pin configuration work?
