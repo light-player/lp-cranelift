@@ -1,8 +1,8 @@
 //! Main application logic
 
 use lp_core::error::Error;
-use lp_core::protocol::{parse_command, Command, LogLevel};
 use lp_core::project::{config::ProjectConfig, runtime::ProjectRuntime};
+use lp_core::protocol::{Command, LogLevel, parse_command};
 use lp_core::traits::{Filesystem, LedOutput, Transport};
 use std::sync::{Arc, Mutex};
 
@@ -47,7 +47,10 @@ impl LightPlayerApp {
                 }
             }
         } else {
-            self.log(LogLevel::Info, "No project.json found, starting with empty project");
+            self.log(
+                LogLevel::Info,
+                "No project.json found, starting with template project",
+            );
             self.create_default_project();
         }
 
@@ -57,9 +60,7 @@ impl LightPlayerApp {
     /// Create a default project with basic setup
     fn create_default_project(&mut self) {
         use hashbrown::HashMap;
-        use lp_core::nodes::{
-            FixtureNode, Mapping, OutputNode, ShaderNode, TextureNode,
-        };
+        use lp_core::nodes::{FixtureNode, Mapping, OutputNode, ShaderNode, TextureNode};
         use lp_core::project::config::{Nodes, ProjectConfig};
 
         // Create default project
@@ -113,21 +114,21 @@ vec4 main(in vec2 fragCoord) {
         let led_count = 128;
         let cols = 16; // 16 columns
         let rows = led_count / cols; // 8 rows
-        
+
         for i in 0..led_count {
             let row = i / cols;
             let col = i % cols;
             // Map to normalized coordinates [0, 1]
             let x = (col as f32 + 0.5) / cols as f32;
             let y = (row as f32 + 0.5) / rows as f32;
-            
+
             mapping.push(Mapping {
                 channel: i as u32,
                 center: [x, y],
                 radius: 0.05, // Small sampling radius
             });
         }
-        
+
         project.nodes.fixtures.insert(
             4,
             FixtureNode::CircleList {
@@ -166,7 +167,8 @@ vec4 main(in vec2 fragCoord) {
 
         let json = serde_json::to_string_pretty(project)
             .map_err(|e| Error::Serialization(format!("Failed to serialize project: {}", e)))?;
-        self.filesystem.write_file("project.json", json.as_bytes())?;
+        self.filesystem
+            .write_file("project.json", json.as_bytes())?;
 
         Ok(())
     }
@@ -211,16 +213,14 @@ vec4 main(in vec2 fragCoord) {
         };
 
         match message {
-            Ok(msg) => {
-                match parse_command(&msg) {
-                    Ok(command) => {
-                        self.handle_command(command)?;
-                    }
-                    Err(e) => {
-                        eprintln!("Warning: Failed to parse command: {}", e);
-                    }
+            Ok(msg) => match parse_command(&msg) {
+                Ok(command) => {
+                    self.handle_command(command)?;
                 }
-            }
+                Err(e) => {
+                    eprintln!("Warning: Failed to parse command: {}", e);
+                }
+            },
             Err(e) => {
                 // In a real implementation, we'd handle this more gracefully
                 // For now, just log the error
@@ -245,4 +245,3 @@ vec4 main(in vec2 fragCoord) {
         self.runtime.as_ref()
     }
 }
-
