@@ -35,12 +35,10 @@ FixtureRenderContext<'a> {
 
 **Solution**: Need to clarify how contexts are created - probably need to borrow outputs separately, or use a different pattern.
 
-### 3. JitExecutable Type Mismatch
-**Problem**: Design mentions `JitExecutable` but codebase has `GlslJitModule` and `GlslExecutable` trait.
+### 3. JitExecutable Type Mismatch ✅ FIXED
+**Problem**: Design mentioned `JitExecutable` but codebase has `GlslJitModule` and `GlslExecutable` trait.
 
-**Current Design**: `ShaderNodeRuntime { executable: Option<JitExecutable>, ... }`
-
-**Reality**: Should be `Option<GlslJitModule>` or `Option<Box<dyn GlslExecutable>>`?
+**Solution**: Changed to `Option<Box<dyn GlslExecutable>>`. `GlslJitModule` implements `GlslExecutable` trait, allowing flexibility for different backends.
 
 ### 4. Texture Extraction from TextureNodeRuntime
 **Problem**: `ShaderRenderContext` stores `HashMap<TextureId, TextureNodeRuntime>`, but `get_texture()` returns `&Texture`. How do we extract Texture from TextureNodeRuntime?

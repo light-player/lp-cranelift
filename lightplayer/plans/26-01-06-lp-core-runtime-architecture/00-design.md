@@ -98,9 +98,9 @@ nodes/*/config.rs
   (FixtureNodeConfig adds texture_id field)
 
 nodes/*/runtime.rs
-  OutputNodeRuntime { handle: Option<OutputHandle>, pixel_count, bytes_per_pixel, status }
+  OutputNodeRuntime { handle: Option<Box<dyn OutputHandle>>, pixel_count, bytes_per_pixel, status }
   TextureNodeRuntime { texture: Texture, status }
-  ShaderNodeRuntime { executable: Option<JitExecutable>, texture_id, status }
+  ShaderNodeRuntime { executable: Option<Box<dyn GlslExecutable>>, texture_id, status }
   FixtureNodeRuntime { output_id, texture_id, kernels: Vec<SamplingKernel>, channel_order, status }
 
   All implement NodeLifecycle
@@ -193,7 +193,7 @@ This approach:
 ### Node Runtimes
 
 - **TextureNodeRuntime**: Wraps a `Texture` instance
-- **ShaderNodeRuntime**: Stores compiled `JitExecutable` (None if compilation failed)
+- **ShaderNodeRuntime**: Stores compiled `Box<dyn GlslExecutable>` (None if compilation failed). `GlslJitModule` implements `GlslExecutable` trait.
 - **FixtureNodeRuntime**: Precomputes sampling kernels in `init()`, samples textures and writes to outputs in `update()` via `FixtureRenderContext` (which provides mutable access to outputs)
 - **OutputNodeRuntime**: Holds firmware-specific `OutputHandle` for writing LED data
 
