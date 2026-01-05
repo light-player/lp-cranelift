@@ -57,12 +57,10 @@
 
 **Solution**: Multiple fixtures writing to the same output is a valid use case (fixtures can be strung together). Each fixture writes to specific channels/pixels based on its mapping. For now, no overlap validation - if mappings overlap, later fixtures overwrite earlier ones. Future: could add validation to ensure mappings don't overlap. This is acceptable for now.
 
-### 26. Shader Texture Access
-**Problem**: `ShaderNodeRuntime` has `texture_id: TextureId`, but how does the shader access it? The shader GLSL code doesn't have texture access built-in yet. For now:
-- Shaders render pixel-by-pixel and write via `Texture::set_pixel()`?
-- Or do we need to pass texture as a parameter somehow?
+### 26. Shader Texture Access ✅ FIXED
+**Problem**: `ShaderNodeRuntime` has `texture_id: TextureId`, but how does the shader access it?
 
-**Clarification Needed**: How do shaders access texture data (if at all) in the initial implementation?
+**Solution**: Shaders write to textures via `Texture::set_pixel()` abstraction. This is slower than optimized pointer-based code, but shader call overhead is much larger, so acceptable for now. Shaders currently only write to textures (no texture reading/sampling) - texture sampling will be added later when GLSL compiler supports it.
 
 ### 27. Time Struct Location
 **Problem**: `Time` struct is shown in `runtime/contexts.rs`, but `ProjectRuntime` also uses it. Should it be:
