@@ -37,8 +37,23 @@ lp-core/src/
 
 ```
 nodes/id.rs
-  TextureId(u32), OutputId(u32), ShaderId(u32), FixtureId(u32)
-  From/Into conversions
+  #[derive(Serialize, Deserialize)]
+  #[serde(transparent)]  # Serializes as u32 (becomes string in JSON)
+  TextureId(u32)
+  
+  #[derive(Serialize, Deserialize)]
+  #[serde(transparent)]
+  OutputId(u32)
+  
+  #[derive(Serialize, Deserialize)]
+  #[serde(transparent)]
+  ShaderId(u32)
+  
+  #[derive(Serialize, Deserialize)]
+  #[serde(transparent)]
+  FixtureId(u32)
+  
+  From/Into conversions for u32
 
 util/texture.rs
   Texture { width, height, format: String, data: Vec<u8> }
@@ -101,8 +116,10 @@ runtime/contexts.rs
   }
 
 nodes/*/config.rs
-  OutputNodeConfig, TextureNodeConfig, ShaderNodeConfig, FixtureNodeConfig
-  (FixtureNodeConfig adds texture_id field)
+  OutputNodeConfig { ... }  # Uses OutputId where appropriate
+  TextureNodeConfig { ... }  # No ID references
+  ShaderNodeConfig { texture_id: TextureId, ... }  # Type-safe ID
+  FixtureNodeConfig { output_id: OutputId, texture_id: TextureId, ... }  # Type-safe IDs, adds texture_id field
 
 nodes/*/runtime.rs
   OutputNodeRuntime {
@@ -181,7 +198,7 @@ builder.rs
 
 ### Type-Safe IDs
 
-All node references use newtype wrappers (`TextureId`, `OutputId`, etc.) instead of raw `u32` for compile-time type safety. IDs implement `From<u32>` and `Into<u32>` for conversion.
+All node references use newtype wrappers (`TextureId`, `OutputId`, etc.) instead of raw `u32` for compile-time type safety. IDs use `#[serde(transparent)]` to serialize as `u32` (which becomes a string in JSON). IDs implement `From<u32>` and `Into<u32>` for conversion. Configs use type-safe IDs directly - no conversion needed during init.
 
 ### Texture Abstraction
 
