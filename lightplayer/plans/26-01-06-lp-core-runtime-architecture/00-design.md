@@ -68,34 +68,34 @@ runtime/lifecycle.rs
 runtime/contexts.rs
   InitContext<'a> { project_config: &'a ProjectConfig }
     Methods: get_texture_config, get_shader_config, etc.
-
-  BaseRenderContext {
+  
+  ShaderRenderContext<'a> {
     delta_ms: u32,
     total_ms: u32,
-  }
-
-  ShaderRenderContext<'a> {
-    base: BaseRenderContext,
     textures: &'a mut HashMap<TextureId, TextureNodeRuntime>,
   }
-    Methods: get_texture_mut(texture_id: TextureId) -> Option<&mut Texture>
-
+    Methods: 
+      get_texture_mut(texture_id: TextureId) -> Option<&mut Texture>
+  
   FixtureRenderContext<'a> {
-    base: BaseRenderContext,
+    delta_ms: u32,
+    total_ms: u32,
     textures: &'a HashMap<TextureId, TextureNodeRuntime>,
     outputs: &'a mut HashMap<OutputId, OutputNodeRuntime>,
   }
     Methods:
       get_texture(texture_id: TextureId) -> Option<&Texture>
       get_output_mut(output_id: OutputId) -> Option<&mut OutputNodeRuntime>
-
+  
   OutputRenderContext {
-    base: BaseRenderContext,
+    delta_ms: u32,
+    total_ms: u32,
     // No access to other nodes needed
   }
-
+  
   TextureRenderContext {
-    base: BaseRenderContext,
+    delta_ms: u32,
+    total_ms: u32,
     // No access to other nodes needed
   }
 
@@ -104,12 +104,12 @@ nodes/*/config.rs
   (FixtureNodeConfig adds texture_id field)
 
 nodes/*/runtime.rs
-  OutputNodeRuntime { 
-    handle: Option<Box<dyn OutputHandle>>, 
-    pixel_count, 
-    bytes_per_pixel, 
+  OutputNodeRuntime {
+    handle: Option<Box<dyn OutputHandle>>,
+    pixel_count,
+    bytes_per_pixel,
     buffer: Vec<u8>,  # Pixel buffer (written by fixtures, read by update())
-    status 
+    status
   }
 
   TextureNodeRuntime { texture: Texture, status }

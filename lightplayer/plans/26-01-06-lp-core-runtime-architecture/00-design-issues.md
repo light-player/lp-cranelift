@@ -77,10 +77,10 @@ FixtureRenderContext<'a> {
 
 **Solution**: `OutputNodeRuntime` has a pixel buffer that fixtures write to. `update()` reads the buffer and calls `handle.write_pixels()` to send to hardware (ESP32) or update UI (host). This is why we might need to pass output provider to update() - but actually the handle is stored in the runtime, so it should work. Buffer persists between frames if not updated.
 
-### 11. BaseRenderContext vs Individual Contexts
-**Problem**: Design shows `BaseRenderContext` with timing, but individual contexts have `base: BaseRenderContext`. This means contexts don't have direct access to timing fields.
+### 11. BaseRenderContext vs Individual Contexts ✅ FIXED
+**Problem**: Design showed `BaseRenderContext` with timing, but individual contexts had `base: BaseRenderContext`, requiring `ctx.base.delta_ms` access.
 
-**Clarification Needed**: Should contexts have `delta_ms` and `total_ms` directly, or access via `base.delta_ms`?
+**Solution**: Flattened structure - timing fields (`delta_ms`, `total_ms`) are directly in each context for simplicity.
 
 ### 12. ProjectRuntime.config Field
 **Problem**: Design shows `config: Option<ProjectConfig>` in `ProjectRuntime`, but it's only needed during `init()`. Why keep it?
