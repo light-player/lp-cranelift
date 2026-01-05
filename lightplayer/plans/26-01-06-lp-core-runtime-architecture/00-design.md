@@ -104,7 +104,13 @@ nodes/*/config.rs
   (FixtureNodeConfig adds texture_id field)
 
 nodes/*/runtime.rs
-  OutputNodeRuntime { handle: Option<Box<dyn OutputHandle>>, pixel_count, bytes_per_pixel, status }
+  OutputNodeRuntime { 
+    handle: Option<Box<dyn OutputHandle>>, 
+    pixel_count, 
+    bytes_per_pixel, 
+    buffer: Vec<u8>,  # Pixel buffer (written by fixtures, read by update())
+    status 
+  }
 
   TextureNodeRuntime { texture: Texture, status }
     Methods: texture() -> &Texture, texture_mut() -> &mut Texture
@@ -220,7 +226,7 @@ This approach:
 - **TextureNodeRuntime**: Wraps a `Texture` instance
 - **ShaderNodeRuntime**: Stores compiled `Box<dyn GlslExecutable>` (None if compilation failed). `GlslJitModule` implements `GlslExecutable` trait.
 - **FixtureNodeRuntime**: Precomputes one `SamplingKernel` in `init()` (reused for all mapping points), samples textures and writes to outputs in `update()` via `FixtureRenderContext` (which provides mutable access to outputs). Each mapping point uses the same kernel but at its own center position.
-- **OutputNodeRuntime**: Holds firmware-specific `OutputHandle` for writing LED data
+- **OutputNodeRuntime**: Holds firmware-specific `OutputHandle` and pixel buffer. Fixtures write to buffer via `FixtureRenderContext`. `update()` reads buffer and calls `handle.write_pixels()` to send to hardware (ESP32) or update UI (host).
 
 ### Project Runtime
 
@@ -229,8 +235,8 @@ This approach:
 - `init()`: Initializes nodes in order (textures → shaders → fixtures → outputs), allows partial failures
 - `update(delta_ms)`: Updates nodes in hard-coded order (shaders → fixtures → outputs), updates `total_ms`. Creates appropriate type-specific contexts for each node:
   - Shaders get `ShaderRenderContext` with mutable texture access (for writing rendered pixels)
-  - Fixtures get `FixtureRenderContext` with read-only texture access and mutable output access
-  - Outputs get `OutputRenderContext` with no other node access
+  - Fixtures get `FixtureRenderContext` with read-only texture access and mutable output buffer access (write pixel data)
+  - Outputs get `OutputRenderContext` with no other node access. `OutputNodeRuntime.update()` reads its buffer and calls `handle.write_pixels()` to send to hardware/UI
 - Runtime instances are the source of truth for status. `get_runtime_nodes()` derives `RuntimeNodes` from runtime instances for serialization.
 
 ### Project Builder

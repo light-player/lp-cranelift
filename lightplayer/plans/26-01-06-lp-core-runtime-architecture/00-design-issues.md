@@ -72,13 +72,10 @@ FixtureRenderContext<'a> {
 
 **Solution**: Graceful degradation. If `get_texture()` returns `None` (texture missing or failed), fixture's `update()` returns `Err` and sets status to `Error`. Output buffer keeps previous frame's values (as per design: "if fixture doesn't update, stays same as last frame"). Project continues running with partial failures.
 
-### 10. OutputNodeRuntime.update() Purpose
-**Problem**: Design shows `OutputNodeRuntime` has `update()` method, but what does it do? Outputs are written to by fixtures.
+### 10. OutputNodeRuntime.update() Purpose ✅ FIXED
+**Problem**: Design showed `OutputNodeRuntime` has `update()` method, but wasn't clear what it does.
 
-**Clarification Needed**: 
-- Does `update()` write to hardware?
-- Or does it just prepare the buffer?
-- When does hardware actually get updated?
+**Solution**: `OutputNodeRuntime` has a pixel buffer that fixtures write to. `update()` reads the buffer and calls `handle.write_pixels()` to send to hardware (ESP32) or update UI (host). This is why we might need to pass output provider to update() - but actually the handle is stored in the runtime, so it should work. Buffer persists between frames if not updated.
 
 ### 11. BaseRenderContext vs Individual Contexts
 **Problem**: Design shows `BaseRenderContext` with timing, but individual contexts have `base: BaseRenderContext`. This means contexts don't have direct access to timing fields.
