@@ -62,13 +62,10 @@ FixtureRenderContext<'a> {
 
 **Solution**: Removed separate `RuntimeNodes` field. Runtime instances are the source of truth. `get_runtime_nodes()` derives `RuntimeNodes` from runtime instances when needed for serialization. `set_status()` and `get_status()` operate directly on runtime instances.
 
-### 8. Texture Format Handling
-**Problem**: Design doesn't specify how shaders know texture format when writing, or how fixtures know format when reading.
+### 8. Texture Format Handling ✅ FIXED
+**Problem**: Design didn't specify how shaders know texture format when writing, or how fixtures know format when reading.
 
-**Clarification Needed**: 
-- Do shaders write in a specific format?
-- Do fixtures need to know format for sampling?
-- Should Texture handle format conversion?
+**Solution**: Shaders always return vec4 (RGBA). `Texture::set_pixel()` writes based on format: RGB8 writes first 3 bytes, R8 writes first byte, RGBA8 writes all 4 bytes. `Texture` provides `format()` and `bytes_per_pixel()` methods for querying format. Fixtures can query format when sampling.
 
 ### 9. Error Cascading
 **Problem**: If a shader fails to render (executable is None), what happens to fixtures that depend on that texture? Do they skip, fail, or use previous frame's data?

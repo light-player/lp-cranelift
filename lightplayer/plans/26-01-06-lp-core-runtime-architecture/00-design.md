@@ -41,8 +41,14 @@ nodes/id.rs
   From/Into conversions
 
 util/texture.rs
-  Texture { width, height, format, data: Vec<u8> }
-  Methods: get_pixel, set_pixel, sample, compute_all
+  Texture { width, height, format: String, data: Vec<u8> }
+  Methods: 
+    format() -> &str
+    bytes_per_pixel() -> usize
+    get_pixel(x, y) -> Option<[u8; 4]>
+    set_pixel(x, y, color: [u8; 4])  # Writes based on format (RGB8=first 3 bytes, R8=first byte, etc)
+    sample(u, v) -> Option<[u8; 4]>
+    compute_all<F>(f: F) where F: Fn(u32, u32) -> [u8; 4]
 
 runtime/lifecycle.rs
   trait NodeLifecycle {
@@ -131,7 +137,7 @@ project/runtime.rs
     outputs: HashMap<OutputId, OutputNodeRuntime>,
     # No separate RuntimeNodes - runtime instances are source of truth
   }
-    Methods: 
+    Methods:
       init(output_provider: &dyn OutputProvider) -> Result<(), Error>
       update(delta_ms: u32) -> Result<(), Error>
       # Creates type-specific contexts and calls node.update() with appropriate context
@@ -170,8 +176,10 @@ The `Texture` struct in `util/texture.rs` is a low-level utility for managing pi
 
 - Fixed-size buffer (not resizable)
 - Format metadata (RGB8, RGBA8, R8)
+- Format query methods (`format()`, `bytes_per_pixel()`)
 - Sampling methods (get_pixel, sample with normalized coordinates)
 - Helper methods like `compute_all` for batch operations
+- `set_pixel()` writes based on format: shaders always return vec4 (RGBA), but only relevant bytes are written (RGB8=first 3 bytes, R8=first byte, RGBA8=all 4 bytes)
 
 This will eventually move to `lp-builtins` as part of the core GLSL system.
 
