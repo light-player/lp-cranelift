@@ -7,8 +7,8 @@ use crate::runtime::contexts::InitContext;
 pub trait NodeLifecycle {
     /// Configuration type for this node
     type Config;
-    /// Render context type for this node
-    type RenderContext;
+    /// Render context type for this node (with lifetime)
+    type RenderContext<'a>;
 
     /// Initialize the node from configuration
     ///
@@ -18,7 +18,7 @@ pub trait NodeLifecycle {
     /// Update the node state
     ///
     /// Called each frame with a render context providing access to other nodes.
-    fn update(&mut self, ctx: &Self::RenderContext) -> Result<(), Error>;
+    fn update(&mut self, ctx: &mut Self::RenderContext<'_>) -> Result<(), Error>;
 
     /// Cleanup resources
     ///

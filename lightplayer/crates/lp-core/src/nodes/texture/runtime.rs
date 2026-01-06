@@ -48,7 +48,7 @@ impl Default for TextureNodeRuntime {
 
 impl NodeLifecycle for TextureNodeRuntime {
     type Config = TextureNode;
-    type RenderContext = TextureRenderContext;
+    type RenderContext<'a> = TextureRenderContext;
 
     fn init(&mut self, config: &Self::Config, _ctx: &InitContext) -> Result<(), Error> {
         match config {
@@ -71,7 +71,7 @@ impl NodeLifecycle for TextureNodeRuntime {
         }
     }
 
-    fn update(&mut self, _ctx: &Self::RenderContext) -> Result<(), Error> {
+    fn update(&mut self, _ctx: &mut Self::RenderContext<'_>) -> Result<(), Error> {
         // Textures don't update themselves - they're updated by shaders
         Ok(())
     }

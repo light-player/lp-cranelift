@@ -11,7 +11,6 @@ use crate::util::Texture;
 use hashbrown::HashMap;
 
 // Forward declarations - these will be implemented in later phases
-pub struct ShaderNodeRuntime;
 pub struct FixtureNodeRuntime;
 
 // OutputNodeRuntime is now implemented
@@ -183,7 +182,7 @@ mod tests {
             2,
             ShaderNode::Single {
                 glsl: "vec4 main() { return vec4(1.0); }".to_string(),
-                texture_id: 1,
+                texture_id: TextureId(1),
             },
         );
 

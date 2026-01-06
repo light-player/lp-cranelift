@@ -67,7 +67,7 @@ impl Default for OutputNodeRuntime {
 
 impl NodeLifecycle for OutputNodeRuntime {
     type Config = OutputNode;
-    type RenderContext = OutputRenderContext;
+    type RenderContext<'a> = OutputRenderContext;
 
     fn init(&mut self, config: &Self::Config, _ctx: &crate::runtime::contexts::InitContext) -> Result<(), Error> {
         match config {
@@ -103,7 +103,7 @@ impl NodeLifecycle for OutputNodeRuntime {
         }
     }
 
-    fn update(&mut self, _ctx: &Self::RenderContext) -> Result<(), Error> {
+    fn update(&mut self, _ctx: &mut Self::RenderContext<'_>) -> Result<(), Error> {
         // Read buffer and send to hardware via handle
         if let Some(ref mut handle) = self.handle {
             handle.write_pixels(&self.buffer)?;

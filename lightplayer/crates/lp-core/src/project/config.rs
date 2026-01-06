@@ -94,7 +94,7 @@ mod tests {
             3,
             ShaderNode::Single {
                 glsl: "void main() {}".to_string(),
-                texture_id: 2,
+                texture_id: crate::nodes::id::TextureId(2),
             },
         );
 
