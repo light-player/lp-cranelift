@@ -629,7 +629,7 @@ impl GlslCompiler {
             for (var, val) in vars.iter().zip(param_vals.iter()) {
                 codegen_ctx.builder.def_var(*var, *val);
             }
-            param_idx += param_vals.len();
+            // Note: param_idx is already incremented inside the loop above, don't increment again
         }
 
         // Translate main function body

@@ -8,7 +8,7 @@ use crate::exec::glsl_value::GlslValue;
 use crate::frontend::semantic::functions::FunctionSignature;
 use cranelift_codegen::ir::types;
 use hashbrown::HashMap;
-use lp_jit_util::call_structreturn;
+use lp_jit_util::{call_structreturn, call_structreturn_with_args};
 
 use alloc::{format, string::String, vec::Vec};
 
@@ -38,24 +38,9 @@ impl GlslJitModule {
         Ok(())
     }
 
-    /// Validate that no arguments are provided (for methods that don't support args yet)
-    fn validate_no_args(&self, args: &[GlslValue], method_name: &str) -> Result<(), GlslError> {
-        use crate::error::ErrorCode;
-        if !args.is_empty() {
-            return Err(GlslError::new(
-                ErrorCode::E0400,
-                format!(
-                    "{}: functions with arguments not yet supported (got {} args)",
-                    method_name,
-                    args.len()
-                ),
-            ));
-        }
-        Ok(())
-    }
 
     // Helper to convert GlslValue to calling convention arguments for JIT
-    // This is a simplified version - full implementation would need platform-specific code
+    // Vectors are expanded into multiple scalar arguments matching the calling convention
     fn glsl_value_to_jit_args(
         &self,
         value: &GlslValue,
@@ -63,6 +48,7 @@ impl GlslJitModule {
         arg_idx: &mut usize,
     ) -> Result<Vec<u64>, GlslError> {
         use crate::error::ErrorCode;
+        use cranelift_codegen::ir::ArgumentPurpose;
 
         let mut args = Vec::new();
 
@@ -70,6 +56,13 @@ impl GlslJitModule {
             GlslValue::I32(v) => {
                 if *arg_idx >= sig.params.len() {
                     return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                }
+                // Skip StructReturn parameter if present
+                if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                    *arg_idx += 1;
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
                 }
                 let param_ty = sig.params[*arg_idx].value_type;
                 match param_ty {
@@ -88,6 +81,13 @@ impl GlslJitModule {
                 if *arg_idx >= sig.params.len() {
                     return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
                 }
+                // Skip StructReturn parameter if present
+                if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                    *arg_idx += 1;
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                }
                 let param_ty = sig.params[*arg_idx].value_type;
                 match param_ty {
                     types::F32 => args.push(v.to_bits() as u64),
@@ -105,6 +105,13 @@ impl GlslJitModule {
                 if *arg_idx >= sig.params.len() {
                     return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
                 }
+                // Skip StructReturn parameter if present
+                if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                    *arg_idx += 1;
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                }
                 let param_ty = sig.params[*arg_idx].value_type;
                 match param_ty {
                     types::I8 => args.push(if *v { 1 } else { 0 } as u64),
@@ -118,11 +125,341 @@ impl GlslJitModule {
                 }
                 *arg_idx += 1;
             }
-            // Vectors and matrices need special handling - for now, return error
-            _ => {
+            GlslValue::Vec2(v) => {
+                // Expand vec2 into 2 f32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    // Skip StructReturn parameter if present
+                    if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                        *arg_idx += 1;
+                        if *arg_idx >= sig.params.len() {
+                            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                        }
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::F32 => args.push(component.to_bits() as u64),
+                        types::I32 => args.push(*component as i32 as u64), // Fixed-point
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for vec2 component, got F32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::Vec3(v) => {
+                // Expand vec3 into 3 f32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    // Skip StructReturn parameter if present
+                    if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                        *arg_idx += 1;
+                        if *arg_idx >= sig.params.len() {
+                            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                        }
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::F32 => args.push(component.to_bits() as u64),
+                        types::I32 => args.push(*component as i32 as u64), // Fixed-point
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for vec3 component, got F32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::Vec4(v) => {
+                // Expand vec4 into 4 f32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    // Skip StructReturn parameter if present
+                    if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                        *arg_idx += 1;
+                        if *arg_idx >= sig.params.len() {
+                            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                        }
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::F32 => args.push(component.to_bits() as u64),
+                        types::I32 => args.push(*component as i32 as u64), // Fixed-point
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for vec4 component, got F32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::IVec2(v) => {
+                // Expand ivec2 into 2 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    // Skip StructReturn parameter if present
+                    if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                        *arg_idx += 1;
+                        if *arg_idx >= sig.params.len() {
+                            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                        }
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I32 => args.push(*component as u64),
+                        types::I64 => args.push(*component as i64 as u64),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for ivec2 component, got I32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::IVec3(v) => {
+                // Expand ivec3 into 3 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    // Skip StructReturn parameter if present
+                    if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                        *arg_idx += 1;
+                        if *arg_idx >= sig.params.len() {
+                            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                        }
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I32 => args.push(*component as u64),
+                        types::I64 => args.push(*component as i64 as u64),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for ivec3 component, got I32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::IVec4(v) => {
+                // Expand ivec4 into 4 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    // Skip StructReturn parameter if present
+                    if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                        *arg_idx += 1;
+                        if *arg_idx >= sig.params.len() {
+                            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                        }
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I32 => args.push(*component as u64),
+                        types::I64 => args.push(*component as i64 as u64),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for ivec4 component, got I32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::UVec2(v) => {
+                // Expand uvec2 into 2 i32 arguments (u32 passed as i32 in calling convention)
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    // Skip StructReturn parameter if present
+                    if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                        *arg_idx += 1;
+                        if *arg_idx >= sig.params.len() {
+                            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                        }
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I32 => args.push(*component as u64), // u32 passed as i32
+                        types::I64 => args.push(*component as u64),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for uvec2 component, got U32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::UVec3(v) => {
+                // Expand uvec3 into 3 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    // Skip StructReturn parameter if present
+                    if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                        *arg_idx += 1;
+                        if *arg_idx >= sig.params.len() {
+                            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                        }
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I32 => args.push(*component as u64),
+                        types::I64 => args.push(*component as u64),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for uvec3 component, got U32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::UVec4(v) => {
+                // Expand uvec4 into 4 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    // Skip StructReturn parameter if present
+                    if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                        *arg_idx += 1;
+                        if *arg_idx >= sig.params.len() {
+                            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                        }
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I32 => args.push(*component as u64),
+                        types::I64 => args.push(*component as u64),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for uvec4 component, got U32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::BVec2(v) => {
+                // Expand bvec2 into 2 i32 arguments (bool passed as i32)
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    // Skip StructReturn parameter if present
+                    if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                        *arg_idx += 1;
+                        if *arg_idx >= sig.params.len() {
+                            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                        }
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I8 => args.push(if *component { 1 } else { 0 } as u64),
+                        types::I32 => args.push(if *component { 1 } else { 0 } as u64),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for bvec2 component, got Bool", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::BVec3(v) => {
+                // Expand bvec3 into 3 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    // Skip StructReturn parameter if present
+                    if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                        *arg_idx += 1;
+                        if *arg_idx >= sig.params.len() {
+                            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                        }
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I8 => args.push(if *component { 1 } else { 0 } as u64),
+                        types::I32 => args.push(if *component { 1 } else { 0 } as u64),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for bvec3 component, got Bool", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::BVec4(v) => {
+                // Expand bvec4 into 4 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    // Skip StructReturn parameter if present
+                    if sig.params[*arg_idx].purpose == ArgumentPurpose::StructReturn {
+                        *arg_idx += 1;
+                        if *arg_idx >= sig.params.len() {
+                            return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                        }
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I8 => args.push(if *component { 1 } else { 0 } as u64),
+                        types::I32 => args.push(if *component { 1 } else { 0 } as u64),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for bvec4 component, got Bool", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            // Matrices not yet supported as arguments
+            GlslValue::Mat2x2(_) | GlslValue::Mat3x3(_) | GlslValue::Mat4x4(_) => {
                 return Err(GlslError::new(
                     ErrorCode::E0400,
-                    "Vector and matrix arguments not yet supported in JIT calls",
+                    "Matrix arguments not yet supported in JIT calls",
+                ));
+            }
+            GlslValue::U32(_) => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "U32 scalar arguments not yet supported in JIT calls (use UVec2/3/4 for vectors)",
                 ));
             }
         }
@@ -442,32 +779,93 @@ impl GlslExecutable for GlslJitModule {
         dim: usize,
     ) -> Result<Vec<bool>, GlslError> {
         use crate::error::ErrorCode;
+        use cranelift_codegen::ir::ArgumentPurpose;
 
         self.validate_main_only(name)?;
-        self.validate_no_args(args, "call_bvec")?;
 
         let func_ptr = self.function_ptrs.get(name).ok_or_else(|| {
             GlslError::new(ErrorCode::E0101, format!("Function '{}' not found", name))
         })?;
 
+        // Get the actual Cranelift signature for this function
+        let sig = self.cranelift_signatures.get(name).ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0101,
+                format!("Function signature for '{}' not found", name),
+            )
+        })?;
+
+        // Check if function uses StructReturn (before processing arguments)
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
+
+        // Convert arguments to JIT arguments
+        let mut arg_idx = if uses_struct_return { 1 } else { 0 };
+        let mut jit_args = Vec::new();
+        for arg in args {
+            jit_args.extend(self.glsl_value_to_jit_args(arg, sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature (excluding StructReturn parameter)
+        let expected_params = if uses_struct_return {
+            sig.params.len() - 1
+        } else {
+            sig.params.len()
+        };
+
+        if jit_args.len() != expected_params {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch calling function '{}': expected {} parameter(s) (excluding StructReturn), got {} argument(s). Signature: {:?}",
+                    name,
+                    expected_params,
+                    jit_args.len(),
+                    sig
+                ),
+            ));
+        }
+
         // Use struct return for boolean vectors (multiple i8s returned via pointer)
         // Boolean values are stored as i8 but with 4-byte alignment (matching return statement codegen)
         let buffer_size = dim * 4;
         let mut buffer = vec![0u8; buffer_size];
-        unsafe {
-            call_structreturn(
-                *func_ptr,
-                buffer.as_mut_ptr() as *mut u8,
-                buffer_size,
-                self.call_conv,
-                self.pointer_type,
-            )
-            .map_err(|e| {
-                GlslError::new(
-                    ErrorCode::E0400,
-                    format!("StructReturn call failed for bvec{}: {}", dim, e),
+        
+        if jit_args.is_empty() {
+            unsafe {
+                call_structreturn(
+                    *func_ptr,
+                    buffer.as_mut_ptr() as *mut u8,
+                    buffer_size,
+                    self.call_conv,
+                    self.pointer_type,
                 )
-            })?;
+                .map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("StructReturn call failed for bvec{}: {}", dim, e),
+                    )
+                })?;
+            }
+        } else {
+            unsafe {
+                call_structreturn_with_args(
+                    *func_ptr,
+                    buffer.as_mut_ptr() as *mut u8,
+                    buffer_size,
+                    &jit_args,
+                    self.call_conv,
+                    self.pointer_type,
+                )
+                .map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("StructReturn call with args failed for bvec{}: {}", dim, e),
+                    )
+                })?;
+            }
         }
         // Extract i8 values from 4-byte-aligned positions and convert to bool
         // Values are stored at offsets 0, 4, 8, etc.
@@ -486,31 +884,92 @@ impl GlslExecutable for GlslJitModule {
         dim: usize,
     ) -> Result<Vec<i32>, GlslError> {
         use crate::error::ErrorCode;
+        use cranelift_codegen::ir::ArgumentPurpose;
 
         self.validate_main_only(name)?;
-        self.validate_no_args(args, "call_ivec")?;
 
         let func_ptr = self.function_ptrs.get(name).ok_or_else(|| {
             GlslError::new(ErrorCode::E0101, format!("Function '{}' not found", name))
         })?;
 
+        // Get the actual Cranelift signature for this function
+        let sig = self.cranelift_signatures.get(name).ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0101,
+                format!("Function signature for '{}' not found", name),
+            )
+        })?;
+
+        // Check if function uses StructReturn (before processing arguments)
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
+
+        // Convert arguments to JIT arguments
+        let mut arg_idx = if uses_struct_return { 1 } else { 0 };
+        let mut jit_args = Vec::new();
+        for arg in args {
+            jit_args.extend(self.glsl_value_to_jit_args(arg, sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature (excluding StructReturn parameter)
+        let expected_params = if uses_struct_return {
+            sig.params.len() - 1
+        } else {
+            sig.params.len()
+        };
+
+        if jit_args.len() != expected_params {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch calling function '{}': expected {} parameter(s) (excluding StructReturn), got {} argument(s). Signature: {:?}",
+                    name,
+                    expected_params,
+                    jit_args.len(),
+                    sig
+                ),
+            ));
+        }
+
         // Use struct return for integer vectors (multiple i32s returned via pointer)
         let buffer_size = dim * 4; // Each i32 is 4 bytes
         let mut buffer = vec![0u8; buffer_size];
-        unsafe {
-            call_structreturn(
-                *func_ptr,
-                buffer.as_mut_ptr() as *mut u8,
-                buffer_size,
-                self.call_conv,
-                self.pointer_type,
-            )
-            .map_err(|e| {
-                GlslError::new(
-                    ErrorCode::E0400,
-                    format!("StructReturn call failed for ivec{}: {}", dim, e),
+        
+        if jit_args.is_empty() {
+            unsafe {
+                call_structreturn(
+                    *func_ptr,
+                    buffer.as_mut_ptr() as *mut u8,
+                    buffer_size,
+                    self.call_conv,
+                    self.pointer_type,
                 )
-            })?;
+                .map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("StructReturn call failed for ivec{}: {}", dim, e),
+                    )
+                })?;
+            }
+        } else {
+            unsafe {
+                call_structreturn_with_args(
+                    *func_ptr,
+                    buffer.as_mut_ptr() as *mut u8,
+                    buffer_size,
+                    &jit_args,
+                    self.call_conv,
+                    self.pointer_type,
+                )
+                .map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("StructReturn call with args failed for ivec{}: {}", dim, e),
+                    )
+                })?;
+            }
         }
         // Extract i32 values from buffer (no scaling)
         let mut result = Vec::with_capacity(dim);
@@ -535,31 +994,92 @@ impl GlslExecutable for GlslJitModule {
         dim: usize,
     ) -> Result<Vec<u32>, GlslError> {
         use crate::error::ErrorCode;
+        use cranelift_codegen::ir::ArgumentPurpose;
 
         self.validate_main_only(name)?;
-        self.validate_no_args(args, "call_uvec")?;
 
         let func_ptr = self.function_ptrs.get(name).ok_or_else(|| {
             GlslError::new(ErrorCode::E0101, format!("Function '{}' not found", name))
         })?;
 
+        // Get the actual Cranelift signature for this function
+        let sig = self.cranelift_signatures.get(name).ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0101,
+                format!("Function signature for '{}' not found", name),
+            )
+        })?;
+
+        // Check if function uses StructReturn (before processing arguments)
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
+
+        // Convert arguments to JIT arguments
+        let mut arg_idx = if uses_struct_return { 1 } else { 0 };
+        let mut jit_args = Vec::new();
+        for arg in args {
+            jit_args.extend(self.glsl_value_to_jit_args(arg, sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature (excluding StructReturn parameter)
+        let expected_params = if uses_struct_return {
+            sig.params.len() - 1
+        } else {
+            sig.params.len()
+        };
+
+        if jit_args.len() != expected_params {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch calling function '{}': expected {} parameter(s) (excluding StructReturn), got {} argument(s). Signature: {:?}",
+                    name,
+                    expected_params,
+                    jit_args.len(),
+                    sig
+                ),
+            ));
+        }
+
         // Use struct return for unsigned integer vectors (multiple i32s returned via pointer, interpreted as u32)
         let buffer_size = dim * 4; // Each i32/u32 is 4 bytes
         let mut buffer = vec![0u8; buffer_size];
-        unsafe {
-            call_structreturn(
-                *func_ptr,
-                buffer.as_mut_ptr() as *mut u8,
-                buffer_size,
-                self.call_conv,
-                self.pointer_type,
-            )
-            .map_err(|e| {
-                GlslError::new(
-                    ErrorCode::E0400,
-                    format!("StructReturn call failed for uvec{}: {}", dim, e),
+        
+        if jit_args.is_empty() {
+            unsafe {
+                call_structreturn(
+                    *func_ptr,
+                    buffer.as_mut_ptr() as *mut u8,
+                    buffer_size,
+                    self.call_conv,
+                    self.pointer_type,
                 )
-            })?;
+                .map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("StructReturn call failed for uvec{}: {}", dim, e),
+                    )
+                })?;
+            }
+        } else {
+            unsafe {
+                call_structreturn_with_args(
+                    *func_ptr,
+                    buffer.as_mut_ptr() as *mut u8,
+                    buffer_size,
+                    &jit_args,
+                    self.call_conv,
+                    self.pointer_type,
+                )
+                .map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("StructReturn call with args failed for uvec{}: {}", dim, e),
+                    )
+                })?;
+            }
         }
         // Extract i32 values from buffer and convert to u32 (bit pattern preserved, no scaling)
         let mut result = Vec::with_capacity(dim);
@@ -584,32 +1104,97 @@ impl GlslExecutable for GlslJitModule {
         dim: usize,
     ) -> Result<Vec<f32>, GlslError> {
         use crate::error::ErrorCode;
+        use cranelift_codegen::ir::ArgumentPurpose;
 
         self.validate_main_only(name)?;
-        self.validate_no_args(args, "call_vec")?;
 
         let func_ptr = self.function_ptrs.get(name).ok_or_else(|| {
             GlslError::new(ErrorCode::E0101, format!("Function '{}' not found", name))
         })?;
 
+        // Get the actual Cranelift signature for this function
+        let sig = self.cranelift_signatures.get(name).ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0101,
+                format!("Function signature for '{}' not found", name),
+            )
+        })?;
+
+        // Check if function uses StructReturn (before processing arguments)
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
+
+        // Convert arguments to JIT arguments
+        // Start arg_idx at 1 if StructReturn is present (it's always at index 0)
+        let mut arg_idx = if uses_struct_return { 1 } else { 0 };
+        let mut jit_args = Vec::new();
+        for arg in args {
+            jit_args.extend(self.glsl_value_to_jit_args(arg, sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature (excluding StructReturn parameter)
+        let expected_params = if uses_struct_return {
+            // StructReturn parameter is added internally, don't count it
+            sig.params.len() - 1
+        } else {
+            sig.params.len()
+        };
+
+        if jit_args.len() != expected_params {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch calling function '{}': expected {} parameter(s) (excluding StructReturn), got {} argument(s). Signature: {:?}",
+                    name,
+                    expected_params,
+                    jit_args.len(),
+                    sig
+                ),
+            ));
+        }
+
         // Use struct return for vectors (multiple f32s returned via pointer)
         // Calculate buffer size in bytes
         let buffer_size = dim * core::mem::size_of::<f32>();
         let mut buffer = vec![0.0f32; dim];
-        unsafe {
-            call_structreturn(
-                *func_ptr,
-                buffer.as_mut_ptr(),
-                buffer_size,
-                self.call_conv,
-                self.pointer_type,
-            )
-            .map_err(|e| {
-                GlslError::new(
-                    ErrorCode::E0400,
-                    format!("StructReturn call failed for vec{}: {}", dim, e),
+        
+        if jit_args.is_empty() {
+            // No arguments case - use simpler call
+            unsafe {
+                call_structreturn(
+                    *func_ptr,
+                    buffer.as_mut_ptr(),
+                    buffer_size,
+                    self.call_conv,
+                    self.pointer_type,
                 )
-            })?;
+                .map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("StructReturn call failed for vec{}: {}", dim, e),
+                    )
+                })?;
+            }
+        } else {
+            // Has arguments - use call_structreturn_with_args
+            unsafe {
+                call_structreturn_with_args(
+                    *func_ptr,
+                    buffer.as_mut_ptr(),
+                    buffer_size,
+                    &jit_args,
+                    self.call_conv,
+                    self.pointer_type,
+                )
+                .map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("StructReturn call with args failed for vec{}: {}", dim, e),
+                    )
+                })?;
+            }
         }
         Ok(buffer)
     }
@@ -622,32 +1207,93 @@ impl GlslExecutable for GlslJitModule {
         cols: usize,
     ) -> Result<Vec<f32>, GlslError> {
         use crate::error::ErrorCode;
+        use cranelift_codegen::ir::ArgumentPurpose;
 
         self.validate_main_only(name)?;
-        self.validate_no_args(args, "call_mat")?;
 
         let func_ptr = self.function_ptrs.get(name).ok_or_else(|| {
             GlslError::new(ErrorCode::E0101, format!("Function '{}' not found", name))
         })?;
 
+        // Get the actual Cranelift signature for this function
+        let sig = self.cranelift_signatures.get(name).ok_or_else(|| {
+            GlslError::new(
+                ErrorCode::E0101,
+                format!("Function signature for '{}' not found", name),
+            )
+        })?;
+
+        // Check if function uses StructReturn (before processing arguments)
+        let uses_struct_return = sig
+            .params
+            .iter()
+            .any(|p| p.purpose == ArgumentPurpose::StructReturn);
+
+        // Convert arguments to JIT arguments
+        let mut arg_idx = if uses_struct_return { 1 } else { 0 };
+        let mut jit_args = Vec::new();
+        for arg in args {
+            jit_args.extend(self.glsl_value_to_jit_args(arg, sig, &mut arg_idx)?);
+        }
+
+        // Validate argument count matches signature (excluding StructReturn parameter)
+        let expected_params = if uses_struct_return {
+            sig.params.len() - 1
+        } else {
+            sig.params.len()
+        };
+
+        if jit_args.len() != expected_params {
+            return Err(GlslError::new(
+                ErrorCode::E0400,
+                format!(
+                    "Argument count mismatch calling function '{}': expected {} parameter(s) (excluding StructReturn), got {} argument(s). Signature: {:?}",
+                    name,
+                    expected_params,
+                    jit_args.len(),
+                    sig
+                ),
+            ));
+        }
+
         // Use struct return for matrices (column-major, rows*cols f32s)
         let count = rows * cols;
         let buffer_size = count * core::mem::size_of::<f32>();
         let mut buffer = vec![0.0f32; count];
-        unsafe {
-            call_structreturn(
-                *func_ptr,
-                buffer.as_mut_ptr(),
-                buffer_size,
-                self.call_conv,
-                self.pointer_type,
-            )
-            .map_err(|e| {
-                GlslError::new(
-                    ErrorCode::E0400,
-                    format!("StructReturn call failed for mat{}x{}: {}", rows, cols, e),
+        
+        if jit_args.is_empty() {
+            unsafe {
+                call_structreturn(
+                    *func_ptr,
+                    buffer.as_mut_ptr(),
+                    buffer_size,
+                    self.call_conv,
+                    self.pointer_type,
                 )
-            })?;
+                .map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("StructReturn call failed for mat{}x{}: {}", rows, cols, e),
+                    )
+                })?;
+            }
+        } else {
+            unsafe {
+                call_structreturn_with_args(
+                    *func_ptr,
+                    buffer.as_mut_ptr(),
+                    buffer_size,
+                    &jit_args,
+                    self.call_conv,
+                    self.pointer_type,
+                )
+                .map_err(|e| {
+                    GlslError::new(
+                        ErrorCode::E0400,
+                        format!("StructReturn call with args failed for mat{}x{}: {}", rows, cols, e),
+                    )
+                })?;
+            }
         }
         Ok(buffer)
     }

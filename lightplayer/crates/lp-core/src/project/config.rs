@@ -101,7 +101,8 @@ mod tests {
         config.nodes.fixtures.insert(
             4,
             FixtureNode::CircleList {
-                output_id: 1,
+                output_id: crate::nodes::id::OutputId(1),
+                texture_id: crate::nodes::id::TextureId(2),
                 channel_order: "rgb".to_string(),
                 mapping: vec![Mapping {
                     channel: 0,

@@ -164,11 +164,281 @@ impl GlslEmulatorModule {
                 }
                 *arg_idx += 1;
             }
-            // Vectors and matrices need special handling - for now, return error
-            _ => {
+            GlslValue::Vec2(v) => {
+                // Expand vec2 into 2 f32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::F32 => {
+                            use cranelift_codegen::ir::immediates::Ieee32;
+                            args.push(DataValue::F32(Ieee32::with_bits(component.to_bits())));
+                        }
+                        types::I32 => {
+                            // Convert f32 to fixed-point i32
+                            let fixed =
+                                (*component * crate::frontend::codegen::constants::FIXED16X16_SCALE) as i32;
+                            args.push(DataValue::I32(fixed));
+                        }
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for vec2 component, got F32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::Vec3(v) => {
+                // Expand vec3 into 3 f32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::F32 => {
+                            use cranelift_codegen::ir::immediates::Ieee32;
+                            args.push(DataValue::F32(Ieee32::with_bits(component.to_bits())));
+                        }
+                        types::I32 => {
+                            // Convert f32 to fixed-point i32
+                            let fixed =
+                                (*component * crate::frontend::codegen::constants::FIXED16X16_SCALE) as i32;
+                            args.push(DataValue::I32(fixed));
+                        }
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for vec3 component, got F32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::Vec4(v) => {
+                // Expand vec4 into 4 f32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::F32 => {
+                            use cranelift_codegen::ir::immediates::Ieee32;
+                            args.push(DataValue::F32(Ieee32::with_bits(component.to_bits())));
+                        }
+                        types::I32 => {
+                            // Convert f32 to fixed-point i32
+                            let fixed =
+                                (*component * crate::frontend::codegen::constants::FIXED16X16_SCALE) as i32;
+                            args.push(DataValue::I32(fixed));
+                        }
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for vec4 component, got F32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::IVec2(v) => {
+                // Expand ivec2 into 2 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I32 => args.push(DataValue::I32(*component)),
+                        types::I64 => args.push(DataValue::I64(*component as i64)),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for ivec2 component, got I32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::IVec3(v) => {
+                // Expand ivec3 into 3 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I32 => args.push(DataValue::I32(*component)),
+                        types::I64 => args.push(DataValue::I64(*component as i64)),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for ivec3 component, got I32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::IVec4(v) => {
+                // Expand ivec4 into 4 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I32 => args.push(DataValue::I32(*component)),
+                        types::I64 => args.push(DataValue::I64(*component as i64)),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for ivec4 component, got I32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::UVec2(v) => {
+                // Expand uvec2 into 2 i32 arguments (u32 passed as i32 in calling convention)
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I32 => args.push(DataValue::I32(*component as i32)), // u32 passed as i32
+                        types::I64 => args.push(DataValue::I64(*component as u64 as i64)),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for uvec2 component, got U32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::UVec3(v) => {
+                // Expand uvec3 into 3 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I32 => args.push(DataValue::I32(*component as i32)),
+                        types::I64 => args.push(DataValue::I64(*component as u64 as i64)),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for uvec3 component, got U32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::UVec4(v) => {
+                // Expand uvec4 into 4 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I32 => args.push(DataValue::I32(*component as i32)),
+                        types::I64 => args.push(DataValue::I64(*component as u64 as i64)),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for uvec4 component, got U32", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::BVec2(v) => {
+                // Expand bvec2 into 2 i32 arguments (bool passed as i32)
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I8 => args.push(DataValue::I8(if *component { 1 } else { 0 })),
+                        types::I32 => args.push(DataValue::I32(if *component { 1 } else { 0 })),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for bvec2 component, got Bool", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::BVec3(v) => {
+                // Expand bvec3 into 3 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I8 => args.push(DataValue::I8(if *component { 1 } else { 0 })),
+                        types::I32 => args.push(DataValue::I32(if *component { 1 } else { 0 })),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for bvec3 component, got Bool", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            GlslValue::BVec4(v) => {
+                // Expand bvec4 into 4 i32 arguments
+                for component in v.iter() {
+                    if *arg_idx >= sig.params.len() {
+                        return Err(GlslError::new(ErrorCode::E0400, "Too many arguments"));
+                    }
+                    let param_ty = sig.params[*arg_idx].value_type;
+                    match param_ty {
+                        types::I8 => args.push(DataValue::I8(if *component { 1 } else { 0 })),
+                        types::I32 => args.push(DataValue::I32(if *component { 1 } else { 0 })),
+                        _ => {
+                            return Err(GlslError::new(
+                                ErrorCode::E0400,
+                                format!("Type mismatch: expected {:?} for bvec4 component, got Bool", param_ty),
+                            ));
+                        }
+                    }
+                    *arg_idx += 1;
+                }
+            }
+            // Matrices not yet supported as arguments
+            GlslValue::Mat2x2(_) | GlslValue::Mat3x3(_) | GlslValue::Mat4x4(_) => {
                 return Err(GlslError::new(
                     ErrorCode::E0400,
-                    "Vector and matrix arguments not yet supported in emulator calls",
+                    "Matrix arguments not yet supported in emulator calls",
+                ));
+            }
+            GlslValue::U32(_) => {
+                return Err(GlslError::new(
+                    ErrorCode::E0400,
+                    "U32 scalar arguments not yet supported in emulator calls (use UVec2/3/4 for vectors)",
                 ));
             }
         }

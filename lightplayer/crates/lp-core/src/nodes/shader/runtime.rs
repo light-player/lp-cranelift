@@ -202,11 +202,9 @@ impl NodeLifecycle for ShaderNodeRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::project::config::{Nodes, ProjectConfig};
     use hashbrown::HashMap;
 
     #[test]
-    #[ignore] // vec2 parameters not yet supported in lp-glsl JIT compilation
     fn test_shader_node_runtime_init_valid() {
         let mut runtime = ShaderNodeRuntime::new();
         let glsl = r#"
@@ -214,33 +212,21 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
     return vec4(0.5, 0.5, 0.5, 1.0);
 }
 "#;
+        let (builder, texture_id) = crate::project::builder::ProjectBuilder::new()
+            .with_uid("test".to_string())
+            .with_name("Test".to_string())
+            .add_texture(crate::nodes::texture::TextureNode::Memory {
+                size: [64, 64],
+                format: crate::nodes::texture::formats::RGBA8.to_string(),
+            });
         let config = ShaderNode::Single {
             glsl: glsl.to_string(),
-            texture_id: TextureId(1),
+            texture_id,
         };
-        let project_config = ProjectConfig {
-            uid: "test".to_string(),
-            name: "Test".to_string(),
-            nodes: Nodes {
-                outputs: HashMap::new(),
-                textures: HashMap::from([(1, crate::nodes::texture::TextureNode::Memory {
-                    size: [64, 64],
-                    format: "R8G8B8A8".to_string(),
-                })]),
-                shaders: HashMap::new(),
-                fixtures: HashMap::new(),
-            },
-        };
+        let project_config = builder.build().unwrap();
         let ctx = crate::runtime::contexts::InitContext::new(&project_config);
 
-        // TODO: vec2 parameters not yet supported in lp-glsl JIT compilation
-        // The error is: "not enough block parameters for main parameter `outputSize`"
-        // This is a limitation of the current GLSL compiler, not our code
-        // For now, mark test as ignored until vec2 parameter support is added
-        #[cfg(ignore)]
-        {
-            assert!(runtime.init(&config, &ctx).is_ok());
-        }
+        assert!(runtime.init(&config, &ctx).is_ok());
         assert!(runtime.executable.is_some());
         assert!(matches!(runtime.status(), NodeStatus::Ok));
     }
@@ -253,16 +239,9 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
             glsl: glsl.to_string(),
             texture_id: TextureId(1),
         };
-        let project_config = ProjectConfig {
-            uid: "test".to_string(),
-            name: "Test".to_string(),
-            nodes: Nodes {
-                outputs: HashMap::new(),
-                textures: HashMap::new(),
-                shaders: HashMap::new(),
-                fixtures: HashMap::new(),
-            },
-        };
+        let project_config = crate::project::builder::ProjectBuilder::new_test()
+            .build()
+            .unwrap();
         let ctx = crate::runtime::contexts::InitContext::new(&project_config);
 
         assert!(runtime.init(&config, &ctx).is_err());
@@ -281,5 +260,135 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
 
         // Should return Ok without error
         assert!(runtime.update(&mut ctx).is_ok());
+    }
+
+    #[test]
+    fn test_shader_node_runtime_init_wrong_return_type() {
+        let mut runtime = ShaderNodeRuntime::new();
+        let glsl = r#"
+vec3 main(vec2 fragCoord, vec2 outputSize, float time) {
+    return vec3(1.0, 1.0, 1.0);
+}
+"#;
+        let (builder, texture_id) = crate::project::builder::ProjectBuilder::new_test()
+            .add_texture(crate::nodes::texture::TextureNode::Memory {
+                size: [64, 64],
+                format: crate::nodes::texture::formats::RGBA8.to_string(),
+            });
+        let config = ShaderNode::Single {
+            glsl: glsl.to_string(),
+            texture_id,
+        };
+        let project_config = builder.build().unwrap();
+        let ctx = crate::runtime::contexts::InitContext::new(&project_config);
+
+        assert!(runtime.init(&config, &ctx).is_err());
+        assert!(matches!(runtime.status(), NodeStatus::Error { .. }));
+    }
+
+    #[test]
+    fn test_shader_node_runtime_init_wrong_parameter_count() {
+        let mut runtime = ShaderNodeRuntime::new();
+        let glsl = r#"
+vec4 main(vec2 fragCoord, float time) {
+    return vec4(1.0, 1.0, 1.0, 1.0);
+}
+"#;
+        let (builder, texture_id) = crate::project::builder::ProjectBuilder::new_test()
+            .add_texture(crate::nodes::texture::TextureNode::Memory {
+                size: [64, 64],
+                format: crate::nodes::texture::formats::RGBA8.to_string(),
+            });
+        let config = ShaderNode::Single {
+            glsl: glsl.to_string(),
+            texture_id,
+        };
+        let project_config = builder.build().unwrap();
+        let ctx = crate::runtime::contexts::InitContext::new(&project_config);
+
+        assert!(runtime.init(&config, &ctx).is_err());
+        assert!(matches!(runtime.status(), NodeStatus::Error { .. }));
+    }
+
+    #[test]
+    fn test_shader_node_runtime_update_executes_shader_and_writes_pixels() {
+        // Create texture runtime
+        let mut texture_runtime = crate::nodes::texture::TextureNodeRuntime::new();
+        let texture_config = crate::nodes::texture::TextureNode::Memory {
+            size: [4, 4],
+            format: crate::nodes::texture::formats::RGBA8.to_string(),
+        };
+        let (builder, texture_id) =
+            crate::project::builder::ProjectBuilder::new_test().add_texture(texture_config.clone());
+        let project_config = builder.build().unwrap();
+        let init_ctx = crate::runtime::contexts::InitContext::new(&project_config);
+        texture_runtime.init(&texture_config, &init_ctx).unwrap();
+
+        // Create shader runtime
+        let mut shader_runtime = ShaderNodeRuntime::new();
+        let glsl = r#"
+vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
+    // Return a simple color based on position
+    return vec4(fragCoord.x / outputSize.x, fragCoord.y / outputSize.y, 0.5, 1.0);
+}
+"#;
+        let shader_config = ShaderNode::Single {
+            glsl: glsl.to_string(),
+            texture_id,
+        };
+        shader_runtime.init(&shader_config, &init_ctx).unwrap();
+
+        // Verify texture is initially zero
+        let pixel_before = texture_runtime.texture().get_pixel(0, 0).unwrap();
+        assert_eq!(pixel_before, [0, 0, 0, 0]);
+
+        // Create render context and call update
+        let frame_time = crate::runtime::frame_time::FrameTime::new(16, 1000);
+        let mut textures: HashMap<TextureId, crate::nodes::texture::TextureNodeRuntime> =
+            HashMap::new();
+        textures.insert(texture_id, texture_runtime);
+        let mut ctx = ShaderRenderContext::new(frame_time, &mut textures);
+
+        assert!(shader_runtime.update(&mut ctx).is_ok());
+
+        // Verify pixels were written
+        let texture = ctx.textures.get(&texture_id).unwrap();
+
+        // Check that at least some pixels are non-zero (shader executed)
+        let mut found_non_zero = false;
+        for y in 0..4 {
+            for x in 0..4 {
+                let pixel = texture.texture().get_pixel(x, y).unwrap();
+                if pixel[0] > 0 || pixel[1] > 0 || pixel[2] > 0 {
+                    found_non_zero = true;
+                    break;
+                }
+            }
+            if found_non_zero {
+                break;
+            }
+        }
+        assert!(found_non_zero, "Shader should have written non-zero pixels");
+
+        // Check a specific pixel - at (0,0) with 0.5 offset, fragCoord is [0.5, 0.5]
+        // outputSize is [4.0, 4.0], so normalized is [0.125, 0.125]
+        // Expected: [0.125 * 255, 0.125 * 255, 0.5 * 255, 1.0 * 255] ≈ [32, 32, 128, 255]
+        let pixel_00 = texture.texture().get_pixel(0, 0).unwrap();
+        // Alpha should always be 255
+        assert_eq!(pixel_00[3], 255);
+        // Blue channel should be around 128 (0.5 * 255)
+        assert!(
+            pixel_00[2] >= 120 && pixel_00[2] <= 135,
+            "Blue channel should be ~128, got {}",
+            pixel_00[2]
+        );
+
+        // Check that all pixels have alpha = 255
+        for y in 0..4 {
+            for x in 0..4 {
+                let pixel = texture.texture().get_pixel(x, y).unwrap();
+                assert_eq!(pixel[3], 255, "All pixels should have alpha = 255");
+            }
+        }
     }
 }
