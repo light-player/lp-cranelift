@@ -30,11 +30,6 @@ pub struct RuntimeNodes {
 pub enum NodeStatus {
     #[serde(rename = "Ok")]
     Ok,
-    #[serde(rename = "Warn")]
-    Warn {
-        #[serde(rename = "statusMessage")]
-        status_message: String,
-    },
     #[serde(rename = "Error")]
     Error {
         #[serde(rename = "statusMessage")]
@@ -147,8 +142,8 @@ mod tests {
         runtime.set_status(
             NodeType::Shader,
             2,
-            NodeStatus::Warn {
-                status_message: "Shader compilation slow".to_string(),
+            NodeStatus::Error {
+                status_message: "Shader compilation failed".to_string(),
             },
         );
         runtime.set_status(
@@ -165,7 +160,7 @@ mod tests {
         ));
         assert!(matches!(
             runtime.get_status(NodeType::Shader, 2),
-            Some(NodeStatus::Warn { .. })
+            Some(NodeStatus::Error { .. })
         ));
         assert!(matches!(
             runtime.get_status(NodeType::Texture, 3),
@@ -185,8 +180,8 @@ mod tests {
         runtime.set_status(
             NodeType::Shader,
             2,
-            NodeStatus::Warn {
-                status_message: "Test warning".to_string(),
+            NodeStatus::Error {
+                status_message: "Test error".to_string(),
             },
         );
 

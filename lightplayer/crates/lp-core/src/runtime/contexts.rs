@@ -11,10 +11,12 @@ use crate::util::Texture;
 use hashbrown::HashMap;
 
 // Forward declarations - these will be implemented in later phases
-pub struct TextureNodeRuntime;
 pub struct ShaderNodeRuntime;
 pub struct FixtureNodeRuntime;
 pub struct OutputNodeRuntime;
+
+// TextureNodeRuntime is now implemented
+use crate::nodes::texture::TextureNodeRuntime;
 
 /// Initialization context providing read-only access to project configuration
 pub struct InitContext<'a> {
@@ -73,10 +75,7 @@ impl<'a> ShaderRenderContext<'a> {
     ///
     /// Returns None if the texture doesn't exist.
     pub fn get_texture_mut(&mut self, texture_id: TextureId) -> Option<&mut Texture> {
-        // This will be implemented when TextureNodeRuntime is defined
-        // For now, return None as a placeholder
-        let _ = texture_id;
-        None
+        self.textures.get_mut(&texture_id).map(|rt| rt.texture_mut())
     }
 }
 
@@ -107,10 +106,7 @@ impl<'a> FixtureRenderContext<'a> {
     ///
     /// Returns None if the texture doesn't exist.
     pub fn get_texture(&self, texture_id: TextureId) -> Option<&Texture> {
-        // This will be implemented when TextureNodeRuntime is defined
-        // For now, return None as a placeholder
-        let _ = texture_id;
-        None
+        self.textures.get(&texture_id).map(|rt| rt.texture())
     }
 
     /// Get mutable access to an output node runtime

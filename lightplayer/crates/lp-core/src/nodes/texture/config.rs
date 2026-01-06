@@ -1,4 +1,4 @@
-//! Texture node type definitions
+//! Texture node configuration
 
 use alloc::string::String;
 use serde::{Deserialize, Serialize};
@@ -16,7 +16,6 @@ pub enum TextureNode {
 
 /// Supported texture formats (OpenGL-style)
 pub mod formats {
-
     /// RGB 8-bit per component (24-bit total)
     pub const RGB8: &str = "RGB8";
     /// RGBA 8-bit per component (32-bit total)
