@@ -13,7 +13,9 @@ use hashbrown::HashMap;
 // Forward declarations - these will be implemented in later phases
 pub struct ShaderNodeRuntime;
 pub struct FixtureNodeRuntime;
-pub struct OutputNodeRuntime;
+
+// OutputNodeRuntime is now implemented
+use crate::nodes::output::OutputNodeRuntime;
 
 // TextureNodeRuntime is now implemented
 use crate::nodes::texture::TextureNodeRuntime;

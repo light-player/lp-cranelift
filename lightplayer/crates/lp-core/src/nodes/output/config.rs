@@ -1,4 +1,4 @@
-//! Output node type definitions
+//! Output node configuration
 
 use alloc::string::String;
 use serde::{Deserialize, Serialize};

@@ -8,7 +8,7 @@ pub mod texture;
 
 pub use fixture::{FixtureNode, Mapping};
 pub use id::{FixtureId, OutputId, ShaderId, TextureId};
-pub use output::OutputNode;
+pub use output::{OutputNode, OutputNodeRuntime};
 pub use shader::ShaderNode;
 pub use texture::{TextureNode, TextureNodeRuntime};
 
