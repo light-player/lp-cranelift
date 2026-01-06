@@ -15,6 +15,6 @@ pub trait OutputProvider {
     /// sets up chip driver (ws2812, etc.), and returns a handle.
     ///
     /// Returns an error if the output cannot be created.
-    fn create_output(&self, config: &OutputNode) -> Result<alloc::boxed::Box<dyn LedOutput>, Error>;
+    fn create_output(&self, config: &OutputNode)
+    -> Result<alloc::boxed::Box<dyn LedOutput>, Error>;
 }
-

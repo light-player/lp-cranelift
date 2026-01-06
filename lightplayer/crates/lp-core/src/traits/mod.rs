@@ -9,4 +9,3 @@ pub use filesystem::Filesystem;
 pub use led_output::{LedOutput, Rgb, Rgba};
 pub use output_provider::OutputProvider;
 pub use transport::Transport;
-

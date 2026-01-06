@@ -17,16 +17,27 @@ pub struct ProjectConfig {
 /// Collection of all node types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Nodes {
-    #[serde(serialize_with = "serialize_u32_map", deserialize_with = "deserialize_u32_map")]
+    #[serde(
+        serialize_with = "serialize_u32_map",
+        deserialize_with = "deserialize_u32_map"
+    )]
     pub outputs: HashMap<u32, OutputNode>,
-    #[serde(serialize_with = "serialize_u32_map", deserialize_with = "deserialize_u32_map")]
+    #[serde(
+        serialize_with = "serialize_u32_map",
+        deserialize_with = "deserialize_u32_map"
+    )]
     pub textures: HashMap<u32, TextureNode>,
-    #[serde(serialize_with = "serialize_u32_map", deserialize_with = "deserialize_u32_map")]
+    #[serde(
+        serialize_with = "serialize_u32_map",
+        deserialize_with = "deserialize_u32_map"
+    )]
     pub shaders: HashMap<u32, ShaderNode>,
-    #[serde(serialize_with = "serialize_u32_map", deserialize_with = "deserialize_u32_map")]
+    #[serde(
+        serialize_with = "serialize_u32_map",
+        deserialize_with = "deserialize_u32_map"
+    )]
     pub fixtures: HashMap<u32, FixtureNode>,
 }
-
 
 /// Serialize HashMap<u32, T> with string keys
 fn serialize_u32_map<S, T>(map: &HashMap<u32, T>, serializer: S) -> Result<S::Ok, S::Error>
@@ -34,10 +45,7 @@ where
     S: serde::Serializer,
     T: Serialize,
 {
-    let string_map: BTreeMap<String, &T> = map
-        .iter()
-        .map(|(k, v)| (format!("{}", k), v))
-        .collect();
+    let string_map: BTreeMap<String, &T> = map.iter().map(|(k, v)| (format!("{}", k), v)).collect();
     string_map.serialize(serializer)
 }
 
@@ -57,8 +65,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::{string::ToString, vec};
     use crate::nodes::Mapping;
+    use alloc::{string::ToString, vec};
 
     #[test]
     fn test_serialize_deserialize() {
@@ -118,8 +126,14 @@ mod tests {
         assert_eq!(config.uid, deserialized.uid);
         assert_eq!(config.name, deserialized.name);
         assert_eq!(config.nodes.outputs.len(), deserialized.nodes.outputs.len());
-        assert_eq!(config.nodes.textures.len(), deserialized.nodes.textures.len());
+        assert_eq!(
+            config.nodes.textures.len(),
+            deserialized.nodes.textures.len()
+        );
         assert_eq!(config.nodes.shaders.len(), deserialized.nodes.shaders.len());
-        assert_eq!(config.nodes.fixtures.len(), deserialized.nodes.fixtures.len());
+        assert_eq!(
+            config.nodes.fixtures.len(),
+            deserialized.nodes.fixtures.len()
+        );
     }
 }

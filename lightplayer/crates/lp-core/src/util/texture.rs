@@ -1,8 +1,8 @@
 //! Low-level texture abstraction for pixel buffer management
 
-use alloc::format;
 use crate::error::Error;
 use crate::nodes::texture::formats;
+use alloc::format;
 
 /// Texture structure for managing pixel buffers
 #[derive(Debug, Clone)]
@@ -20,7 +20,10 @@ impl Texture {
     /// Returns an error if the format is invalid.
     pub fn new(width: u32, height: u32, format: alloc::string::String) -> Result<Self, Error> {
         if !formats::is_valid(&format) {
-            return Err(Error::Validation(format!("Invalid texture format: {}", format)));
+            return Err(Error::Validation(format!(
+                "Invalid texture format: {}",
+                format
+            )));
         }
 
         let bytes_per_pixel = formats::bytes_per_pixel(&format)
@@ -176,9 +179,7 @@ impl Texture {
         let p11 = self.get_pixel(x1, y1)?;
 
         // Bilinear interpolation
-        let lerp = |a: u8, b: u8, t: f32| -> u8 {
-            (a as f32 * (1.0 - t) + b as f32 * t) as u8
-        };
+        let lerp = |a: u8, b: u8, t: f32| -> u8 { (a as f32 * (1.0 - t) + b as f32 * t) as u8 };
 
         let top = [
             lerp(p00[0], p10[0], fx),
@@ -230,8 +231,8 @@ impl Texture {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::string::ToString;
     use crate::nodes::texture::formats;
+    use alloc::string::ToString;
 
     #[test]
     fn test_texture_new_valid() {
@@ -319,14 +320,7 @@ mod tests {
     #[test]
     fn test_compute_all() {
         let mut texture = Texture::new(10, 10, formats::RGB8.to_string()).unwrap();
-        texture.compute_all(|x, y| {
-            [
-                (x * 10) as u8,
-                (y * 10) as u8,
-                128,
-                255,
-            ]
-        });
+        texture.compute_all(|x, y| [(x * 10) as u8, (y * 10) as u8, 128, 255]);
 
         // Check a few pixels
         let pixel = texture.get_pixel(5, 3).unwrap();
@@ -335,4 +329,3 @@ mod tests {
         assert_eq!(pixel[2], 128);
     }
 }
-

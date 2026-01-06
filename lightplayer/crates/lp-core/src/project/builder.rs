@@ -155,8 +155,8 @@ impl Default for ProjectBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::{string::ToString, vec};
     use crate::nodes::texture::formats;
+    use alloc::{string::ToString, vec};
 
     #[test]
     fn test_project_builder_new() {
@@ -297,4 +297,3 @@ mod tests {
         assert_eq!(config.nodes.shaders.len(), 1);
     }
 }
-

@@ -14,4 +14,3 @@ pub enum OutputNode {
         count: u32,
     },
 }
-

@@ -1,7 +1,7 @@
 //! Runtime contexts for node access
 
-use crate::nodes::id::{FixtureId, OutputId, ShaderId, TextureId};
 use crate::nodes::fixture::FixtureNode;
+use crate::nodes::id::{FixtureId, OutputId, ShaderId, TextureId};
 use crate::nodes::output::OutputNode;
 use crate::nodes::shader::ShaderNode;
 use crate::nodes::texture::TextureNode;
@@ -65,10 +65,7 @@ pub struct ShaderRenderContext<'a> {
 
 impl<'a> ShaderRenderContext<'a> {
     /// Create a new shader render context
-    pub fn new(
-        time: FrameTime,
-        textures: &'a mut HashMap<TextureId, TextureNodeRuntime>,
-    ) -> Self {
+    pub fn new(time: FrameTime, textures: &'a mut HashMap<TextureId, TextureNodeRuntime>) -> Self {
         Self { time, textures }
     }
 
@@ -76,7 +73,9 @@ impl<'a> ShaderRenderContext<'a> {
     ///
     /// Returns None if the texture doesn't exist.
     pub fn get_texture_mut(&mut self, texture_id: TextureId) -> Option<&mut Texture> {
-        self.textures.get_mut(&texture_id).map(|rt| rt.texture_mut())
+        self.textures
+            .get_mut(&texture_id)
+            .map(|rt| rt.texture_mut())
     }
 }
 
@@ -149,13 +148,13 @@ impl TextureRenderContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::string::ToString;
     use crate::project::config::{Nodes, ProjectConfig};
+    use alloc::string::ToString;
 
     #[test]
     fn test_init_context_get_configs() {
-        use hashbrown::HashMap;
         use crate::nodes::{ShaderNode, TextureNode};
+        use hashbrown::HashMap;
 
         let mut project = ProjectConfig {
             uid: "test".to_string(),

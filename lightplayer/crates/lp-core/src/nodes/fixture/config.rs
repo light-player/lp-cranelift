@@ -71,4 +71,3 @@ where
     let id_u32 = u32::deserialize(deserializer)?;
     Ok(TextureId::from(id_u32))
 }
-

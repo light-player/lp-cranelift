@@ -47,9 +47,8 @@ mod tests {
         let time1 = FrameTime::new(16, 1000);
         let time2 = FrameTime::new(16, 1000);
         let time3 = FrameTime::new(17, 1000);
-        
+
         assert_eq!(time1, time2);
         assert_ne!(time1, time3);
     }
 }
-

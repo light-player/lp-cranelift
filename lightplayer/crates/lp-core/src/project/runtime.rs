@@ -6,9 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 use crate::nodes::id::{FixtureId, OutputId, ShaderId, TextureId};
-use crate::nodes::{
-    FixtureNodeRuntime, OutputNodeRuntime, ShaderNodeRuntime, TextureNodeRuntime,
-};
+use crate::nodes::{FixtureNodeRuntime, OutputNodeRuntime, ShaderNodeRuntime, TextureNodeRuntime};
 use crate::project::config::ProjectConfig;
 use crate::runtime::contexts::{
     FixtureRenderContext, InitContext, OutputRenderContext, ShaderRenderContext,
@@ -19,6 +17,7 @@ use crate::traits::OutputProvider;
 
 /// Project runtime - manages lifecycle of all node runtimes
 pub struct ProjectRuntime {
+    #[allow(dead_code)] // Used for serialization via get_runtime_nodes
     uid: String,
     frame_time: FrameTime,
     textures: HashMap<TextureId, TextureNodeRuntime>,
@@ -132,11 +131,8 @@ impl ProjectRuntime {
 
         // Update fixtures (sample textures, write to outputs)
         for fixture_runtime in self.fixtures.values_mut() {
-            let mut ctx = FixtureRenderContext::new(
-                self.frame_time,
-                &self.textures,
-                &mut self.outputs,
-            );
+            let mut ctx =
+                FixtureRenderContext::new(self.frame_time, &self.textures, &mut self.outputs);
             if let Err(_e) = fixture_runtime.update(&mut ctx) {
                 // Error status is set internally
             }
@@ -225,22 +221,10 @@ impl ProjectRuntime {
     /// Get the status for a node
     pub fn get_status(&self, node_type: NodeType, node_id: u32) -> Option<&NodeStatus> {
         match node_type {
-            NodeType::Output => self
-                .outputs
-                .get(&OutputId(node_id))
-                .map(|r| r.status()),
-            NodeType::Texture => self
-                .textures
-                .get(&TextureId(node_id))
-                .map(|r| r.status()),
-            NodeType::Shader => self
-                .shaders
-                .get(&ShaderId(node_id))
-                .map(|r| r.status()),
-            NodeType::Fixture => self
-                .fixtures
-                .get(&FixtureId(node_id))
-                .map(|r| r.status()),
+            NodeType::Output => self.outputs.get(&OutputId(node_id)).map(|r| r.status()),
+            NodeType::Texture => self.textures.get(&TextureId(node_id)).map(|r| r.status()),
+            NodeType::Shader => self.shaders.get(&ShaderId(node_id)).map(|r| r.status()),
+            NodeType::Fixture => self.fixtures.get(&FixtureId(node_id)).map(|r| r.status()),
         }
     }
 }
@@ -248,13 +232,25 @@ impl ProjectRuntime {
 /// Collection of runtime status for all node types (for serialization)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeNodes {
-    #[serde(serialize_with = "serialize_u32_map", deserialize_with = "deserialize_u32_map")]
+    #[serde(
+        serialize_with = "serialize_u32_map",
+        deserialize_with = "deserialize_u32_map"
+    )]
     pub outputs: HashMap<u32, NodeStatus>,
-    #[serde(serialize_with = "serialize_u32_map", deserialize_with = "deserialize_u32_map")]
+    #[serde(
+        serialize_with = "serialize_u32_map",
+        deserialize_with = "deserialize_u32_map"
+    )]
     pub textures: HashMap<u32, NodeStatus>,
-    #[serde(serialize_with = "serialize_u32_map", deserialize_with = "deserialize_u32_map")]
+    #[serde(
+        serialize_with = "serialize_u32_map",
+        deserialize_with = "deserialize_u32_map"
+    )]
     pub shaders: HashMap<u32, NodeStatus>,
-    #[serde(serialize_with = "serialize_u32_map", deserialize_with = "deserialize_u32_map")]
+    #[serde(
+        serialize_with = "serialize_u32_map",
+        deserialize_with = "deserialize_u32_map"
+    )]
     pub fixtures: HashMap<u32, NodeStatus>,
 }
 
@@ -286,10 +282,7 @@ where
     S: serde::Serializer,
     T: Serialize,
 {
-    let string_map: BTreeMap<String, &T> = map
-        .iter()
-        .map(|(k, v)| (format!("{}", k), v))
-        .collect();
+    let string_map: BTreeMap<String, &T> = map.iter().map(|(k, v)| (format!("{}", k), v)).collect();
     string_map.serialize(serializer)
 }
 
@@ -309,13 +302,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::string::ToString;
-    use crate::nodes::{
-        FixtureNode, Mapping, OutputNode, ShaderNode, TextureNode,
-    };
-    use alloc::vec;
     use crate::nodes::texture::formats;
+    use crate::nodes::{FixtureNode, Mapping, OutputNode, ShaderNode, TextureNode};
     use crate::traits::{LedOutput, OutputProvider};
+    use alloc::string::ToString;
+    use alloc::vec;
 
     // Mock OutputProvider for testing
     struct MockOutputProvider;
@@ -456,5 +447,185 @@ mod tests {
         runtime.init(&config, &output_provider).unwrap();
 
         assert!(runtime.destroy().is_ok());
+    }
+
+    #[test]
+    fn test_complete_project_lifecycle() {
+        // Build project
+        let (builder, texture_id) = crate::project::builder::ProjectBuilder::new_test()
+            .add_texture(TextureNode::Memory {
+                size: [8, 8],
+                format: formats::RGBA8.to_string(),
+            });
+        let (builder, _shader_id) = builder.add_shader(ShaderNode::Single {
+            glsl: "vec4 main(vec2 fragCoord, vec2 outputSize, float time) { return vec4(0.5, 0.5, 0.5, 1.0); }"
+                .to_string(),
+            texture_id,
+        });
+        let (builder, output_id) = builder.add_output(OutputNode::GpioStrip {
+            chip: "ws2812".to_string(),
+            gpio_pin: 18,
+            count: 10,
+        });
+        let (builder, _fixture_id) = builder.add_fixture(FixtureNode::CircleList {
+            output_id,
+            texture_id,
+            channel_order: "rgb".to_string(),
+            mapping: vec![Mapping {
+                channel: 0,
+                center: [0.5, 0.5],
+                radius: 0.1,
+            }],
+        });
+        let config = builder.build().unwrap();
+
+        // Init runtime
+        let mut runtime = ProjectRuntime::new("test".to_string());
+        let output_provider = MockOutputProvider;
+        assert!(runtime.init(&config, &output_provider).is_ok());
+
+        // Update multiple times
+        assert!(runtime.update(16, &output_provider).is_ok());
+        assert_eq!(runtime.frame_time.delta_ms, 16);
+        assert_eq!(runtime.frame_time.total_ms, 16);
+
+        assert!(runtime.update(16, &output_provider).is_ok());
+        assert_eq!(runtime.frame_time.delta_ms, 16);
+        assert_eq!(runtime.frame_time.total_ms, 32);
+
+        // Destroy
+        assert!(runtime.destroy().is_ok());
+    }
+
+    #[test]
+    fn test_shader_fixture_output_pipeline() {
+        // Build: texture → shader → fixture → output
+        let (builder, texture_id) = crate::project::builder::ProjectBuilder::new_test()
+            .add_texture(TextureNode::Memory {
+                size: [4, 4],
+                format: formats::RGBA8.to_string(),
+            });
+        let (builder, _shader_id) = builder.add_shader(ShaderNode::Single {
+            glsl: "vec4 main(vec2 fragCoord, vec2 outputSize, float time) { return vec4(1.0, 0.0, 0.0, 1.0); }"
+                .to_string(),
+            texture_id,
+        });
+        let (builder, output_id) = builder.add_output(OutputNode::GpioStrip {
+            chip: "ws2812".to_string(),
+            gpio_pin: 18,
+            count: 5,
+        });
+        let (builder, _fixture_id) = builder.add_fixture(FixtureNode::CircleList {
+            output_id,
+            texture_id,
+            channel_order: "rgb".to_string(),
+            mapping: vec![Mapping {
+                channel: 0,
+                center: [0.5, 0.5],
+                radius: 0.2,
+            }],
+        });
+        let config = builder.build().unwrap();
+
+        // Init and update
+        let mut runtime = ProjectRuntime::new("test".to_string());
+        let output_provider = MockOutputProvider;
+        runtime.init(&config, &output_provider).unwrap();
+        runtime.update(16, &output_provider).unwrap();
+
+        // Verify pipeline worked: shader wrote to texture, fixture sampled texture, output got data
+        let runtime_nodes = runtime.get_runtime_nodes();
+        // All nodes should be Ok status
+        assert!(matches!(
+            runtime_nodes.shaders.values().next(),
+            Some(NodeStatus::Ok)
+        ));
+        assert!(matches!(
+            runtime_nodes.fixtures.values().next(),
+            Some(NodeStatus::Ok)
+        ));
+        assert!(matches!(
+            runtime_nodes.outputs.values().next(),
+            Some(NodeStatus::Ok)
+        ));
+    }
+
+    #[test]
+    fn test_multiple_fixtures_same_output() {
+        // Build: one output, multiple fixtures
+        let (builder, texture_id) = crate::project::builder::ProjectBuilder::new_test()
+            .add_texture(TextureNode::Memory {
+                size: [4, 4],
+                format: formats::RGBA8.to_string(),
+            });
+        let (builder, output_id) = builder.add_output(OutputNode::GpioStrip {
+            chip: "ws2812".to_string(),
+            gpio_pin: 18,
+            count: 10,
+        });
+        let (builder, _fixture1_id) = builder.add_fixture(FixtureNode::CircleList {
+            output_id,
+            texture_id,
+            channel_order: "rgb".to_string(),
+            mapping: vec![Mapping {
+                channel: 0,
+                center: [0.3, 0.3],
+                radius: 0.1,
+            }],
+        });
+        let (builder, _fixture2_id) = builder.add_fixture(FixtureNode::CircleList {
+            output_id,
+            texture_id,
+            channel_order: "rgb".to_string(),
+            mapping: vec![Mapping {
+                channel: 1,
+                center: [0.7, 0.7],
+                radius: 0.1,
+            }],
+        });
+        let config = builder.build().unwrap();
+
+        let mut runtime = ProjectRuntime::new("test".to_string());
+        let output_provider = MockOutputProvider;
+        runtime.init(&config, &output_provider).unwrap();
+        runtime.update(16, &output_provider).unwrap();
+
+        // Both fixtures should have written to the same output
+        let runtime_nodes = runtime.get_runtime_nodes();
+        assert_eq!(runtime_nodes.fixtures.len(), 2);
+        assert_eq!(runtime_nodes.outputs.len(), 1);
+    }
+
+    #[test]
+    fn test_frame_time_tracking() {
+        let (builder, texture_id) = crate::project::builder::ProjectBuilder::new_test()
+            .add_texture(TextureNode::Memory {
+                size: [4, 4],
+                format: formats::RGBA8.to_string(),
+            });
+        let config = builder.build().unwrap();
+
+        let mut runtime = ProjectRuntime::new("test".to_string());
+        let output_provider = MockOutputProvider;
+        runtime.init(&config, &output_provider).unwrap();
+
+        // Initial state
+        assert_eq!(runtime.frame_time.delta_ms, 0);
+        assert_eq!(runtime.frame_time.total_ms, 0);
+
+        // First update
+        runtime.update(16, &output_provider).unwrap();
+        assert_eq!(runtime.frame_time.delta_ms, 16);
+        assert_eq!(runtime.frame_time.total_ms, 16);
+
+        // Second update
+        runtime.update(17, &output_provider).unwrap();
+        assert_eq!(runtime.frame_time.delta_ms, 17);
+        assert_eq!(runtime.frame_time.total_ms, 33);
+
+        // Third update
+        runtime.update(16, &output_provider).unwrap();
+        assert_eq!(runtime.frame_time.delta_ms, 16);
+        assert_eq!(runtime.frame_time.total_ms, 49);
     }
 }

@@ -10,16 +10,11 @@ use crate::project::config::ProjectConfig;
 #[serde(tag = "$type")]
 pub enum Command {
     #[serde(rename = "UpdateProject")]
-    UpdateProject {
-        project: ProjectConfig,
-    },
+    UpdateProject { project: ProjectConfig },
     #[serde(rename = "GetProject")]
     GetProject,
     #[serde(rename = "Log")]
-    Log {
-        level: LogLevel,
-        message: String,
-    },
+    Log { level: LogLevel, message: String },
 }
 
 /// Log level for log messages
@@ -38,16 +33,14 @@ pub enum Response {
     #[serde(rename = "Ok")]
     Ok,
     #[serde(rename = "Error")]
-    Error {
-        message: String,
-    },
+    Error { message: String },
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::string::ToString;
     use crate::project::config::{Nodes, ProjectConfig};
+    use alloc::string::ToString;
     use hashbrown::HashMap;
 
     #[test]
@@ -90,7 +83,12 @@ mod tests {
 
         let json = r#"{"$type":"Log","level":"error","message":"Test"}"#;
         let command: Command = serde_json::from_str(json).unwrap();
-        assert!(matches!(command, Command::Log { level: LogLevel::Error, .. }));
+        assert!(matches!(
+            command,
+            Command::Log {
+                level: LogLevel::Error,
+                ..
+            }
+        ));
     }
 }
-

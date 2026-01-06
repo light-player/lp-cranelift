@@ -39,30 +39,30 @@ impl SamplingKernel {
         // Generate sample points in a circle
         // Use a simple approach: sample on a grid within the circle
         let mut samples = Vec::new();
-        
+
         // Number of samples per dimension (creates a square grid)
         let sample_count = 5; // 5x5 = 25 samples
-        
+
         // Total weight for normalization
         let mut total_weight = 0.0;
-        
+
         for i in 0..sample_count {
             for j in 0..sample_count {
                 // Map from [0, sample_count-1] to [-radius, radius]
                 let u = (i as f32 / (sample_count - 1) as f32) * 2.0 - 1.0;
                 let v = (j as f32 / (sample_count - 1) as f32) * 2.0 - 1.0;
-                
+
                 // Check if point is within circle
                 let dist = (u * u + v * v).sqrt();
                 if dist <= 1.0 {
                     // Scale by radius
                     let offset_u = u * radius;
                     let offset_v = v * radius;
-                    
+
                     // Weight: closer to center = higher weight (Gaussian-like)
                     let weight = 1.0 - (dist * dist);
                     total_weight += weight;
-                    
+
                     samples.push(SamplePoint {
                         offset_u,
                         offset_v,
@@ -71,14 +71,14 @@ impl SamplingKernel {
                 }
             }
         }
-        
+
         // Normalize weights so they sum to 1.0
         if total_weight > 0.0 {
             for sample in &mut samples {
                 sample.weight /= total_weight;
             }
         }
-        
+
         Self { radius, samples }
     }
 }
@@ -302,8 +302,8 @@ impl NodeLifecycle for FixtureNodeRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::{string::ToString, vec};
     use crate::nodes::texture::formats;
+    use alloc::{string::ToString, vec};
     use hashbrown::HashMap;
 
     #[test]
@@ -311,7 +311,7 @@ mod tests {
         let kernel = SamplingKernel::new(0.5);
         assert!(!kernel.samples.is_empty());
         assert_eq!(kernel.radius, 0.5);
-        
+
         // Check that weights sum to approximately 1.0
         let total_weight: f32 = kernel.samples.iter().map(|s| s.weight).sum();
         assert!((total_weight - 1.0).abs() < 0.01);
@@ -351,8 +351,8 @@ mod tests {
             size: [10, 10],
             format: formats::RGBA8.to_string(),
         };
-        let (builder, texture_id) = crate::project::builder::ProjectBuilder::new_test()
-            .add_texture(texture_config.clone());
+        let (builder, texture_id) =
+            crate::project::builder::ProjectBuilder::new_test().add_texture(texture_config.clone());
         let project_config = builder.build().unwrap();
         let init_ctx = crate::runtime::contexts::InitContext::new(&project_config);
         texture_runtime.init(&texture_config, &init_ctx).unwrap();
@@ -376,8 +376,8 @@ mod tests {
             gpio_pin: 18,
             count: 10,
         };
-        let (builder, output_id) = crate::project::builder::ProjectBuilder::new_test()
-            .add_output(output_config.clone());
+        let (builder, output_id) =
+            crate::project::builder::ProjectBuilder::new_test().add_output(output_config.clone());
         let project_config = builder.build().unwrap();
         let init_ctx = crate::runtime::contexts::InitContext::new(&project_config);
         output_runtime.init(&output_config, &init_ctx).unwrap();
@@ -394,8 +394,8 @@ mod tests {
                 radius: 0.2,
             }],
         };
-        let (builder, _texture_id) = crate::project::builder::ProjectBuilder::new_test()
-            .add_texture(texture_config);
+        let (builder, _texture_id) =
+            crate::project::builder::ProjectBuilder::new_test().add_texture(texture_config);
         let (builder, _output_id) = builder.add_output(output_config);
         let project_config = builder.build().unwrap();
         let init_ctx = crate::runtime::contexts::InitContext::new(&project_config);
@@ -453,4 +453,3 @@ mod tests {
         assert!(matches!(runtime.status(), NodeStatus::Error { .. }));
     }
 }
-

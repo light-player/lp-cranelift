@@ -6,10 +6,9 @@ pub mod output;
 pub mod shader;
 pub mod texture;
 
-pub use fixture::{FixtureNode, Mapping};
 pub use fixture::runtime::FixtureNodeRuntime;
+pub use fixture::{FixtureNode, Mapping};
 pub use id::{FixtureId, OutputId, ShaderId, TextureId};
 pub use output::{OutputNode, OutputNodeRuntime};
 pub use shader::{ShaderNode, ShaderNodeRuntime};
 pub use texture::{TextureNode, TextureNodeRuntime};
-

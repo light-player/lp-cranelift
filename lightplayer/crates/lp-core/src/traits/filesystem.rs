@@ -18,4 +18,3 @@ pub trait Filesystem {
     /// Check if a file exists in the filesystem
     fn file_exists(&self, path: &str) -> Result<bool, Error>;
 }
-

@@ -5,4 +5,3 @@ pub mod runtime;
 
 pub use config::OutputNode;
 pub use runtime::OutputNodeRuntime;
-

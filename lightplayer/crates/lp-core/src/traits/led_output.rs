@@ -31,4 +31,3 @@ pub trait LedOutput {
     /// Get the number of pixels (LEDs) in this output
     fn get_pixel_count(&self) -> usize;
 }
-

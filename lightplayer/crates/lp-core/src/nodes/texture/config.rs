@@ -8,10 +8,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "$type")]
 pub enum TextureNode {
     #[serde(rename = "Memory")]
-    Memory {
-        size: [u32; 2],
-        format: String,
-    },
+    Memory { size: [u32; 2], format: String },
 }
 
 /// Supported texture formats (OpenGL-style)
@@ -38,4 +35,3 @@ pub mod formats {
         }
     }
 }
-

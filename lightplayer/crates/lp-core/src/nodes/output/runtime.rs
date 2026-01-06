@@ -1,12 +1,12 @@
 //! Output node runtime
 
-use alloc::{format, vec, vec::Vec};
 use crate::error::Error;
 use crate::nodes::output::config::OutputNode;
 use crate::project::runtime::NodeStatus;
 use crate::runtime::contexts::OutputRenderContext;
 use crate::runtime::lifecycle::NodeLifecycle;
 use crate::traits::LedOutput;
+use alloc::{format, vec, vec::Vec};
 
 /// Output node runtime
 pub struct OutputNodeRuntime {
@@ -69,7 +69,11 @@ impl NodeLifecycle for OutputNodeRuntime {
     type Config = OutputNode;
     type RenderContext<'a> = OutputRenderContext;
 
-    fn init(&mut self, config: &Self::Config, _ctx: &crate::runtime::contexts::InitContext) -> Result<(), Error> {
+    fn init(
+        &mut self,
+        config: &Self::Config,
+        _ctx: &crate::runtime::contexts::InitContext,
+    ) -> Result<(), Error> {
         match config {
             OutputNode::GpioStrip { chip, count, .. } => {
                 // Derive bytes_per_pixel from chip type
@@ -189,10 +193,7 @@ mod tests {
         let ctx = crate::runtime::contexts::InitContext::new(&project_config);
 
         assert!(runtime.init(&config, &ctx).is_err());
-        assert!(matches!(
-            runtime.status(),
-            NodeStatus::Error { .. }
-        ));
+        assert!(matches!(runtime.status(), NodeStatus::Error { .. }));
     }
 
     #[test]
@@ -230,4 +231,3 @@ mod tests {
         assert_eq!(runtime.buffer[2], 64);
     }
 }
-

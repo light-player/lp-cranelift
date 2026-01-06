@@ -1,12 +1,12 @@
 //! Texture node runtime
 
-use alloc::{format, string::ToString};
 use crate::error::Error;
 use crate::nodes::texture::config::TextureNode;
 use crate::project::runtime::NodeStatus;
 use crate::runtime::contexts::{InitContext, TextureRenderContext};
 use crate::runtime::lifecycle::NodeLifecycle;
 use crate::util::Texture;
+use alloc::{format, string::ToString};
 
 /// Texture node runtime
 #[derive(Debug)]
@@ -85,8 +85,8 @@ impl NodeLifecycle for TextureNodeRuntime {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::string::ToString;
     use crate::nodes::texture::formats;
+    use alloc::string::ToString;
 
     #[test]
     fn test_texture_node_runtime_init() {
@@ -134,10 +134,7 @@ mod tests {
         let ctx = InitContext::new(&project_config);
 
         assert!(runtime.init(&config, &ctx).is_err());
-        assert!(matches!(
-            runtime.status(),
-            NodeStatus::Error { .. }
-        ));
+        assert!(matches!(runtime.status(), NodeStatus::Error { .. }));
     }
 
     #[test]
@@ -173,4 +170,3 @@ mod tests {
         assert_eq!(pixel[2], 64);
     }
 }
-

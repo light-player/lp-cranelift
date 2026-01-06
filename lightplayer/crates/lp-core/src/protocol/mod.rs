@@ -4,5 +4,4 @@ pub mod command;
 pub mod message;
 
 pub use command::{Command, LogLevel, Response};
-pub use message::{parse_command, serialize_command, Message};
-
+pub use message::{Message, parse_command, serialize_command};

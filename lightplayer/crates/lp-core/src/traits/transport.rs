@@ -20,4 +20,3 @@ pub trait Transport {
     /// until a newline is encountered).
     fn receive_message(&mut self) -> Result<alloc::string::String, Error>;
 }
-

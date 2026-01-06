@@ -96,7 +96,7 @@ mod tests {
         let id = TextureId(42);
         let u32_val: u32 = id.into();
         assert_eq!(u32_val, 42);
-        
+
         let id2: TextureId = 42.into();
         assert_eq!(id2, TextureId(42));
     }
@@ -114,4 +114,3 @@ mod tests {
         assert_eq!(u32::from(fixture_id), 4);
     }
 }
-

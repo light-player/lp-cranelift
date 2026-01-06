@@ -57,7 +57,13 @@ mod tests {
         let json = r#"{"$type":"Log","level":"info","message":"Test"}
 "#;
         let command = parse_command(json).unwrap();
-        assert!(matches!(command, Command::Log { level: LogLevel::Info, .. }));
+        assert!(matches!(
+            command,
+            Command::Log {
+                level: LogLevel::Info,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -68,4 +74,3 @@ mod tests {
         assert!(json.contains("\"$type\":\"GetProject\""));
     }
 }
-
