@@ -11,4 +11,5 @@ workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 hashbrown = { workspace = true }
+lp-glsl = { path = "../lp-glsl", default-features = false, features = ["std"] }
 

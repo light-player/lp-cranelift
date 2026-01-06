@@ -1,5 +1,17 @@
 # JIT Compilation Issue: is_pic Configuration Mismatch
 
+## ✅ RESOLVED
+
+This issue has been fixed. `is_pic` is now correctly set to:
+
+- `true` for emulator object linking mode (`default_riscv32_flags()`)
+- `false` for JIT mode (`default_host_flags()`)
+
+See `lightplayer/crates/lp-glsl/src/backend/target/target.rs`:
+
+- Line 134: `is_pic="true"` for RISC-V emulator
+- Line 162: `is_pic="false"` for HostJit
+
 ## Problem
 
 When compiling GLSL shaders using `lp-glsl`'s `glsl_jit()` function, the compilation fails with:
@@ -10,14 +22,15 @@ cranelift-jit needs is_pic=false
 
 This panic occurs in `cranelift/jit/src/backend.rs:411` when creating a `JITModule`.
 
-## Root Cause
+## Root Cause (Historical)
 
-**Configuration mismatch between `lp-glsl` and `cranelift-jit`:**
+**Configuration mismatch between `lp-glsl` and `cranelift-jit` (now fixed):**
 
-1. **`lp-glsl`** sets `is_pic=true` in `default_host_flags()`:
-   - File: `lightplayer/crates/lp-glsl/src/backend/target/target.rs:163`
-   - Code: `.set("is_pic", "true")`
-   - Comment says: "Enable PIC for emulator target to generate GOT-based relocations for external symbols"
+1. **`lp-glsl`** was incorrectly setting `is_pic=true` in `default_host_flags()`:
+
+   - File: `lightplayer/crates/lp-glsl/src/backend/target/target.rs:163` (now fixed)
+   - Previously: `.set("is_pic", "true")`
+   - Now: `.set("is_pic", "false")` with comment "Disable PIC for JIT target - cranelift-jit requires is_pic=false"
 
 2. **`cranelift-jit`** requires `is_pic=false`:
    - File: `cranelift/jit/src/backend.rs:411-413`
@@ -37,10 +50,12 @@ This panic occurs in `cranelift/jit/src/backend.rs:411` when creating a `JITModu
 ## Possible Solutions
 
 1. **Change `lp-glsl` to use `is_pic=false` for HostJit mode**:
+
    - Modify `default_host_flags()` to set `is_pic=false` when `run_mode == HostJit`
    - Keep `is_pic=true` for emulator mode (RISC-V)
 
 2. **Add a flag/option to `GlslOptions`**:
+
    - Allow caller to specify PIC setting
    - Default to `false` for HostJit, `true` for Emulator
 
@@ -59,4 +74,3 @@ This panic occurs in `cranelift/jit/src/backend.rs:411` when creating a `JITModu
 - Skip shader compilation tests that require JIT
 - Mark test as `#[ignore]` with a note about the JIT issue
 - Continue with other phases that don't require shader compilation
-
