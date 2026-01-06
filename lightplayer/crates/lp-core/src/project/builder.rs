@@ -112,15 +112,26 @@ impl ProjectBuilder {
             }
         }
 
-        // Check fixture output_id references
+        // Check fixture output_id and texture_id references
         for (fixture_id, fixture) in &self.nodes.fixtures {
             match fixture {
-                FixtureNode::CircleList { output_id, .. } => {
+                FixtureNode::CircleList {
+                    output_id,
+                    texture_id,
+                    ..
+                } => {
                     let output_id_u32: u32 = (*output_id).into();
                     if !self.nodes.outputs.contains_key(&output_id_u32) {
                         return Err(Error::Validation(format!(
                             "Fixture {} references non-existent output {}",
                             fixture_id, output_id_u32
+                        )));
+                    }
+                    let texture_id_u32: u32 = (*texture_id).into();
+                    if !self.nodes.textures.contains_key(&texture_id_u32) {
+                        return Err(Error::Validation(format!(
+                            "Fixture {} references non-existent texture {}",
+                            fixture_id, texture_id_u32
                         )));
                     }
                 }
@@ -242,6 +253,23 @@ mod tests {
         let (builder, _fixture_id) = builder.add_fixture(FixtureNode::CircleList {
             output_id: OutputId(999), // Non-existent output
             texture_id: TextureId(1),
+            channel_order: "RGB".to_string(),
+            mapping: vec![],
+        });
+        assert!(builder.build().is_err());
+    }
+
+    #[test]
+    fn test_build_validates_fixture_texture_reference() {
+        let builder = ProjectBuilder::new();
+        let (builder, output_id) = builder.add_output(OutputNode::GpioStrip {
+            chip: "ws2812".to_string(),
+            gpio_pin: 18,
+            count: 100,
+        });
+        let (builder, _fixture_id) = builder.add_fixture(FixtureNode::CircleList {
+            output_id,
+            texture_id: TextureId(999), // Non-existent texture
             channel_order: "RGB".to_string(),
             mapping: vec![],
         });
