@@ -64,23 +64,7 @@ impl NodeLifecycle for ShaderNodeRuntime {
                 };
 
                 // Compile GLSL
-                // Wrap in catch_unwind to handle panics from cranelift (e.g., unimplemented features on macOS)
-                let compilation_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    glsl_jit(glsl, options)
-                }));
-
-                let executable_result = match compilation_result {
-                    Ok(Ok(exec)) => Ok(exec),
-                    Ok(Err(e)) => Err(e),
-                    Err(_) => {
-                        // Panic occurred - convert to error
-                        return Err(Error::Node(
-                            "Shader compilation panicked (possibly due to unimplemented platform features)".to_string(),
-                        ));
-                    }
-                };
-
-                match executable_result {
+                match glsl_jit(glsl, options) {
                     Ok(executable) => {
                         // Validate signature: vec4 main(vec2 fragCoord, vec2 outputSize, float time)
                         if let Some(sig) = executable.get_function_signature("main") {

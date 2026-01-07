@@ -115,7 +115,9 @@ fn main() -> eframe::Result<()> {
             eprintln!("Failed to load project: {}", e);
         }
         Err(_) => {
-            eprintln!("Project loading panicked (possibly due to unimplemented platform features in cranelift)");
+            eprintln!(
+                "Project loading panicked (possibly due to unimplemented platform features in cranelift)"
+            );
             eprintln!("This is a known issue on macOS - shader compilation may not work");
             // Continue anyway - the app will show errors in the debug UI
         }
