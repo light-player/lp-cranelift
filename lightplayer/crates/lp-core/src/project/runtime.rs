@@ -227,6 +227,26 @@ impl ProjectRuntime {
             NodeType::Fixture => self.fixtures.get(&FixtureId(node_id)).map(|r| r.status()),
         }
     }
+
+    /// Get a texture runtime by ID
+    pub fn get_texture(&self, id: TextureId) -> Option<&TextureNodeRuntime> {
+        self.textures.get(&id)
+    }
+
+    /// Get a shader runtime by ID
+    pub fn get_shader(&self, id: ShaderId) -> Option<&ShaderNodeRuntime> {
+        self.shaders.get(&id)
+    }
+
+    /// Get a fixture runtime by ID
+    pub fn get_fixture(&self, id: FixtureId) -> Option<&FixtureNodeRuntime> {
+        self.fixtures.get(&id)
+    }
+
+    /// Get an output runtime by ID
+    pub fn get_output(&self, id: OutputId) -> Option<&OutputNodeRuntime> {
+        self.outputs.get(&id)
+    }
 }
 
 /// Collection of runtime status for all node types (for serialization)
