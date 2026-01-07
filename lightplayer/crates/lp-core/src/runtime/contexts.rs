@@ -32,27 +32,39 @@ impl<'a> InitContext<'a> {
     }
 
     /// Get texture configuration by ID
-    pub fn get_texture_config(&self, id: &TextureId) -> Option<&TextureNode> {
-        let id_str: String = id.clone().into();
-        self.project_config.nodes.textures.get(&id_str)
+    ///
+    /// Note: Nodes are no longer stored in ProjectConfig. This will be updated
+    /// in Phase 7 to get configs from ProjectLoader.
+    pub fn get_texture_config(&self, _id: &TextureId) -> Option<&TextureNode> {
+        // TODO: Update in Phase 7 to get from ProjectLoader
+        None
     }
 
     /// Get shader configuration by ID
-    pub fn get_shader_config(&self, id: &ShaderId) -> Option<&ShaderNode> {
-        let id_str: String = id.clone().into();
-        self.project_config.nodes.shaders.get(&id_str)
+    ///
+    /// Note: Nodes are no longer stored in ProjectConfig. This will be updated
+    /// in Phase 7 to get configs from ProjectLoader.
+    pub fn get_shader_config(&self, _id: &ShaderId) -> Option<&ShaderNode> {
+        // TODO: Update in Phase 7 to get from ProjectLoader
+        None
     }
 
     /// Get fixture configuration by ID
-    pub fn get_fixture_config(&self, id: &FixtureId) -> Option<&FixtureNode> {
-        let id_str: String = id.clone().into();
-        self.project_config.nodes.fixtures.get(&id_str)
+    ///
+    /// Note: Nodes are no longer stored in ProjectConfig. This will be updated
+    /// in Phase 7 to get configs from ProjectLoader.
+    pub fn get_fixture_config(&self, _id: &FixtureId) -> Option<&FixtureNode> {
+        // TODO: Update in Phase 7 to get from ProjectLoader
+        None
     }
 
     /// Get output configuration by ID
-    pub fn get_output_config(&self, id: &OutputId) -> Option<&OutputNode> {
-        let id_str: String = id.clone().into();
-        self.project_config.nodes.outputs.get(&id_str)
+    ///
+    /// Note: Nodes are no longer stored in ProjectConfig. This will be updated
+    /// in Phase 7 to get configs from ProjectLoader.
+    pub fn get_output_config(&self, _id: &OutputId) -> Option<&OutputNode> {
+        // TODO: Update in Phase 7 to get from ProjectLoader
+        None
     }
 }
 
@@ -149,62 +161,19 @@ impl TextureRenderContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::project::config::{Nodes, ProjectConfig};
+        use crate::project::config::ProjectConfig;
     use alloc::string::ToString;
 
     #[test]
-    fn test_init_context_get_configs() {
-        use crate::nodes::{ShaderNode, TextureNode};
-        use alloc::collections::BTreeMap;
-
-        let mut project = ProjectConfig {
+    fn test_init_context_creation() {
+        let project = ProjectConfig {
             uid: "test".to_string(),
             name: "Test".to_string(),
-            nodes: Nodes {
-                outputs: BTreeMap::new(),
-                textures: BTreeMap::new(),
-                shaders: BTreeMap::new(),
-                fixtures: BTreeMap::new(),
-            },
         };
 
-        // Add a texture
-        project.nodes.textures.insert(
-            "/src/texture.texture".to_string(),
-            TextureNode::Memory {
-                size: [64, 64],
-                format: "RGB8".to_string(),
-            },
-        );
-
-        // Add a shader
-        project.nodes.shaders.insert(
-            "/src/shader.shader".to_string(),
-            ShaderNode::Single {
-                glsl: "vec4 main() { return vec4(1.0); }".to_string(),
-                texture_id: TextureId("/src/texture.texture".to_string()),
-            },
-        );
-
         let ctx = InitContext::new(&project);
-
-        // Test getting texture config
-        let texture_id = TextureId("/src/texture.texture".to_string());
-        let texture_config = ctx.get_texture_config(&texture_id);
-        assert!(texture_config.is_some());
-        if let Some(TextureNode::Memory { size, format }) = texture_config {
-            assert_eq!(*size, [64, 64]);
-            assert_eq!(format, "RGB8");
-        }
-
-        // Test getting shader config
-        let shader_id = ShaderId("/src/shader.shader".to_string());
-        let shader_config = ctx.get_shader_config(&shader_id);
-        assert!(shader_config.is_some());
-
-        // Test getting non-existent config
-        let nonexistent_id = TextureId("/src/nonexistent.texture".to_string());
-        assert!(ctx.get_texture_config(&nonexistent_id).is_none());
+        // InitContext can be created (config access will be updated in Phase 7)
+        let _ = ctx;
     }
 
     #[test]

@@ -39,21 +39,14 @@ pub enum Response {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::project::config::{Nodes, ProjectConfig};
+    use crate::project::config::ProjectConfig;
     use alloc::string::ToString;
-    use hashbrown::HashMap;
 
     #[test]
     fn test_command_serialize() {
         let config = ProjectConfig {
             uid: "UID12345".to_string(),
             name: "Test".to_string(),
-            nodes: Nodes {
-                outputs: HashMap::new(),
-                textures: HashMap::new(),
-                shaders: HashMap::new(),
-                fixtures: HashMap::new(),
-            },
         };
 
         let command = Command::UpdateProject { project: config };

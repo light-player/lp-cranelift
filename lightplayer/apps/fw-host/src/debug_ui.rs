@@ -253,21 +253,13 @@ pub fn render_textures_panel(
     ui.heading("Textures");
     ui.separator();
 
-    if project.nodes.textures.is_empty() {
-        ui.label("No textures defined");
-        return;
-    }
-
-    // Display each texture
-    for (id, texture) in &project.nodes.textures {
-        ui.group(|ui| {
-            // Get actual texture data from runtime if available
-            let texture_data = runtime
-                .and_then(|r| r.get_texture(TextureId(id.clone())))
-                .map(|t| t.texture().data());
-            render_texture(ui, id, texture, texture_data);
-        });
-        ui.separator();
+    // TODO: Update in Phase 7 to get textures from ProjectLoader
+    // For now, show textures from runtime if available
+    if let Some(rt) = runtime {
+        // Get textures from runtime (we'll need to add a method to list texture IDs)
+        ui.label("Textures will be displayed once ProjectLoader is implemented");
+    } else {
+        ui.label("No runtime available");
     }
 }
 
@@ -297,72 +289,63 @@ fn render_fixture(
             ui.separator();
 
             // Show texture with mapping overlay
-            // For now, show all textures with this fixture's mappings
-            // In the future, we could track which texture a fixture maps from
-            if project.nodes.textures.is_empty() {
-                ui.label("No textures available");
-                return;
-            }
-
+            // TODO: Update in Phase 7 to get texture config from ProjectLoader
             // Display texture with this fixture's mappings overlaid
-            // Get the texture this fixture maps from
+            // TODO: Update in Phase 7 to get texture config from ProjectLoader
+            // For now, get texture data from runtime if available
             let texture_id_str: String = texture_id.clone().into();
-            if let Some(texture) = project.nodes.textures.get(&texture_id_str) {
-                match texture {
-                    TextureNode::Memory { size, format } => {
-                        let [width, height] = *size;
+            if let Some(rt) = runtime {
+                if let Some(texture_rt) = rt.get_texture(texture_id.clone()) {
+                    let texture = texture_rt.texture();
+                    let width = texture.width();
+                    let height = texture.height();
+                    let format = "RGB8"; // Default format
+                    let data: Vec<u8> = texture.data().to_vec();
+                    let color_image = texture_data_to_color_image(&data, width, height, format);
 
-                        // Get actual texture data from runtime if available
-                        let texture_id_typed = texture_id.clone();
-                        let data: Vec<u8> = runtime
-                            .and_then(|r| r.get_texture(texture_id_typed))
-                            .map(|t| t.texture().data().to_vec())
-                            .unwrap_or_else(|| {
-                                generate_placeholder_texture(width, height, format)
-                            });
-                        let color_image = texture_data_to_color_image(&data, width, height, format);
+                    // Create texture handle
+                    let texture_name = format!("fixture_{}_texture_{}", fixture_id, texture_id_str);
+                    let texture_handle: TextureHandle = ui.ctx().load_texture(
+                        texture_name,
+                        color_image,
+                        Default::default(),
+                    );
 
-                        // Create texture handle - egui will update if called with same name
-                        let texture_name = format!("fixture_{}_texture_{}", fixture_id, texture_id_str);
-                        let texture_handle: TextureHandle = ui.ctx().load_texture(
-                            texture_name,
-                            color_image,
-                            Default::default(),
+                    // Display texture metadata
+                    ui.label(format!("Texture ID: {}", texture_id_str));
+                    ui.label(format!("Size: {}x{}", width, height));
+
+                    // Scale to fit available width
+                    let available_width = ui.available_width();
+                    let scale = (available_width / width as f32).min(8.0);
+                    let display_width = width as f32 * scale;
+                    let display_height = height as f32 * scale;
+
+                    // Display texture image with mapping overlay
+                    let image_response = ui.add(
+                        Image::new(&texture_handle)
+                            .fit_to_exact_size(egui::Vec2::new(display_width, display_height)),
+                    );
+
+                    // Draw mapping overlay for this fixture
+                    for mapping_item in mapping {
+                        draw_mapping_overlay(
+                            ui.painter(),
+                            image_response.rect,
+                            width,
+                            height,
+                            fixture_id,
+                            mapping_item,
+                            true, // Show labels
                         );
-
-                        // Display texture metadata
-                        ui.label(format!("Texture ID: {}", texture_id_str));
-                        ui.label(format!("Size: {}x{}", width, height));
-
-                        // Scale to fit available width
-                        // Max out at 8x native size, but clamp to panel width
-                        let available_width = ui.available_width();
-                        let scale = (available_width / width as f32).min(8.0);
-                        let display_width = width as f32 * scale;
-                        let display_height = height as f32 * scale;
-
-                        // Display texture image with mapping overlay - use fit_to_exact_size to force the size
-                        let image_response = ui.add(
-                            Image::new(&texture_handle)
-                                .fit_to_exact_size(egui::Vec2::new(display_width, display_height)),
-                        );
-
-                        // Draw mapping overlay for this fixture
-                        for mapping_item in mapping {
-                            draw_mapping_overlay(
-                                ui.painter(),
-                                image_response.rect,
-                                width,
-                                height,
-                                fixture_id,
-                                mapping_item,
-                                true, // Show labels
-                            );
-                        }
-
-                        ui.separator();
                     }
+
+                    ui.separator();
+                } else {
+                    ui.label(format!("Texture {} not found in runtime", texture_id_str));
                 }
+            } else {
+                ui.label("Runtime not available");
             }
         }
     }
@@ -377,18 +360,8 @@ pub fn render_fixtures_panel(
     ui.heading("Fixtures");
     ui.separator();
 
-    if project.nodes.fixtures.is_empty() {
-        ui.label("No fixtures defined");
-        return;
-    }
-
-    // Display each fixture
-    for (id, fixture) in &project.nodes.fixtures {
-        ui.group(|ui| {
-            render_fixture(ui, id, fixture, project, runtime);
-        });
-        ui.separator();
-    }
+    // TODO: Update in Phase 7 to get fixtures from ProjectLoader
+    ui.label("Fixtures will be displayed once ProjectLoader is implemented");
 }
 
 /// Render shader code and errors
@@ -449,16 +422,7 @@ pub fn render_shaders_panel(
     ui.heading("Shaders");
     ui.separator();
 
-    if project.nodes.shaders.is_empty() {
-        ui.label("No shaders defined");
-        return;
-    }
-
-    // Display each shader
-    for (id, shader) in &project.nodes.shaders {
-        let shader_runtime = runtime.and_then(|r| r.get_shader(ShaderId(id.clone())));
-        render_shader_panel(ui, id, shader, shader_runtime);
-        ui.separator();
-    }
+    // TODO: Update in Phase 7 to get shaders from ProjectLoader
+    ui.label("Shaders will be displayed once ProjectLoader is implemented");
 }
 

@@ -39,72 +39,18 @@ impl ProjectRuntime {
         }
     }
 
-    /// Initialize all nodes from configuration
+    /// Initialize runtime with project config
     ///
-    /// Initializes nodes in order: textures → shaders → fixtures → outputs
-    /// Allows partial failures (nodes handle their own failures)
+    /// Note: Nodes are not initialized here - they will be loaded from filesystem
+    /// separately via ProjectLoader and added using add_node methods.
+    /// This method currently only validates the config structure.
     pub fn init(
         &mut self,
-        config: &ProjectConfig,
-        output_provider: &dyn OutputProvider,
+        _config: &ProjectConfig,
+        _output_provider: &dyn OutputProvider,
     ) -> Result<(), Error> {
-        let init_ctx = InitContext::new(config);
-
-        // Initialize textures
-        for (id_str, texture_config) in &config.nodes.textures {
-            let texture_id = TextureId(id_str.clone());
-            let mut texture_runtime = TextureNodeRuntime::new();
-            if let Err(e) = texture_runtime.init(texture_config, &init_ctx) {
-                // Log error but continue - node status is set internally
-                let _ = e;
-            }
-            self.textures.insert(texture_id, texture_runtime);
-        }
-
-        // Initialize shaders
-        for (id_str, shader_config) in &config.nodes.shaders {
-            let shader_id = ShaderId(id_str.clone());
-            let mut shader_runtime = ShaderNodeRuntime::new();
-            if let Err(e) = shader_runtime.init(shader_config, &init_ctx) {
-                // Log error but continue - node status is set internally
-                let _ = e;
-            }
-            self.shaders.insert(shader_id, shader_runtime);
-        }
-
-        // Initialize fixtures
-        for (id_str, fixture_config) in &config.nodes.fixtures {
-            let fixture_id = FixtureId(id_str.clone());
-            let mut fixture_runtime = FixtureNodeRuntime::new();
-            if let Err(e) = fixture_runtime.init(fixture_config, &init_ctx) {
-                // Log error but continue - node status is set internally
-                let _ = e;
-            }
-            self.fixtures.insert(fixture_id, fixture_runtime);
-        }
-
-        // Initialize outputs and create LED handles
-        for (id_str, output_config) in &config.nodes.outputs {
-            let output_id = OutputId(id_str.clone());
-            let mut output_runtime = OutputNodeRuntime::new();
-            if let Err(e) = output_runtime.init(output_config, &init_ctx) {
-                // Log error but continue - node status is set internally
-                let _ = e;
-            } else {
-                // Create LED output handle via OutputProvider
-                match output_provider.create_output(output_config, Some(output_id.clone())) {
-                    Ok(handle) => {
-                        output_runtime.set_handle(handle);
-                    }
-                    Err(e) => {
-                        // Set error status but continue
-                        let _ = e;
-                    }
-                }
-            }
-            self.outputs.insert(output_id, output_runtime);
-        }
-
+        // Nodes will be loaded from filesystem separately
+        // This method is kept for API compatibility but doesn't initialize nodes
         Ok(())
     }
 

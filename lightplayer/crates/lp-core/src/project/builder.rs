@@ -6,14 +6,20 @@ use crate::error::Error;
 use crate::nodes::{
     FixtureId, FixtureNode, OutputId, OutputNode, ShaderId, ShaderNode, TextureId, TextureNode,
 };
-use crate::project::config::{Nodes, ProjectConfig};
+use crate::project::config::ProjectConfig;
 
 /// Builder for creating ProjectConfig with a fluent API
+///
+/// Note: Nodes are stored internally for validation, but ProjectConfig
+/// no longer contains nodes (they're loaded from filesystem separately).
 pub struct ProjectBuilder {
     uid: String,
     name: String,
     next_id: u32, // Used to generate unique path-based IDs
-    nodes: Nodes,
+    outputs: BTreeMap<String, OutputNode>,
+    textures: BTreeMap<String, TextureNode>,
+    shaders: BTreeMap<String, ShaderNode>,
+    fixtures: BTreeMap<String, FixtureNode>,
 }
 
 impl ProjectBuilder {
@@ -23,12 +29,10 @@ impl ProjectBuilder {
             uid: "default".to_string(),
             name: "Untitled Project".to_string(),
             next_id: 1,
-            nodes: Nodes {
-                outputs: BTreeMap::new(),
-                textures: BTreeMap::new(),
-                shaders: BTreeMap::new(),
-                fixtures: BTreeMap::new(),
-            },
+            outputs: BTreeMap::new(),
+            textures: BTreeMap::new(),
+            shaders: BTreeMap::new(),
+            fixtures: BTreeMap::new(),
         }
     }
 
@@ -40,12 +44,10 @@ impl ProjectBuilder {
             uid: "test".to_string(),
             name: "Test".to_string(),
             next_id: 1,
-            nodes: Nodes {
-                outputs: BTreeMap::new(),
-                textures: BTreeMap::new(),
-                shaders: BTreeMap::new(),
-                fixtures: BTreeMap::new(),
-            },
+            outputs: BTreeMap::new(),
+            textures: BTreeMap::new(),
+            shaders: BTreeMap::new(),
+            fixtures: BTreeMap::new(),
         }
     }
 
@@ -66,7 +68,7 @@ impl ProjectBuilder {
         let id_str = format!("/src/texture-{}.texture", self.next_id);
         let id = TextureId(id_str.clone());
         self.next_id += 1;
-        self.nodes.textures.insert(id_str, config);
+        self.textures.insert(id_str, config);
         (self, id)
     }
 
@@ -75,7 +77,7 @@ impl ProjectBuilder {
         let id_str = format!("/src/shader-{}.shader", self.next_id);
         let id = ShaderId(id_str.clone());
         self.next_id += 1;
-        self.nodes.shaders.insert(id_str, config);
+        self.shaders.insert(id_str, config);
         (self, id)
     }
 
@@ -84,7 +86,7 @@ impl ProjectBuilder {
         let id_str = format!("/src/output-{}.output", self.next_id);
         let id = OutputId(id_str.clone());
         self.next_id += 1;
-        self.nodes.outputs.insert(id_str, config);
+        self.outputs.insert(id_str, config);
         (self, id)
     }
 
@@ -93,7 +95,7 @@ impl ProjectBuilder {
         let id_str = format!("/src/fixture-{}.fixture", self.next_id);
         let id = FixtureId(id_str.clone());
         self.next_id += 1;
-        self.nodes.fixtures.insert(id_str, config);
+        self.fixtures.insert(id_str, config);
         (self, id)
     }
 
@@ -101,11 +103,11 @@ impl ProjectBuilder {
     pub fn build(self) -> Result<ProjectConfig, Error> {
         // Validate that all referenced IDs exist
         // Check shader texture_id references
-        for (shader_id, shader) in &self.nodes.shaders {
+        for (shader_id, shader) in &self.shaders {
             match shader {
                 ShaderNode::Single { texture_id, .. } => {
                     let texture_id_str: String = texture_id.clone().into();
-                    if !self.nodes.textures.contains_key(&texture_id_str) {
+                    if !self.textures.contains_key(&texture_id_str) {
                         return Err(Error::Validation(format!(
                             "Shader {} references non-existent texture {}",
                             shader_id, texture_id_str
@@ -116,7 +118,7 @@ impl ProjectBuilder {
         }
 
         // Check fixture output_id and texture_id references
-        for (fixture_id, fixture) in &self.nodes.fixtures {
+        for (fixture_id, fixture) in &self.fixtures {
             match fixture {
                 FixtureNode::CircleList {
                     output_id,
@@ -124,14 +126,14 @@ impl ProjectBuilder {
                     ..
                 } => {
                     let output_id_str: String = output_id.clone().into();
-                    if !self.nodes.outputs.contains_key(&output_id_str) {
+                    if !self.outputs.contains_key(&output_id_str) {
                         return Err(Error::Validation(format!(
                             "Fixture {} references non-existent output {}",
                             fixture_id, output_id_str
                         )));
                     }
                     let texture_id_str: String = texture_id.clone().into();
-                    if !self.nodes.textures.contains_key(&texture_id_str) {
+                    if !self.textures.contains_key(&texture_id_str) {
                         return Err(Error::Validation(format!(
                             "Fixture {} references non-existent texture {}",
                             fixture_id, texture_id_str
@@ -141,10 +143,10 @@ impl ProjectBuilder {
             }
         }
 
+        // ProjectConfig no longer contains nodes - they're loaded from filesystem separately
         Ok(ProjectConfig {
             uid: self.uid,
             name: self.name,
-            nodes: self.nodes,
         })
     }
 }
@@ -193,7 +195,7 @@ mod tests {
             format: formats::RGB8.to_string(),
         });
         assert_eq!(String::from(texture_id.clone()), "/src/texture-1.texture");
-        assert_eq!(builder.nodes.textures.len(), 1);
+        assert_eq!(builder.textures.len(), 1);
     }
 
     #[test]
@@ -208,7 +210,7 @@ mod tests {
             texture_id,
         });
         assert_eq!(String::from(shader_id.clone()), "/src/shader-2.shader");
-        assert_eq!(builder.nodes.shaders.len(), 1);
+        assert_eq!(builder.shaders.len(), 1);
     }
 
     #[test]
@@ -219,7 +221,7 @@ mod tests {
             count: 100,
         });
         assert_eq!(String::from(output_id.clone()), "/src/output-1.output");
-        assert_eq!(builder.nodes.outputs.len(), 1);
+        assert_eq!(builder.outputs.len(), 1);
     }
 
     #[test]
@@ -236,7 +238,7 @@ mod tests {
             mapping: vec![],
         });
         assert_eq!(String::from(fixture_id.clone()), "/src/fixture-2.fixture");
-        assert_eq!(builder.nodes.fixtures.len(), 1);
+        assert_eq!(builder.fixtures.len(), 1);
     }
 
     #[test]
@@ -296,7 +298,8 @@ mod tests {
         let config = builder.build().unwrap();
         assert_eq!(config.uid, "test");
         assert_eq!(config.name, "Test");
-        assert_eq!(config.nodes.textures.len(), 1);
-        assert_eq!(config.nodes.shaders.len(), 1);
+        // ProjectConfig no longer contains nodes - they're validated during build()
+        assert_eq!(config.uid, "test");
+        assert_eq!(config.name, "Test");
     }
 }

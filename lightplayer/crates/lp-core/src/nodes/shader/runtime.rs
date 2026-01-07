@@ -6,10 +6,14 @@ use crate::nodes::shader::config::ShaderNode;
 use crate::project::runtime::NodeStatus;
 use crate::runtime::contexts::ShaderRenderContext;
 use crate::runtime::lifecycle::NodeLifecycle;
-use alloc::{format, string::{String, ToString}, vec};
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+};
+use lp_glsl::backend::host::__host_println;
 use lp_glsl::frontend::semantic::types::Type;
 use lp_glsl::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode, glsl_jit};
-use lp_glsl::backend::host::__host_println;
 
 /// Shader node runtime
 pub struct ShaderNodeRuntime {
@@ -139,7 +143,10 @@ impl NodeLifecycle for ShaderNodeRuntime {
             Some(tex) => tex,
             None => {
                 self.status = NodeStatus::Error {
-                    status_message: format!("Texture {} not found", String::from(self.texture_id.clone())),
+                    status_message: format!(
+                        "Texture {} not found",
+                        String::from(self.texture_id.clone())
+                    ),
                 };
                 return Err(Error::Node(format!(
                     "Texture {} not found",
