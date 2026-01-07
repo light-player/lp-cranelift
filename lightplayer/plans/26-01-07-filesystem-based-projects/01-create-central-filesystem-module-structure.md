@@ -7,6 +7,7 @@ Create a central, well-organized filesystem abstraction module in `lp-core/src/f
 ## Tasks
 
 1. Create `lp-core/src/fs/` directory structure:
+
    ```
    fs/
    ├── mod.rs
@@ -15,14 +16,17 @@ Create a central, well-organized filesystem abstraction module in `lp-core/src/f
    ```
 
 2. Move `traits/filesystem.rs` to `fs/trait.rs`:
+
    - Update module exports
    - Keep existing trait methods for now
 
 3. Update `lp-core/src/lib.rs`:
+
    - Add `pub mod fs;`
    - Re-export filesystem trait: `pub use fs::trait::Filesystem;`
 
 4. Update all imports:
+
    - Change `use crate::traits::Filesystem` to `use crate::fs::Filesystem`
    - Update `fw-host` imports
 
@@ -32,4 +36,3 @@ Create a central, well-organized filesystem abstraction module in `lp-core/src/f
 - Filesystem trait moved to central location
 - All imports updated and code compiles
 - No warnings (except unused code that will be used later)
-
