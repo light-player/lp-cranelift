@@ -54,26 +54,49 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
 }
 "#;
 
-    let options = GlslOptions {
+    // Test with Fixed32 format (the only supported format)
+    let options_fixed32 = GlslOptions {
         run_mode: RunMode::HostJit,
-        decimal_format: DecimalFormat::Float,
+        decimal_format: DecimalFormat::Fixed32,
     };
 
-    // This should not panic - if it does, we've reproduced the bug
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| glsl_jit(glsl, options)));
+    // This should not panic - Fixed32 format goes through transform that converts TestCase names
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        glsl_jit(glsl, options_fixed32)
+    }));
 
     match result {
         Ok(Ok(_executable)) => {
-            // Success - compilation worked
-            // This means the bug is fixed or doesn't occur on this platform
+            // Success - compilation worked with Fixed32 format
+            // This confirms the bug is fixed
         }
         Ok(Err(e)) => {
-            // Compilation error - this is fine, just not a panic
-            eprintln!("GLSL compilation error (expected): {}", e);
+            // Compilation error - this is unexpected but not a panic
+            panic!("GLSL compilation failed (unexpected): {}", e);
         }
         Err(_) => {
             // Panic occurred - this is the bug we're trying to fix
             panic!("GLSL compilation panicked - this is the bug we need to fix!");
+        }
+    }
+
+    // Test that Float format is rejected with a clear error
+    let options_float = GlslOptions {
+        run_mode: RunMode::HostJit,
+        decimal_format: DecimalFormat::Float,
+    };
+
+    match glsl_jit(glsl, options_float) {
+        Ok(_) => {
+            panic!("Float format should be rejected with an error");
+        }
+        Err(e) => {
+            // Expected error - Float format is not supported
+            assert!(
+                e.message.contains("Float format is not yet supported"),
+                "Error message should mention Float format is not supported, got: {}",
+                e.message
+            );
         }
     }
 }
