@@ -1,43 +1,117 @@
-mod app;
 mod debug_ui;
 mod filesystem;
 mod led_output;
 mod output_provider;
 mod transport;
 
-use app::FwHostApp as AppLogic;
-use debug_ui::{render_fixtures_panel, render_textures_panel};
+use debug_ui::{render_fixtures_panel, render_shaders_panel, render_textures_panel};
 use eframe::egui;
 use filesystem::HostFilesystem;
-use led_output::{render_leds, HostLedOutput};
-use lp_core::traits::{Filesystem, LedOutput, Transport};
+use led_output::render_leds;
+use lp_core::app::{LpApp, MsgIn, MsgOut, Platform};
+use lp_core::error::Error;
+use lp_core::protocol::message::parse_command;
+use lp_core::traits::{Filesystem, Transport};
+use output_provider::HostOutputProvider;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use transport::HostTransport;
 
+/// Wrapper around HostOutputProvider to use it as a trait object
+struct HostOutputProviderWrapper {
+    inner: Arc<HostOutputProvider>,
+}
+
+impl lp_core::traits::OutputProvider for HostOutputProviderWrapper {
+    fn create_output(
+        &self,
+        config: &lp_core::nodes::output::config::OutputNode,
+        output_id: Option<lp_core::nodes::id::OutputId>,
+    ) -> Result<std::boxed::Box<dyn lp_core::traits::LedOutput>, lp_core::error::Error> {
+        self.inner.create_output(config, output_id)
+    }
+}
+
+/// Collect messages from transport and convert to MsgIn
+fn collect_messages(transport: &Arc<Mutex<dyn Transport>>) -> Vec<MsgIn> {
+    let mut messages = Vec::new();
+
+    // Try to receive messages (non-blocking, collect all available)
+    loop {
+        let message = {
+            let mut transport = transport.lock().unwrap();
+            transport.receive_message()
+        };
+
+        match message {
+            Ok(msg) => match parse_command(&msg) {
+                Ok(command) => {
+                    let msg_in: MsgIn = command.into();
+                    messages.push(msg_in);
+                }
+                Err(e) => {
+                    eprintln!("Warning: Failed to parse command: {}", e);
+                    break; // Stop on parse error
+                }
+            },
+            Err(e) => {
+                // "No message available" means no more messages
+                if !e.to_string().contains("No message available") {
+                    eprintln!("Error receiving message: {}", e);
+                }
+                break;
+            }
+        }
+    }
+
+    messages
+}
+
+/// Handle outgoing messages from LpApp
+fn handle_outgoing_messages(
+    messages: Vec<MsgOut>,
+    transport: &Arc<Mutex<dyn Transport>>,
+) -> Result<(), Error> {
+    for msg_out in messages {
+        match msg_out {
+            MsgOut::Project { project } => {
+                // Send project via transport
+                let json = serde_json::to_string(&project)
+                    .map_err(|e| Error::Serialization(format!("{}", e)))?;
+                let mut transport = transport.lock().unwrap();
+                transport.send_message(&json)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 fn main() -> eframe::Result<()> {
     // Initialize filesystem with current directory as base
     let fs: Box<dyn Filesystem> = Box::new(HostFilesystem::new(PathBuf::from(".")));
-    // Initialize transport (stdio)
-    let transport: Arc<Mutex<dyn Transport>> = Arc::new(Mutex::new(HostTransport::new()));
-    // Initialize LED output (128 LEDs, RGB = 3 bytes per pixel)
-    let led_output: Arc<Mutex<dyn LedOutput>> =
-        Arc::new(Mutex::new(HostLedOutput::new(128, 3)));
+    // Initialize output provider (store separately for UI access)
+    let output_provider = Arc::new(HostOutputProvider::new());
+    // Create Platform (wrap in a boxed trait object)
+    let platform_output_provider: Box<dyn lp_core::traits::OutputProvider> =
+        Box::new(HostOutputProviderWrapper {
+            inner: Arc::clone(&output_provider),
+        });
+    let platform = Platform::new(fs, platform_output_provider);
+    // Create LpApp
+    let mut lp_app = LpApp::new(platform);
 
-    // Create application logic
-    let mut app_logic = AppLogic::new(fs, Arc::clone(&transport), Arc::clone(&led_output));
-    if let Err(e) = app_logic.init() {
-        eprintln!("Failed to initialize application: {}", e);
+    // Load project (will create default if not found)
+    if let Err(e) = lp_app.load_project("project.json") {
+        eprintln!("Failed to load project: {}", e);
     }
 
-    // Get LED output for visualization (we need to clone the inner data)
-    // For now, we'll create a separate instance for visualization
-    let led_output_viz = HostLedOutput::new(128, 3);
+    // Initialize transport (stdio)
+    let transport: Arc<Mutex<dyn Transport>> = Arc::new(Mutex::new(HostTransport::new()));
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([800.0, 600.0])
+            .with_inner_size([1200.0, 800.0])
             .with_title("LightPlayer Host Firmware"),
         ..Default::default()
     };
@@ -47,8 +121,9 @@ fn main() -> eframe::Result<()> {
         options,
         Box::new(move |_cc| {
             Ok(Box::new(AppState {
-                app_logic,
-                led_output: led_output_viz,
+                lp_app,
+                transport,
+                output_provider,
                 selected_led: None,
                 last_frame_time: None,
             }))
@@ -57,8 +132,9 @@ fn main() -> eframe::Result<()> {
 }
 
 struct AppState {
-    app_logic: AppLogic,
-    led_output: HostLedOutput,
+    lp_app: LpApp,
+    transport: Arc<Mutex<dyn Transport>>,
+    output_provider: Arc<HostOutputProvider>,
     selected_led: Option<usize>,
     last_frame_time: Option<Instant>,
 }
@@ -75,9 +151,20 @@ impl eframe::App for AppState {
         };
         self.last_frame_time = Some(now);
 
+        // Collect messages from transport
+        let incoming_messages = collect_messages(&self.transport);
+
         // Update runtime with tick() - processes messages and updates runtime
-        if let Err(e) = self.app_logic.tick(delta_ms) {
-            eprintln!("Error in tick: {}", e);
+        match self.lp_app.tick(delta_ms, &incoming_messages) {
+            Ok(outgoing) => {
+                // Handle outgoing messages
+                if let Err(e) = handle_outgoing_messages(outgoing, &self.transport) {
+                    eprintln!("Error handling outgoing messages: {}", e);
+                }
+            }
+            Err(e) => {
+                eprintln!("Error in tick: {}", e);
+            }
         }
 
         // Request repaint to keep loop running
@@ -91,7 +178,7 @@ impl eframe::App for AppState {
                 ui.heading("Debug Panel");
                 ui.separator();
 
-                if let Some(project) = self.app_logic.project() {
+                if let Some(project) = self.lp_app.config() {
                     // Show project info
                     ui.group(|ui| {
                         ui.label(format!("Project: {}", project.name));
@@ -100,12 +187,17 @@ impl eframe::App for AppState {
                     ui.separator();
 
                     // Show textures
-                    render_textures_panel(ui, project, self.app_logic.runtime());
-                    
+                    render_textures_panel(ui, project, self.lp_app.runtime());
+
                     ui.separator();
-                    
+
+                    // Show shaders
+                    render_shaders_panel(ui, project, self.lp_app.runtime());
+
+                    ui.separator();
+
                     // Show fixtures
-                    render_fixtures_panel(ui, project, self.app_logic.runtime());
+                    render_fixtures_panel(ui, project, self.lp_app.runtime());
                 } else {
                     ui.label("No project loaded");
                 }
@@ -116,39 +208,67 @@ impl eframe::App for AppState {
             ui.separator();
 
             // Show project info
-            if let Some(project) = self.app_logic.project() {
+            if let Some(project) = self.lp_app.config() {
                 ui.label(format!("Project: {} ({})", project.name, project.uid));
             } else {
                 ui.label("No project loaded");
             }
 
             ui.separator();
-            ui.heading("LED Visualization");
-            
-            // Show selected LED info
-            if let Some(led_idx) = self.selected_led {
-                ui.group(|ui| {
-                    ui.label(format!("Selected LED: #{}", led_idx));
-                    let pixels = self.led_output.get_pixels();
-                    let pixel_data = pixels.lock().unwrap();
-                    let bytes_per_pixel = self.led_output.bytes_per_pixel();
-                    let pixel_start = led_idx * bytes_per_pixel;
-                    if pixel_start + bytes_per_pixel <= pixel_data.len() {
-                        let r = pixel_data[pixel_start];
-                        let g = if bytes_per_pixel > 1 { pixel_data[pixel_start + 1] } else { 0 };
-                        let b = if bytes_per_pixel > 2 { pixel_data[pixel_start + 2] } else { 0 };
-                        ui.label(format!("RGB: ({}, {}, {})", r, g, b));
-                        ui.label(format!("Hex: #{:02X}{:02X}{:02X}", r, g, b));
+
+            // Show outputs - one section per output
+            let outputs = self.output_provider.get_all_outputs();
+            if outputs.is_empty() {
+                ui.label("No outputs configured");
+            } else {
+                for (output_id, output_arc) in &outputs {
+                    {
+                        let output = output_arc.lock().unwrap();
+                        let pixel_count = lp_core::traits::LedOutput::get_pixel_count(&*output);
+                        ui.heading(format!("Output {} ({} LEDs)", u32::from(*output_id), pixel_count));
                     }
-                });
-                ui.separator();
-            }
+                    ui.separator();
 
-            ui.separator();
+                    // Show selected LED info for this output
+                    if let Some(led_idx) = self.selected_led {
+                        let output = output_arc.lock().unwrap();
+                        let pixels = output.get_pixels();
+                        let pixel_data = pixels.lock().unwrap();
+                        let bytes_per_pixel = output.bytes_per_pixel();
+                        let pixel_start = led_idx * bytes_per_pixel;
+                        if pixel_start + bytes_per_pixel <= pixel_data.len() {
+                            ui.group(|ui| {
+                                ui.label(format!("Selected LED: #{}", led_idx));
+                                let r = pixel_data[pixel_start];
+                                let g = if bytes_per_pixel > 1 {
+                                    pixel_data[pixel_start + 1]
+                                } else {
+                                    0
+                                };
+                                let b = if bytes_per_pixel > 2 {
+                                    pixel_data[pixel_start + 2]
+                                } else {
+                                    0
+                                };
+                                ui.label(format!("RGB: ({}, {}, {})", r, g, b));
+                                ui.label(format!("Hex: #{:02X}{:02X}{:02X}", r, g, b));
+                            });
+                            ui.separator();
+                        }
+                    }
 
-            // Render LEDs with interactivity
-            if let Some(clicked) = render_leds(ui, &self.led_output, self.selected_led) {
-                self.selected_led = Some(clicked);
+                    // Render LEDs for this output (assuming RGB order)
+                    // Note: render_leds needs &HostLedOutput, but we have Arc<Mutex<HostLedOutput>>
+                    // We need to access it differently. Let's check render_leds signature.
+                    // Actually, render_leds takes &HostLedOutput, so we need to lock and pass reference
+                    let output = output_arc.lock().unwrap();
+                    if let Some(clicked) = render_leds(ui, &*output, self.selected_led) {
+                        self.selected_led = Some(clicked);
+                    }
+                    drop(output); // Release lock
+
+                    ui.separator();
+                }
             }
         });
     }
