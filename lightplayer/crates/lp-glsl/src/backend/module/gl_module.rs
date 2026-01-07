@@ -434,6 +434,14 @@ impl GlModule<JITModule> {
     pub fn build_executable(
         self,
     ) -> Result<alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>, GlslError> {
+        // Validate that only Fixed32 format is supported
+        // Other formats (Float, Fixed64) are for future expansion
+        // This prevents TestCase relocation issues that occur when Float format
+        // doesn't go through the Fixed32 transform
+        // TODO: Remove this check when other formats are fully supported
+        // For now, we assume Fixed32 was used (it's applied in compile_glsl_to_gl_module_jit)
+        // If we need to check, we'd need to store decimal_format in GlModule
+        
         crate::backend::codegen::jit::build_jit_executable(self).map(|jit| {
             alloc::boxed::Box::new(jit)
                 as alloc::boxed::Box<dyn crate::exec::executable::GlslExecutable>

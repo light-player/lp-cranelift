@@ -58,9 +58,10 @@ impl NodeLifecycle for ShaderNodeRuntime {
                 self.texture_id = *texture_id;
 
                 // Create compilation options
+                // Use Fixed32 format - Float format is not yet supported (causes TestCase relocation errors)
                 let options = GlslOptions {
                     run_mode: RunMode::HostJit,
-                    decimal_format: DecimalFormat::Float,
+                    decimal_format: DecimalFormat::Fixed32,
                 };
 
                 // Compile GLSL

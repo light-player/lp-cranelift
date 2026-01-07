@@ -86,11 +86,15 @@ pub fn compile_glsl_to_gl_module_jit(
         DecimalFormat::Fixed64 => {
             return Err(GlslError::new(
                 crate::error::ErrorCode::E0400,
-                "Fixed64 not yet supported",
+                "Fixed64 format is not yet supported. Only Fixed32 format is currently supported.",
             ));
         }
         DecimalFormat::Float => {
-            // No transformation needed
+            return Err(GlslError::new(
+                crate::error::ErrorCode::E0400,
+                "Float format is not yet supported. Only Fixed32 format is currently supported. \
+                 Float format will cause TestCase relocation errors. Use Fixed32 format instead.",
+            ));
         }
     }
 
