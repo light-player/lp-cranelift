@@ -2,8 +2,11 @@
 
 use egui::{Color32, ColorImage, Image, Painter, TextureHandle, Ui};
 use lp_core::nodes::fixture::{FixtureNode, Mapping};
+use lp_core::nodes::id::{ShaderId, TextureId};
+use lp_core::nodes::shader::{ShaderNode, ShaderNodeRuntime};
 use lp_core::nodes::texture::{formats, TextureNode};
 use lp_core::project::config::ProjectConfig;
+use lp_core::project::runtime::ProjectRuntime;
 
 /// Generate placeholder texture data for visualization
 /// In the future, this will use actual shader-rendered data
@@ -239,7 +242,11 @@ pub fn render_texture(
 }
 
 /// Render all textures in a debug panel
-pub fn render_textures_panel(ui: &mut Ui, project: &ProjectConfig) {
+pub fn render_textures_panel(
+    ui: &mut Ui,
+    project: &ProjectConfig,
+    runtime: Option<&ProjectRuntime>,
+) {
     ui.heading("Textures");
     ui.separator();
 
@@ -251,7 +258,11 @@ pub fn render_textures_panel(ui: &mut Ui, project: &ProjectConfig) {
     // Display each texture
     for (id, texture) in &project.nodes.textures {
         ui.group(|ui| {
-            render_texture(ui, *id, texture, None);
+            // Get actual texture data from runtime if available
+            let texture_data = runtime
+                .and_then(|r| r.get_texture(TextureId(*id)))
+                .map(|t| t.texture().data());
+            render_texture(ui, *id, texture, texture_data);
         });
         ui.separator();
     }
@@ -263,6 +274,7 @@ fn render_fixture(
     fixture_id: u32,
     fixture: &FixtureNode,
     project: &ProjectConfig,
+    runtime: Option<&ProjectRuntime>,
 ) {
     match fixture {
         FixtureNode::CircleList {
@@ -289,25 +301,33 @@ fn render_fixture(
                 return;
             }
 
-            // Display each texture with this fixture's mappings overlaid
-            for (texture_id, texture) in &project.nodes.textures {
+            // Display texture with this fixture's mappings overlaid
+            // Get the texture this fixture maps from
+            let texture_id_u32 = u32::from(*texture_id);
+            if let Some(texture) = project.nodes.textures.get(&texture_id_u32) {
                 match texture {
                     TextureNode::Memory { size, format } => {
                         let [width, height] = *size;
 
-                        // Get texture data (placeholder for now)
-                        let data = generate_placeholder_texture(width, height, format);
+                        // Get actual texture data from runtime if available
+                        let texture_id_typed = TextureId(texture_id_u32);
+                        let data: Vec<u8> = runtime
+                            .and_then(|r| r.get_texture(texture_id_typed))
+                            .map(|t| t.texture().data().to_vec())
+                            .unwrap_or_else(|| {
+                                generate_placeholder_texture(width, height, format)
+                            });
                         let color_image = texture_data_to_color_image(&data, width, height, format);
 
                         // Create texture handle
                         let texture_handle: TextureHandle = ui.ctx().load_texture(
-                            format!("fixture_{}_texture_{}", fixture_id, texture_id),
+                            format!("fixture_{}_texture_{}", fixture_id, texture_id_u32),
                             color_image,
                             Default::default(),
                         );
 
                         // Display texture metadata
-                        ui.label(format!("Texture ID: {}", texture_id));
+                        ui.label(format!("Texture ID: {}", texture_id_u32));
                         ui.label(format!("Size: {}x{}", width, height));
 
                         // Scale to fit available width
@@ -344,7 +364,11 @@ fn render_fixture(
 }
 
 /// Render all fixtures in a debug panel
-pub fn render_fixtures_panel(ui: &mut Ui, project: &ProjectConfig) {
+pub fn render_fixtures_panel(
+    ui: &mut Ui,
+    project: &ProjectConfig,
+    runtime: Option<&ProjectRuntime>,
+) {
     ui.heading("Fixtures");
     ui.separator();
 
@@ -356,8 +380,79 @@ pub fn render_fixtures_panel(ui: &mut Ui, project: &ProjectConfig) {
     // Display each fixture
     for (id, fixture) in &project.nodes.fixtures {
         ui.group(|ui| {
-            render_fixture(ui, *id, fixture, project);
+            render_fixture(ui, *id, fixture, project, runtime);
         });
+        ui.separator();
+    }
+}
+
+/// Render shader code and errors
+pub fn render_shader_panel(
+    ui: &mut Ui,
+    shader_id: u32,
+    shader_config: &ShaderNode,
+    shader_runtime: Option<&ShaderNodeRuntime>,
+) {
+    ui.group(|ui| {
+        ui.label(format!("Shader ID: {}", shader_id));
+        ui.separator();
+
+        // Show shader code
+        match shader_config {
+            ShaderNode::Single { glsl, texture_id } => {
+                ui.label(format!("Texture ID: {}", u32::from(*texture_id)));
+                ui.separator();
+                ui.label("GLSL Code:");
+                // Create a mutable string for TextEdit (it needs &mut str)
+                let mut glsl_mut = glsl.clone();
+                ui.add(
+                    egui::TextEdit::multiline(&mut glsl_mut)
+                        .desired_width(f32::INFINITY)
+                        .font(egui::TextStyle::Monospace)
+                        .interactive(false),
+                );
+            }
+        }
+
+        ui.separator();
+
+        // Show shader status/errors
+        if let Some(runtime) = shader_runtime {
+            match runtime.status() {
+                lp_core::project::runtime::NodeStatus::Ok => {
+                    ui.label(egui::RichText::new("Status: OK").color(egui::Color32::GREEN));
+                }
+                lp_core::project::runtime::NodeStatus::Error { status_message } => {
+                    ui.label(
+                        egui::RichText::new(format!("Status: ERROR\n{}", status_message))
+                            .color(egui::Color32::RED),
+                    );
+                }
+            }
+        } else {
+            ui.label("Status: Not initialized");
+        }
+    });
+}
+
+/// Render all shaders in a debug panel
+pub fn render_shaders_panel(
+    ui: &mut Ui,
+    project: &ProjectConfig,
+    runtime: Option<&ProjectRuntime>,
+) {
+    ui.heading("Shaders");
+    ui.separator();
+
+    if project.nodes.shaders.is_empty() {
+        ui.label("No shaders defined");
+        return;
+    }
+
+    // Display each shader
+    for (id, shader) in &project.nodes.shaders {
+        let shader_runtime = runtime.and_then(|r| r.get_shader(ShaderId(*id)));
+        render_shader_panel(ui, *id, shader, shader_runtime);
         ui.separator();
     }
 }

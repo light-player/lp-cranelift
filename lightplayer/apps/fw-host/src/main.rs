@@ -100,12 +100,12 @@ impl eframe::App for AppState {
                     ui.separator();
 
                     // Show textures
-                    render_textures_panel(ui, project);
+                    render_textures_panel(ui, project, self.app_logic.runtime());
                     
                     ui.separator();
                     
                     // Show fixtures
-                    render_fixtures_panel(ui, project);
+                    render_fixtures_panel(ui, project, self.app_logic.runtime());
                 } else {
                     ui.label("No project loaded");
                 }
