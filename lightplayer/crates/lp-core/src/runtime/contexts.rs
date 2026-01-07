@@ -8,6 +8,7 @@ use crate::nodes::texture::TextureNode;
 use crate::project::config::ProjectConfig;
 use crate::runtime::frame_time::FrameTime;
 use crate::util::Texture;
+use alloc::string::String;
 use hashbrown::HashMap;
 
 // Forward declarations - these will be implemented in later phases
@@ -31,27 +32,27 @@ impl<'a> InitContext<'a> {
     }
 
     /// Get texture configuration by ID
-    pub fn get_texture_config(&self, id: TextureId) -> Option<&TextureNode> {
-        let id_u32: u32 = id.into();
-        self.project_config.nodes.textures.get(&id_u32)
+    pub fn get_texture_config(&self, id: &TextureId) -> Option<&TextureNode> {
+        let id_str: String = id.clone().into();
+        self.project_config.nodes.textures.get(&id_str)
     }
 
     /// Get shader configuration by ID
-    pub fn get_shader_config(&self, id: ShaderId) -> Option<&ShaderNode> {
-        let id_u32: u32 = id.into();
-        self.project_config.nodes.shaders.get(&id_u32)
+    pub fn get_shader_config(&self, id: &ShaderId) -> Option<&ShaderNode> {
+        let id_str: String = id.clone().into();
+        self.project_config.nodes.shaders.get(&id_str)
     }
 
     /// Get fixture configuration by ID
-    pub fn get_fixture_config(&self, id: FixtureId) -> Option<&FixtureNode> {
-        let id_u32: u32 = id.into();
-        self.project_config.nodes.fixtures.get(&id_u32)
+    pub fn get_fixture_config(&self, id: &FixtureId) -> Option<&FixtureNode> {
+        let id_str: String = id.clone().into();
+        self.project_config.nodes.fixtures.get(&id_str)
     }
 
     /// Get output configuration by ID
-    pub fn get_output_config(&self, id: OutputId) -> Option<&OutputNode> {
-        let id_u32: u32 = id.into();
-        self.project_config.nodes.outputs.get(&id_u32)
+    pub fn get_output_config(&self, id: &OutputId) -> Option<&OutputNode> {
+        let id_str: String = id.clone().into();
+        self.project_config.nodes.outputs.get(&id_str)
     }
 }
 
@@ -154,22 +155,22 @@ mod tests {
     #[test]
     fn test_init_context_get_configs() {
         use crate::nodes::{ShaderNode, TextureNode};
-        use hashbrown::HashMap;
+        use alloc::collections::BTreeMap;
 
         let mut project = ProjectConfig {
             uid: "test".to_string(),
             name: "Test".to_string(),
             nodes: Nodes {
-                outputs: HashMap::new(),
-                textures: HashMap::new(),
-                shaders: HashMap::new(),
-                fixtures: HashMap::new(),
+                outputs: BTreeMap::new(),
+                textures: BTreeMap::new(),
+                shaders: BTreeMap::new(),
+                fixtures: BTreeMap::new(),
             },
         };
 
         // Add a texture
         project.nodes.textures.insert(
-            1,
+            "/src/texture.texture".to_string(),
             TextureNode::Memory {
                 size: [64, 64],
                 format: "RGB8".to_string(),
@@ -178,17 +179,18 @@ mod tests {
 
         // Add a shader
         project.nodes.shaders.insert(
-            2,
+            "/src/shader.shader".to_string(),
             ShaderNode::Single {
                 glsl: "vec4 main() { return vec4(1.0); }".to_string(),
-                texture_id: TextureId(1),
+                texture_id: TextureId("/src/texture.texture".to_string()),
             },
         );
 
         let ctx = InitContext::new(&project);
 
         // Test getting texture config
-        let texture_config = ctx.get_texture_config(TextureId(1));
+        let texture_id = TextureId("/src/texture.texture".to_string());
+        let texture_config = ctx.get_texture_config(&texture_id);
         assert!(texture_config.is_some());
         if let Some(TextureNode::Memory { size, format }) = texture_config {
             assert_eq!(*size, [64, 64]);
@@ -196,11 +198,13 @@ mod tests {
         }
 
         // Test getting shader config
-        let shader_config = ctx.get_shader_config(ShaderId(2));
+        let shader_id = ShaderId("/src/shader.shader".to_string());
+        let shader_config = ctx.get_shader_config(&shader_id);
         assert!(shader_config.is_some());
 
         // Test getting non-existent config
-        assert!(ctx.get_texture_config(TextureId(999)).is_none());
+        let nonexistent_id = TextureId("/src/nonexistent.texture".to_string());
+        assert!(ctx.get_texture_config(&nonexistent_id).is_none());
     }
 
     #[test]

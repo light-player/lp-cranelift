@@ -108,9 +108,11 @@ fn texture_data_to_color_image(
 }
 
 /// Generate a color for a fixture based on its ID
-fn fixture_color(fixture_id: u32) -> Color32 {
+fn fixture_color(fixture_id: &str) -> Color32 {
     // Generate distinct colors for different fixtures
-    let hue = (fixture_id as f32 * 137.508) % 360.0; // Golden angle for distribution
+    // Hash the string ID to get a consistent number
+    let hash: u32 = fixture_id.chars().map(|c| c as u32).sum();
+    let hue = (hash as f32 * 137.508) % 360.0; // Golden angle for distribution
     let (r, g, b) = hsv_to_rgb(hue / 360.0, 0.8, 0.9);
     Color32::from_rgb(r, g, b)
 }
@@ -148,7 +150,7 @@ fn draw_mapping_overlay(
     texture_rect: egui::Rect,
     _texture_width: u32,
     _texture_height: u32,
-    fixture_id: u32,
+    fixture_id: &str,
     mapping: &Mapping,
     show_labels: bool,
 ) {
@@ -188,7 +190,7 @@ fn draw_mapping_overlay(
 /// Render texture visualization in egui (without mappings)
 pub fn render_texture(
     ui: &mut Ui,
-    texture_id: u32,
+    texture_id: &str,
     texture: &TextureNode,
     texture_data: Option<&[u8]>,
 ) {
@@ -261,9 +263,9 @@ pub fn render_textures_panel(
         ui.group(|ui| {
             // Get actual texture data from runtime if available
             let texture_data = runtime
-                .and_then(|r| r.get_texture(TextureId(*id)))
+                .and_then(|r| r.get_texture(TextureId(id.clone())))
                 .map(|t| t.texture().data());
-            render_texture(ui, *id, texture, texture_data);
+            render_texture(ui, id, texture, texture_data);
         });
         ui.separator();
     }
@@ -272,7 +274,7 @@ pub fn render_textures_panel(
 /// Render a fixture with its texture and mapping overlay
 fn render_fixture(
     ui: &mut Ui,
-    fixture_id: u32,
+    fixture_id: &str,
     fixture: &FixtureNode,
     project: &ProjectConfig,
     runtime: Option<&ProjectRuntime>,
@@ -287,7 +289,7 @@ fn render_fixture(
             // Display fixture metadata
             ui.group(|ui| {
                 ui.label(format!("Fixture ID: {}", fixture_id));
-                ui.label(format!("Output ID: {}", u32::from(*output_id)));
+                ui.label(format!("Output ID: {}", String::from(output_id.clone())));
                 ui.label(format!("Channel Order: {}", channel_order));
                 ui.label(format!("Mappings: {}", mapping.len()));
             });
@@ -304,14 +306,14 @@ fn render_fixture(
 
             // Display texture with this fixture's mappings overlaid
             // Get the texture this fixture maps from
-            let texture_id_u32 = u32::from(*texture_id);
-            if let Some(texture) = project.nodes.textures.get(&texture_id_u32) {
+            let texture_id_str: String = texture_id.clone().into();
+            if let Some(texture) = project.nodes.textures.get(&texture_id_str) {
                 match texture {
                     TextureNode::Memory { size, format } => {
                         let [width, height] = *size;
 
                         // Get actual texture data from runtime if available
-                        let texture_id_typed = TextureId(texture_id_u32);
+                        let texture_id_typed = texture_id.clone();
                         let data: Vec<u8> = runtime
                             .and_then(|r| r.get_texture(texture_id_typed))
                             .map(|t| t.texture().data().to_vec())
@@ -321,7 +323,7 @@ fn render_fixture(
                         let color_image = texture_data_to_color_image(&data, width, height, format);
 
                         // Create texture handle - egui will update if called with same name
-                        let texture_name = format!("fixture_{}_texture_{}", fixture_id, texture_id_u32);
+                        let texture_name = format!("fixture_{}_texture_{}", fixture_id, texture_id_str);
                         let texture_handle: TextureHandle = ui.ctx().load_texture(
                             texture_name,
                             color_image,
@@ -329,7 +331,7 @@ fn render_fixture(
                         );
 
                         // Display texture metadata
-                        ui.label(format!("Texture ID: {}", texture_id_u32));
+                        ui.label(format!("Texture ID: {}", texture_id_str));
                         ui.label(format!("Size: {}x{}", width, height));
 
                         // Scale to fit available width
@@ -383,7 +385,7 @@ pub fn render_fixtures_panel(
     // Display each fixture
     for (id, fixture) in &project.nodes.fixtures {
         ui.group(|ui| {
-            render_fixture(ui, *id, fixture, project, runtime);
+            render_fixture(ui, id, fixture, project, runtime);
         });
         ui.separator();
     }
@@ -392,7 +394,7 @@ pub fn render_fixtures_panel(
 /// Render shader code and errors
 pub fn render_shader_panel(
     ui: &mut Ui,
-    shader_id: u32,
+    shader_id: &str,
     shader_config: &ShaderNode,
     shader_runtime: Option<&ShaderNodeRuntime>,
 ) {
@@ -403,7 +405,7 @@ pub fn render_shader_panel(
         // Show shader code
         match shader_config {
             ShaderNode::Single { glsl, texture_id } => {
-                ui.label(format!("Texture ID: {}", u32::from(*texture_id)));
+                ui.label(format!("Texture ID: {}", String::from(texture_id.clone())));
                 ui.separator();
                 ui.label("GLSL Code:");
                 // Create a mutable string for TextEdit (it needs &mut str)
@@ -454,8 +456,8 @@ pub fn render_shaders_panel(
 
     // Display each shader
     for (id, shader) in &project.nodes.shaders {
-        let shader_runtime = runtime.and_then(|r| r.get_shader(ShaderId(*id)));
-        render_shader_panel(ui, *id, shader, shader_runtime);
+        let shader_runtime = runtime.and_then(|r| r.get_shader(ShaderId(id.clone())));
+        render_shader_panel(ui, id, shader, shader_runtime);
         ui.separator();
     }
 }

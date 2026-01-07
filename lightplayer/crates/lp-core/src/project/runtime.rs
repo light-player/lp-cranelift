@@ -1,6 +1,6 @@
 //! Project runtime - manages lifecycle of all nodes
 
-use alloc::{collections::BTreeMap, format, string::String};
+use alloc::{collections::BTreeMap, string::{String, ToString}};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
@@ -51,8 +51,8 @@ impl ProjectRuntime {
         let init_ctx = InitContext::new(config);
 
         // Initialize textures
-        for (id_u32, texture_config) in &config.nodes.textures {
-            let texture_id = TextureId(*id_u32);
+        for (id_str, texture_config) in &config.nodes.textures {
+            let texture_id = TextureId(id_str.clone());
             let mut texture_runtime = TextureNodeRuntime::new();
             if let Err(e) = texture_runtime.init(texture_config, &init_ctx) {
                 // Log error but continue - node status is set internally
@@ -62,8 +62,8 @@ impl ProjectRuntime {
         }
 
         // Initialize shaders
-        for (id_u32, shader_config) in &config.nodes.shaders {
-            let shader_id = ShaderId(*id_u32);
+        for (id_str, shader_config) in &config.nodes.shaders {
+            let shader_id = ShaderId(id_str.clone());
             let mut shader_runtime = ShaderNodeRuntime::new();
             if let Err(e) = shader_runtime.init(shader_config, &init_ctx) {
                 // Log error but continue - node status is set internally
@@ -73,8 +73,8 @@ impl ProjectRuntime {
         }
 
         // Initialize fixtures
-        for (id_u32, fixture_config) in &config.nodes.fixtures {
-            let fixture_id = FixtureId(*id_u32);
+        for (id_str, fixture_config) in &config.nodes.fixtures {
+            let fixture_id = FixtureId(id_str.clone());
             let mut fixture_runtime = FixtureNodeRuntime::new();
             if let Err(e) = fixture_runtime.init(fixture_config, &init_ctx) {
                 // Log error but continue - node status is set internally
@@ -84,15 +84,15 @@ impl ProjectRuntime {
         }
 
         // Initialize outputs and create LED handles
-        for (id_u32, output_config) in &config.nodes.outputs {
-            let output_id = OutputId(*id_u32);
+        for (id_str, output_config) in &config.nodes.outputs {
+            let output_id = OutputId(id_str.clone());
             let mut output_runtime = OutputNodeRuntime::new();
             if let Err(e) = output_runtime.init(output_config, &init_ctx) {
                 // Log error but continue - node status is set internally
                 let _ = e;
             } else {
                 // Create LED output handle via OutputProvider
-                match output_provider.create_output(output_config, Some(output_id)) {
+                match output_provider.create_output(output_config, Some(output_id.clone())) {
                     Ok(handle) => {
                         output_runtime.set_handle(handle);
                     }
@@ -178,53 +178,53 @@ impl ProjectRuntime {
 
     /// Get runtime nodes status for serialization
     ///
-    /// Derives RuntimeNodes from runtime instances, converting type-safe IDs to u32
+    /// Derives RuntimeNodes from runtime instances
     pub fn get_runtime_nodes(&self) -> RuntimeNodes {
         let mut runtime_nodes = RuntimeNodes {
-            outputs: HashMap::new(),
-            textures: HashMap::new(),
-            shaders: HashMap::new(),
-            fixtures: HashMap::new(),
+            outputs: BTreeMap::new(),
+            textures: BTreeMap::new(),
+            shaders: BTreeMap::new(),
+            fixtures: BTreeMap::new(),
         };
 
         // Collect status from texture runtimes
         for (id, runtime) in &self.textures {
             runtime_nodes
                 .textures
-                .insert(u32::from(*id), runtime.status().clone());
+                .insert(String::from(id.clone()), runtime.status().clone());
         }
 
         // Collect status from shader runtimes
         for (id, runtime) in &self.shaders {
             runtime_nodes
                 .shaders
-                .insert(u32::from(*id), runtime.status().clone());
+                .insert(String::from(id.clone()), runtime.status().clone());
         }
 
         // Collect status from fixture runtimes
         for (id, runtime) in &self.fixtures {
             runtime_nodes
                 .fixtures
-                .insert(u32::from(*id), runtime.status().clone());
+                .insert(String::from(id.clone()), runtime.status().clone());
         }
 
         // Collect status from output runtimes
         for (id, runtime) in &self.outputs {
             runtime_nodes
                 .outputs
-                .insert(u32::from(*id), runtime.status().clone());
+                .insert(String::from(id.clone()), runtime.status().clone());
         }
 
         runtime_nodes
     }
 
     /// Get the status for a node
-    pub fn get_status(&self, node_type: NodeType, node_id: u32) -> Option<&NodeStatus> {
+    pub fn get_status(&self, node_type: NodeType, node_id: &str) -> Option<&NodeStatus> {
         match node_type {
-            NodeType::Output => self.outputs.get(&OutputId(node_id)).map(|r| r.status()),
-            NodeType::Texture => self.textures.get(&TextureId(node_id)).map(|r| r.status()),
-            NodeType::Shader => self.shaders.get(&ShaderId(node_id)).map(|r| r.status()),
-            NodeType::Fixture => self.fixtures.get(&FixtureId(node_id)).map(|r| r.status()),
+            NodeType::Output => self.outputs.get(&OutputId(node_id.to_string())).map(|r| r.status()),
+            NodeType::Texture => self.textures.get(&TextureId(node_id.to_string())).map(|r| r.status()),
+            NodeType::Shader => self.shaders.get(&ShaderId(node_id.to_string())).map(|r| r.status()),
+            NodeType::Fixture => self.fixtures.get(&FixtureId(node_id.to_string())).map(|r| r.status()),
         }
     }
 
@@ -257,26 +257,10 @@ impl ProjectRuntime {
 /// Collection of runtime status for all node types (for serialization)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeNodes {
-    #[serde(
-        serialize_with = "serialize_u32_map",
-        deserialize_with = "deserialize_u32_map"
-    )]
-    pub outputs: HashMap<u32, NodeStatus>,
-    #[serde(
-        serialize_with = "serialize_u32_map",
-        deserialize_with = "deserialize_u32_map"
-    )]
-    pub textures: HashMap<u32, NodeStatus>,
-    #[serde(
-        serialize_with = "serialize_u32_map",
-        deserialize_with = "deserialize_u32_map"
-    )]
-    pub shaders: HashMap<u32, NodeStatus>,
-    #[serde(
-        serialize_with = "serialize_u32_map",
-        deserialize_with = "deserialize_u32_map"
-    )]
-    pub fixtures: HashMap<u32, NodeStatus>,
+    pub outputs: BTreeMap<String, NodeStatus>,
+    pub textures: BTreeMap<String, NodeStatus>,
+    pub shaders: BTreeMap<String, NodeStatus>,
+    pub fixtures: BTreeMap<String, NodeStatus>,
 }
 
 /// Status of a node at runtime
@@ -301,28 +285,6 @@ pub enum NodeType {
     Fixture,
 }
 
-/// Serialize HashMap<u32, T> with string keys
-fn serialize_u32_map<S, T>(map: &HashMap<u32, T>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-    T: Serialize,
-{
-    let string_map: BTreeMap<String, &T> = map.iter().map(|(k, v)| (format!("{}", k), v)).collect();
-    string_map.serialize(serializer)
-}
-
-/// Deserialize HashMap<u32, T> from string keys
-fn deserialize_u32_map<'de, D, T>(deserializer: D) -> Result<HashMap<u32, T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    let string_map: BTreeMap<String, T> = BTreeMap::deserialize(deserializer)?;
-    Ok(string_map
-        .into_iter()
-        .filter_map(|(k, v)| k.parse::<u32>().ok().map(|id| (id, v)))
-        .collect())
-}
 
 #[cfg(test)]
 mod tests {

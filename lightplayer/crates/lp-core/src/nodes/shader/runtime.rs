@@ -6,7 +6,7 @@ use crate::nodes::shader::config::ShaderNode;
 use crate::project::runtime::NodeStatus;
 use crate::runtime::contexts::ShaderRenderContext;
 use crate::runtime::lifecycle::NodeLifecycle;
-use alloc::{format, string::ToString, vec};
+use alloc::{format, string::{String, ToString}, vec};
 use lp_glsl::frontend::semantic::types::Type;
 use lp_glsl::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode, glsl_jit};
 use lp_glsl::backend::host::__host_println;
@@ -23,7 +23,7 @@ impl ShaderNodeRuntime {
     pub fn new() -> Self {
         Self {
             executable: None,
-            texture_id: TextureId(0),
+            texture_id: TextureId(String::new()),
             status: NodeStatus::Ok,
         }
     }
@@ -35,7 +35,7 @@ impl ShaderNodeRuntime {
 
     /// Get the texture ID this shader writes to
     pub fn texture_id(&self) -> TextureId {
-        self.texture_id
+        self.texture_id.clone()
     }
 }
 
@@ -56,7 +56,7 @@ impl NodeLifecycle for ShaderNodeRuntime {
     ) -> Result<(), Error> {
         match config {
             ShaderNode::Single { glsl, texture_id } => {
-                self.texture_id = *texture_id;
+                self.texture_id = texture_id.clone();
 
                 // Create compilation options
                 // Use Fixed32 format - Float format is not yet supported (causes TestCase relocation errors)
@@ -135,15 +135,15 @@ impl NodeLifecycle for ShaderNodeRuntime {
         let time_seconds = ctx.time.total_ms as f32 / 1000.0;
 
         // Get texture to write to
-        let texture = match ctx.get_texture_mut(self.texture_id) {
+        let texture = match ctx.get_texture_mut(self.texture_id.clone()) {
             Some(tex) => tex,
             None => {
                 self.status = NodeStatus::Error {
-                    status_message: format!("Texture {} not found", u32::from(self.texture_id)),
+                    status_message: format!("Texture {} not found", String::from(self.texture_id.clone())),
                 };
                 return Err(Error::Node(format!(
                     "Texture {} not found",
-                    u32::from(self.texture_id)
+                    String::from(self.texture_id.clone())
                 )));
             }
         };

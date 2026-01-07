@@ -297,7 +297,7 @@ impl eframe::App for AppState {
                         let pixel_count = lp_core::traits::LedOutput::get_pixel_count(&*output);
                         ui.heading(format!(
                             "Output {} ({} LEDs)",
-                            u32::from(*output_id),
+                            String::from(output_id.clone()),
                             pixel_count
                         ));
                     }

@@ -3,7 +3,7 @@
 use crate::app::Platform;
 use crate::error::Error;
 use crate::project::{config::ProjectConfig, runtime::ProjectRuntime};
-use alloc::{format, string::ToString, vec::Vec};
+use alloc::{format, string::{String, ToString}, vec::Vec};
 
 /// LightPlayer Application
 ///
@@ -39,23 +39,24 @@ impl LpApp {
         use crate::nodes::id::{OutputId, TextureId};
         use crate::nodes::{FixtureNode, Mapping, OutputNode, ShaderNode, TextureNode};
         use crate::project::config::{Nodes, ProjectConfig};
-        use hashbrown::HashMap;
+        use alloc::collections::BTreeMap;
 
         // Create default project
         let mut project = ProjectConfig {
             uid: "default".to_string(),
             name: "Default Project".to_string(),
             nodes: Nodes {
-                outputs: HashMap::new(),
-                textures: HashMap::new(),
-                shaders: HashMap::new(),
-                fixtures: HashMap::new(),
+                outputs: BTreeMap::new(),
+                textures: BTreeMap::new(),
+                shaders: BTreeMap::new(),
+                fixtures: BTreeMap::new(),
             },
         };
 
         // Add output: 128 LEDs on GPIO 4
+        let output_id = "/src/output.output".to_string();
         project.nodes.outputs.insert(
-            1,
+            output_id.clone(),
             OutputNode::GpioStrip {
                 chip: "ws2812".to_string(),
                 gpio_pin: 4,
@@ -64,8 +65,10 @@ impl LpApp {
         );
 
         // Add texture: 64x64 RGB8
+        let texture_id_str = "/src/texture.texture".to_string();
+        let texture_id = TextureId(texture_id_str.clone());
         project.nodes.textures.insert(
-            2,
+            texture_id_str.clone(),
             TextureNode::Memory {
                 size: [64, 64],
                 format: "RGB8".to_string(),
@@ -74,7 +77,7 @@ impl LpApp {
 
         // Add shader: simple test pattern
         project.nodes.shaders.insert(
-            3,
+            "/src/shader.shader".to_string(),
             ShaderNode::Single {
                 glsl: r#"
 // HSV to RGB conversion function
@@ -138,7 +141,7 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
 }
 "#
                 .to_string(),
-                texture_id: TextureId(2),
+                texture_id,
             },
         );
 
@@ -164,10 +167,10 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
         }
 
         project.nodes.fixtures.insert(
-            4,
+            "/src/fixture.fixture".to_string(),
             FixtureNode::CircleList {
-                output_id: OutputId(1),
-                texture_id: TextureId(2),
+                output_id: OutputId(output_id),
+                texture_id: TextureId(texture_id_str),
                 channel_order: "rgb".to_string(),
                 mapping,
             },

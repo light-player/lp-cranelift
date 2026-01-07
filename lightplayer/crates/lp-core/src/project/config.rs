@@ -1,7 +1,6 @@
 //! Project configuration structures
 
-use alloc::{collections::BTreeMap, format, string::String};
-use hashbrown::HashMap;
+use alloc::{collections::BTreeMap, string::String};
 use serde::{Deserialize, Serialize};
 
 use crate::nodes::{FixtureNode, OutputNode, ShaderNode, TextureNode};
@@ -17,49 +16,10 @@ pub struct ProjectConfig {
 /// Collection of all node types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Nodes {
-    #[serde(
-        serialize_with = "serialize_u32_map",
-        deserialize_with = "deserialize_u32_map"
-    )]
-    pub outputs: HashMap<u32, OutputNode>,
-    #[serde(
-        serialize_with = "serialize_u32_map",
-        deserialize_with = "deserialize_u32_map"
-    )]
-    pub textures: HashMap<u32, TextureNode>,
-    #[serde(
-        serialize_with = "serialize_u32_map",
-        deserialize_with = "deserialize_u32_map"
-    )]
-    pub shaders: HashMap<u32, ShaderNode>,
-    #[serde(
-        serialize_with = "serialize_u32_map",
-        deserialize_with = "deserialize_u32_map"
-    )]
-    pub fixtures: HashMap<u32, FixtureNode>,
-}
-
-/// Serialize HashMap<u32, T> with string keys
-fn serialize_u32_map<S, T>(map: &HashMap<u32, T>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-    T: Serialize,
-{
-    let string_map: BTreeMap<String, &T> = map.iter().map(|(k, v)| (format!("{}", k), v)).collect();
-    string_map.serialize(serializer)
-}
-
-/// Deserialize HashMap<u32, T> from string keys
-fn deserialize_u32_map<'de, D, T>(deserializer: D) -> Result<HashMap<u32, T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    let string_map: BTreeMap<String, T> = BTreeMap::deserialize(deserializer)?;
-    Ok(string_map
-        .into_iter()
-        .filter_map(|(k, v)| k.parse::<u32>().ok().map(|id| (id, v)))
-        .collect())
+    pub outputs: BTreeMap<String, OutputNode>,
+    pub textures: BTreeMap<String, TextureNode>,
+    pub shaders: BTreeMap<String, ShaderNode>,
+    pub fixtures: BTreeMap<String, FixtureNode>,
 }
 
 #[cfg(test)]
@@ -74,15 +34,15 @@ mod tests {
             uid: "UID12345".to_string(),
             name: "Test Project".to_string(),
             nodes: Nodes {
-                outputs: HashMap::new(),
-                textures: HashMap::new(),
-                shaders: HashMap::new(),
-                fixtures: HashMap::new(),
+                outputs: BTreeMap::new(),
+                textures: BTreeMap::new(),
+                shaders: BTreeMap::new(),
+                fixtures: BTreeMap::new(),
             },
         };
 
         config.nodes.outputs.insert(
-            1,
+            "/src/output.output".to_string(),
             OutputNode::GpioStrip {
                 chip: "ws2812".to_string(),
                 gpio_pin: 4,
@@ -91,7 +51,7 @@ mod tests {
         );
 
         config.nodes.textures.insert(
-            2,
+            "/src/texture.texture".to_string(),
             TextureNode::Memory {
                 size: [64, 64],
                 format: "RGB8".to_string(),
@@ -99,18 +59,18 @@ mod tests {
         );
 
         config.nodes.shaders.insert(
-            3,
+            "/src/shader.shader".to_string(),
             ShaderNode::Single {
                 glsl: "void main() {}".to_string(),
-                texture_id: crate::nodes::id::TextureId(2),
+                texture_id: crate::nodes::id::TextureId("/src/texture.texture".to_string()),
             },
         );
 
         config.nodes.fixtures.insert(
-            4,
+            "/src/fixture.fixture".to_string(),
             FixtureNode::CircleList {
-                output_id: crate::nodes::id::OutputId(1),
-                texture_id: crate::nodes::id::TextureId(2),
+                output_id: crate::nodes::id::OutputId("/src/output.output".to_string()),
+                texture_id: crate::nodes::id::TextureId("/src/texture.texture".to_string()),
                 channel_order: "rgb".to_string(),
                 mapping: vec![Mapping {
                     channel: 0,

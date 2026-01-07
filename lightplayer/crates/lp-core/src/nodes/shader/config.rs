@@ -26,8 +26,8 @@ where
     S: serde::Serializer,
 {
     use serde::Serialize;
-    let id_u32: u32 = (*id).into();
-    id_u32.serialize(serializer)
+    let id_str: String = id.clone().into();
+    id_str.serialize(serializer)
 }
 
 fn deserialize_texture_id<'de, D>(deserializer: D) -> Result<TextureId, D::Error>
@@ -35,6 +35,6 @@ where
     D: serde::Deserializer<'de>,
 {
     use serde::Deserialize;
-    let id_u32 = u32::deserialize(deserializer)?;
-    Ok(TextureId::from(id_u32))
+    let id_str = String::deserialize(deserializer)?;
+    Ok(TextureId::from(id_str))
 }

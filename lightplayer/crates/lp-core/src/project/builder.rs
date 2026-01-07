@@ -1,7 +1,6 @@
 //! Project configuration builder with fluent API
 
-use alloc::{format, string::String, string::ToString};
-use hashbrown::HashMap;
+use alloc::{collections::BTreeMap, format, string::String, string::ToString};
 
 use crate::error::Error;
 use crate::nodes::{
@@ -13,7 +12,7 @@ use crate::project::config::{Nodes, ProjectConfig};
 pub struct ProjectBuilder {
     uid: String,
     name: String,
-    next_id: u32,
+    next_id: u32, // Used to generate unique path-based IDs
     nodes: Nodes,
 }
 
@@ -25,10 +24,10 @@ impl ProjectBuilder {
             name: "Untitled Project".to_string(),
             next_id: 1,
             nodes: Nodes {
-                outputs: HashMap::new(),
-                textures: HashMap::new(),
-                shaders: HashMap::new(),
-                fixtures: HashMap::new(),
+                outputs: BTreeMap::new(),
+                textures: BTreeMap::new(),
+                shaders: BTreeMap::new(),
+                fixtures: BTreeMap::new(),
             },
         }
     }
@@ -42,10 +41,10 @@ impl ProjectBuilder {
             name: "Test".to_string(),
             next_id: 1,
             nodes: Nodes {
-                outputs: HashMap::new(),
-                textures: HashMap::new(),
-                shaders: HashMap::new(),
-                fixtures: HashMap::new(),
+                outputs: BTreeMap::new(),
+                textures: BTreeMap::new(),
+                shaders: BTreeMap::new(),
+                fixtures: BTreeMap::new(),
             },
         }
     }
@@ -64,33 +63,37 @@ impl ProjectBuilder {
 
     /// Add a texture node and return its auto-generated ID
     pub fn add_texture(mut self, config: TextureNode) -> (Self, TextureId) {
-        let id = TextureId(self.next_id);
+        let id_str = format!("/src/texture-{}.texture", self.next_id);
+        let id = TextureId(id_str.clone());
         self.next_id += 1;
-        self.nodes.textures.insert(u32::from(id), config);
+        self.nodes.textures.insert(id_str, config);
         (self, id)
     }
 
     /// Add a shader node and return its auto-generated ID
     pub fn add_shader(mut self, config: ShaderNode) -> (Self, ShaderId) {
-        let id = ShaderId(self.next_id);
+        let id_str = format!("/src/shader-{}.shader", self.next_id);
+        let id = ShaderId(id_str.clone());
         self.next_id += 1;
-        self.nodes.shaders.insert(u32::from(id), config);
+        self.nodes.shaders.insert(id_str, config);
         (self, id)
     }
 
     /// Add an output node and return its auto-generated ID
     pub fn add_output(mut self, config: OutputNode) -> (Self, OutputId) {
-        let id = OutputId(self.next_id);
+        let id_str = format!("/src/output-{}.output", self.next_id);
+        let id = OutputId(id_str.clone());
         self.next_id += 1;
-        self.nodes.outputs.insert(u32::from(id), config);
+        self.nodes.outputs.insert(id_str, config);
         (self, id)
     }
 
     /// Add a fixture node and return its auto-generated ID
     pub fn add_fixture(mut self, config: FixtureNode) -> (Self, FixtureId) {
-        let id = FixtureId(self.next_id);
+        let id_str = format!("/src/fixture-{}.fixture", self.next_id);
+        let id = FixtureId(id_str.clone());
         self.next_id += 1;
-        self.nodes.fixtures.insert(u32::from(id), config);
+        self.nodes.fixtures.insert(id_str, config);
         (self, id)
     }
 
@@ -101,11 +104,11 @@ impl ProjectBuilder {
         for (shader_id, shader) in &self.nodes.shaders {
             match shader {
                 ShaderNode::Single { texture_id, .. } => {
-                    let texture_id_u32 = u32::from(*texture_id);
-                    if !self.nodes.textures.contains_key(&texture_id_u32) {
+                    let texture_id_str: String = texture_id.clone().into();
+                    if !self.nodes.textures.contains_key(&texture_id_str) {
                         return Err(Error::Validation(format!(
                             "Shader {} references non-existent texture {}",
-                            shader_id, texture_id_u32
+                            shader_id, texture_id_str
                         )));
                     }
                 }
@@ -120,18 +123,18 @@ impl ProjectBuilder {
                     texture_id,
                     ..
                 } => {
-                    let output_id_u32: u32 = (*output_id).into();
-                    if !self.nodes.outputs.contains_key(&output_id_u32) {
+                    let output_id_str: String = output_id.clone().into();
+                    if !self.nodes.outputs.contains_key(&output_id_str) {
                         return Err(Error::Validation(format!(
                             "Fixture {} references non-existent output {}",
-                            fixture_id, output_id_u32
+                            fixture_id, output_id_str
                         )));
                     }
-                    let texture_id_u32: u32 = (*texture_id).into();
-                    if !self.nodes.textures.contains_key(&texture_id_u32) {
+                    let texture_id_str: String = texture_id.clone().into();
+                    if !self.nodes.textures.contains_key(&texture_id_str) {
                         return Err(Error::Validation(format!(
                             "Fixture {} references non-existent texture {}",
-                            fixture_id, texture_id_u32
+                            fixture_id, texture_id_str
                         )));
                     }
                 }
@@ -189,7 +192,7 @@ mod tests {
             size: [64, 64],
             format: formats::RGB8.to_string(),
         });
-        assert_eq!(u32::from(texture_id), 1);
+        assert_eq!(String::from(texture_id.clone()), "/src/texture-1.texture");
         assert_eq!(builder.nodes.textures.len(), 1);
     }
 
@@ -204,7 +207,7 @@ mod tests {
                 .to_string(),
             texture_id,
         });
-        assert_eq!(u32::from(shader_id), 2);
+        assert_eq!(String::from(shader_id.clone()), "/src/shader-2.shader");
         assert_eq!(builder.nodes.shaders.len(), 1);
     }
 
@@ -215,7 +218,7 @@ mod tests {
             gpio_pin: 18,
             count: 100,
         });
-        assert_eq!(u32::from(output_id), 1);
+        assert_eq!(String::from(output_id.clone()), "/src/output-1.output");
         assert_eq!(builder.nodes.outputs.len(), 1);
     }
 
@@ -228,11 +231,11 @@ mod tests {
         });
         let (builder, fixture_id) = builder.add_fixture(FixtureNode::CircleList {
             output_id,
-            texture_id: TextureId(1),
+            texture_id: TextureId("/src/texture-1.texture".to_string()),
             channel_order: "RGB".to_string(),
             mapping: vec![],
         });
-        assert_eq!(u32::from(fixture_id), 2);
+        assert_eq!(String::from(fixture_id.clone()), "/src/fixture-2.fixture");
         assert_eq!(builder.nodes.fixtures.len(), 1);
     }
 
@@ -242,7 +245,7 @@ mod tests {
         let (builder, _shader_id) = builder.add_shader(ShaderNode::Single {
             glsl: "vec4 main(vec2 fragCoord, vec2 outputSize, float time) { return vec4(1.0); }"
                 .to_string(),
-            texture_id: TextureId(999), // Non-existent texture
+            texture_id: TextureId("/src/texture-999.texture".to_string()), // Non-existent texture
         });
         assert!(builder.build().is_err());
     }
@@ -251,8 +254,8 @@ mod tests {
     fn test_build_validates_fixture_output_reference() {
         let builder = ProjectBuilder::new();
         let (builder, _fixture_id) = builder.add_fixture(FixtureNode::CircleList {
-            output_id: OutputId(999), // Non-existent output
-            texture_id: TextureId(1),
+            output_id: OutputId("/src/output-999.output".to_string()), // Non-existent output
+            texture_id: TextureId("/src/texture-1.texture".to_string()),
             channel_order: "RGB".to_string(),
             mapping: vec![],
         });
@@ -269,7 +272,7 @@ mod tests {
         });
         let (builder, _fixture_id) = builder.add_fixture(FixtureNode::CircleList {
             output_id,
-            texture_id: TextureId(999), // Non-existent texture
+            texture_id: TextureId("/src/texture-999.texture".to_string()), // Non-existent texture
             channel_order: "RGB".to_string(),
             mapping: vec![],
         });

@@ -97,8 +97,8 @@ impl FixtureNodeRuntime {
     /// Create a new fixture node runtime (uninitialized)
     pub fn new() -> Self {
         Self {
-            output_id: OutputId(0),
-            texture_id: TextureId(0),
+            output_id: OutputId(String::new()),
+            texture_id: TextureId(String::new()),
             kernel: SamplingKernel::new(0.1), // Default small radius
             channel_order: String::new(),
             mapping: Vec::new(),
@@ -134,8 +134,8 @@ impl NodeLifecycle for FixtureNodeRuntime {
                 channel_order,
                 mapping,
             } => {
-                self.output_id = *output_id;
-                self.texture_id = *texture_id;
+                self.output_id = output_id.clone();
+                self.texture_id = texture_id.clone();
                 self.channel_order = channel_order.clone();
                 self.mapping = mapping.clone();
 
@@ -162,15 +162,15 @@ impl NodeLifecycle for FixtureNodeRuntime {
 
     fn render(&mut self, ctx: &mut Self::RenderContext<'_>) -> Result<(), Error> {
         // Get texture (read-only) and sample all pixels first
-        let texture = match ctx.get_texture(self.texture_id) {
+        let texture = match ctx.get_texture(self.texture_id.clone()) {
             Some(tex) => tex,
             None => {
                 self.status = NodeStatus::Error {
-                    status_message: format!("Texture {} not found", u32::from(self.texture_id)),
+                    status_message: format!("Texture {} not found", String::from(self.texture_id.clone())),
                 };
                 return Err(Error::Node(format!(
                     "Texture {} not found",
-                    u32::from(self.texture_id)
+                    String::from(self.texture_id.clone())
                 )));
             }
         };
@@ -231,7 +231,7 @@ impl NodeLifecycle for FixtureNodeRuntime {
         }
 
         // Now get output buffer and write all values (mutable borrow)
-        let (buffer, bytes_per_pixel) = match ctx.get_output_mut(self.output_id) {
+        let (buffer, bytes_per_pixel) = match ctx.get_output_mut(self.output_id.clone()) {
             Some(out) => {
                 let bytes_per_pixel = out.bytes_per_pixel();
                 let buffer = out.buffer_mut();
@@ -239,11 +239,11 @@ impl NodeLifecycle for FixtureNodeRuntime {
             }
             None => {
                 self.status = NodeStatus::Error {
-                    status_message: format!("Output {} not found", u32::from(self.output_id)),
+                    status_message: format!("Output {} not found", String::from(self.output_id.clone())),
                 };
                 return Err(Error::Node(format!(
                     "Output {} not found",
-                    u32::from(self.output_id)
+                    String::from(self.output_id.clone())
                 )));
             }
         };
