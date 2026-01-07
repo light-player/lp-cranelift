@@ -102,8 +102,23 @@ fn main() -> eframe::Result<()> {
     let mut lp_app = LpApp::new(platform);
 
     // Load project (will create default if not found)
-    if let Err(e) = lp_app.load_project("project.json") {
-        eprintln!("Failed to load project: {}", e);
+    // Wrap in catch_unwind to handle panics from cranelift (e.g., unimplemented features on macOS)
+    let load_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        lp_app.load_project("project.json")
+    }));
+
+    match load_result {
+        Ok(Ok(())) => {
+            // Success
+        }
+        Ok(Err(e)) => {
+            eprintln!("Failed to load project: {}", e);
+        }
+        Err(_) => {
+            eprintln!("Project loading panicked (possibly due to unimplemented platform features in cranelift)");
+            eprintln!("This is a known issue on macOS - shader compilation may not work");
+            // Continue anyway - the app will show errors in the debug UI
+        }
     }
 
     // Initialize transport (stdio)
