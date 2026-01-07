@@ -233,8 +233,15 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
         &mut self,
         delta_ms: u32,
         incoming: &[crate::app::MsgIn],
+        file_changes: &[crate::app::FileChange],
     ) -> Result<alloc::vec::Vec<crate::app::MsgOut>, Error> {
         let mut outgoing = alloc::vec::Vec::new();
+
+        // Process file changes (placeholder - will be implemented in Phase 9)
+        for change in file_changes {
+            // TODO: Implement file change handling in Phase 9
+            let _ = change;
+        }
 
         // Process incoming messages
         for msg in incoming {

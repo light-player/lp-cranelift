@@ -192,7 +192,7 @@ impl eframe::App for AppState {
         let incoming_messages = collect_messages(&self.transport);
 
         // Update runtime with tick() - processes messages and updates runtime
-        match self.lp_app.tick(delta_ms, &incoming_messages) {
+        match self.lp_app.tick(delta_ms, &incoming_messages, &[]) {
             Ok(outgoing) => {
                 // Handle outgoing messages
                 if let Err(e) = handle_outgoing_messages(outgoing, &self.transport) {
