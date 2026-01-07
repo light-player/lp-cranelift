@@ -143,6 +143,8 @@ fn main() -> eframe::Result<()> {
                 output_provider,
                 selected_led: None,
                 last_frame_time: None,
+                frame_count: 0,
+                fps_history: Vec::new(),
             }))
         }),
     )
@@ -154,6 +156,8 @@ struct AppState {
     output_provider: Arc<HostOutputProvider>,
     selected_led: Option<usize>,
     last_frame_time: Option<Instant>,
+    frame_count: u64,
+    fps_history: Vec<f32>, // Store last N frame times for average FPS
 }
 
 impl eframe::App for AppState {
@@ -167,6 +171,22 @@ impl eframe::App for AppState {
             0 // First frame, no delta
         };
         self.last_frame_time = Some(now);
+
+        // Update frame count
+        self.frame_count += 1;
+
+        // Calculate FPS (frames per second) and update history
+        let current_fps = if delta_ms > 0 {
+            1000.0 / delta_ms as f32
+        } else {
+            0.0
+        };
+
+        // Update FPS history (keep last 60 frames for average)
+        self.fps_history.push(current_fps);
+        if self.fps_history.len() > 60 {
+            self.fps_history.remove(0);
+        }
 
         // Collect messages from transport
         let incoming_messages = collect_messages(&self.transport);
@@ -184,8 +204,9 @@ impl eframe::App for AppState {
             }
         }
 
-        // Request repaint to keep loop running
-        ctx.request_repaint();
+        // Request repaint to keep loop running continuously
+        // Use request_repaint_after to ensure we get regular updates even if nothing changes
+        ctx.request_repaint_after(std::time::Duration::from_millis(16)); // ~60 FPS
 
         // Use a side panel for textures and main panel for LEDs
         egui::SidePanel::right("debug_panel")
@@ -195,33 +216,65 @@ impl eframe::App for AppState {
                 ui.heading("Debug Panel");
                 ui.separator();
 
-                if let Some(project) = self.lp_app.config() {
-                    // Show project info
-                    ui.group(|ui| {
-                        ui.label(format!("Project: {}", project.name));
-                        ui.label(format!("UID: {}", project.uid));
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false; 2])
+                    .show(ui, |ui| {
+                        if let Some(project) = self.lp_app.config() {
+                            // Show project info
+                            ui.group(|ui| {
+                                ui.label(format!("Project: {}", project.name));
+                                ui.label(format!("UID: {}", project.uid));
+                            });
+                            ui.separator();
+
+                            // Show textures
+                            render_textures_panel(ui, project, self.lp_app.runtime());
+
+                            ui.separator();
+
+                            // Show shaders
+                            render_shaders_panel(ui, project, self.lp_app.runtime());
+
+                            ui.separator();
+
+                            // Show fixtures
+                            render_fixtures_panel(ui, project, self.lp_app.runtime());
+                        } else {
+                            ui.label("No project loaded");
+                        }
                     });
-                    ui.separator();
-
-                    // Show textures
-                    render_textures_panel(ui, project, self.lp_app.runtime());
-
-                    ui.separator();
-
-                    // Show shaders
-                    render_shaders_panel(ui, project, self.lp_app.runtime());
-
-                    ui.separator();
-
-                    // Show fixtures
-                    render_fixtures_panel(ui, project, self.lp_app.runtime());
-                } else {
-                    ui.label("No project loaded");
-                }
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("LightPlayer Host Firmware");
+            ui.separator();
+
+            // Frame statistics
+            ui.group(|ui| {
+                ui.heading("Frame Statistics");
+
+                let current_fps = self.fps_history.last().copied().unwrap_or(0.0);
+                let avg_fps = if !self.fps_history.is_empty() {
+                    self.fps_history.iter().sum::<f32>() / self.fps_history.len() as f32
+                } else {
+                    0.0
+                };
+
+                ui.label(format!("Frame: {}", self.frame_count));
+                ui.label(format!("Current FPS: {:.1}", current_fps));
+                ui.label(format!("Average FPS: {:.1}", avg_fps));
+
+                if let Some(runtime) = self.lp_app.runtime() {
+                    let frame_time = runtime.frame_time();
+                    ui.label(format!(
+                        "Total Time: {:.2}s",
+                        frame_time.total_ms as f32 / 1000.0
+                    ));
+                    ui.label(format!("Delta: {}ms", frame_time.delta_ms));
+                } else {
+                    ui.label("Runtime not initialized");
+                }
+            });
             ui.separator();
 
             // Show project info
@@ -250,43 +303,34 @@ impl eframe::App for AppState {
                     }
                     ui.separator();
 
-                    // Show selected LED info for this output
-                    if let Some(led_idx) = self.selected_led {
-                        let output = output_arc.lock().unwrap();
-                        let pixels = output.get_pixels();
-                        let pixel_data = pixels.lock().unwrap();
-                        let bytes_per_pixel = output.bytes_per_pixel();
-                        let pixel_start = led_idx * bytes_per_pixel;
-                        if pixel_start + bytes_per_pixel <= pixel_data.len() {
-                            ui.group(|ui| {
-                                ui.label(format!("Selected LED: #{}", led_idx));
-                                let r = pixel_data[pixel_start];
-                                let g = if bytes_per_pixel > 1 {
-                                    pixel_data[pixel_start + 1]
-                                } else {
-                                    0
-                                };
-                                let b = if bytes_per_pixel > 2 {
-                                    pixel_data[pixel_start + 2]
-                                } else {
-                                    0
-                                };
-                                ui.label(format!("RGB: ({}, {}, {})", r, g, b));
-                                ui.label(format!("Hex: #{:02X}{:02X}{:02X}", r, g, b));
-                            });
-                            ui.separator();
-                        }
-                    }
-
-                    // Render LEDs for this output (assuming RGB order)
-                    // Note: render_leds needs &HostLedOutput, but we have Arc<Mutex<HostLedOutput>>
-                    // We need to access it differently. Let's check render_leds signature.
-                    // Actually, render_leds takes &HostLedOutput, so we need to lock and pass reference
+                    // Render LEDs for this output in a contained panel
                     let output = output_arc.lock().unwrap();
-                    if let Some(clicked) = render_leds(ui, &*output, self.selected_led) {
-                        self.selected_led = Some(clicked);
-                    }
-                    drop(output); // Release lock
+                    let pixel_count = lp_core::traits::LedOutput::get_pixel_count(&*output);
+
+                    // Calculate size needed for LED grid
+                    let cols = (pixel_count as f32).sqrt().ceil() as usize;
+                    let led_size = 25.0;
+                    let spacing = 8.0;
+                    let estimated_width = (cols as f32) * (led_size + spacing) - spacing;
+                    let estimated_height =
+                        ((pixel_count + cols - 1) / cols) as f32 * (led_size + spacing) - spacing;
+
+                    // Create contained area with clipping
+                    let available_width = ui.available_width();
+                    let max_height = 400.0;
+                    let allocated_size = egui::Vec2::new(
+                        available_width.min(estimated_width + 20.0),
+                        estimated_height.min(max_height) + 20.0,
+                    );
+
+                    egui::Frame::group(ui.style())
+                        .inner_margin(egui::Margin::same(10.0))
+                        .show(ui, |ui| {
+                            ui.set_max_size(allocated_size);
+                            ui.set_clip_rect(ui.max_rect());
+                            render_leds(ui, &*output, self.selected_led);
+                        });
+                    drop(output);
 
                     ui.separator();
                 }

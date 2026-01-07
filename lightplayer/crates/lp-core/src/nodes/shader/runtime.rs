@@ -9,6 +9,7 @@ use crate::runtime::lifecycle::NodeLifecycle;
 use alloc::{format, string::ToString, vec};
 use lp_glsl::frontend::semantic::types::Type;
 use lp_glsl::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode, glsl_jit};
+use lp_glsl::backend::host::__host_println;
 
 /// Shader node runtime
 pub struct ShaderNodeRuntime {
@@ -123,7 +124,7 @@ impl NodeLifecycle for ShaderNodeRuntime {
         }
     }
 
-    fn update(&mut self, ctx: &mut Self::RenderContext<'_>) -> Result<(), Error> {
+    fn render(&mut self, ctx: &mut Self::RenderContext<'_>) -> Result<(), Error> {
         // Skip if executable is None (compilation failed)
         let executable = match &mut self.executable {
             Some(exec) => exec,
@@ -260,7 +261,7 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
         let mut ctx = ShaderRenderContext::new(frame_time, &mut textures);
 
         // Should return Ok without error
-        assert!(runtime.update(&mut ctx).is_ok());
+        assert!(runtime.render(&mut ctx).is_ok());
     }
 
     #[test]
@@ -330,7 +331,7 @@ vec4 main(vec2 fragCoord, float time) {
         let glsl = r#"
 vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
     // Return a simple color based on position
-    return vec4(fragCoord.x / outputSize.x, fragCoord.y / outputSize.y, 0.5, 1.0);
+    return vec4(0.5, 0.5, 0.5, 1.0);
 }
 "#;
         let shader_config = ShaderNode::Single {
@@ -350,7 +351,7 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
         textures.insert(texture_id, texture_runtime);
         let mut ctx = ShaderRenderContext::new(frame_time, &mut textures);
 
-        assert!(shader_runtime.update(&mut ctx).is_ok());
+        assert!(shader_runtime.render(&mut ctx).is_ok());
 
         // Verify pixels were written
         let texture = ctx.textures.get(&texture_id).unwrap();

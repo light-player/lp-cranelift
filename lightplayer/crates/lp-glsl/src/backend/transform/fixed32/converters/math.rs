@@ -42,7 +42,7 @@ pub fn map_testcase_to_builtin(testcase_name: &str) -> Option<(BuiltinId, usize)
         "ldexpf" | "__lp_ldexp" => Some((BuiltinId::Fixed32Ldexp, 2)),
         "logf" | "__lp_log" => Some((BuiltinId::Fixed32Log, 1)),
         "log2f" | "__lp_log2" => Some((BuiltinId::Fixed32Log2, 1)),
-        "modf" | "fmodf" | "__lp_mod" => Some((BuiltinId::Fixed32Mod, 2)),
+        "modf" | "__lp_mod" | "fmodf" => Some((BuiltinId::Fixed32Mod, 2)),
         "mulf" | "__lp_mul" => Some((BuiltinId::Fixed32Mul, 2)),
         "powf" | "__lp_pow" => Some((BuiltinId::Fixed32Pow, 2)),
         "roundf" | "__lp_round" => Some((BuiltinId::Fixed32Round, 1)),
@@ -55,19 +55,6 @@ pub fn map_testcase_to_builtin(testcase_name: &str) -> Option<(BuiltinId, usize)
         _ => None,
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -220,14 +207,14 @@ pub(crate) fn convert_sqrt(
     let user_ref = builder.func.declare_imported_user_function(user_name);
     let ext_name = ExternalName::User(user_ref);
 
-    // For ObjectModule (emulator), colocated should be true so the linker can resolve
-    // the symbol directly. For JITModule, colocated doesn't matter as much since
-    // function pointers are resolved at runtime via symbol_lookup_fn.
-    // We use true here to ensure proper linking for emulator mode.
+    // Builtin functions are external and may be far away, so they cannot be colocated.
+    // This prevents ARM64 call relocation range issues (colocated uses ±128MB range).
+    // For JIT mode, function pointers are resolved at runtime via symbol_lookup_fn.
+    // For emulator mode, the linker will handle the relocation appropriately.
     let ext_func = ExtFuncData {
         name: ext_name,
         signature: sig_ref,
-        colocated: true,
+        colocated: false,
     };
     let sqrt_func_ref = builder.func.import_function(ext_func);
 

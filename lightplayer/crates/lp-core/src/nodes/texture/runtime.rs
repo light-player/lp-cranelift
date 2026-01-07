@@ -71,7 +71,7 @@ impl NodeLifecycle for TextureNodeRuntime {
         }
     }
 
-    fn update(&mut self, _ctx: &mut Self::RenderContext<'_>) -> Result<(), Error> {
+    fn render(&mut self, _ctx: &mut Self::RenderContext<'_>) -> Result<(), Error> {
         // Textures don't update themselves - they're updated by shaders
         Ok(())
     }

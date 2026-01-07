@@ -1,9 +1,9 @@
 //! LightPlayer Application - main entry point for firmware
 
-use alloc::{format, string::ToString, vec::Vec};
 use crate::app::Platform;
 use crate::error::Error;
 use crate::project::{config::ProjectConfig, runtime::ProjectRuntime};
+use alloc::{format, string::ToString, vec::Vec};
 
 /// LightPlayer Application
 ///
@@ -36,10 +36,10 @@ impl LpApp {
     /// - One shader: rotating color wheel animation
     /// - One fixture: circle-list mapping LEDs in a grid pattern
     pub fn create_default_project() -> ProjectConfig {
-        use hashbrown::HashMap;
         use crate::nodes::id::{OutputId, TextureId};
         use crate::nodes::{FixtureNode, Mapping, OutputNode, ShaderNode, TextureNode};
         use crate::project::config::{Nodes, ProjectConfig};
+        use hashbrown::HashMap;
 
         // Create default project
         let mut project = ProjectConfig {
@@ -72,11 +72,36 @@ impl LpApp {
             },
         );
 
-        // Add shader: rotating color wheel animation
+        // Add shader: simple test pattern
         project.nodes.shaders.insert(
             3,
             ShaderNode::Single {
                 glsl: r#"
+// HSV to RGB conversion function
+vec3 hsv_to_rgb(float h, float s, float v) {
+    // h in [0, 1], s in [0, 1], v in [0, 1]
+    float c = v * s;
+    float x = c * (1.0 - abs(mod(h * 6.0, 2.0) - 1.0));
+    float m = v - c;
+    
+    vec3 rgb;
+    if (h < 1.0/6.0) {
+        rgb = vec3(v, m + x, m);
+    } else if (h < 2.0/6.0) {
+        rgb = vec3(m + x, v, m);
+    } else if (h < 3.0/6.0) {
+        rgb = vec3(m, v, m + x);
+    } else if (h < 4.0/6.0) {
+        rgb = vec3(m, m + x, v);
+    } else if (h < 5.0/6.0) {
+        rgb = vec3(m + x, m, v);
+    } else {
+        rgb = vec3(v, m, m + x);
+    }
+    
+    return rgb;
+}
+
 vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
     // Center of texture
     vec2 center = outputSize * 0.5;
@@ -87,37 +112,29 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
     // Calculate angle (atan2 gives angle in [-PI, PI])
     float angle = atan(dir.y, dir.x);
     
-    // Rotate angle with time (full rotation every 4 seconds)
-    angle = angle + time * 0.5;
+    // Rotate angle with time (full rotation every 2 seconds)
+    angle = (angle + time * 3.14159);
     
     // Normalize angle to [0, 1] for hue
-    float hue = (angle / (2.0 * 3.14159) + 1.0) * 0.5;
+    // atan returns [-PI, PI], map to [0, 1] by: (angle + PI) / (2 * PI)
+    // Wrap hue to [0, 1] using mod to handle large time values
+    float hue = mod((angle + 3.14159) / (2.0 * 3.14159), 1.0);
     
-    // Distance from center (normalized)
-    float dist = length(dir) / (min(outputSize.x, outputSize.y) * 0.5);
+    // Distance from center (normalized to [0, 1])
+    float maxDist = length(outputSize * 0.5);
+    float dist = length(dir) / maxDist;
     
-    // Create color wheel: hue rotates, saturation and value vary with distance
-    // Convert HSV to RGB (simplified)
-    float c = 1.0 - abs(dist - 0.5) * 2.0; // Saturation based on distance
-    float x = c * (1.0 - abs(mod(hue * 6.0, 2.0) - 1.0));
-    float m = 0.8 - dist * 0.3; // Value (brightness)
+    // Clamp distance to prevent issues
+    dist = min(dist, 1.0);
     
-    vec3 rgb;
-    if (hue < 1.0/6.0) {
-        rgb = vec3(c, x, 0.0);
-    } else if (hue < 2.0/6.0) {
-        rgb = vec3(x, c, 0.0);
-    } else if (hue < 3.0/6.0) {
-        rgb = vec3(0.0, c, x);
-    } else if (hue < 4.0/6.0) {
-        rgb = vec3(0.0, x, c);
-    } else if (hue < 5.0/6.0) {
-        rgb = vec3(x, 0.0, c);
-    } else {
-        rgb = vec3(c, 0.0, x);
-    }
+    // Value (brightness): highest at center, darker at edges
+    float value = 1.0 - dist * 0.5;
     
-    return vec4((rgb + m - 0.4) * m, 1.0);
+    // Convert HSV to RGB
+    vec3 rgb = hsv_to_rgb(hue, 1.0, value);
+    
+    // Clamp to [0, 1] and return
+    return vec4(max(vec3(0.0), min(vec3(1.0), rgb)), 1.0);
 }
 "#
                 .to_string(),
@@ -248,9 +265,12 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
         match msg {
             crate::app::MsgIn::UpdateProject { project } => {
                 // Save project to filesystem
-                let json = serde_json::to_string(&project)
-                    .map_err(|e| Error::Serialization(format!("Failed to serialize project: {}", e)))?;
-                self.platform.fs.write_file("project.json", json.as_bytes())?;
+                let json = serde_json::to_string(&project).map_err(|e| {
+                    Error::Serialization(format!("Failed to serialize project: {}", e))
+                })?;
+                self.platform
+                    .fs
+                    .write_file("project.json", json.as_bytes())?;
 
                 // Load the project (this will initialize the runtime)
                 self.load_project("project.json")?;
@@ -282,4 +302,3 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
         self.runtime.as_ref()
     }
 }
-

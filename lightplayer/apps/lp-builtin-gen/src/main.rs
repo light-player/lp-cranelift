@@ -14,7 +14,7 @@ struct BuiltinInfo {
 
 fn main() {
     let workspace_root = find_workspace_root().expect("Failed to find workspace root");
-    let fixed32_dir = workspace_root.join("lightplayer/crates/lp-builtins/src/fixed32");
+    let fixed32_dir = workspace_root.join("lightplayer/crates/lp-builtins/src/builtins/fixed32");
 
     let builtins = discover_builtins(&fixed32_dir).expect("Failed to discover builtins");
 
@@ -29,7 +29,7 @@ fn main() {
     generate_builtin_refs(&builtin_refs_path, &builtins);
 
     // Generate mod.rs
-    let mod_rs_path = workspace_root.join("lightplayer/crates/lp-builtins/src/fixed32/mod.rs");
+    let mod_rs_path = workspace_root.join("lightplayer/crates/lp-builtins/src/builtins/fixed32/mod.rs");
     generate_mod_rs(&mod_rs_path, &builtins);
 
     // Generate testcase mapping in math.rs
@@ -170,8 +170,14 @@ fn generate_registry(path: &Path, builtins: &[BuiltinInfo]) {
     output.push_str("/// Enum identifying builtin functions.\n");
     output.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]\n");
     output.push_str("pub enum BuiltinId {\n");
-    for builtin in builtins {
-        output.push_str(&format!("    {},\n", builtin.enum_variant));
+    if builtins.is_empty() {
+        output.push_str("    // No builtins defined yet\n");
+        output.push_str("    #[allow(dead_code)]\n");
+        output.push_str("    _Placeholder,\n");
+    } else {
+        for builtin in builtins {
+            output.push_str(&format!("    {},\n", builtin.enum_variant));
+        }
     }
     output.push_str("}\n\n");
 
@@ -180,11 +186,15 @@ fn generate_registry(path: &Path, builtins: &[BuiltinInfo]) {
     output.push_str("    /// Get the symbol name for this builtin function.\n");
     output.push_str("    pub fn name(&self) -> &'static str {\n");
     output.push_str("        match self {\n");
-    for builtin in builtins {
-        output.push_str(&format!(
-            "            BuiltinId::{} => \"{}\",\n",
-            builtin.enum_variant, builtin.symbol_name
-        ));
+    if builtins.is_empty() {
+        output.push_str("            BuiltinId::_Placeholder => \"\",\n");
+    } else {
+        for builtin in builtins {
+            output.push_str(&format!(
+                "            BuiltinId::{} => \"{}\",\n",
+                builtin.enum_variant, builtin.symbol_name
+            ));
+        }
     }
     output.push_str("        }\n");
     output.push_str("    }\n\n");
@@ -195,12 +205,17 @@ fn generate_registry(path: &Path, builtins: &[BuiltinInfo]) {
     output.push_str("        let mut sig = Signature::new(CallConv::SystemV);\n");
     output.push_str("        match self {\n");
 
-    // Group by parameter count
-    let ternary_ops: Vec<_> = builtins.iter().filter(|b| b.param_count == 3).collect();
-    let binary_ops: Vec<_> = builtins.iter().filter(|b| b.param_count == 2).collect();
-    let unary_ops: Vec<_> = builtins.iter().filter(|b| b.param_count == 1).collect();
+    if builtins.is_empty() {
+        output.push_str("            BuiltinId::_Placeholder => {\n");
+        output.push_str("                // Placeholder - no builtins defined\n");
+        output.push_str("            }\n");
+    } else {
+        // Group by parameter count
+        let ternary_ops: Vec<_> = builtins.iter().filter(|b| b.param_count == 3).collect();
+        let binary_ops: Vec<_> = builtins.iter().filter(|b| b.param_count == 2).collect();
+        let unary_ops: Vec<_> = builtins.iter().filter(|b| b.param_count == 1).collect();
 
-    if !ternary_ops.is_empty() {
+        if !ternary_ops.is_empty() {
         output.push_str("            ");
         for (i, builtin) in ternary_ops.iter().enumerate() {
             if i > 0 {
@@ -246,6 +261,7 @@ fn generate_registry(path: &Path, builtins: &[BuiltinInfo]) {
         output.push_str("                sig.params.push(AbiParam::new(types::I32));\n");
         output.push_str("                sig.returns.push(AbiParam::new(types::I32));\n");
         output.push_str("            }\n");
+        }
     }
 
     output.push_str("        }\n");
@@ -256,11 +272,15 @@ fn generate_registry(path: &Path, builtins: &[BuiltinInfo]) {
     output.push_str("    /// Get all builtin IDs.\n");
     output.push_str("    pub fn all() -> &'static [BuiltinId] {\n");
     output.push_str("        &[\n");
-    for builtin in builtins {
-        output.push_str(&format!(
-            "            BuiltinId::{},\n",
-            builtin.enum_variant
-        ));
+    if builtins.is_empty() {
+        output.push_str("            BuiltinId::_Placeholder,\n");
+    } else {
+        for builtin in builtins {
+            output.push_str(&format!(
+                "            BuiltinId::{},\n",
+                builtin.enum_variant
+            ));
+        }
     }
     output.push_str("        ]\n");
     output.push_str("    }\n");
@@ -271,13 +291,19 @@ fn generate_registry(path: &Path, builtins: &[BuiltinInfo]) {
     output.push_str("///\n");
     output.push_str("/// Returns the function pointer that can be registered with JITModule.\n");
     output.push_str("pub fn get_function_pointer(builtin: BuiltinId) -> *const u8 {\n");
-    output.push_str("    use lp_builtins::fixed32;\n");
+    if !builtins.is_empty() {
+        output.push_str("    use lp_builtins::builtins::fixed32;\n");
+    }
     output.push_str("    match builtin {\n");
-    for builtin in builtins {
-        output.push_str(&format!(
-            "        BuiltinId::{} => fixed32::{} as *const u8,\n",
-            builtin.enum_variant, builtin.function_name
-        ));
+    if builtins.is_empty() {
+        output.push_str("        BuiltinId::_Placeholder => core::ptr::null(),\n");
+    } else {
+        for builtin in builtins {
+            output.push_str(&format!(
+                "        BuiltinId::{} => fixed32::{} as *const u8,\n",
+                builtin.enum_variant, builtin.function_name
+            ));
+        }
     }
     output.push_str("    }\n");
     output.push_str("}\n\n");
@@ -354,14 +380,18 @@ fn generate_builtin_refs(path: &Path, builtins: &[BuiltinInfo]) {
 "#;
 
     let mut output = String::from(header);
-    output.push_str("use lp_builtins::fixed32::{\n");
-    for (i, builtin) in builtins.iter().enumerate() {
-        if i > 0 {
-            output.push_str(",\n");
+    if builtins.is_empty() {
+        output.push_str("// No builtins to import\n\n");
+    } else {
+        output.push_str("use lp_builtins::builtins::fixed32::{\n");
+        for (i, builtin) in builtins.iter().enumerate() {
+            if i > 0 {
+                output.push_str(",\n");
+            }
+            output.push_str(&format!("    {}", builtin.function_name));
         }
-        output.push_str(&format!("    {}", builtin.function_name));
+        output.push_str(",\n};\n\n");
     }
-    output.push_str(",\n};\n\n");
 
     output.push_str("/// Reference all builtin functions to prevent dead code elimination.\n");
     output.push_str("///\n");
@@ -489,7 +519,10 @@ fn generate_testcase_mapping(path: &Path, builtins: &[BuiltinInfo]) {
     new_function.push_str("    match testcase_name {\n");
 
     // Generate mappings
-    for builtin in builtins {
+    if builtins.is_empty() {
+        // No builtins, so no mappings
+    } else {
+        for builtin in builtins {
         let base_name = builtin.symbol_name.strip_prefix("__lp_fixed32_").unwrap();
 
         // Generate C math function name (e.g., sinf)
@@ -498,10 +531,18 @@ fn generate_testcase_mapping(path: &Path, builtins: &[BuiltinInfo]) {
         // Generate intrinsic name (e.g., __lp_sin)
         let intrinsic_name = format!("__lp_{}", base_name);
 
+        // Special case: GLSL's mod() compiles to fmodf, not modf
+        let additional_names = if base_name == "mod" {
+            " | \"fmodf\""
+        } else {
+            ""
+        };
+
         new_function.push_str(&format!(
-            "        \"{}\" | \"{}\" => Some((BuiltinId::{}, {})),\n",
+            "        \"{}\" | \"{}\"{additional_names} => Some((BuiltinId::{}, {})),\n",
             c_name, intrinsic_name, builtin.enum_variant, builtin.param_count
         ));
+    }
     }
 
     new_function.push_str("        _ => None,\n");

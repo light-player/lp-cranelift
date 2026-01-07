@@ -301,7 +301,9 @@ pub(crate) fn convert_call(
                 let ext_func = ExtFuncData {
                     name: ext_name,
                     signature: sig_ref,
-                    colocated: true,
+                    // Builtin functions are external and may be far away, so they cannot be colocated.
+                    // This prevents ARM64 call relocation range issues (colocated uses ±128MB range).
+                    colocated: false,
                 };
                 let builtin_func_ref = builder.func.import_function(ext_func);
 

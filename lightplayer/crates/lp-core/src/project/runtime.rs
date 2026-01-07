@@ -124,7 +124,7 @@ impl ProjectRuntime {
         // Update shaders (write to textures)
         for shader_runtime in self.shaders.values_mut() {
             let mut ctx = ShaderRenderContext::new(self.frame_time, &mut self.textures);
-            if let Err(_e) = shader_runtime.update(&mut ctx) {
+            if let Err(_e) = shader_runtime.render(&mut ctx) {
                 // Error status is set internally
             }
         }
@@ -133,7 +133,7 @@ impl ProjectRuntime {
         for fixture_runtime in self.fixtures.values_mut() {
             let mut ctx =
                 FixtureRenderContext::new(self.frame_time, &self.textures, &mut self.outputs);
-            if let Err(_e) = fixture_runtime.update(&mut ctx) {
+            if let Err(_e) = fixture_runtime.render(&mut ctx) {
                 // Error status is set internally
             }
         }
@@ -141,7 +141,7 @@ impl ProjectRuntime {
         // Update outputs (send buffer to hardware)
         for output_runtime in self.outputs.values_mut() {
             let mut ctx = OutputRenderContext::new(self.frame_time);
-            if let Err(_e) = output_runtime.update(&mut ctx) {
+            if let Err(_e) = output_runtime.render(&mut ctx) {
                 // Error status is set internally
             }
         }
@@ -246,6 +246,11 @@ impl ProjectRuntime {
     /// Get an output runtime by ID
     pub fn get_output(&self, id: OutputId) -> Option<&OutputNodeRuntime> {
         self.outputs.get(&id)
+    }
+
+    /// Get the current frame time
+    pub fn frame_time(&self) -> FrameTime {
+        self.frame_time
     }
 }
 
@@ -438,6 +443,128 @@ mod tests {
     }
 
     #[test]
+    fn test_project_runtime_update_shader_writes_to_texture() {
+        let mut runtime = ProjectRuntime::new("test".to_string());
+        let (builder, texture_id) = crate::project::builder::ProjectBuilder::new_test()
+            .add_texture(TextureNode::Memory {
+                size: [8, 8],
+                format: formats::RGBA8.to_string(),
+            });
+        // Shader that returns a constant color - simpler test without division
+        let (builder, shader_id) = builder.add_shader(ShaderNode::Single {
+            glsl: r#"
+vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
+    // Return a constant color - should definitely produce non-zero pixels
+    return vec4(0.5, 0.5, 0.5, 1.0);
+}
+"#
+            .to_string(),
+            texture_id,
+        });
+        let config = builder.build().unwrap();
+
+        let output_provider = MockOutputProvider;
+        runtime.init(&config, &output_provider).unwrap();
+
+        // Verify texture is initially zero (or at least check initial state)
+        let texture_before = runtime.get_texture(texture_id).unwrap();
+        let pixel_before = texture_before.texture().get_pixel(0, 0).unwrap();
+        // Texture should be initialized to zero
+        assert_eq!(pixel_before, [0, 0, 0, 0], "Texture should start as zero");
+
+        // Verify shader compiled successfully
+        let shader = runtime.get_shader(shader_id).unwrap();
+        match shader.status() {
+            NodeStatus::Ok => {
+                // Good, shader compiled
+            }
+            NodeStatus::Error { status_message } => {
+                panic!("Shader compilation failed: {}", status_message);
+            }
+        }
+
+        // Update with 16ms delta - this should execute the shader and write to texture
+        let update_result = runtime.update(16, &output_provider);
+        if let Err(e) = &update_result {
+            // Check shader status again - it might have changed during update
+            let shader_after = runtime.get_shader(shader_id).unwrap();
+            match shader_after.status() {
+                NodeStatus::Ok => {
+                    panic!("Update failed but shader status is Ok: {:?}", e);
+                }
+                NodeStatus::Error { status_message } => {
+                    panic!("Update failed, shader error: {} (update error: {:?})", status_message, e);
+                }
+            }
+        }
+        assert!(update_result.is_ok(), "Update should succeed");
+
+        // Check shader status after update - it might have changed if execution failed
+        let shader_after_update = runtime.get_shader(shader_id).unwrap();
+        match shader_after_update.status() {
+            NodeStatus::Ok => {
+                // Good, shader executed successfully
+            }
+            NodeStatus::Error { status_message } => {
+                panic!("Shader execution failed during update: {}", status_message);
+            }
+        }
+
+        // Verify texture was updated with non-zero pixels
+        let texture_after = runtime.get_texture(texture_id).unwrap();
+        
+        // Check that at least some pixels are non-zero (shader executed)
+        let mut found_non_zero = false;
+        for y in 0..8 {
+            for x in 0..8 {
+                let pixel = texture_after.texture().get_pixel(x, y).unwrap();
+                // Check RGB channels (alpha might be 255, but we care about color)
+                if pixel[0] > 0 || pixel[1] > 0 || pixel[2] > 0 {
+                    found_non_zero = true;
+                    break;
+                }
+            }
+            if found_non_zero {
+                break;
+            }
+        }
+        
+        assert!(
+            found_non_zero,
+            "Shader should have written non-zero pixels to texture after update"
+        );
+
+        // Verify specific pixel values match expected shader output
+        // Shader returns vec4(0.5, 0.5, 0.5, 1.0), so all RGB channels should be ~128 (0.5 * 255)
+        let pixel_0_0 = texture_after.texture().get_pixel(0, 0).unwrap();
+        // Allow some tolerance for fixed-point math (0.5 * 255 = 127.5, so expect ~127-128)
+        assert!(
+            pixel_0_0[0] >= 120 && pixel_0_0[0] <= 135,
+            "Pixel (0,0) red channel should be around 128: got {}",
+            pixel_0_0[0]
+        );
+        assert!(
+            pixel_0_0[1] >= 120 && pixel_0_0[1] <= 135,
+            "Pixel (0,0) green channel should be around 128: got {}",
+            pixel_0_0[1]
+        );
+        assert!(
+            pixel_0_0[2] >= 120 && pixel_0_0[2] <= 135,
+            "Pixel (0,0) blue channel should be around 128: got {}",
+            pixel_0_0[2]
+        );
+        assert_eq!(
+            pixel_0_0[3], 255,
+            "Pixel (0,0) alpha channel should be 255: got {}",
+            pixel_0_0[3]
+        );
+
+        // Verify frame time was updated
+        assert_eq!(runtime.frame_time.delta_ms, 16);
+        assert_eq!(runtime.frame_time.total_ms, 16);
+    }
+
+    #[test]
     fn test_project_runtime_get_runtime_nodes() {
         let mut runtime = ProjectRuntime::new("test".to_string());
         let (builder, _texture_id) = crate::project::builder::ProjectBuilder::new_test()
@@ -619,7 +746,7 @@ mod tests {
 
     #[test]
     fn test_frame_time_tracking() {
-        let (builder, texture_id) = crate::project::builder::ProjectBuilder::new_test()
+        let (builder, _texture_id) = crate::project::builder::ProjectBuilder::new_test()
             .add_texture(TextureNode::Memory {
                 size: [4, 4],
                 format: formats::RGBA8.to_string(),

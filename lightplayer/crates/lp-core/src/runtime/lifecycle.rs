@@ -18,7 +18,7 @@ pub trait NodeLifecycle {
     /// Update the node state
     ///
     /// Called each frame with a render context providing access to other nodes.
-    fn update(&mut self, ctx: &mut Self::RenderContext<'_>) -> Result<(), Error>;
+    fn render(&mut self, ctx: &mut Self::RenderContext<'_>) -> Result<(), Error>;
 
     /// Cleanup resources
     ///

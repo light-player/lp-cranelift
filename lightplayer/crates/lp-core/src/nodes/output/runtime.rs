@@ -107,7 +107,7 @@ impl NodeLifecycle for OutputNodeRuntime {
         }
     }
 
-    fn update(&mut self, _ctx: &mut Self::RenderContext<'_>) -> Result<(), Error> {
+    fn render(&mut self, _ctx: &mut Self::RenderContext<'_>) -> Result<(), Error> {
         // Read buffer and send to hardware via handle
         if let Some(ref mut handle) = self.handle {
             handle.write_pixels(&self.buffer)?;

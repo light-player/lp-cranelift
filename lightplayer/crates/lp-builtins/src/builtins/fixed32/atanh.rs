@@ -42,7 +42,7 @@ mod tests {
     #[cfg(test)]
     extern crate std;
     use super::*;
-    use crate::fixed32::test_helpers::test_fixed32_function_relative;
+    use crate::builtins::fixed32::test_helpers::test_fixed32_function_relative;
 
     #[test]
     fn test_atanh_basic() {

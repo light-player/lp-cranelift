@@ -6,7 +6,7 @@
 //! Or use the build script:
 //!     scripts/build-builtins.sh
 
-use lp_builtins::fixed32::{
+use lp_builtins::builtins::fixed32::{
     __lp_fixed32_acos,
     __lp_fixed32_acosh,
     __lp_fixed32_asin,

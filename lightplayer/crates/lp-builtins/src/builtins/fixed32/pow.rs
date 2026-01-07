@@ -84,15 +84,15 @@ mod tests {
     #[cfg(test)]
     extern crate std;
     use super::*;
-    use crate::fixed32::test_helpers::test_fixed32_function_relative;
+    use crate::builtins::fixed32::test_helpers::test_fixed32_function_relative;
 
     /// Test pow with 2-arg function
     fn test_pow_helper(inputs: &[(f32, f32, f32)], tolerance: f32, min_tolerance: f32) {
         for (x, y, expected) in inputs {
-            let x_fixed = crate::fixed32::test_helpers::float_to_fixed(*x);
-            let y_fixed = crate::fixed32::test_helpers::float_to_fixed(*y);
+            let x_fixed = crate::builtins::fixed32::test_helpers::float_to_fixed(*x);
+            let y_fixed = crate::builtins::fixed32::test_helpers::float_to_fixed(*y);
             let result_fixed = __lp_fixed32_pow(x_fixed, y_fixed);
-            let result_float = crate::fixed32::test_helpers::fixed_to_float(result_fixed);
+            let result_float = crate::builtins::fixed32::test_helpers::fixed_to_float(result_fixed);
 
             let abs_error = (result_float - expected).abs();
             let rel_tolerance = expected.abs() * tolerance;

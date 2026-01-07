@@ -160,7 +160,7 @@ impl NodeLifecycle for FixtureNodeRuntime {
         }
     }
 
-    fn update(&mut self, ctx: &mut Self::RenderContext<'_>) -> Result<(), Error> {
+    fn render(&mut self, ctx: &mut Self::RenderContext<'_>) -> Result<(), Error> {
         // Get texture (read-only) and sample all pixels first
         let texture = match ctx.get_texture(self.texture_id) {
             Some(tex) => tex,
@@ -412,7 +412,7 @@ mod tests {
         let mut ctx = FixtureRenderContext::new(frame_time, &textures, &mut outputs);
 
         // Update fixture
-        assert!(fixture_runtime.update(&mut ctx).is_ok());
+        assert!(fixture_runtime.render(&mut ctx).is_ok());
 
         // Check that output buffer was written
         let output = ctx.outputs.get_mut(&output_id).unwrap();
@@ -433,7 +433,7 @@ mod tests {
             HashMap::new();
         let mut ctx = FixtureRenderContext::new(frame_time, &textures, &mut outputs);
 
-        assert!(runtime.update(&mut ctx).is_err());
+        assert!(runtime.render(&mut ctx).is_err());
         assert!(matches!(runtime.status(), NodeStatus::Error { .. }));
     }
 
@@ -449,7 +449,7 @@ mod tests {
             HashMap::new();
         let mut ctx = FixtureRenderContext::new(frame_time, &textures, &mut outputs);
 
-        assert!(runtime.update(&mut ctx).is_err());
+        assert!(runtime.render(&mut ctx).is_err());
         assert!(matches!(runtime.status(), NodeStatus::Error { .. }));
     }
 }

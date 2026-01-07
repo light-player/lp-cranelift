@@ -55,7 +55,7 @@ mod tests {
     #[cfg(test)]
     extern crate std;
     use super::*;
-    use crate::fixed32::test_helpers::{fixed_to_float, float_to_fixed};
+    use crate::builtins::fixed32::test_helpers::{fixed_to_float, float_to_fixed};
 
     #[test]
     fn test_roundeven_halfway_even() {

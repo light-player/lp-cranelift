@@ -91,7 +91,11 @@ impl GlslJitModule {
                 let param_ty = sig.params[*arg_idx].value_type;
                 match param_ty {
                     types::F32 => args.push(v.to_bits() as u64),
-                    types::I32 => args.push(*v as i32 as u64), // Fixed-point
+                    types::I32 => {
+                        // Convert f32 to fixed-point i32 (Q16.16 format)
+                        let fixed = (*v * crate::frontend::codegen::constants::FIXED16X16_SCALE) as i32;
+                        args.push(fixed as u64);
+                    }
                     _ => {
                         return Err(GlslError::new(
                             ErrorCode::E0400,
@@ -141,7 +145,11 @@ impl GlslJitModule {
                     let param_ty = sig.params[*arg_idx].value_type;
                     match param_ty {
                         types::F32 => args.push(component.to_bits() as u64),
-                        types::I32 => args.push(*component as i32 as u64), // Fixed-point
+                        types::I32 => {
+                            // Convert f32 to fixed-point i32 (Q16.16 format)
+                            let fixed = (*component * crate::frontend::codegen::constants::FIXED16X16_SCALE) as i32;
+                            args.push(fixed as u64);
+                        }
                         _ => {
                             return Err(GlslError::new(
                                 ErrorCode::E0400,
@@ -168,7 +176,11 @@ impl GlslJitModule {
                     let param_ty = sig.params[*arg_idx].value_type;
                     match param_ty {
                         types::F32 => args.push(component.to_bits() as u64),
-                        types::I32 => args.push(*component as i32 as u64), // Fixed-point
+                        types::I32 => {
+                            // Convert f32 to fixed-point i32 (Q16.16 format)
+                            let fixed = (*component * crate::frontend::codegen::constants::FIXED16X16_SCALE) as i32;
+                            args.push(fixed as u64);
+                        }
                         _ => {
                             return Err(GlslError::new(
                                 ErrorCode::E0400,
@@ -195,7 +207,11 @@ impl GlslJitModule {
                     let param_ty = sig.params[*arg_idx].value_type;
                     match param_ty {
                         types::F32 => args.push(component.to_bits() as u64),
-                        types::I32 => args.push(*component as i32 as u64), // Fixed-point
+                        types::I32 => {
+                            // Convert f32 to fixed-point i32 (Q16.16 format)
+                            let fixed = (*component * crate::frontend::codegen::constants::FIXED16X16_SCALE) as i32;
+                            args.push(fixed as u64);
+                        }
                         _ => {
                             return Err(GlslError::new(
                                 ErrorCode::E0400,
@@ -1155,48 +1171,128 @@ impl GlslExecutable for GlslJitModule {
             ));
         }
 
-        // Use struct return for vectors (multiple f32s returned via pointer)
-        // Calculate buffer size in bytes
-        let buffer_size = dim * core::mem::size_of::<f32>();
-        let mut buffer = vec![0.0f32; dim];
-        
-        if jit_args.is_empty() {
-            // No arguments case - use simpler call
-            unsafe {
-                call_structreturn(
-                    *func_ptr,
-                    buffer.as_mut_ptr(),
-                    buffer_size,
-                    self.call_conv,
-                    self.pointer_type,
-                )
-                .map_err(|e| {
-                    GlslError::new(
-                        ErrorCode::E0400,
-                        format!("StructReturn call failed for vec{}: {}", dim, e),
-                    )
-                })?;
+        // Check return type: I32 means fixed-point, F32 means native float
+        // For struct return, we can't check the StructReturn parameter type (it's a pointer/I8)
+        // Instead, check the argument types - if arguments are I32, return is also I32 (Fixed32)
+        // Otherwise, check return registers if available
+        let return_type = if uses_struct_return {
+            // Check if any non-StructReturn parameter is I32 (indicates Fixed32 format)
+            let has_i32_params = sig.params.iter().skip(1).any(|p| {
+                p.purpose != ArgumentPurpose::StructReturn && p.value_type == types::I32
+            });
+            if has_i32_params {
+                types::I32 // Fixed-point
+            } else {
+                types::F32 // Native float (default)
             }
         } else {
-            // Has arguments - use call_structreturn_with_args
-            unsafe {
-                call_structreturn_with_args(
-                    *func_ptr,
-                    buffer.as_mut_ptr(),
-                    buffer_size,
-                    &jit_args,
-                    self.call_conv,
-                    self.pointer_type,
-                )
-                .map_err(|e| {
-                    GlslError::new(
-                        ErrorCode::E0400,
-                        format!("StructReturn call with args failed for vec{}: {}", dim, e),
+            // No struct return - check return registers (shouldn't happen for vec, but handle it)
+            sig.returns
+                .first()
+                .map(|r| r.value_type)
+                .unwrap_or(types::F32)
+        };
+
+        // Use struct return for vectors (multiple values returned via pointer)
+        // For fixed-point (I32), we need to use i32 buffer and convert to f32
+        // For native float (F32), use f32 buffer directly
+        let buffer_size = if return_type == types::I32 {
+            // Fixed-point: buffer contains i32 values
+            dim * core::mem::size_of::<i32>()
+        } else {
+            // Native float: buffer contains f32 values
+            dim * core::mem::size_of::<f32>()
+        };
+
+        if return_type == types::I32 {
+            // Fixed-point: use i32 buffer, then convert to f32
+            let mut i32_buffer = vec![0i32; dim];
+            
+            if jit_args.is_empty() {
+                // No arguments case - use simpler call
+                unsafe {
+                    call_structreturn(
+                        *func_ptr,
+                        i32_buffer.as_mut_ptr() as *mut u8,
+                        buffer_size,
+                        self.call_conv,
+                        self.pointer_type,
                     )
-                })?;
+                    .map_err(|e| {
+                        GlslError::new(
+                            ErrorCode::E0400,
+                            format!("StructReturn call failed for vec{}: {}", dim, e),
+                        )
+                    })?;
+                }
+            } else {
+                // Has arguments - use call_structreturn_with_args
+                unsafe {
+                    call_structreturn_with_args(
+                        *func_ptr,
+                        i32_buffer.as_mut_ptr() as *mut u8,
+                        buffer_size,
+                        &jit_args,
+                        self.call_conv,
+                        self.pointer_type,
+                    )
+                    .map_err(|e| {
+                        GlslError::new(
+                            ErrorCode::E0400,
+                            format!("StructReturn call with args failed for vec{}: {}", dim, e),
+                        )
+                    })?;
+                }
             }
+            
+            // Convert fixed-point i32 values to f32
+            let mut f32_buffer = Vec::with_capacity(dim);
+            for fixed_value in i32_buffer {
+                f32_buffer.push(fixed_value as f32 / crate::frontend::codegen::constants::FIXED16X16_SCALE);
+            }
+            Ok(f32_buffer)
+        } else {
+            // Native float: use f32 buffer directly
+            let mut buffer = vec![0.0f32; dim];
+            
+            if jit_args.is_empty() {
+                // No arguments case - use simpler call
+                unsafe {
+                    call_structreturn(
+                        *func_ptr,
+                        buffer.as_mut_ptr() as *mut u8,
+                        buffer_size,
+                        self.call_conv,
+                        self.pointer_type,
+                    )
+                    .map_err(|e| {
+                        GlslError::new(
+                            ErrorCode::E0400,
+                            format!("StructReturn call failed for vec{}: {}", dim, e),
+                        )
+                    })?;
+                }
+            } else {
+                // Has arguments - use call_structreturn_with_args
+                unsafe {
+                    call_structreturn_with_args(
+                        *func_ptr,
+                        buffer.as_mut_ptr() as *mut u8,
+                        buffer_size,
+                        &jit_args,
+                        self.call_conv,
+                        self.pointer_type,
+                    )
+                    .map_err(|e| {
+                        GlslError::new(
+                            ErrorCode::E0400,
+                            format!("StructReturn call with args failed for vec{}: {}", dim, e),
+                        )
+                    })?;
+                }
+            }
+            Ok(buffer)
         }
-        Ok(buffer)
     }
 
     fn call_mat(

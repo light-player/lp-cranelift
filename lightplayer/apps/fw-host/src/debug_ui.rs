@@ -206,9 +206,10 @@ pub fn render_texture(
             // Convert to egui image
             let color_image = texture_data_to_color_image(&data, width, height, format);
 
-            // Create texture handle (cached per frame)
+            // Create texture handle - egui will update if called with same name
+            let texture_name = format!("texture_{}", texture_id);
             let texture_handle: TextureHandle = ui.ctx().load_texture(
-                format!("texture_{}", texture_id),
+                texture_name,
                 color_image,
                 Default::default(),
             );
@@ -227,15 +228,15 @@ pub fn render_texture(
             ui.separator();
 
             // Display texture image
-            // Scale to fit available width, maintaining aspect ratio
+            // Scale to fit available width, max 8x native size, clamp to panel width
             let available_width = ui.available_width();
-            let scale = (available_width / width as f32).min(1.0);
+            let scale = (available_width / width as f32).min(8.0);
             let display_width = width as f32 * scale;
             let display_height = height as f32 * scale;
 
-            // Display texture image
             ui.add(
-                Image::new(&texture_handle).max_size(egui::Vec2::new(display_width, display_height))
+                Image::new(&texture_handle)
+                    .fit_to_exact_size(egui::Vec2::new(display_width, display_height))
             );
         }
     }
@@ -319,9 +320,10 @@ fn render_fixture(
                             });
                         let color_image = texture_data_to_color_image(&data, width, height, format);
 
-                        // Create texture handle
+                        // Create texture handle - egui will update if called with same name
+                        let texture_name = format!("fixture_{}_texture_{}", fixture_id, texture_id_u32);
                         let texture_handle: TextureHandle = ui.ctx().load_texture(
-                            format!("fixture_{}_texture_{}", fixture_id, texture_id_u32),
+                            texture_name,
                             color_image,
                             Default::default(),
                         );
@@ -331,15 +333,16 @@ fn render_fixture(
                         ui.label(format!("Size: {}x{}", width, height));
 
                         // Scale to fit available width
+                        // Max out at 8x native size, but clamp to panel width
                         let available_width = ui.available_width();
-                        let scale = (available_width / width as f32).min(1.0);
+                        let scale = (available_width / width as f32).min(8.0);
                         let display_width = width as f32 * scale;
                         let display_height = height as f32 * scale;
 
-                        // Display texture image with mapping overlay
+                        // Display texture image with mapping overlay - use fit_to_exact_size to force the size
                         let image_response = ui.add(
                             Image::new(&texture_handle)
-                                .max_size(egui::Vec2::new(display_width, display_height)),
+                                .fit_to_exact_size(egui::Vec2::new(display_width, display_height)),
                         );
 
                         // Draw mapping overlay for this fixture
