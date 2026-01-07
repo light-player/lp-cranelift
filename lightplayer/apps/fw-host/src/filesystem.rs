@@ -54,5 +54,10 @@ impl Filesystem for HostFilesystem {
         let full_path = self.get_path(path);
         Ok(full_path.exists())
     }
+
+    fn list_dir(&self, _path: &str) -> Result<Vec<String>, Error> {
+        // TODO: Implement in Phase 10
+        todo!("list_dir() will be implemented in Phase 10")
+    }
 }
 
