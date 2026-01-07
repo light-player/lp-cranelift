@@ -267,13 +267,14 @@ fn render_fixture(
     match fixture {
         FixtureNode::CircleList {
             output_id,
+            texture_id,
             channel_order,
             mapping,
         } => {
             // Display fixture metadata
             ui.group(|ui| {
                 ui.label(format!("Fixture ID: {}", fixture_id));
-                ui.label(format!("Output ID: {}", output_id));
+                ui.label(format!("Output ID: {}", u32::from(*output_id)));
                 ui.label(format!("Channel Order: {}", channel_order));
                 ui.label(format!("Mappings: {}", mapping.len()));
             });

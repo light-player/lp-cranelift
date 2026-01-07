@@ -2,9 +2,10 @@ mod app;
 mod debug_ui;
 mod filesystem;
 mod led_output;
+mod output_provider;
 mod transport;
 
-use app::LightPlayerApp as AppLogic;
+use app::FwHostApp as AppLogic;
 use debug_ui::{render_fixtures_panel, render_textures_panel};
 use eframe::egui;
 use filesystem::HostFilesystem;
@@ -12,6 +13,7 @@ use led_output::{render_leds, HostLedOutput};
 use lp_core::traits::{Filesystem, LedOutput, Transport};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use transport::HostTransport;
 
 fn main() -> eframe::Result<()> {
@@ -48,6 +50,7 @@ fn main() -> eframe::Result<()> {
                 app_logic,
                 led_output: led_output_viz,
                 selected_led: None,
+                last_frame_time: None,
             }))
         }),
     )
@@ -57,14 +60,28 @@ struct AppState {
     app_logic: AppLogic,
     led_output: HostLedOutput,
     selected_led: Option<usize>,
+    last_frame_time: Option<Instant>,
 }
 
 impl eframe::App for AppState {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Process incoming messages (non-blocking)
-        if let Err(e) = self.app_logic.process_messages() {
-            eprintln!("Error processing messages: {}", e);
+        // Calculate delta_ms from frame timestamps
+        let now = Instant::now();
+        let delta_ms = if let Some(last_time) = self.last_frame_time {
+            let delta = now.duration_since(last_time);
+            delta.as_millis().min(u32::MAX as u128) as u32
+        } else {
+            0 // First frame, no delta
+        };
+        self.last_frame_time = Some(now);
+
+        // Update runtime with tick() - processes messages and updates runtime
+        if let Err(e) = self.app_logic.tick(delta_ms) {
+            eprintln!("Error in tick: {}", e);
         }
+
+        // Request repaint to keep loop running
+        ctx.request_repaint();
 
         // Use a side panel for textures and main panel for LEDs
         egui::SidePanel::right("debug_panel")

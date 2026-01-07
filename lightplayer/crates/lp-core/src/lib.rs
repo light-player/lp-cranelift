@@ -2,6 +2,7 @@
 
 extern crate alloc;
 
+pub mod app;
 pub mod error;
 pub mod nodes;
 pub mod project;
