@@ -42,7 +42,7 @@ pub fn map_testcase_to_builtin(testcase_name: &str) -> Option<(BuiltinId, usize)
         "ldexpf" | "__lp_ldexp" => Some((BuiltinId::Fixed32Ldexp, 2)),
         "logf" | "__lp_log" => Some((BuiltinId::Fixed32Log, 1)),
         "log2f" | "__lp_log2" => Some((BuiltinId::Fixed32Log2, 1)),
-        "modf" | "__lp_mod" => Some((BuiltinId::Fixed32Mod, 2)),
+        "modf" | "fmodf" | "__lp_mod" => Some((BuiltinId::Fixed32Mod, 2)),
         "mulf" | "__lp_mul" => Some((BuiltinId::Fixed32Mul, 2)),
         "powf" | "__lp_pow" => Some((BuiltinId::Fixed32Pow, 2)),
         "roundf" | "__lp_round" => Some((BuiltinId::Fixed32Round, 1)),
