@@ -92,7 +92,7 @@ impl ProjectRuntime {
                 let _ = e;
             } else {
                 // Create LED output handle via OutputProvider
-                match output_provider.create_output(output_config) {
+                match output_provider.create_output(output_config, Some(output_id)) {
                     Ok(handle) => {
                         output_runtime.set_handle(handle);
                     }
@@ -335,6 +335,7 @@ mod tests {
         fn create_output(
             &self,
             _config: &OutputNode,
+            _output_id: Option<OutputId>,
         ) -> Result<alloc::boxed::Box<dyn LedOutput>, Error> {
             Ok(alloc::boxed::Box::new(MockLedOutput {
                 pixel_count: 100,

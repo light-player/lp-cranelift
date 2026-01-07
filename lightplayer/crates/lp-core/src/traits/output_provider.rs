@@ -1,6 +1,7 @@
 //! Output provider trait for creating LED output handles
 
 use crate::error::Error;
+use crate::nodes::id::OutputId;
 use crate::nodes::output::config::OutputNode;
 use crate::traits::LedOutput;
 
@@ -14,7 +15,13 @@ pub trait OutputProvider {
     /// For `GpioStrip`: configures GPIO pin from `config.gpio_pin`,
     /// sets up chip driver (ws2812, etc.), and returns a handle.
     ///
+    /// The `output_id` parameter is optional and can be used for tracking
+    /// outputs (e.g., in HostOutputProvider for UI display).
+    ///
     /// Returns an error if the output cannot be created.
-    fn create_output(&self, config: &OutputNode)
-    -> Result<alloc::boxed::Box<dyn LedOutput>, Error>;
+    fn create_output(
+        &self,
+        config: &OutputNode,
+        output_id: Option<OutputId>,
+    ) -> Result<alloc::boxed::Box<dyn LedOutput>, Error>;
 }
