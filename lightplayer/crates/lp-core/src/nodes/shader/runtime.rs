@@ -130,10 +130,14 @@ impl NodeLifecycle for ShaderNodeRuntime {
                         }
                     }
                     Err(e) => {
+                        // Format the error message - GlslError Display already includes
+                        // nice formatting with line numbers and carets if span_text is set
+                        let error_msg = format!("{}", e);
                         self.status = NodeStatus::Error {
-                            status_message: format!("Shader compilation failed: {}", e),
+                            status_message: format!("Shader compilation failed: {}", error_msg),
                         };
-                        Err(Error::Node(format!("Shader compilation failed: {}", e)))
+                        // Preserve the formatted error message (with newlines for span_text)
+                        Err(Error::Node(format!("Shader compilation failed: {}", error_msg)))
                     }
                 }
             }
