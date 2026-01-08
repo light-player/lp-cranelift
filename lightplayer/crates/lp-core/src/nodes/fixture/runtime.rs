@@ -117,6 +117,11 @@ impl FixtureNodeRuntime {
     pub fn status(&self) -> &NodeStatus {
         &self.status
     }
+
+    /// Get the fixture configuration
+    pub fn config(&self) -> &FixtureNode {
+        &self.config
+    }
 }
 
 impl Default for FixtureNodeRuntime {

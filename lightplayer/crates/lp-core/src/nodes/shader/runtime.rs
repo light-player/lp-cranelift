@@ -45,6 +45,11 @@ impl ShaderNodeRuntime {
     pub fn texture_id(&self) -> TextureId {
         self.texture_id.clone()
     }
+
+    /// Get the shader configuration
+    pub fn config(&self) -> &ShaderNode {
+        &self.config
+    }
 }
 
 impl Default for ShaderNodeRuntime {

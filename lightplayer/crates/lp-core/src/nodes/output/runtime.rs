@@ -63,6 +63,11 @@ impl OutputNodeRuntime {
     pub fn set_handle(&mut self, handle: alloc::boxed::Box<dyn LedOutput>) {
         self.handle = Some(handle);
     }
+
+    /// Get the output configuration
+    pub fn config(&self) -> &OutputNode {
+        &self.config
+    }
 }
 
 impl Default for OutputNodeRuntime {

@@ -43,6 +43,11 @@ impl TextureNodeRuntime {
     pub fn status(&self) -> &NodeStatus {
         &self.status
     }
+
+    /// Get the texture configuration
+    pub fn config(&self) -> &TextureNode {
+        &self.config
+    }
 }
 
 impl Default for TextureNodeRuntime {
