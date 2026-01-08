@@ -4,18 +4,14 @@ use egui::{Color32, ColorImage, Image, Painter, TextureHandle, Ui};
 use lp_core::fs::Filesystem;
 use lp_core::nodes::fixture::{FixtureNode, Mapping};
 use lp_core::nodes::shader::{ShaderNode, ShaderNodeRuntime};
-use lp_core::nodes::texture::{formats, TextureNode};
+use lp_core::nodes::texture::{TextureNode, formats};
 use lp_core::project::config::ProjectConfig;
 use lp_core::project::loader;
 use lp_core::project::runtime::ProjectRuntime;
 
 /// Generate placeholder texture data for visualization
 /// In the future, this will use actual shader-rendered data
-fn generate_placeholder_texture(
-    width: u32,
-    height: u32,
-    format: &str,
-) -> Vec<u8> {
+fn generate_placeholder_texture(width: u32, height: u32, format: &str) -> Vec<u8> {
     let bytes_per_pixel = formats::bytes_per_pixel(format).unwrap_or(3);
     let mut data = Vec::with_capacity((width * height * bytes_per_pixel as u32) as usize);
 
@@ -62,12 +58,7 @@ fn generate_placeholder_texture(
 
 /// Convert texture data to egui ColorImage
 #[allow(dead_code)]
-fn texture_data_to_color_image(
-    data: &[u8],
-    width: u32,
-    height: u32,
-    format: &str,
-) -> ColorImage {
+fn texture_data_to_color_image(data: &[u8], width: u32, height: u32, format: &str) -> ColorImage {
     let mut pixels = Vec::with_capacity((width * height) as usize);
 
     let bytes_per_pixel = formats::bytes_per_pixel(format).unwrap_or(3);
@@ -215,11 +206,9 @@ pub fn render_texture(
 
             // Create texture handle - egui will update if called with same name
             let texture_name = format!("texture_{}", texture_id);
-            let texture_handle: TextureHandle = ui.ctx().load_texture(
-                texture_name,
-                color_image,
-                Default::default(),
-            );
+            let texture_handle: TextureHandle =
+                ui.ctx()
+                    .load_texture(texture_name, color_image, Default::default());
 
             // Display metadata
             ui.group(|ui| {
@@ -243,7 +232,7 @@ pub fn render_texture(
 
             ui.add(
                 Image::new(&texture_handle)
-                    .fit_to_exact_size(egui::Vec2::new(display_width, display_height))
+                    .fit_to_exact_size(egui::Vec2::new(display_width, display_height)),
             );
         }
     }
@@ -270,7 +259,7 @@ pub fn render_textures_panel(
                     let config = texture_rt.config();
                     let texture = texture_rt.texture();
                     let texture_data = texture.data();
-                    
+
                     // Call the existing render_texture() helper function
                     render_texture(ui, &texture_id, config, Some(texture_data));
                     ui.separator();
@@ -323,11 +312,9 @@ fn render_fixture(
 
                     // Create texture handle
                     let texture_name = format!("fixture_{}_texture_{}", fixture_id, texture_id_str);
-                    let texture_handle: TextureHandle = ui.ctx().load_texture(
-                        texture_name,
-                        color_image,
-                        Default::default(),
-                    );
+                    let texture_handle: TextureHandle =
+                        ui.ctx()
+                            .load_texture(texture_name, color_image, Default::default());
 
                     // Display texture metadata
                     ui.label(format!("Texture ID: {}", texture_id_str));
@@ -388,7 +375,7 @@ pub fn render_fixtures_panel(
                 if let Some(fixture_rt) = rt.get_fixture(fixture_id_typed) {
                     // Get config and runtime
                     let config = fixture_rt.config();
-                    
+
                     // Call the existing render_fixture() helper function
                     render_fixture(ui, &fixture_id, config, project, Some(rt));
                     ui.separator();
@@ -468,7 +455,7 @@ pub fn render_shaders_panel(
                 if let Some(shader_rt) = rt.get_shader(shader_id_typed) {
                     // Get config and runtime
                     let config = shader_rt.config();
-                    
+
                     // Call the existing render_shader_panel() helper function
                     render_shader_panel(ui, &shader_id, config, Some(shader_rt));
                     ui.separator();
@@ -479,4 +466,3 @@ pub fn render_shaders_panel(
         ui.label("No runtime available");
     }
 }
-

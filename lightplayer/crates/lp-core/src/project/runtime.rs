@@ -1,14 +1,17 @@
 //! Project runtime - manages lifecycle of all nodes
 
-use alloc::{collections::BTreeMap, string::{String, ToString}};
+use alloc::{
+    collections::BTreeMap,
+    string::{String, ToString},
+};
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 use crate::nodes::id::{FixtureId, OutputId, ShaderId, TextureId};
 use crate::nodes::{
-    FixtureNode, FixtureNodeRuntime, OutputNode, OutputNodeRuntime, ShaderNode,
-    ShaderNodeRuntime, TextureNode, TextureNodeRuntime,
+    FixtureNode, FixtureNodeRuntime, OutputNode, OutputNodeRuntime, ShaderNode, ShaderNodeRuntime,
+    TextureNode, TextureNodeRuntime,
 };
 use crate::project::config::ProjectConfig;
 use crate::runtime::contexts::{
@@ -228,10 +231,22 @@ impl ProjectRuntime {
     /// Get the status for a node
     pub fn get_status(&self, node_type: NodeType, node_id: &str) -> Option<&NodeStatus> {
         match node_type {
-            NodeType::Output => self.outputs.get(&OutputId(node_id.to_string())).map(|r| r.status()),
-            NodeType::Texture => self.textures.get(&TextureId(node_id.to_string())).map(|r| r.status()),
-            NodeType::Shader => self.shaders.get(&ShaderId(node_id.to_string())).map(|r| r.status()),
-            NodeType::Fixture => self.fixtures.get(&FixtureId(node_id.to_string())).map(|r| r.status()),
+            NodeType::Output => self
+                .outputs
+                .get(&OutputId(node_id.to_string()))
+                .map(|r| r.status()),
+            NodeType::Texture => self
+                .textures
+                .get(&TextureId(node_id.to_string()))
+                .map(|r| r.status()),
+            NodeType::Shader => self
+                .shaders
+                .get(&ShaderId(node_id.to_string()))
+                .map(|r| r.status()),
+            NodeType::Fixture => self
+                .fixtures
+                .get(&FixtureId(node_id.to_string()))
+                .map(|r| r.status()),
         }
     }
 
@@ -311,7 +326,6 @@ pub enum NodeType {
     Shader,
     Fixture,
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -482,7 +496,10 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
                     panic!("Update failed but shader status is Ok: {:?}", e);
                 }
                 NodeStatus::Error { status_message } => {
-                    panic!("Update failed, shader error: {} (update error: {:?})", status_message, e);
+                    panic!(
+                        "Update failed, shader error: {} (update error: {:?})",
+                        status_message, e
+                    );
                 }
             }
         }
@@ -501,7 +518,7 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
 
         // Verify texture was updated with non-zero pixels
         let texture_after = runtime.get_texture(texture_id).unwrap();
-        
+
         // Check that at least some pixels are non-zero (shader executed)
         let mut found_non_zero = false;
         for y in 0..8 {
@@ -517,7 +534,7 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
                 break;
             }
         }
-        
+
         assert!(
             found_non_zero,
             "Shader should have written non-zero pixels to texture after update"

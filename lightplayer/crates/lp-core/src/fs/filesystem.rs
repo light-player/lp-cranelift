@@ -42,4 +42,3 @@ pub trait Filesystem {
     /// path prefix (e.g., listing `/src` might return `["/src/my-shader.shader", "/src/my-texture.texture"]`).
     fn list_dir(&self, path: &str) -> Result<alloc::vec::Vec<alloc::string::String>, Error>;
 }
-

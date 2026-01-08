@@ -5,4 +5,3 @@ pub mod memory;
 
 pub use filesystem::Filesystem;
 pub use memory::InMemoryFilesystem;
-

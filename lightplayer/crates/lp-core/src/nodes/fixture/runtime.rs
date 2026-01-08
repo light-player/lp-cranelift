@@ -141,7 +141,7 @@ impl NodeLifecycle for FixtureNodeRuntime {
     ) -> Result<(), Error> {
         // Store config
         self.config = config.clone();
-        
+
         match config {
             FixtureNode::CircleList {
                 output_id,
@@ -181,7 +181,10 @@ impl NodeLifecycle for FixtureNodeRuntime {
             Some(tex) => tex,
             None => {
                 self.status = NodeStatus::Error {
-                    status_message: format!("Texture {} not found", String::from(self.texture_id.clone())),
+                    status_message: format!(
+                        "Texture {} not found",
+                        String::from(self.texture_id.clone())
+                    ),
                 };
                 return Err(Error::Node(format!(
                     "Texture {} not found",
@@ -254,7 +257,10 @@ impl NodeLifecycle for FixtureNodeRuntime {
             }
             None => {
                 self.status = NodeStatus::Error {
-                    status_message: format!("Output {} not found", String::from(self.output_id.clone())),
+                    status_message: format!(
+                        "Output {} not found",
+                        String::from(self.output_id.clone())
+                    ),
                 };
                 return Err(Error::Node(format!(
                     "Output {} not found",

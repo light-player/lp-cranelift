@@ -16,7 +16,7 @@ impl HostTransport {
     /// Create a new host transport
     pub fn new() -> Self {
         let (tx, rx) = mpsc::channel();
-        
+
         // Spawn a background thread to read from stdin
         thread::spawn(move || {
             let stdin = BufReader::new(io::stdin());
@@ -31,7 +31,7 @@ impl HostTransport {
                 }
             }
         });
-        
+
         Self {
             stdout: io::stdout(),
             receiver: Some(rx),
@@ -69,12 +69,11 @@ impl Transport for HostTransport {
                     // No data available, return an error that indicates this
                     Err(Error::Protocol("No message available".to_string()))
                 }
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    Err(Error::Protocol("Stdin reader thread disconnected".to_string()))
-                }
+                Err(mpsc::TryRecvError::Disconnected) => Err(Error::Protocol(
+                    "Stdin reader thread disconnected".to_string(),
+                )),
             },
             None => Err(Error::Protocol("No receiver available".to_string())),
         }
     }
 }
-

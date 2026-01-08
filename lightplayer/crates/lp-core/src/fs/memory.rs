@@ -189,7 +189,8 @@ mod tests {
         let mut fs = InMemoryFilesystem::new();
         fs.write_file_mut("/src/file1.txt", b"content1").unwrap();
         fs.write_file_mut("/src/file2.txt", b"content2").unwrap();
-        fs.write_file_mut("/src/nested/file3.txt", b"content3").unwrap();
+        fs.write_file_mut("/src/nested/file3.txt", b"content3")
+            .unwrap();
         fs.write_file_mut("/other.txt", b"content").unwrap();
 
         let entries = fs.list_dir("/src").unwrap();

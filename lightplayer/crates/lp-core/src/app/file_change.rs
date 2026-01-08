@@ -23,4 +23,3 @@ pub struct FileChange {
     /// Type of change
     pub change_type: ChangeType,
 }
-

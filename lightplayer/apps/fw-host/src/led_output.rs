@@ -82,13 +82,11 @@ pub fn render_leds(
     // Constrain to available width
     let available_width = ui.available_width();
     let constrained_width = total_width.min(available_width);
-    
+
     // Allocate space for the LED grid
-    let allocated_size = egui::Vec2::new(
-        constrained_width,
-        total_height.min(ui.available_height())
-    );
-    
+    let allocated_size =
+        egui::Vec2::new(constrained_width, total_height.min(ui.available_height()));
+
     // Use scroll area with size constraints
     egui::ScrollArea::both()
         .max_width(available_width)
@@ -96,9 +94,10 @@ pub fn render_leds(
         .show(ui, |ui| {
             let (_id, rect) = ui.allocate_space(allocated_size);
             let painter = ui.painter().with_clip_rect(rect);
-            
+
             // Center the grid within allocated space
-            let start_x = rect.left() + (allocated_size.x - total_width.min(allocated_size.x)) / 2.0;
+            let start_x =
+                rect.left() + (allocated_size.x - total_width.min(allocated_size.x)) / 2.0;
             let start_y = rect.top() + (allocated_size.y - total_height) / 2.0;
 
             let mut y = start_y;
@@ -153,4 +152,3 @@ pub fn render_leds(
 
     None // No interaction
 }
-

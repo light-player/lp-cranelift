@@ -9,4 +9,3 @@ pub use file_change::{ChangeType, FileChange};
 pub use lp_app::LpApp;
 pub use messages::{MsgIn, MsgOut};
 pub use platform::Platform;
-

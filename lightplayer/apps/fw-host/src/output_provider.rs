@@ -37,7 +37,10 @@ impl HostOutputProvider {
     ) -> Result<Arc<Mutex<HostLedOutput>>, Error> {
         let output = self.create_host_output(config)?;
         let output_arc = Arc::new(Mutex::new(output));
-        self.outputs.lock().unwrap().insert(id, Arc::clone(&output_arc));
+        self.outputs
+            .lock()
+            .unwrap()
+            .insert(id, Arc::clone(&output_arc));
         Ok(output_arc)
     }
 
@@ -61,10 +64,7 @@ impl HostOutputProvider {
                 let bytes_per_pixel = match chip.as_str() {
                     "ws2812" | "ws2812b" => 3,
                     _ => {
-                        return Err(Error::Validation(format!(
-                            "Unknown chip type: {}",
-                            chip
-                        )));
+                        return Err(Error::Validation(format!("Unknown chip type: {}", chip)));
                     }
                 };
 
@@ -88,11 +88,14 @@ impl OutputProvider for HostOutputProvider {
         output_id: Option<OutputId>,
     ) -> Result<std::boxed::Box<dyn LedOutput>, Error> {
         let output = self.create_host_output(config)?;
-        
+
         // Track output if OutputId is provided
         if let Some(id) = output_id {
             let output_arc = Arc::new(Mutex::new(output));
-            self.outputs.lock().unwrap().insert(id, Arc::clone(&output_arc));
+            self.outputs
+                .lock()
+                .unwrap()
+                .insert(id, Arc::clone(&output_arc));
             // Return a wrapper that delegates to the tracked output
             Ok(std::boxed::Box::new(HostLedOutputWrapper {
                 inner: output_arc,
@@ -117,5 +120,3 @@ impl LedOutput for HostLedOutputWrapper {
         self.inner.lock().unwrap().get_pixel_count()
     }
 }
-
-

@@ -4,8 +4,8 @@ use lp_core::app::{ChangeType, FileChange};
 use lp_core::error::Error;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
 use std::sync::Mutex;
+use std::sync::mpsc;
 
 /// Filesystem watcher for a project directory
 pub struct FileWatcher {
@@ -35,10 +35,7 @@ impl FileWatcher {
         watcher
             .watch(&root_path, RecursiveMode::Recursive)
             .map_err(|e| {
-                Error::Filesystem(format!(
-                    "Failed to watch directory {:?}: {}",
-                    root_path, e
-                ))
+                Error::Filesystem(format!("Failed to watch directory {:?}: {}", root_path, e))
             })?;
 
         Ok(Self {
@@ -134,12 +131,12 @@ impl FileWatcher {
     fn should_include_path(&self, path: &str) -> bool {
         // Filter out common temporary/backup files
         let excluded_patterns = [
-            "~",           // Editor backup files
-            ".swp",        // Vim swap files
-            ".tmp",        // Temporary files
-            ".bak",        // Backup files
-            ".DS_Store",   // macOS metadata
-            "Thumbs.db",   // Windows thumbnail cache
+            "~",         // Editor backup files
+            ".swp",      // Vim swap files
+            ".tmp",      // Temporary files
+            ".bak",      // Backup files
+            ".DS_Store", // macOS metadata
+            "Thumbs.db", // Windows thumbnail cache
         ];
 
         // Check if path contains any excluded pattern
@@ -152,4 +149,3 @@ impl FileWatcher {
         true
     }
 }
-

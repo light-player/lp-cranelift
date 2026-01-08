@@ -22,4 +22,3 @@ impl Platform {
         Self { fs, output }
     }
 }
-

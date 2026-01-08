@@ -63,7 +63,7 @@ impl NodeLifecycle for TextureNodeRuntime {
     fn init(&mut self, config: &Self::Config, _ctx: &InitContext) -> Result<(), Error> {
         // Store config
         self.config = config.clone();
-        
+
         match config {
             TextureNode::Memory { size, format } => {
                 let [width, height] = *size;

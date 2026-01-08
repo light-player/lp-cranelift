@@ -69,7 +69,7 @@ impl NodeLifecycle for ShaderNodeRuntime {
     ) -> Result<(), Error> {
         // Store config
         self.config = config.clone();
-        
+
         match config {
             ShaderNode::Single { glsl, texture_id } => {
                 self.texture_id = texture_id.clone();

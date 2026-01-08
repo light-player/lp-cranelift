@@ -50,4 +50,3 @@ impl From<MsgIn> for crate::protocol::Command {
         }
     }
 }
-

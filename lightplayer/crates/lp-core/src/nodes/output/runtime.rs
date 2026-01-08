@@ -87,7 +87,7 @@ impl NodeLifecycle for OutputNodeRuntime {
     ) -> Result<(), Error> {
         // Store config
         self.config = config.clone();
-        
+
         match config {
             OutputNode::GpioStrip { chip, count, .. } => {
                 // Derive bytes_per_pixel from chip type
