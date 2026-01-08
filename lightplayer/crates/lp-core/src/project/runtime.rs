@@ -58,48 +58,53 @@ impl ProjectRuntime {
         fixtures: &BTreeMap<String, FixtureNode>,
         output_provider: &dyn OutputProvider,
     ) -> Result<(), Error> {
+        log::info!("Initializing runtime for project: {} ({})", config.name, config.uid);
         let init_ctx = InitContext::new(config, textures, shaders, outputs, fixtures);
 
         // Initialize textures
+        log::debug!("Initializing {} texture(s)", textures.len());
         for (id_str, texture_config) in textures {
             let texture_id = TextureId(id_str.clone());
             let mut texture_runtime = TextureNodeRuntime::new();
             if let Err(e) = texture_runtime.init(texture_config, &init_ctx) {
-                // Log error but continue - node status is set internally
-                let _ = e;
+                log::warn!("Failed to initialize texture {}: {}", id_str, e);
+                // Continue - node status is set internally
             }
             self.textures.insert(texture_id, texture_runtime);
         }
 
         // Initialize shaders
+        log::debug!("Initializing {} shader(s)", shaders.len());
         for (id_str, shader_config) in shaders {
             let shader_id = ShaderId(id_str.clone());
             let mut shader_runtime = ShaderNodeRuntime::new();
             if let Err(e) = shader_runtime.init(shader_config, &init_ctx) {
-                // Log error but continue - node status is set internally
-                let _ = e;
+                log::warn!("Failed to initialize shader {}: {}", id_str, e);
+                // Continue - node status is set internally
             }
             self.shaders.insert(shader_id, shader_runtime);
         }
 
         // Initialize fixtures
+        log::debug!("Initializing {} fixture(s)", fixtures.len());
         for (id_str, fixture_config) in fixtures {
             let fixture_id = FixtureId(id_str.clone());
             let mut fixture_runtime = FixtureNodeRuntime::new();
             if let Err(e) = fixture_runtime.init(fixture_config, &init_ctx) {
-                // Log error but continue - node status is set internally
-                let _ = e;
+                log::warn!("Failed to initialize fixture {}: {}", id_str, e);
+                // Continue - node status is set internally
             }
             self.fixtures.insert(fixture_id, fixture_runtime);
         }
 
         // Initialize outputs and create LED handles
+        log::debug!("Initializing {} output(s)", outputs.len());
         for (id_str, output_config) in outputs {
             let output_id = OutputId(id_str.clone());
             let mut output_runtime = OutputNodeRuntime::new();
             if let Err(e) = output_runtime.init(output_config, &init_ctx) {
-                // Log error but continue - node status is set internally
-                let _ = e;
+                log::warn!("Failed to initialize output {}: {}", id_str, e);
+                // Continue - node status is set internally
             } else {
                 // Create LED output handle via OutputProvider
                 match output_provider.create_output(output_config, Some(output_id.clone())) {
@@ -107,13 +112,21 @@ impl ProjectRuntime {
                         output_runtime.set_handle(handle);
                     }
                     Err(e) => {
-                        // Set error status but continue
-                        let _ = e;
+                        log::warn!("Failed to create output handle for {}: {}", id_str, e);
+                        // Continue
                     }
                 }
             }
             self.outputs.insert(output_id, output_runtime);
         }
+
+        log::info!(
+            "Runtime initialized: {} texture(s), {} shader(s), {} fixture(s), {} output(s)",
+            self.textures.len(),
+            self.shaders.len(),
+            self.fixtures.len(),
+            self.outputs.len()
+        );
 
         Ok(())
     }

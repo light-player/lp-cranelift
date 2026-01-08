@@ -3109,6 +3109,7 @@ name = "lp-core"
 version = "40.0.0"
 dependencies = [
  "hashbrown 0.15.5",
+ "log",
  "lp-glsl",
  "serde",
  "serde_json",

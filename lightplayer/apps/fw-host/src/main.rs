@@ -23,6 +23,23 @@ use std::time::Instant;
 use transport::HostTransport;
 use watcher::FileWatcher;
 
+/// Simple logger for host firmware that prints to stderr
+struct HostLogger;
+
+impl log::Log for HostLogger {
+    fn enabled(&self, _metadata: &log::Metadata) -> bool {
+        true
+    }
+
+    fn log(&self, record: &log::Record) {
+        eprintln!("[{}] {}", record.level(), record.args());
+    }
+
+    fn flush(&self) {
+        // No-op for stderr
+    }
+}
+
 /// Wrapper around HostOutputProvider to use it as a trait object
 struct HostOutputProviderWrapper {
     inner: Arc<HostOutputProvider>,

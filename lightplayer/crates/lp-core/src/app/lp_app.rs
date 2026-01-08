@@ -52,6 +52,8 @@ impl LpApp {
     /// and loads it.
     ///
     pub fn load_project(&mut self, _path: &str) -> Result<(), Error> {
+        log::info!("Loading project from /project.json");
+
         // Destroy existing runtime if present
         if let Some(mut runtime) = self.runtime.take() {
             let _ = runtime.destroy();
@@ -62,6 +64,7 @@ impl LpApp {
             loader::load_from_filesystem(self.platform.fs.as_ref())?
         } else {
             // Create default project
+            log::warn!("project.json not found, creating default project");
             let default_config = Self::create_default_project();
 
             // Save default project to filesystem
@@ -73,6 +76,8 @@ impl LpApp {
 
             default_config
         };
+
+        log::info!("Project config loaded: {} ({})", config.name, config.uid);
 
         // Load all nodes from filesystem
         let (textures, shaders, outputs, fixtures) =
@@ -95,6 +100,7 @@ impl LpApp {
         self.config = Some(config);
         self.runtime = Some(runtime);
 
+        log::info!("Project loaded successfully");
         Ok(())
     }
 
@@ -198,9 +204,16 @@ impl LpApp {
     }
 
     fn handle_file_changes_impl(&mut self, changes: &[FileChange]) -> Result<(), Error> {
+        if changes.is_empty() {
+            return Ok(());
+        }
+
+        log::info!("Processing {} file change(s)", changes.len());
+
         // Check if project.json changed - if so, reload entire project
         let project_json_changed = changes.iter().any(|c| c.path == "/project.json");
         if project_json_changed {
+            log::info!("project.json changed, reloading entire project");
             return self.load_project("/project.json");
         }
 
@@ -211,8 +224,11 @@ impl LpApp {
 
         if !has_node_changes {
             // No node changes, nothing to do
+            log::debug!("No node file changes detected");
             return Ok(());
         }
+
+        log::info!("Node file changes detected, reloading nodes");
 
         // Reload all nodes and reinitialize runtime
         // This ensures consistency since InitContext needs all nodes
@@ -231,16 +247,20 @@ impl LpApp {
 
         // Create new runtime and initialize with reloaded nodes
         let mut runtime = ProjectRuntime::new(config.uid.clone());
-        runtime.init(
+        if let Err(e) = runtime.init(
             config,
             &textures,
             &shaders,
             &outputs,
             &fixtures,
             self.platform.output.as_ref(),
-        )?;
+        ) {
+            log::warn!("Failed to reinitialize runtime after reload: {}", e);
+            return Err(e);
+        }
 
         self.runtime = Some(runtime);
+        log::info!("Nodes reloaded successfully");
 
         Ok(())
     }

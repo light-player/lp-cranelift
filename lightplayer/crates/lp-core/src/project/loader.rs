@@ -11,6 +11,7 @@ use alloc::{collections::BTreeMap, format, string::String, string::ToString, vec
 /// Reads `/project.json` to get the top-level project configuration.
 /// Node discovery is handled separately via `discover_nodes()`.
 pub fn load_from_filesystem(fs: &dyn Filesystem) -> Result<ProjectConfig, Error> {
+    log::debug!("Reading project.json");
     // Read project.json
     let project_json = fs.read_file("/project.json")?;
     let project_str = core::str::from_utf8(&project_json)
@@ -20,6 +21,7 @@ pub fn load_from_filesystem(fs: &dyn Filesystem) -> Result<ProjectConfig, Error>
     let config: ProjectConfig = serde_json::from_str(project_str)
         .map_err(|e| Error::Serialization(format!("Failed to parse project.json: {}", e)))?;
 
+    log::info!("Project config loaded: {} ({})", config.name, config.uid);
     Ok(config)
 }
 
@@ -31,8 +33,10 @@ pub fn load_from_filesystem(fs: &dyn Filesystem) -> Result<ProjectConfig, Error>
 /// Returns a list of node IDs (full paths from project root with leading slash,
 /// e.g., `["/src/my-shader.shader", "/src/nested/effects/rainbow.shader"]`).
 pub fn discover_nodes(fs: &dyn Filesystem) -> Result<Vec<String>, Error> {
+    log::debug!("Discovering nodes in /src");
     let mut nodes = Vec::new();
     discover_nodes_recursive(fs, "/src", &mut nodes)?;
+    log::info!("Discovered {} node(s)", nodes.len());
     Ok(nodes)
 }
 
@@ -113,6 +117,7 @@ pub enum NodeConfig {
 ///
 /// Returns the node ID (full path) and the node configuration.
 pub fn load_node(fs: &dyn Filesystem, node_path: &str) -> Result<(String, NodeConfig), Error> {
+    log::debug!("Loading node: {}", node_path);
     // Validate node path format
     let node_id = extract_node_id(node_path)
         .ok_or_else(|| Error::Validation(format!("Invalid node path: {}", node_path)))?;
@@ -189,6 +194,7 @@ pub fn load_node(fs: &dyn Filesystem, node_path: &str) -> Result<(String, NodeCo
                 TextureNode::Memory { .. } => {}
             }
 
+            log::debug!("Loaded texture node: {}", node_id);
             NodeConfig::Texture(texture)
         }
         "output" => {
@@ -200,6 +206,7 @@ pub fn load_node(fs: &dyn Filesystem, node_path: &str) -> Result<(String, NodeCo
                 OutputNode::GpioStrip { .. } => {}
             }
 
+            log::debug!("Loaded output node: {}", node_id);
             NodeConfig::Output(output)
         }
         "fixture" => {
@@ -211,6 +218,7 @@ pub fn load_node(fs: &dyn Filesystem, node_path: &str) -> Result<(String, NodeCo
                 FixtureNode::CircleList { .. } => {}
             }
 
+            log::debug!("Loaded fixture node: {}", node_id);
             NodeConfig::Fixture(fixture)
         }
         _ => unreachable!(),
@@ -244,7 +252,13 @@ pub fn load_all_nodes(
 
     // Load each node
     for node_path in node_paths {
-        let (node_id, node_config) = load_node(fs, &node_path)?;
+        let (node_id, node_config) = match load_node(fs, &node_path) {
+            Ok(result) => result,
+            Err(e) => {
+                log::warn!("Failed to load node {}: {}", node_path, e);
+                continue;
+            }
+        };
 
         match node_config {
             NodeConfig::Texture(texture) => {
