@@ -227,29 +227,29 @@ fn main() -> eframe::Result<()> {
         let mut fs = InMemoryFilesystem::new();
 
         // Create sample project in memory
-        fs.write_file("/project.json", br#"{"uid":"test","name":"Test Project"}"#)
+        fs.write_file_mut("/project.json", br#"{"uid":"test","name":"Test Project"}"#)
             .unwrap();
-        fs.write_file(
+        fs.write_file_mut(
             "/src/texture.texture/node.json",
             br#"{"$type":"Memory","size":[64,64],"format":"RGB8"}"#,
         )
         .unwrap();
-        fs.write_file(
+        fs.write_file_mut(
             "/src/shader.shader/node.json",
             br#"{"$type":"Single","texture_id":"/src/texture.texture"}"#,
         )
         .unwrap();
-        fs.write_file(
+        fs.write_file_mut(
             "/src/shader.shader/main.glsl",
             b"vec4 main(vec2 fragCoord, vec2 outputSize, float time) { return vec4(1.0, 0.0, 0.0, 1.0); }",
         )
         .unwrap();
-        fs.write_file(
+        fs.write_file_mut(
             "/src/output.output/node.json",
             br#"{"$type":"gpio_strip","chip":"ws2812","gpio_pin":4,"count":128}"#,
         )
         .unwrap();
-        fs.write_file(
+        fs.write_file_mut(
             "/src/fixture.fixture/node.json",
             br#"{"$type":"circle-list","output_id":"/src/output.output","texture_id":"/src/texture.texture","channel_order":"rgb","mapping":[]}"#,
         )

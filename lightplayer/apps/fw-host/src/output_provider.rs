@@ -29,6 +29,7 @@ impl HostOutputProvider {
     ///
     /// This is a convenience method that creates an output and tracks it.
     /// The trait implementation calls this internally when possible.
+    #[allow(dead_code)]
     pub fn create_and_track_output(
         &self,
         id: OutputId,
@@ -41,6 +42,7 @@ impl HostOutputProvider {
     }
 
     /// Get an output by ID
+    #[allow(dead_code)]
     pub fn get_output(&self, id: OutputId) -> Option<Arc<Mutex<HostLedOutput>>> {
         self.outputs.lock().unwrap().get(&id).map(Arc::clone)
     }

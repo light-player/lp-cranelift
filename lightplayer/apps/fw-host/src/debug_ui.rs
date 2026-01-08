@@ -2,7 +2,6 @@
 
 use egui::{Color32, ColorImage, Image, Painter, TextureHandle, Ui};
 use lp_core::nodes::fixture::{FixtureNode, Mapping};
-use lp_core::nodes::id::{ShaderId, TextureId};
 use lp_core::nodes::shader::{ShaderNode, ShaderNodeRuntime};
 use lp_core::nodes::texture::{formats, TextureNode};
 use lp_core::project::config::ProjectConfig;
@@ -60,6 +59,7 @@ fn generate_placeholder_texture(
 }
 
 /// Convert texture data to egui ColorImage
+#[allow(dead_code)]
 fn texture_data_to_color_image(
     data: &[u8],
     width: u32,
@@ -108,6 +108,7 @@ fn texture_data_to_color_image(
 }
 
 /// Generate a color for a fixture based on its ID
+#[allow(dead_code)]
 fn fixture_color(fixture_id: &str) -> Color32 {
     // Generate distinct colors for different fixtures
     // Hash the string ID to get a consistent number
@@ -118,6 +119,7 @@ fn fixture_color(fixture_id: &str) -> Color32 {
 }
 
 /// Convert HSV to RGB (simple approximation)
+#[allow(dead_code)]
 fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
     let c = v * s;
     let x = c * (1.0 - ((h * 6.0) % 2.0 - 1.0).abs());
@@ -145,6 +147,7 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
 }
 
 /// Draw mapping overlay on a texture
+#[allow(dead_code)]
 fn draw_mapping_overlay(
     painter: &Painter,
     texture_rect: egui::Rect,
@@ -188,6 +191,7 @@ fn draw_mapping_overlay(
 }
 
 /// Render texture visualization in egui (without mappings)
+#[allow(dead_code)]
 pub fn render_texture(
     ui: &mut Ui,
     texture_id: &str,
@@ -247,7 +251,7 @@ pub fn render_texture(
 /// Render all textures in a debug panel
 pub fn render_textures_panel(
     ui: &mut Ui,
-    project: &ProjectConfig,
+    _project: &ProjectConfig,
     runtime: Option<&ProjectRuntime>,
 ) {
     ui.heading("Textures");
@@ -264,11 +268,12 @@ pub fn render_textures_panel(
 }
 
 /// Render a fixture with its texture and mapping overlay
+#[allow(dead_code)]
 fn render_fixture(
     ui: &mut Ui,
     fixture_id: &str,
     fixture: &FixtureNode,
-    project: &ProjectConfig,
+    _project: &ProjectConfig,
     runtime: Option<&ProjectRuntime>,
 ) {
     match fixture {
@@ -353,8 +358,8 @@ fn render_fixture(
 /// Render all fixtures in a debug panel
 pub fn render_fixtures_panel(
     ui: &mut Ui,
-    project: &ProjectConfig,
-    runtime: Option<&ProjectRuntime>,
+    _project: &ProjectConfig,
+    _runtime: Option<&ProjectRuntime>,
 ) {
     ui.heading("Fixtures");
     ui.separator();
@@ -364,6 +369,7 @@ pub fn render_fixtures_panel(
 }
 
 /// Render shader code and errors
+#[allow(dead_code)]
 pub fn render_shader_panel(
     ui: &mut Ui,
     shader_id: &str,
@@ -415,8 +421,8 @@ pub fn render_shader_panel(
 /// Render all shaders in a debug panel
 pub fn render_shaders_panel(
     ui: &mut Ui,
-    project: &ProjectConfig,
-    runtime: Option<&ProjectRuntime>,
+    _project: &ProjectConfig,
+    _runtime: Option<&ProjectRuntime>,
 ) {
     ui.heading("Shaders");
     ui.separator();

@@ -3,7 +3,7 @@
 use lp_core::error::Error;
 use lp_core::fs::Filesystem;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Host filesystem implementation using std::fs
 ///

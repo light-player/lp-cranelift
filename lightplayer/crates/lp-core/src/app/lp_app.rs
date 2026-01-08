@@ -6,7 +6,6 @@ use crate::project::{config::ProjectConfig, loader, runtime::ProjectRuntime};
 use alloc::{
     format,
     string::{String, ToString},
-    vec::Vec,
 };
 
 /// LightPlayer Application
@@ -374,10 +373,10 @@ mod tests {
         app.load_project("/project.json").unwrap();
 
         // Modify shader GLSL file
-        let changes = vec![FileChange {
+        let changes = alloc::vec::Vec::from([FileChange {
             path: "/src/shader.shader/main.glsl".to_string(),
             change_type: ChangeType::Modify,
-        }];
+        }]);
 
         // Should reload nodes
         assert!(app.handle_file_changes(&changes).is_ok());
