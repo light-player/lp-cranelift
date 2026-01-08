@@ -62,7 +62,7 @@ impl FileWatcher {
                     }
                 }
                 Err(e) => {
-                    eprintln!("Filesystem watcher error: {}", e);
+                    log::error!("Filesystem watcher error: {}", e);
                 }
             }
         }

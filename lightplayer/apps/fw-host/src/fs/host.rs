@@ -21,8 +21,8 @@ impl HostFilesystem {
     pub fn new(root_path: PathBuf) -> Self {
         // Ensure the root directory exists
         if let Err(e) = fs::create_dir_all(&root_path) {
-            eprintln!(
-                "Warning: Failed to create root directory {:?}: {}",
+            log::warn!(
+                "Failed to create root directory {:?}: {}",
                 root_path, e
             );
         }

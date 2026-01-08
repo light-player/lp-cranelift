@@ -83,14 +83,14 @@ fn collect_messages(transport: &Arc<Mutex<dyn Transport>>) -> Vec<MsgIn> {
                     messages.push(msg_in);
                 }
                 Err(e) => {
-                    eprintln!("Warning: Failed to parse command: {}", e);
+                    log::warn!("Failed to parse command: {}", e);
                     break; // Stop on parse error
                 }
             },
             Err(e) => {
                 // "No message available" means no more messages
                 if !e.to_string().contains("No message available") {
-                    eprintln!("Error receiving message: {}", e);
+                    log::warn!("Error receiving message: {}", e);
                 }
                 break;
             }
@@ -331,13 +331,13 @@ fn create_project(project_dir: &Path) -> Result<(), Error> {
     // Create test project files (texture, shader, output, fixture)
     create_test_project_files(project_dir)?;
 
-    println!("Created new project in {:?}", project_dir);
-    println!("  - project.json");
-    println!("  - src/");
-    println!("  - src/texture.texture/");
-    println!("  - src/shader.shader/");
-    println!("  - src/output.output/");
-    println!("  - src/fixture.fixture/");
+    log::info!("Created new project in {:?}", project_dir);
+    log::info!("  - project.json");
+    log::info!("  - src/");
+    log::info!("  - src/texture.texture/");
+    log::info!("  - src/shader.shader/");
+    log::info!("  - src/output.output/");
+    log::info!("  - src/fixture.fixture/");
 
     Ok(())
 }
@@ -364,7 +364,7 @@ fn main() -> eframe::Result<()> {
 
         match create_project(project_dir) {
             Ok(()) => {
-                println!("Project created successfully!");
+                log::info!("Project created successfully!");
                 // Continue running the app
             }
             Err(e) => {
@@ -471,8 +471,8 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
         )
         .unwrap();
 
-        println!("Running in testing mode (in-memory filesystem with sample project)");
-        println!("Use --project-dir <path> to use a real project directory");
+        log::info!("Running in testing mode (in-memory filesystem with sample project)");
+        log::info!("Use --project-dir <path> to use a real project directory");
 
         let fs_box: Box<dyn Filesystem> = Box::new(fs);
         (fs_box, PathBuf::from("."), false)
@@ -500,13 +500,13 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
             // Success
         }
         Ok(Err(e)) => {
-            eprintln!("Failed to load project: {}", e);
+            log::error!("Failed to load project: {}", e);
         }
         Err(_) => {
-            eprintln!(
+            log::warn!(
                 "Project loading panicked (possibly due to unimplemented platform features in cranelift)"
             );
-            eprintln!("This is a known issue on macOS - shader compilation may not work");
+            log::warn!("This is a known issue on macOS - shader compilation may not work");
             // Continue anyway - the app will show errors in the debug UI
         }
     }
@@ -515,12 +515,12 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
     let file_watcher = if use_watcher {
         match FileWatcher::watch_project(project_root) {
             Ok(watcher) => {
-                eprintln!("Filesystem watcher initialized");
+                log::info!("Filesystem watcher initialized");
                 Some(watcher)
             }
             Err(e) => {
-                eprintln!("Warning: Failed to initialize filesystem watcher: {}", e);
-                eprintln!("File changes will not be detected automatically");
+                log::warn!("Failed to initialize filesystem watcher: {}", e);
+                log::warn!("File changes will not be detected automatically");
                 None
             }
         }
@@ -609,7 +609,7 @@ impl eframe::App for AppState {
         // Log file changes if any
         if !file_changes.is_empty() {
             for change in &file_changes {
-                eprintln!("File change: {:?} - {}", change.change_type, change.path);
+                log::debug!("File change: {:?} - {}", change.change_type, change.path);
             }
         }
 
@@ -621,11 +621,11 @@ impl eframe::App for AppState {
             Ok(outgoing) => {
                 // Handle outgoing messages
                 if let Err(e) = handle_outgoing_messages(outgoing, &self.transport) {
-                    eprintln!("Error handling outgoing messages: {}", e);
+                    log::error!("Error handling outgoing messages: {}", e);
                 }
             }
             Err(e) => {
-                eprintln!("Error in tick: {}", e);
+                log::error!("Error in tick: {}", e);
             }
         }
 
