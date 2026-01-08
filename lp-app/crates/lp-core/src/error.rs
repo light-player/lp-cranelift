@@ -1,6 +1,6 @@
 //! Error types for lp-core
 
-use alloc::{string::String, vec::Vec};
+use alloc::string::String;
 use core::fmt;
 
 /// Error type for lp-core operations

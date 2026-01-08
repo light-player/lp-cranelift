@@ -66,7 +66,6 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/math/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/misc/component-async-tests/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/misc/component-async-tests/tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/crates/runtime-embive/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/slab/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/test-macros/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/test-programs/artifacts/src" isTestSource="false" />
@@ -127,17 +126,17 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/winch/codegen/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-app/apps/fw-host/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/embive-program/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/embive-program/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/esp32-glsl-jit/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/esp32c3-jit-test/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/fw-host/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/lp-builtin-gen/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/lp-builtins-app/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/lp-test/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/test-structreturn/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-builtins/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-filetests-gen/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-glsl-builtins-src/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-glsl-builtins-tool/src" isTestSource="false" />
@@ -154,6 +153,7 @@
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-riscv-tools/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-riscv-tools/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-riscv-tools/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/runtime-embive/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/lp-toy-lang/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/lp-toy-lang/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
