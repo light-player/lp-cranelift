@@ -531,7 +531,7 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
 
         // Verify texture was updated with non-zero pixels
         let texture_after = runtime.get_texture(texture_id).unwrap();
-
+        
         // Check that at least some pixels are non-zero (shader executed)
         let mut found_non_zero = false;
         for y in 0..8 {
@@ -547,7 +547,7 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
                 break;
             }
         }
-
+        
         assert!(
             found_non_zero,
             "Shader should have written non-zero pixels to texture after update"
