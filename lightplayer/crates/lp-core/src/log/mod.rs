@@ -3,11 +3,9 @@
 //! This module provides a simple logger implementation that can be used
 //! in both std and no_std environments. Firmware (fw-host, device) is
 //! responsible for initializing the logger with platform-specific output.
-
-use log::LevelFilter;
-
-// Note: The `log` crate will silently discard logs if no logger is set,
-// which is the safe default behavior.
+//!
+//! Note: The `log` crate will silently discard logs if no logger is set,
+//! which is the safe default behavior.
 
 #[cfg(test)]
 mod test_logger {
