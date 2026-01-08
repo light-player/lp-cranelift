@@ -42,15 +42,11 @@ impl log::Log for HostLogger {
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
             let message = format!("{}", record.args());
-            // Split multi-line messages and indent continuation lines
-            let lines: Vec<&str> = message.lines().collect();
-            if lines.is_empty() {
-                eprintln!("[{}] {}", record.level(), message);
-            } else {
-                eprintln!("[{}] {}", record.level(), lines[0]);
-                for line in lines.iter().skip(1) {
-                    eprintln!("         {}", line);
-                }
+            // For multi-line messages, preserve the original formatting
+            // Errors like GlslError already have proper formatting with line numbers
+            // and carets, so we just print each line as-is
+            for line in message.lines() {
+                eprintln!("[{}] {}", record.level(), line);
             }
         }
     }
