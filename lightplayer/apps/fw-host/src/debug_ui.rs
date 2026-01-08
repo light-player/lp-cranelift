@@ -253,9 +253,9 @@ pub fn render_textures_panel(
     ui.heading("Textures");
     ui.separator();
 
-    // TODO: Update in Phase 7 to get textures from ProjectLoader
-    // For now, show textures from runtime if available
-    if let Some(rt) = runtime {
+    // Note: ProjectLoader is implemented, but debug UI needs runtime data
+    // For now, show placeholder message since we can't easily get node configs from runtime
+    if let Some(_rt) = runtime {
         // Get textures from runtime (we'll need to add a method to list texture IDs)
         ui.label("Textures will be displayed once ProjectLoader is implemented");
     } else {
@@ -289,9 +289,8 @@ fn render_fixture(
             ui.separator();
 
             // Show texture with mapping overlay
-            // TODO: Update in Phase 7 to get texture config from ProjectLoader
+            // Note: ProjectLoader is implemented, but we get texture data from runtime
             // Display texture with this fixture's mappings overlaid
-            // TODO: Update in Phase 7 to get texture config from ProjectLoader
             // For now, get texture data from runtime if available
             let texture_id_str: String = texture_id.clone().into();
             if let Some(rt) = runtime {
@@ -360,8 +359,8 @@ pub fn render_fixtures_panel(
     ui.heading("Fixtures");
     ui.separator();
 
-    // TODO: Update in Phase 7 to get fixtures from ProjectLoader
-    ui.label("Fixtures will be displayed once ProjectLoader is implemented");
+    // Note: ProjectLoader is implemented, but debug UI needs to be updated to show fixtures from runtime
+    ui.label("Fixtures will be displayed once debug UI is updated to use runtime data");
 }
 
 /// Render shader code and errors
@@ -422,7 +421,7 @@ pub fn render_shaders_panel(
     ui.heading("Shaders");
     ui.separator();
 
-    // TODO: Update in Phase 7 to get shaders from ProjectLoader
-    ui.label("Shaders will be displayed once ProjectLoader is implemented");
+    // Note: ProjectLoader is implemented, but debug UI needs to be updated to show shaders from runtime
+    ui.label("Shaders will be displayed once debug UI is updated to use runtime data");
 }
 

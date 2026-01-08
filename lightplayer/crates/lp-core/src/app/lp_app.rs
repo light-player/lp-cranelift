@@ -52,7 +52,6 @@ impl LpApp {
     /// If the project file doesn't exist, creates a default project, saves it,
     /// and loads it.
     ///
-    /// Note: Node loading from filesystem will be implemented in Phase 8.
     pub fn load_project(&mut self, _path: &str) -> Result<(), Error> {
         // Destroy existing runtime if present
         if let Some(mut runtime) = self.runtime.take() {

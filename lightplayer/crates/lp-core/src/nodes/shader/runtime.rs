@@ -11,7 +11,6 @@ use alloc::{
     string::{String, ToString},
     vec,
 };
-use lp_glsl::backend::host::__host_println;
 use lp_glsl::frontend::semantic::types::Type;
 use lp_glsl::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode, glsl_jit};
 

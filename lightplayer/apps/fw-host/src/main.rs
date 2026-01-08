@@ -125,14 +125,24 @@ fn parse_args() -> CliArgs {
                 println!("Usage: fw-host [OPTIONS]");
                 println!();
                 println!("Options:");
-                println!("  -p, --project-dir <path>  Specify project directory (default: in-memory testing mode)");
-                println!("  -c, --create              Create new project structure in specified directory");
+                println!(
+                    "  -p, --project-dir <path>  Specify project directory (default: in-memory testing mode)"
+                );
+                println!(
+                    "  -c, --create              Create new project structure in specified directory"
+                );
                 println!("  -h, --help                Show this help message");
                 println!();
                 println!("Examples:");
-                println!("  fw-host                                    # Run in testing mode (in-memory filesystem)");
-                println!("  fw-host --project-dir ./my-project       # Use project in ./my-project directory");
-                println!("  fw-host --project-dir ./new-project --create  # Create new project in ./new-project");
+                println!(
+                    "  fw-host                                    # Run in testing mode (in-memory filesystem)"
+                );
+                println!(
+                    "  fw-host --project-dir ./my-project       # Use project in ./my-project directory"
+                );
+                println!(
+                    "  fw-host --project-dir ./new-project --create  # Create new project in ./new-project"
+                );
                 std::process::exit(0);
             }
             arg => {
@@ -143,31 +153,34 @@ fn parse_args() -> CliArgs {
         }
     }
 
-    CliArgs { project_dir, create }
+    CliArgs {
+        project_dir,
+        create,
+    }
 }
 
 /// Create a new project structure in the specified directory
 fn create_project(project_dir: &Path) -> Result<(), Error> {
     // Create project directory if it doesn't exist
     std_fs::create_dir_all(project_dir).map_err(|e| {
-        Error::Filesystem(format!("Failed to create project directory {:?}: {}", project_dir, e))
+        Error::Filesystem(format!(
+            "Failed to create project directory {:?}: {}",
+            project_dir, e
+        ))
     })?;
 
     // Create project.json with default config
     let default_config = LpApp::create_default_project();
     let project_json_path = project_dir.join("project.json");
-    let json = serde_json::to_string_pretty(&default_config).map_err(|e| {
-        Error::Serialization(format!("Failed to serialize project config: {}", e))
-    })?;
-    std_fs::write(&project_json_path, json.as_bytes()).map_err(|e| {
-        Error::Filesystem(format!("Failed to write project.json: {}", e))
-    })?;
+    let json = serde_json::to_string_pretty(&default_config)
+        .map_err(|e| Error::Serialization(format!("Failed to serialize project config: {}", e)))?;
+    std_fs::write(&project_json_path, json.as_bytes())
+        .map_err(|e| Error::Filesystem(format!("Failed to write project.json: {}", e)))?;
 
     // Create src/ directory
     let src_dir = project_dir.join("src");
-    std_fs::create_dir_all(&src_dir).map_err(|e| {
-        Error::Filesystem(format!("Failed to create src directory: {}", e))
-    })?;
+    std_fs::create_dir_all(&src_dir)
+        .map_err(|e| Error::Filesystem(format!("Failed to create src directory: {}", e)))?;
 
     println!("Created new project in {:?}", project_dir);
     println!("  - project.json");
@@ -212,13 +225,10 @@ fn main() -> eframe::Result<()> {
     } else {
         // Use in-memory filesystem with sample project (testing mode)
         let mut fs = InMemoryFilesystem::new();
-        
+
         // Create sample project in memory
-        fs.write_file(
-            "/project.json",
-            br#"{"uid":"test","name":"Test Project"}"#,
-        )
-        .unwrap();
+        fs.write_file("/project.json", br#"{"uid":"test","name":"Test Project"}"#)
+            .unwrap();
         fs.write_file(
             "/src/texture.texture/node.json",
             br#"{"$type":"Memory","size":[64,64],"format":"RGB8"}"#,

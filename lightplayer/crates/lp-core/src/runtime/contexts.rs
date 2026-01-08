@@ -8,7 +8,7 @@ use crate::nodes::texture::TextureNode;
 use crate::project::config::ProjectConfig;
 use crate::runtime::frame_time::FrameTime;
 use crate::util::Texture;
-use alloc::{collections::BTreeMap, string::String, string::ToString};
+use alloc::{collections::BTreeMap, string::String};
 use hashbrown::HashMap;
 
 // Forward declarations - these will be implemented in later phases
@@ -22,6 +22,7 @@ use crate::nodes::texture::TextureNodeRuntime;
 
 /// Initialization context providing read-only access to project configuration and nodes
 pub struct InitContext<'a> {
+    #[allow(dead_code)] // Kept for future use (e.g., project-level settings)
     project_config: &'a ProjectConfig,
     textures: &'a BTreeMap<String, TextureNode>,
     shaders: &'a BTreeMap<String, ShaderNode>,

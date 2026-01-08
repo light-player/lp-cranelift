@@ -3,7 +3,7 @@
 use lp_core::app::{ChangeType, FileChange};
 use lp_core::error::Error;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::sync::Mutex;
 
