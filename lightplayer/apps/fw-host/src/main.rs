@@ -312,6 +312,16 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
 
 /// Create a new project structure in the specified directory
 fn create_project(project_dir: &Path) -> Result<(), Error> {
+    let project_json_path = project_dir.join("project.json");
+    
+    // Check if project already exists
+    if project_json_path.exists() {
+        return Err(Error::Filesystem(format!(
+            "Project already exists at {:?}",
+            project_dir
+        )));
+    }
+
     // Create project directory if it doesn't exist
     std_fs::create_dir_all(project_dir).map_err(|e| {
         Error::Filesystem(format!(
@@ -322,7 +332,6 @@ fn create_project(project_dir: &Path) -> Result<(), Error> {
 
     // Create project.json with default config
     let default_config = LpApp::create_default_project();
-    let project_json_path = project_dir.join("project.json");
     let json = serde_json::to_string_pretty(&default_config)
         .map_err(|e| Error::Serialization(format!("Failed to serialize project config: {}", e)))?;
     std_fs::write(&project_json_path, json.as_bytes())
@@ -378,6 +387,15 @@ fn main() -> eframe::Result<()> {
     let (filesystem, project_root, use_watcher) = if let Some(project_dir) = args.project_dir {
         // Use real filesystem with specified project directory
         let project_root = project_dir.canonicalize().unwrap_or(project_dir);
+        
+        // Check if project.json exists (fail if it doesn't, unless --create was used)
+        let project_json_path = project_root.join("project.json");
+        if !project_json_path.exists() {
+            eprintln!("Error: Project not found at {:?}", project_root);
+            eprintln!("Use --create to create a new project");
+            std::process::exit(1);
+        }
+        
         let fs: Box<dyn Filesystem> = Box::new(HostFilesystem::new(project_root.clone()));
         (fs, project_root, true)
     } else {

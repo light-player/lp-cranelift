@@ -34,7 +34,7 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
     float angle = atan(dir.y, dir.x);
     
     // Rotate angle with time (full rotation every 2 seconds)
-    angle = (angle + time * .5 * 3.14159);
+    angle = (angle + time * 3.14159);
     
     // Normalize angle to [0, 1] for hue
     // atan returns [-PI, PI], map to [0, 1] by: (angle + PI) / (2 * PI)
