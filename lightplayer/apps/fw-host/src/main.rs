@@ -24,15 +24,25 @@ use transport::HostTransport;
 use watcher::FileWatcher;
 
 /// Simple logger for host firmware that prints to stderr
+///
+/// Filters out logs from cranelift and other dependencies,
+/// only showing logs from lp_core and fw-host.
 struct HostLogger;
 
 impl log::Log for HostLogger {
-    fn enabled(&self, _metadata: &log::Metadata) -> bool {
-        true
+    fn enabled(&self, metadata: &log::Metadata) -> bool {
+        // Only show logs from our modules, filter out cranelift and other dependencies
+        if let Some(target) = metadata.target().split("::").next() {
+            matches!(target, "lp_core" | "fw_host")
+        } else {
+            true // If no target, show it (shouldn't happen)
+        }
     }
 
     fn log(&self, record: &log::Record) {
-        eprintln!("[{}] {}", record.level(), record.args());
+        if self.enabled(record.metadata()) {
+            eprintln!("[{}] {}", record.level(), record.args());
+        }
     }
 
     fn flush(&self) {
