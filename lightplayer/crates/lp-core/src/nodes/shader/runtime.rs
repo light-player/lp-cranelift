@@ -137,7 +137,10 @@ impl NodeLifecycle for ShaderNodeRuntime {
                             status_message: format!("Shader compilation failed: {}", error_msg),
                         };
                         // Preserve the formatted error message (with newlines for span_text)
-                        Err(Error::Node(format!("Shader compilation failed: {}", error_msg)))
+                        Err(Error::Node(format!(
+                            "Shader compilation failed: {}",
+                            error_msg
+                        )))
                     }
                 }
             }

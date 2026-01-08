@@ -43,7 +43,7 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
     
     // Distance from center (normalized to [0, 1])
     float maxDist = length(outputSize * 0.5);
-    flo4at dist = length(dir) / maxDist;
+    float dist = length(dir) / maxDist;
     
     // Clamp distance to prevent issues
     dist = min(dist, 1.0);
