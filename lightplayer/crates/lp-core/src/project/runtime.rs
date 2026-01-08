@@ -259,6 +259,26 @@ impl ProjectRuntime {
     pub fn frame_time(&self) -> FrameTime {
         self.frame_time
     }
+
+    /// Get all texture IDs
+    pub fn get_texture_ids(&self) -> alloc::vec::Vec<String> {
+        self.textures.keys().map(|id| id.0.clone()).collect()
+    }
+
+    /// Get all shader IDs
+    pub fn get_shader_ids(&self) -> alloc::vec::Vec<String> {
+        self.shaders.keys().map(|id| id.0.clone()).collect()
+    }
+
+    /// Get all fixture IDs
+    pub fn get_fixture_ids(&self) -> alloc::vec::Vec<String> {
+        self.fixtures.keys().map(|id| id.0.clone()).collect()
+    }
+
+    /// Get all output IDs
+    pub fn get_output_ids(&self) -> alloc::vec::Vec<String> {
+        self.outputs.keys().map(|id| id.0.clone()).collect()
+    }
 }
 
 /// Collection of runtime status for all node types (for serialization)

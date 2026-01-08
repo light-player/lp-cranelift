@@ -364,8 +364,18 @@ pub fn render_fixtures_panel(
     ui.heading("Fixtures");
     ui.separator();
 
-    // Note: ProjectLoader is implemented, but debug UI needs to be updated to show fixtures from runtime
-    ui.label("Fixtures will be displayed once debug UI is updated to use runtime data");
+    if let Some(rt) = runtime {
+        let fixture_ids = rt.get_fixture_ids();
+        if fixture_ids.is_empty() {
+            ui.label("No fixtures loaded");
+        } else {
+            for fixture_id in fixture_ids {
+                ui.label(format!("  • {}", fixture_id));
+            }
+        }
+    } else {
+        ui.label("No runtime available");
+    }
 }
 
 /// Render shader code and errors
@@ -427,7 +437,17 @@ pub fn render_shaders_panel(
     ui.heading("Shaders");
     ui.separator();
 
-    // Note: ProjectLoader is implemented, but debug UI needs to be updated to show shaders from runtime
-    ui.label("Shaders will be displayed once debug UI is updated to use runtime data");
+    if let Some(rt) = runtime {
+        let shader_ids = rt.get_shader_ids();
+        if shader_ids.is_empty() {
+            ui.label("No shaders loaded");
+        } else {
+            for shader_id in shader_ids {
+                ui.label(format!("  • {}", shader_id));
+            }
+        }
+    } else {
+        ui.label("No runtime available");
+    }
 }
 
