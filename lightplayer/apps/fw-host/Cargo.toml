@@ -15,3 +15,6 @@ egui = "0.28"
 serde_json = "1.0"
 hashbrown = { version = "0.15", default-features = false, features = ["alloc", "default-hasher"] }
 
+[dev-dependencies]
+tempfile = "3.8"
+

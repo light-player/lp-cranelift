@@ -2311,6 +2311,7 @@ dependencies = [
  "hashbrown 0.15.5",
  "lp-core",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

@@ -207,9 +207,9 @@ impl LpApp {
         }
 
         // Check if any node files changed
-        let has_node_changes = changes.iter().any(|c| {
-            get_node_path_from_file_path(&c.path).is_some()
-        });
+        let has_node_changes = changes
+            .iter()
+            .any(|c| get_node_path_from_file_path(&c.path).is_some());
 
         if !has_node_changes {
             // No node changes, nothing to do
@@ -291,7 +291,9 @@ mod tests {
             _config: &crate::nodes::OutputNode,
             _id: Option<crate::nodes::id::OutputId>,
         ) -> Result<alloc::boxed::Box<dyn crate::traits::LedOutput>, crate::error::Error> {
-            Err(crate::error::Error::Node("Mock output provider".to_string()))
+            Err(crate::error::Error::Node(
+                "Mock output provider".to_string(),
+            ))
         }
     }
 
@@ -349,17 +351,15 @@ mod tests {
     fn test_handle_file_changes_node_file() {
         let mut fs = InMemoryFilesystem::new();
         // Create a project with a shader
-        fs.write_file(
-            "/project.json",
-            br#"{"uid":"test","name":"Test"}"#,
-        )
-        .unwrap();
+        fs.write_file("/project.json", br#"{"uid":"test","name":"Test"}"#)
+            .unwrap();
         fs.write_file(
             "/src/shader.shader/node.json",
             br#"{"$type":"Single","texture_id":"/src/texture.texture"}"#,
         )
         .unwrap();
-        fs.write_file("/src/shader.shader/main.glsl", b"void main() {}").unwrap();
+        fs.write_file("/src/shader.shader/main.glsl", b"void main() {}")
+            .unwrap();
         fs.write_file(
             "/src/texture.texture/node.json",
             br#"{"$type":"Memory","size":[64,64],"format":"RGB8"}"#,

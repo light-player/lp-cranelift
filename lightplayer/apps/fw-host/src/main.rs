@@ -1,12 +1,12 @@
 mod debug_ui;
-mod filesystem;
+mod fs;
 mod led_output;
 mod output_provider;
 mod transport;
 
 use debug_ui::{render_fixtures_panel, render_shaders_panel, render_textures_panel};
 use eframe::egui;
-use filesystem::HostFilesystem;
+use fs::HostFilesystem;
 use led_output::render_leds;
 use lp_core::app::{LpApp, MsgIn, MsgOut, Platform};
 use lp_core::error::Error;
