@@ -283,7 +283,6 @@ pub fn render_textures_panel(
 }
 
 /// Render a fixture with its texture and mapping overlay
-#[allow(dead_code)]
 fn render_fixture(
     ui: &mut Ui,
     fixture_id: &str,
@@ -373,7 +372,7 @@ fn render_fixture(
 /// Render all fixtures in a debug panel
 pub fn render_fixtures_panel(
     ui: &mut Ui,
-    _project: &ProjectConfig,
+    project: &ProjectConfig,
     runtime: Option<&ProjectRuntime>,
 ) {
     ui.heading("Fixtures");
@@ -385,7 +384,15 @@ pub fn render_fixtures_panel(
             ui.label("No fixtures loaded");
         } else {
             for fixture_id in fixture_ids {
-                ui.label(format!("  • {}", fixture_id));
+                let fixture_id_typed = lp_core::nodes::id::FixtureId(fixture_id.clone());
+                if let Some(fixture_rt) = rt.get_fixture(fixture_id_typed) {
+                    // Get config and runtime
+                    let config = fixture_rt.config();
+                    
+                    // Call the existing render_fixture() helper function
+                    render_fixture(ui, &fixture_id, config, project, rt);
+                    ui.separator();
+                }
             }
         }
     } else {
