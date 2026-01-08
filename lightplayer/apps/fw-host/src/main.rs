@@ -207,6 +207,12 @@ fn create_project(project_dir: &Path) -> Result<(), Error> {
 }
 
 fn main() -> eframe::Result<()> {
+    // Initialize logger early
+    let logger = Box::new(HostLogger);
+    log::set_logger(Box::leak(logger))
+        .map(|()| log::set_max_level(log::LevelFilter::Info))
+        .expect("Failed to set logger");
+
     // Parse command-line arguments
     let args = parse_args();
 
