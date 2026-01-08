@@ -4,7 +4,7 @@ members = [
     "crates/lp-builtins",
     "crates/lp-core",
     "crates/lp-filetests-gen",
-    "crates/lp-glsl",
+    "crates/lp-glsl-compiler",
     "crates/lp-glsl-filetests",
     "crates/lp-jit-util",
     "crates/lp-riscv-shared",

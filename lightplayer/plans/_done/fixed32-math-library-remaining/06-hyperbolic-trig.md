@@ -67,14 +67,14 @@ In `lp-builtins-app/src/main.rs`:
 
 ### 6.9 Add to Registry
 
-In `lp-glsl/src/backend/builtins/registry.rs`:
+In `lp-glsl-compiler/src/backend/builtins/registry.rs`:
 - Add all hyperbolic BuiltinIds to enum
 - All are (i32) -> i32 signatures
 - Add to all registry functions
 
 ### 6.10 Add Transform Conversion
 
-In `lp-glsl/src/backend/transform/fixed32/converters/math.rs`:
+In `lp-glsl-compiler/src/backend/transform/fixed32/converters/math.rs`:
 - Add mappings for all hyperbolic functions (sinhf, coshf, tanhf, asinhf, acoshf, atanhf and __lp_* versions)
 - All map to 1-arg functions
 

@@ -69,7 +69,7 @@ Creates `analysis-output/` with detailed reports.
 - `hashbrown`, `bumpalo` - Data structures
 - Various small utility crates
 
-**Nothing unexpected!** Earlier concerns about `esp_hal` and `lp_glsl` were false alarms - those were leftover artifacts from other builds.
+**Nothing unexpected!** Earlier concerns about `esp_hal` and `lp_glsl_compiler` were false alarms - those were leftover artifacts from other builds.
 
 ### Top Space Consumers
 

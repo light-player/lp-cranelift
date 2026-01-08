@@ -32,7 +32,7 @@ Implement comprehensive array support in the GLSL compiler, following the patter
 
 **Files:**
 
-- `lightplayer/crates/lp-glsl/src/semantic/types.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/semantic/types.rs`
 
 **Changes:**
 
@@ -46,8 +46,8 @@ Implement comprehensive array support in the GLSL compiler, following the patter
 
 **Files:**
 
-- `lightplayer/crates/lp-glsl/src/semantic/type_resolver.rs`
-- `lightplayer/crates/lp-glsl/src/codegen/stmt.rs` (parse_type_specifier)
+- `lightplayer/crates/lp-glsl-compiler/src/semantic/type_resolver.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/codegen/stmt.rs` (parse_type_specifier)
 
 **Changes:**
 
@@ -60,8 +60,8 @@ Implement comprehensive array support in the GLSL compiler, following the patter
 
 **Files:**
 
-- `lightplayer/crates/lp-glsl/src/codegen/context.rs`
-- `lightplayer/crates/lp-glsl/src/codegen/stmt.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/codegen/context.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/codegen/stmt.rs`
 
 **Changes:**
 
@@ -74,8 +74,8 @@ Implement comprehensive array support in the GLSL compiler, following the patter
 
 **Files:**
 
-- `lightplayer/crates/lp-glsl/src/codegen/expr/component.rs`
-- `lightplayer/crates/lp-glsl/src/semantic/type_check/inference.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/codegen/expr/component.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/semantic/type_check/inference.rs`
 
 **Changes:**
 
@@ -89,7 +89,7 @@ Implement comprehensive array support in the GLSL compiler, following the patter
 
 **Files:**
 
-- `lightplayer/crates/lp-glsl/src/codegen/expr/component.rs` (or new helper module)
+- `lightplayer/crates/lp-glsl-compiler/src/codegen/expr/component.rs` (or new helper module)
 
 **Implementation Strategy:**
 
@@ -157,13 +157,13 @@ ctx.builder.ins().trapnz(out_of_bounds, trap_code);
 
 - Traps are caught by the emulator and converted to `GlslError` with source location
 - Trap source location information is preserved for error reporting
-- See `lightplayer/crates/lp-glsl/src/backend/emu.rs` for trap handling
+- See `lightplayer/crates/lp-glsl-compiler/src/backend/emu.rs` for trap handling
 
 ### 5. LValue Support for Arrays
 
 **Files:**
 
-- `lightplayer/crates/lp-glsl/src/codegen/lvalue.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/codegen/lvalue.rs`
 
 **Changes:**
 
@@ -201,7 +201,7 @@ ctx.builder.ins().trapnz(out_of_bounds, trap_code);
 
 **Files:**
 
-- `lightplayer/crates/lp-glsl/src/codegen/expr/incdec.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/codegen/expr/incdec.rs`
 
 **Changes:**
 
@@ -217,8 +217,8 @@ ctx.builder.ins().trapnz(out_of_bounds, trap_code);
 
 **Files:**
 
-- `lightplayer/crates/lp-glsl/src/codegen/expr/mod.rs` (translate_assignment_typed)
-- New file: `lightplayer/crates/lp-glsl/src/codegen/expr/assignment.rs` (optional)
+- `lightplayer/crates/lp-glsl-compiler/src/codegen/expr/mod.rs` (translate_assignment_typed)
+- New file: `lightplayer/crates/lp-glsl-compiler/src/codegen/expr/assignment.rs` (optional)
 
 **Changes:**
 
@@ -232,10 +232,10 @@ ctx.builder.ins().trapnz(out_of_bounds, trap_code);
 
 **Files:**
 
-- `lightplayer/crates/lp-glsl/src/codegen/expr/mod.rs`
-- `lightplayer/crates/lp-glsl/src/codegen/expr/binary.rs`
-- `lightplayer/crates/lp-glsl/src/codegen/expr/unary.rs`
-- `lightplayer/crates/lp-glsl/src/semantic/type_check/operators.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/codegen/expr/mod.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/codegen/expr/binary.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/codegen/expr/unary.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/semantic/type_check/operators.rs`
 
 **Changes:**
 
@@ -253,7 +253,7 @@ ctx.builder.ins().trapnz(out_of_bounds, trap_code);
 
 **Files:**
 
-- `lightplayer/crates/lp-glsl/src/codegen/expr/constructor.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/codegen/expr/constructor.rs`
 
 **Changes:**
 
@@ -265,8 +265,8 @@ ctx.builder.ins().trapnz(out_of_bounds, trap_code);
 
 **Files:**
 
-- `lightplayer/crates/lp-glsl/src/semantic/type_check/inference.rs`
-- `lightplayer/crates/lp-glsl/src/semantic/type_check/operators.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/semantic/type_check/inference.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/semantic/type_check/operators.rs`
 
 **Changes:**
 
@@ -279,7 +279,7 @@ ctx.builder.ins().trapnz(out_of_bounds, trap_code);
 
 **Files:**
 
-- `lightplayer/crates/lp-glsl/src/semantic/validator.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/semantic/validator.rs`
 
 **Changes:**
 
@@ -426,7 +426,7 @@ Following the LValue abstraction pattern (`lvalue.rs`):
 
 ## Reference Implementation
 
-Use `lightplayer/crates/lp-glsl/src/codegen/lvalue.rs` as the primary pattern:
+Use `lightplayer/crates/lp-glsl-compiler/src/codegen/lvalue.rs` as the primary pattern:
 
 - Add `ArrayElement` variant to `LValue` enum (similar to `MatrixElement`)
 - Update `resolve_lvalue()` to handle `Expr::Bracket` for arrays (similar to matrix handling)

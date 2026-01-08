@@ -28,13 +28,13 @@ In `lp-builtins-app/src/main.rs`:
 
 ### 3.4 Add to Registry
 
-In `lp-glsl/src/backend/builtins/registry.rs`:
+In `lp-glsl-compiler/src/backend/builtins/registry.rs`:
 - Add `Fixed32Tan` to `BuiltinId` enum
 - Add to `name()`, `signature()`, `all()`, and `get_function_pointer()`
 
 ### 3.5 Add Transform Conversion
 
-In `lp-glsl/src/backend/transform/fixed32/converters/math.rs`:
+In `lp-glsl-compiler/src/backend/transform/fixed32/converters/math.rs`:
 - Add `"tanf"` and `"__lp_tan"` to `map_testcase_to_builtin()` mapping to `BuiltinId::Fixed32Tan`
 
 ### 3.6 Add Tests

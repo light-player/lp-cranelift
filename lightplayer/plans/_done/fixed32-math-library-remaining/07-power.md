@@ -29,14 +29,14 @@ In `lp-builtins-app/src/main.rs`:
 
 ### 7.4 Add to Registry
 
-In `lp-glsl/src/backend/builtins/registry.rs`:
+In `lp-glsl-compiler/src/backend/builtins/registry.rs`:
 - Add `Fixed32Pow` to `BuiltinId` enum
 - Signature: (i32, i32) -> i32
 - Add to all registry functions
 
 ### 7.5 Add Transform Conversion
 
-In `lp-glsl/src/backend/transform/fixed32/converters/math.rs`:
+In `lp-glsl-compiler/src/backend/transform/fixed32/converters/math.rs`:
 - Add mappings: `"powf"` and `"__lp_pow"` -> `(Fixed32Pow, 2)`
 - This should already work with the 2-arg support added in Phase 4
 

@@ -17,7 +17,7 @@ Based on `cargo bloat --crates` analysis:
 |-------|------|------------|-------|
 | `cranelift_codegen` | 891.3 KiB | 57.1% | Largest contributor |
 | `glsl` | 202.3 KiB | 13.0% | GLSL parser |
-| `lp_glsl` | 165.5 KiB | 10.6% | GLSL compiler |
+| `lp_glsl_compiler` | 165.5 KiB | 10.6% | GLSL compiler |
 | `std` | 135.0 KiB | 8.7% | ⚠️ Should be no_std - investigate |
 | `regalloc2` | 76.8 KiB | 4.9% | Register allocator |
 | `cranelift_frontend` | 43.5 KiB | 2.8% | IR builder |

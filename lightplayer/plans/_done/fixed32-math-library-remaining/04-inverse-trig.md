@@ -46,19 +46,19 @@ In `lp-builtins-app/src/main.rs`:
 
 ### 4.7 Add to Registry
 
-In `lp-glsl/src/backend/builtins/registry.rs`:
+In `lp-glsl-compiler/src/backend/builtins/registry.rs`:
 - Add `Fixed32Atan2`, `Fixed32Atan`, `Fixed32Asin`, `Fixed32Acos` to `BuiltinId` enum
 - Add signatures: atan2 is (i32, i32) -> i32, others are (i32) -> i32
 - Add to all registry functions
 
 ### 4.8 Extend Transform for 2-Arg Functions
 
-In `lp-glsl/src/backend/transform/fixed32/converters/math.rs`:
+In `lp-glsl-compiler/src/backend/transform/fixed32/converters/math.rs`:
 - Modify `map_testcase_to_builtin()` to return `(BuiltinId, usize)` where usize is argument count
 - Add mappings: `"atan2f"`/`"__lp_atan2"` -> `(Fixed32Atan2, 2)`
 - Add mappings for 1-arg functions: `"atanf"`, `"asinf"`, `"acosf"` and `"__lp_atan"`, `"__lp_asin"`, `"__lp_acos"`
 
-In `lp-glsl/src/backend/transform/fixed32/converters/calls.rs`:
+In `lp-glsl-compiler/src/backend/transform/fixed32/converters/calls.rs`:
 - Modify conversion logic to handle both 1-arg and 2-arg functions
 - Check argument count matches expected count
 - Extract and map correct number of arguments

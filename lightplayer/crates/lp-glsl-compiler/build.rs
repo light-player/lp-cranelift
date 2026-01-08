@@ -1,4 +1,4 @@
-//! Build script for lp-glsl
+//! Build script for lp-glsl-compiler
 //!
 //! This script sets up the path to lp-builtins static library.
 //! The library must be built manually with:

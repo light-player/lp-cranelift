@@ -5,7 +5,7 @@
 We have:
 - `lp-builtins` crate with fixed32 implementations for `div`, `mul`, `sqrt`
 - GLSL codegen that currently uses `get_math_libcall()` to call external functions like "sinf", "cosf", etc.
-- Builtin registry system in `lp-glsl/src/backend/builtins/registry.rs` that supports both JIT and emulator modes
+- Builtin registry system in `lp-glsl-compiler/src/backend/builtins/registry.rs` that supports both JIT and emulator modes
 - Many failing builtin tests in `scripts/glsl-filetests.sh builtins`
 
 ## Goal

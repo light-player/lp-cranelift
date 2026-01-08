@@ -1,6 +1,6 @@
 # lp-builtins-app
 
-Executable that links all builtin functions into a static library used for `lp-filetests` and `lp-glsl`. Provides the entry point, panic handler, and ensures all builtin functions are included in the binary.
+Executable that links all builtin functions into a static library used for `lp-filetests` and `lp-glsl-compiler`. Provides the entry point, panic handler, and ensures all builtin functions are included in the binary.
 
 ## Overview
 

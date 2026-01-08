@@ -16,7 +16,7 @@ Test file: `lightplayer/crates/lp-glsl-filetests/filetests/array/phases/8-consta
 
 ### 1. Constant Expression Evaluator
 
-**File**: New file or `lightplayer/crates/lp-glsl/src/frontend/semantic/constant_eval.rs`
+**File**: New file or `lightplayer/crates/lp-glsl-compiler/src/frontend/semantic/constant_eval.rs`
 
 - Create constant expression evaluator
 - Evaluate compile-time constant expressions:
@@ -28,7 +28,7 @@ Test file: `lightplayer/crates/lp-glsl-filetests/filetests/array/phases/8-consta
 
 ### 2. Update Array Size Parsing
 
-**File**: `lightplayer/crates/lp-glsl/src/frontend/semantic/type_resolver.rs`
+**File**: `lightplayer/crates/lp-glsl-compiler/src/frontend/semantic/type_resolver.rs`
 
 - Update `parse_type_specifier()` to evaluate constant expressions
 - For `ExplicitlySized(expr)`:
@@ -62,9 +62,9 @@ Test file: `lightplayer/crates/lp-glsl-filetests/filetests/array/phases/8-consta
 
 ## Files to Modify/Create
 
-- New: `lightplayer/crates/lp-glsl/src/frontend/semantic/constant_eval.rs` (or similar)
-- `lightplayer/crates/lp-glsl/src/frontend/semantic/type_resolver.rs`
-- `lightplayer/crates/lp-glsl/src/frontend/semantic/type_check/inference.rs` (may need const variable lookup)
+- New: `lightplayer/crates/lp-glsl-compiler/src/frontend/semantic/constant_eval.rs` (or similar)
+- `lightplayer/crates/lp-glsl-compiler/src/frontend/semantic/type_resolver.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/frontend/semantic/type_check/inference.rs` (may need const variable lookup)
 
 
 

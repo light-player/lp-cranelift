@@ -48,14 +48,14 @@ In `lp-builtins-app/src/main.rs`:
 
 ### 5.7 Add to Registry
 
-In `lp-glsl/src/backend/builtins/registry.rs`:
+In `lp-glsl-compiler/src/backend/builtins/registry.rs`:
 - Add `Fixed32Exp`, `Fixed32Log`, `Fixed32Exp2`, `Fixed32Log2` to `BuiltinId` enum
 - All are (i32) -> i32 signatures
 - Add to all registry functions
 
 ### 5.8 Add Transform Conversion
 
-In `lp-glsl/src/backend/transform/fixed32/converters/math.rs`:
+In `lp-glsl-compiler/src/backend/transform/fixed32/converters/math.rs`:
 - Add mappings: `"expf"`, `"logf"`, `"exp2f"`, `"log2f"` and `"__lp_exp"`, `"__lp_log"`, `"__lp_exp2"`, `"__lp_log2"`
 - All map to 1-arg functions
 

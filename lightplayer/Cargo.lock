@@ -2022,7 +2022,7 @@ dependencies = [
  "esp-hal-embassy",
  "glsl",
  "hashbrown 0.15.5",
- "lp-glsl",
+ "lp-glsl-compiler",
  "panic-rtt-target",
  "portable-atomic",
  "rtt-target",
@@ -3111,7 +3111,7 @@ version = "40.0.0"
 dependencies = [
  "hashbrown 0.15.5",
  "log",
- "lp-glsl",
+ "lp-glsl-compiler",
  "serde",
  "serde_json",
 ]
@@ -3126,7 +3126,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "lp-glsl"
+name = "lp-glsl-compiler"
 version = "40.0.0"
 dependencies = [
  "anyhow",
@@ -3160,7 +3160,7 @@ dependencies = [
  "cranelift-object",
  "glob",
  "glsl",
- "lp-glsl",
+ "lp-glsl-compiler",
  "lp-jit-util",
  "lp-riscv-tools",
  "num_cpus",

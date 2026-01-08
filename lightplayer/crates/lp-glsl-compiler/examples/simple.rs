@@ -1,6 +1,6 @@
 //! Simple example of compiling and executing GLSL code
 
-use lp_glsl::{DecimalFormat, GlslOptions, RunMode, glsl_jit};
+use lp_glsl_compiler::{DecimalFormat, GlslOptions, RunMode, glsl_jit};
 
 fn main() {
     let options = GlslOptions {

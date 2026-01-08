@@ -172,7 +172,7 @@ The goal is that when you tail the command output, you'll see the error details 
       filename: &str,
       line_number: usize,
       compiled_glsl: Option<&str>,  // The compiled GLSL code
-      executable: Option<&dyn lp_glsl::GlslExecutable>,  // For debug sections
+      executable: Option<&dyn lp_glsl_compiler::GlslExecutable>,  // For debug sections
       output_mode: OutputMode,
   ) -> String
   ```

@@ -11,8 +11,8 @@ use alloc::{
     string::{String, ToString},
     vec,
 };
-use lp_glsl::frontend::semantic::types::Type;
-use lp_glsl::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode, glsl_jit};
+use lp_glsl_compiler::frontend::semantic::types::Type;
+use lp_glsl_compiler::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode, glsl_jit};
 
 /// Shader node runtime
 pub struct ShaderNodeRuntime {

@@ -62,9 +62,9 @@ This is valid SSA form - the values flow through branch instruction arguments ra
 
 ## Related Code
 
-- **Fixed implementation**: `lightplayer/crates/lp-glsl/src/codegen/stmt/loop_do_while.rs`
-- **Debug test**: `lightplayer/crates/lp-glsl/tests/ssa_3_debug.rs` (test_do_while_loop_ssa_debug)
-- **Working test without cond_block**: `lightplayer/crates/lp-glsl/tests/ssa_3_debug_no_cond.rs`
+- **Fixed implementation**: `lightplayer/crates/lp-glsl-compiler/src/codegen/stmt/loop_do_while.rs`
+- **Debug test**: `lightplayer/crates/lp-glsl-compiler/tests/ssa_3_debug.rs` (test_do_while_loop_ssa_debug)
+- **Working test without cond_block**: `lightplayer/crates/lp-glsl-compiler/tests/ssa_3_debug_no_cond.rs`
 - **Cranelift SSA implementation**: `cranelift/frontend/src/ssa.rs` (find_var function)
 
 ## Test Files
@@ -75,8 +75,4 @@ This is valid SSA form - the values flow through branch instruction arguments ra
 ## Key Takeaway
 
 **For single-predecessor blocks that use variables from their predecessor: seal the block BEFORE using variables to allow Cranelift's SSA optimization to work correctly.**
-
-
-
-
 

@@ -16,7 +16,7 @@ Test file: `lightplayer/crates/lp-glsl-filetests/filetests/array/phases/3-initia
 
 ### 1. Handle Initializer::List
 
-**File**: `lightplayer/crates/lp-glsl/src/frontend/codegen/stmt/declaration.rs`
+**File**: `lightplayer/crates/lp-glsl-compiler/src/frontend/codegen/stmt/declaration.rs`
 
 - Update `emit_initializer()` to handle `Initializer::List`
 - Currently only handles `Initializer::Simple`
@@ -66,6 +66,6 @@ Test file: `lightplayer/crates/lp-glsl-filetests/filetests/array/phases/3-initia
 
 ## Files to Modify
 
-- `lightplayer/crates/lp-glsl/src/frontend/codegen/stmt/declaration.rs`
-- `lightplayer/crates/lp-glsl/src/frontend/semantic/type_resolver.rs` (for unsized array handling)
+- `lightplayer/crates/lp-glsl-compiler/src/frontend/codegen/stmt/declaration.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/frontend/semantic/type_resolver.rs` (for unsized array handling)
 

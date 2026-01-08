@@ -24,7 +24,7 @@ Based on `cargo tree` analysis, here are the key dependencies:
 - `cranelift-control`
 
 #### GLSL Compiler
-- `lp-glsl` (with `core` feature)
+- `lp-glsl-compiler` (with `core` feature)
 - `glsl` parser (from git, branch `feature/spans`)
   - Pulls in `nom` parser combinator
   - Pulls in `nom_locate`

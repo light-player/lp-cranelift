@@ -20,7 +20,7 @@ fn main() {
 
     // Generate registry.rs
     let registry_path =
-        workspace_root.join("lightplayer/crates/lp-glsl/src/backend/builtins/registry.rs");
+        workspace_root.join("lightplayer/crates/lp-glsl-compiler/src/backend/builtins/registry.rs");
     generate_registry(&registry_path, &builtins);
 
     // Generate builtin_refs.rs
@@ -34,7 +34,7 @@ fn main() {
 
     // Generate testcase mapping in math.rs
     let math_rs_path = workspace_root
-        .join("lightplayer/crates/lp-glsl/src/backend/transform/fixed32/converters/math.rs");
+        .join("lightplayer/crates/lp-glsl-compiler/src/backend/transform/fixed32/converters/math.rs");
     generate_testcase_mapping(&math_rs_path, &builtins);
 
     println!("Generated all builtin boilerplate files");

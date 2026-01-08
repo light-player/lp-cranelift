@@ -1,5 +1,5 @@
 [package]
-name = "lp-glsl"
+name = "lp-glsl-compiler"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

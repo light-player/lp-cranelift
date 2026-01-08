@@ -37,7 +37,7 @@ In `lp-builtins-app/src/main.rs`:
 
 ### 2.5 Add Transform Conversion Logic
 
-In `lp-glsl/src/backend/transform/fixed32/converters/calls.rs`:
+In `lp-glsl-compiler/src/backend/transform/fixed32/converters/calls.rs`:
 - Modify `convert_call()` to detect TestCase calls to math functions
 - Check if TestCase name matches mapping table
 - If match found:

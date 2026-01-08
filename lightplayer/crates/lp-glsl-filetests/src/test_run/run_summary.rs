@@ -6,8 +6,8 @@ use crate::test_run::execution;
 use crate::test_run::parse_assert;
 use crate::test_run::target;
 use anyhow::Result;
-use lp_glsl::GlslOptions;
-use lp_glsl::glsl_emu_riscv32_with_metadata;
+use lp_glsl_compiler::GlslOptions;
+use lp_glsl_compiler::glsl_emu_riscv32_with_metadata;
 use std::path::Path;
 
 use crate::util::format_glsl_value;

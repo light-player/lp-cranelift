@@ -14,7 +14,7 @@
 /// The underlying function is linked differently depending on context:
 /// - Emulator: Implemented in `lp-builtins-app` (syscall-based)
 /// - Tests: Implemented in `lp-builtins` with `std` (gated by feature flag)
-/// - JIT: Implemented in `lp-glsl` (delegates to `lp-glsl::debug!`)
+/// - JIT: Implemented in `lp-glsl-compiler` (delegates to `lp-glsl-compiler::debug!`)
 #[macro_export]
 macro_rules! host_debug {
     ($($arg:tt)*) => {
@@ -61,7 +61,7 @@ macro_rules! host_debug {
 /// The underlying function is linked differently depending on context:
 /// - Emulator: Implemented in `lp-builtins-app` (syscall-based)
 /// - Tests: Implemented in `lp-builtins` with `std` (gated by feature flag)
-/// - JIT: Implemented in `lp-glsl` (delegates to `std::println!`)
+/// - JIT: Implemented in `lp-glsl-compiler` (delegates to `std::println!`)
 #[macro_export]
 macro_rules! host_println {
     () => {

@@ -22,7 +22,7 @@ Test file: `lightplayer/crates/lp-glsl-filetests/filetests/array/phases/9-constr
 
 ### 2. Parse Array Constructor
 
-**File**: `lightplayer/crates/lp-glsl/src/frontend/codegen/expr/constructor.rs`
+**File**: `lightplayer/crates/lp-glsl-compiler/src/frontend/codegen/expr/constructor.rs`
 
 - Detect array constructor syntax
 - Extract array type and size (if explicit)
@@ -65,8 +65,8 @@ Test file: `lightplayer/crates/lp-glsl-filetests/filetests/array/phases/9-constr
 
 ## Files to Modify
 
-- `lightplayer/crates/lp-glsl/src/frontend/codegen/expr/constructor.rs`
-- `lightplayer/crates/lp-glsl/src/frontend/semantic/type_check/constructors.rs` (may need array constructor checking)
+- `lightplayer/crates/lp-glsl-compiler/src/frontend/codegen/expr/constructor.rs`
+- `lightplayer/crates/lp-glsl-compiler/src/frontend/semantic/type_check/constructors.rs` (may need array constructor checking)
 
 
 

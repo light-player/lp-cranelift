@@ -1,7 +1,7 @@
 //! Target value parsing (riscv32.fixed32 -> RunMode/DecimalFormat).
 
 use anyhow::Result;
-use lp_glsl::{DecimalFormat, RunMode};
+use lp_glsl_compiler::{DecimalFormat, RunMode};
 
 /// Default maximum memory for emulator (in bytes).
 const DEFAULT_MAX_MEMORY: usize = 1024 * 1024; // 1MB

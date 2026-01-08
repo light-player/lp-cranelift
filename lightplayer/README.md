@@ -10,7 +10,7 @@ Lightplayer is a GLSL compiler and runtime for embedded systems, built on top of
   - `lp-test/` - Command-line tool for running GLSL filetests
 
 - **`crates/`** - Core library components
-  - `lp-glsl/` - GLSL compiler and runtime
+  - `lp-glsl-compiler/` - GLSL compiler and runtime
   - `lp-glsl-filetests/` - Filetest infrastructure for GLSL
   - `lp-jit-util/` - JIT compilation utilities
   - `lp-riscv-tools/` - RISC-V instruction encoding and utilities

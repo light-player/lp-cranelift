@@ -38,7 +38,7 @@ panic = "abort"          # Smaller panic handler
    - `cranelift-control` ✅ Minimal
 
 2. **GLSL Compiler** (~50-100 KB estimated)
-   - `lp-glsl` (core feature) ✅ Minimal
+   - `lp-glsl-compiler` (core feature) ✅ Minimal
    - `glsl` parser (from git) ⚠️ Includes `nom` parser
 
 3. **ESP32 HAL & Runtime** (~100-200 KB estimated)

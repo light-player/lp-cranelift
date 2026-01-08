@@ -16,7 +16,7 @@
        filename: &str,
        line_number: usize,
        test_glsl: Option<&str>,
-       executable: Option<&dyn lp_glsl::GlslExecutable>,
+       executable: Option<&dyn lp_glsl_compiler::GlslExecutable>,
        output_mode: OutputMode,
    ) -> String
    ```

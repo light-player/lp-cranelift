@@ -18,7 +18,7 @@ Create shared test utilities in `lp-builtins/src/fixed32/test_helpers.rs`:
 
 ### 1.2 Add Builtin Registry Entries
 
-In `lp-glsl/src/backend/builtins/registry.rs`:
+In `lp-glsl-compiler/src/backend/builtins/registry.rs`:
 - Add `Fixed32Sin` and `Fixed32Cos` to `BuiltinId` enum
 - Add symbol names: `"__lp_fixed32_sin"` and `"__lp_fixed32_cos"`
 - Add signatures: `(i32) -> i32` for both
@@ -27,7 +27,7 @@ In `lp-glsl/src/backend/builtins/registry.rs`:
 
 ### 1.3 Create Mapping Table
 
-In `lp-glsl/src/backend/transform/fixed32/converters/math.rs`:
+In `lp-glsl-compiler/src/backend/transform/fixed32/converters/math.rs`:
 - Create mapping table: `TestCase name -> BuiltinId`
   - `"sinf" -> BuiltinId::Fixed32Sin`
   - `"cosf" -> BuiltinId::Fixed32Cos`

@@ -4,7 +4,7 @@
 //! that causes a panic when compiling on macOS due to unimplemented
 //! TestCase relocation handling.
 
-use lp_glsl::{DecimalFormat, GlslOptions, RunMode, glsl_jit};
+use lp_glsl_compiler::{DecimalFormat, GlslOptions, RunMode, glsl_jit};
 
 #[test]
 fn test_default_project_shader_compilation() {

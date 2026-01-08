@@ -1,6 +1,6 @@
 # lp-builtins
 
-Low-level builtin function library for `lp-glsl`. Provides fixed-point arithmetic functions, memory operations, and host interface functions that are linked into compiled GLSL programs.
+Low-level builtin function library for `lp-glsl-compiler`. Provides fixed-point arithmetic functions, memory operations, and host interface functions that are linked into compiled GLSL programs.
 
 ## Overview
 
@@ -21,7 +21,7 @@ This crate is used as a dependency by other packages. It is not built standalone
 lp-builtins = { path = "../../crates/lp-builtins" }
 ```
 
-Functions are automatically registered via the generated registry in `lp-glsl`. To add a new builtin function:
+Functions are automatically registered via the generated registry in `lp-glsl-compiler`. To add a new builtin function:
 
 1. Create a new file in `src/fixed32/` with your function implementation
 2. Run the generator to update boilerplate: `cargo run --bin lp-builtin-gen --manifest-path lightplayer/apps/lp-builtin-gen/Cargo.toml`

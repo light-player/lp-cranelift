@@ -75,7 +75,7 @@ fn panic_syscall(
 #[inline(always)]
 fn ebreak() -> ! {
     unsafe {
-        core::arch::asm!("ebreak", options(nostack, noreturn));
+        asm!("ebreak", options(nostack, noreturn))
     }
 }
 

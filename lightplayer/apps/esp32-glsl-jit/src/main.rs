@@ -9,7 +9,7 @@ use defmt::info;
 use embassy_executor::Spawner;
 use embassy_time::Instant;
 use esp_hal::{clock::CpuClock, timer::systimer::SystemTimer};
-use lp_glsl::Compiler;
+use lp_glsl_compiler::Compiler;
 use panic_rtt_target as _;
 use target_lexicon::Triple;
 

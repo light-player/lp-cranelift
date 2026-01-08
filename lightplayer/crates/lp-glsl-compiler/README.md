@@ -1,4 +1,4 @@
-# lp-glsl - GLSL Compiler Frontend (Phase 1)
+# lp-glsl-compiler - GLSL Compiler Frontend (Phase 1)
 
 A GLSL fragment shader compiler using Cranelift JIT for the Light Player project.
 
@@ -39,7 +39,7 @@ This phase establishes the complete architecture and implements basic functional
 ## Usage
 
 ```rust
-use lp_glsl::Compiler;
+use lp_glsl_compiler::Compiler;
 
 fn main() {
     let mut compiler = Compiler::new();
@@ -73,7 +73,7 @@ See `examples/simple.rs` for more examples including:
 
 Run the example:
 ```bash
-cargo run -p lp-glsl --example simple
+cargo run -p lp-glsl-compiler --example simple
 ```
 
 ## Testing
@@ -82,7 +82,7 @@ The compiler includes a comprehensive test suite:
 
 ```bash
 # Run all tests
-cargo test -p lp-glsl
+cargo test -p lp-glsl-compiler
 cargo test -p lp-glsl-filetests
 
 # Run file-based tests

@@ -8,7 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-lp-glsl = { path = "../lp-glsl", features = ["std", "emulator"] }
+lp-glsl-compiler = { path = "../lp-glsl-compiler", features = ["std", "emulator"] }
 lp-riscv-tools = { path = "../lp-riscv-tools", features = ["std"] }
 lp-jit-util = { path = "../lp-jit-util" }
 anyhow = { workspace = true }

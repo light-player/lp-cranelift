@@ -89,13 +89,13 @@ From the earlier analysis:
 2. **Consider feature-gating optimizer** (if upstream changes are acceptable):
    - Add `optimizer` feature to `cranelift-codegen/Cargo.toml`
    - Gate optimizer code behind `#[cfg(feature = "optimizer")]`
-   - Update `lp-glsl` to not enable optimizer feature
+   - Update `lp-glsl-compiler` to not enable optimizer feature
    - **Potential savings: ~147.5 KiB**
 
 3. **Consider feature-gating verifier** (if upstream changes are acceptable):
    - Add `verifier` feature to `cranelift-codegen/Cargo.toml`
    - Gate verifier code behind `#[cfg(feature = "verifier")]`
-   - Update `lp-glsl` to not enable verifier feature
+   - Update `lp-glsl-compiler` to not enable verifier feature
    - **Potential savings: ~19.2 KiB**
 
 4. **Total potential savings: ~166.7 KiB** (if both optimizer and verifier are feature-gated)

@@ -5,7 +5,7 @@
 
 use crate::parse::test_type::ComparisonOp;
 use anyhow::{Result, bail};
-use lp_glsl::GlslValue;
+use lp_glsl_compiler::GlslValue;
 use std::cell::Cell;
 use std::fs;
 use std::path::{Path, PathBuf};

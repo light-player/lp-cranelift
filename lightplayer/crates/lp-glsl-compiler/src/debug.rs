@@ -6,7 +6,7 @@
 //!
 //! Usage:
 //! ```rust
-//! use lp_glsl::debug;
+//! use lp_glsl_compiler::debug;
 //! let value = 42;
 //! debug!("message: {:?}", value);
 //! ```

@@ -56,7 +56,7 @@ Looking at the compiled artifacts, several UNEXPECTED crates were pulled in:
 
 - **`esp_hal`** - ESP32 HAL library (WHY?!)
 - **`embassy_sync`** - Embassy async runtime
-- **`lp_glsl`** - GLSL compiler
+- **`lp_glsl_compiler`** - GLSL compiler
 - **`fugit`** - Time library  
 - **`nb`** - Non-blocking trait
 - **`generic_array`**
@@ -121,8 +121,8 @@ cargo tree --package embive-program --target riscv32imac-unknown-none-elf -i esp
 # Check why embassy_sync is included:
 cargo tree --package embive-program --target riscv32imac-unknown-none-elf -i embassy_sync
 
-# Check why lp_glsl is included:
-cargo tree --package embive-program --target riscv32imac-unknown-none-elf -i lp_glsl
+# Check why lp_glsl_compiler is included:
+cargo tree --package embive-program --target riscv32imac-unknown-none-elf -i lp_glsl_compiler
 ```
 
 These dependencies alone could be hundreds of KB!
@@ -211,7 +211,7 @@ cargo tree --package embive-program --target riscv32imac-unknown-none-elf -i CRA
 
 ## Recommended Next Steps
 
-1. **Immediately:** Investigate and remove unexpected dependencies (esp_hal, embassy_sync, lp_glsl)
+1. **Immediately:** Investigate and remove unexpected dependencies (esp_hal, embassy_sync, lp_glsl_compiler)
 2. **High Priority:** Feature-gate cranelift optimization passes and verifier
 3. **High Priority:** Remove Debug trait implementations and formatting code for embedded
 4. **Medium Priority:** Strip the binary

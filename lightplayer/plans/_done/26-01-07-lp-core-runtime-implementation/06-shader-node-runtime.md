@@ -6,8 +6,8 @@ Implement ShaderNodeRuntime and ShaderNodeConfig, including GLSL compilation and
 
 ## Tasks
 
-1. Add `lp-glsl` dependency to `lp-core/Cargo.toml`:
-   - `lp-glsl = { path = "../lp-glsl" }` (or workspace reference)
+1. Add `lp-glsl-compiler` dependency to `lp-core/Cargo.toml`:
+   - `lp-glsl-compiler = { path = "../lp-glsl-compiler" }` (or workspace reference)
 
 2. Create `nodes/shader/config.rs`:
    - Move `ShaderNode` enum from `nodes/shader.rs` to here
@@ -25,7 +25,7 @@ Implement ShaderNodeRuntime and ShaderNodeConfig, including GLSL compilation and
      - `RenderContext = ShaderRenderContext`
      - `init()`: 
        - Validates GLSL has signature `vec4 main(vec2 fragCoord, vec2 outputSize, float time)`
-       - Compiles GLSL using `lp-glsl` compiler
+       - Compiles GLSL using `lp-glsl-compiler` compiler
        - Stores executable (or None if compilation failed)
        - Sets status to Error if compilation fails
      - `update()`:
@@ -49,7 +49,7 @@ Implement ShaderNodeRuntime and ShaderNodeConfig, including GLSL compilation and
 ## Success Criteria
 
 - ShaderNodeRuntime compiles and implements NodeLifecycle
-- GLSL compilation works (using lp-glsl)
+- GLSL compilation works (using lp-glsl-compiler)
 - Shader execution works correctly
 - Pixel writing works correctly
 - All tests pass

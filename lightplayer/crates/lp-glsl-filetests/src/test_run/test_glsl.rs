@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use glsl::syntax::{CompoundStatement, Expr, SimpleStatement, Statement};
-use lp_glsl::frontend::CompilationPipeline;
+use lp_glsl_compiler::frontend::CompilationPipeline;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Result of test GLSL code generation.

@@ -4,7 +4,7 @@
 //! differently depending on execution context:
 //! - Emulator: Functions defined in `lp-builtins-app` (syscall-based)
 //! - Tests: Functions defined here using `std` (gated by feature flag)
-//! - JIT: Functions registered by `GlJitModule` (delegate to `lp-glsl` macros)
+//! - JIT: Functions registered by `GlJitModule` (delegate to `lp-glsl-compiler` macros)
 
 mod macros;
 mod registry;
@@ -18,7 +18,7 @@ pub use registry::HostId;
 // Function declarations are provided by:
 // - Emulator: `lp-builtins-app` (syscall-based)
 // - Tests: `test` module (gated by feature flag)
-// - JIT: `lp-glsl` (delegates to `lp-glsl` macros)
+// - JIT: `lp-glsl-compiler` (delegates to `lp-glsl-compiler` macros)
 //
 // No default implementations here to avoid symbol conflicts when linking.
 

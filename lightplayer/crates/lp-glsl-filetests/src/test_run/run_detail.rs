@@ -8,8 +8,8 @@ use crate::test_run::parse_assert;
 use crate::test_run::target;
 use crate::test_run::test_glsl;
 use anyhow::Result;
-use lp_glsl::GlslOptions;
-use lp_glsl::glsl_emu_riscv32_with_metadata;
+use lp_glsl_compiler::GlslOptions;
+use lp_glsl_compiler::glsl_emu_riscv32_with_metadata;
 use std::path::Path;
 
 use crate::colors;
@@ -429,7 +429,7 @@ enum ErrorType {
 
 /// Format a compilation error with test GLSL code context.
 fn format_compilation_error(
-    error: &lp_glsl::error::GlslError,
+    error: &lp_glsl_compiler::error::GlslError,
     test_glsl: &test_glsl::TestGlslResult,
     directive_line: usize,
     expression: &str,
@@ -469,7 +469,7 @@ fn format_error(
     filename: &str,
     line_number: usize,
     test_glsl: Option<&str>,
-    executable: Option<&dyn lp_glsl::GlslExecutable>,
+    executable: Option<&dyn lp_glsl_compiler::GlslExecutable>,
     output_mode: OutputMode,
     _test_expression: Option<&str>,
 ) -> String {
