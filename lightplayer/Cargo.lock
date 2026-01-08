@@ -2339,6 +2339,7 @@ dependencies = [
  "eframe",
  "egui",
  "hashbrown 0.15.5",
+ "log",
  "lp-core",
  "notify",
  "serde_json",

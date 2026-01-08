@@ -9,6 +9,7 @@ name = "fw-host"
 path = "src/main.rs"
 
 [dependencies]
+log = "0.4"
 lp-core = { path = "../../crates/lp-core" }
 eframe = "0.28"
 egui = "0.28"
