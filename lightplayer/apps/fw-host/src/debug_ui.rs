@@ -57,7 +57,6 @@ fn generate_placeholder_texture(width: u32, height: u32, format: &str) -> Vec<u8
 }
 
 /// Convert texture data to egui ColorImage
-#[allow(dead_code)]
 fn texture_data_to_color_image(data: &[u8], width: u32, height: u32, format: &str) -> ColorImage {
     let mut pixels = Vec::with_capacity((width * height) as usize);
 
@@ -101,7 +100,6 @@ fn texture_data_to_color_image(data: &[u8], width: u32, height: u32, format: &st
 }
 
 /// Generate a color for a fixture based on its ID
-#[allow(dead_code)]
 fn fixture_color(fixture_id: &str) -> Color32 {
     // Generate distinct colors for different fixtures
     // Hash the string ID to get a consistent number
@@ -112,7 +110,6 @@ fn fixture_color(fixture_id: &str) -> Color32 {
 }
 
 /// Convert HSV to RGB (simple approximation)
-#[allow(dead_code)]
 fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
     let c = v * s;
     let x = c * (1.0 - ((h * 6.0) % 2.0 - 1.0).abs());
@@ -140,7 +137,6 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
 }
 
 /// Draw mapping overlay on a texture
-#[allow(dead_code)]
 fn draw_mapping_overlay(
     painter: &Painter,
     texture_rect: egui::Rect,
