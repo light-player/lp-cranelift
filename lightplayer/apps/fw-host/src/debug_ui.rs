@@ -359,7 +359,7 @@ fn render_fixture(
 pub fn render_fixtures_panel(
     ui: &mut Ui,
     _project: &ProjectConfig,
-    _runtime: Option<&ProjectRuntime>,
+    runtime: Option<&ProjectRuntime>,
 ) {
     ui.heading("Fixtures");
     ui.separator();
@@ -432,7 +432,7 @@ pub fn render_shader_panel(
 pub fn render_shaders_panel(
     ui: &mut Ui,
     _project: &ProjectConfig,
-    _runtime: Option<&ProjectRuntime>,
+    runtime: Option<&ProjectRuntime>,
 ) {
     ui.heading("Shaders");
     ui.separator();
