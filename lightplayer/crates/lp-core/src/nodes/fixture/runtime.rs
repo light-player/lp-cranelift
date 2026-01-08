@@ -85,6 +85,7 @@ impl SamplingKernel {
 
 /// Fixture node runtime
 pub struct FixtureNodeRuntime {
+    config: FixtureNode,
     output_id: OutputId,
     texture_id: TextureId,
     kernel: SamplingKernel,
@@ -97,6 +98,12 @@ impl FixtureNodeRuntime {
     /// Create a new fixture node runtime (uninitialized)
     pub fn new() -> Self {
         Self {
+            config: FixtureNode::CircleList {
+                output_id: OutputId(String::new()),
+                texture_id: TextureId(String::new()),
+                channel_order: String::new(),
+                mapping: Vec::new(),
+            }, // Temporary, will be replaced in init
             output_id: OutputId(String::new()),
             texture_id: TextureId(String::new()),
             kernel: SamplingKernel::new(0.1), // Default small radius

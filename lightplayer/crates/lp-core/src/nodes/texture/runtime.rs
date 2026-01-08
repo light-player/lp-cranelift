@@ -11,6 +11,7 @@ use alloc::{format, string::ToString};
 /// Texture node runtime
 #[derive(Debug)]
 pub struct TextureNodeRuntime {
+    config: TextureNode,
     texture: Texture,
     status: NodeStatus,
 }
@@ -19,6 +20,10 @@ impl TextureNodeRuntime {
     /// Create a new texture node runtime (uninitialized)
     pub fn new() -> Self {
         Self {
+            config: TextureNode::Memory {
+                size: [1, 1],
+                format: "RGB8".to_string(),
+            }, // Temporary, will be replaced in init
             texture: Texture::new(1, 1, "RGB8".to_string()).unwrap(), // Temporary, will be replaced in init
             status: NodeStatus::Ok,
         }

@@ -10,6 +10,7 @@ use alloc::{format, vec, vec::Vec};
 
 /// Output node runtime
 pub struct OutputNodeRuntime {
+    config: OutputNode,
     handle: Option<alloc::boxed::Box<dyn LedOutput>>,
     pixel_count: usize,
     bytes_per_pixel: usize,

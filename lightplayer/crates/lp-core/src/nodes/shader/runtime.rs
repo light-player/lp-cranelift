@@ -16,6 +16,7 @@ use lp_glsl::{DecimalFormat, GlslExecutable, GlslOptions, GlslValue, RunMode, gl
 
 /// Shader node runtime
 pub struct ShaderNodeRuntime {
+    config: ShaderNode,
     executable: Option<alloc::boxed::Box<dyn GlslExecutable>>,
     texture_id: TextureId,
     status: NodeStatus,
@@ -25,6 +26,10 @@ impl ShaderNodeRuntime {
     /// Create a new shader node runtime (uninitialized)
     pub fn new() -> Self {
         Self {
+            config: ShaderNode::Single {
+                glsl: String::new(),
+                texture_id: TextureId(String::new()),
+            }, // Temporary, will be replaced in init
             executable: None,
             texture_id: TextureId(String::new()),
             status: NodeStatus::Ok,
