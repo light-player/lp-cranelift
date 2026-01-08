@@ -80,6 +80,9 @@ impl NodeLifecycle for OutputNodeRuntime {
         config: &Self::Config,
         _ctx: &crate::runtime::contexts::InitContext,
     ) -> Result<(), Error> {
+        // Store config
+        self.config = config.clone();
+        
         match config {
             OutputNode::GpioStrip { chip, count, .. } => {
                 // Derive bytes_per_pixel from chip type

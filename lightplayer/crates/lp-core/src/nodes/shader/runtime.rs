@@ -62,6 +62,9 @@ impl NodeLifecycle for ShaderNodeRuntime {
         config: &Self::Config,
         _ctx: &crate::runtime::contexts::InitContext,
     ) -> Result<(), Error> {
+        // Store config
+        self.config = config.clone();
+        
         match config {
             ShaderNode::Single { glsl, texture_id } => {
                 self.texture_id = texture_id.clone();

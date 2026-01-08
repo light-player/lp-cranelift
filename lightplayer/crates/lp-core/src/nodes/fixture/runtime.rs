@@ -134,6 +134,9 @@ impl NodeLifecycle for FixtureNodeRuntime {
         config: &Self::Config,
         _ctx: &crate::runtime::contexts::InitContext,
     ) -> Result<(), Error> {
+        // Store config
+        self.config = config.clone();
+        
         match config {
             FixtureNode::CircleList {
                 output_id,
