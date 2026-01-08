@@ -390,7 +390,7 @@ pub fn render_fixtures_panel(
                     let config = fixture_rt.config();
                     
                     // Call the existing render_fixture() helper function
-                    render_fixture(ui, &fixture_id, config, project, rt);
+                    render_fixture(ui, &fixture_id, config, project, Some(rt));
                     ui.separator();
                 }
             }
