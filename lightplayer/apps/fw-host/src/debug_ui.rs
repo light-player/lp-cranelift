@@ -1,10 +1,12 @@
 //! Debug UI for visualizing textures, mappings, and LEDs
 
 use egui::{Color32, ColorImage, Image, Painter, TextureHandle, Ui};
+use lp_core::fs::Filesystem;
 use lp_core::nodes::fixture::{FixtureNode, Mapping};
 use lp_core::nodes::shader::{ShaderNode, ShaderNodeRuntime};
 use lp_core::nodes::texture::{formats, TextureNode};
 use lp_core::project::config::ProjectConfig;
+use lp_core::project::loader;
 use lp_core::project::runtime::ProjectRuntime;
 
 /// Generate placeholder texture data for visualization
@@ -257,11 +259,50 @@ pub fn render_textures_panel(
     ui.heading("Textures");
     ui.separator();
 
-    // Note: ProjectLoader is implemented, but debug UI needs runtime data
-    // For now, show placeholder message since we can't easily get node configs from runtime
-    if let Some(_rt) = runtime {
-        // Get textures from runtime (we'll need to add a method to list texture IDs)
-        ui.label("Textures will be displayed once ProjectLoader is implemented");
+    if let Some(rt) = runtime {
+        let texture_ids = rt.get_texture_ids();
+        if texture_ids.is_empty() {
+            ui.label("No textures loaded");
+        } else {
+            for texture_id in texture_ids {
+                let texture_id_typed = lp_core::nodes::id::TextureId(texture_id.clone());
+                if let Some(texture_rt) = rt.get_texture(texture_id_typed) {
+                    let texture = texture_rt.texture();
+                    let width = texture.width();
+                    let height = texture.height();
+                    let data: Vec<u8> = texture.data().to_vec();
+                    
+                    // Convert to egui image
+                    let color_image = texture_data_to_color_image(&data, width, height, "RGB8");
+                    let texture_name = format!("texture_{}", texture_id);
+                    let texture_handle: TextureHandle = ui.ctx().load_texture(
+                        texture_name,
+                        color_image,
+                        Default::default(),
+                    );
+
+                    ui.group(|ui| {
+                        ui.label(format!("Texture ID: {}", texture_id));
+                        ui.label(format!("Size: {}x{}", width, height));
+                        ui.label(format!("Format: RGB8"));
+                    });
+
+                    ui.separator();
+
+                    // Display texture image
+                    let available_width = ui.available_width();
+                    let scale = (available_width / width as f32).min(8.0);
+                    let display_width = width as f32 * scale;
+                    let display_height = height as f32 * scale;
+
+                    ui.add(
+                        Image::new(&texture_handle)
+                            .fit_to_exact_size(egui::Vec2::new(display_width, display_height))
+                    );
+                    ui.separator();
+                }
+            }
+        }
     } else {
         ui.label("No runtime available");
     }
