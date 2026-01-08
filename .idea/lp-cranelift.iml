@@ -128,9 +128,9 @@
       <sourceFolder url="file://$MODULE_DIR$/winch/codegen/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-app/apps/lp-core-cli/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-api/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-core-util/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-engine/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-server/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-shared/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/embive-program/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/embive-program/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/esp32-glsl-jit/src" isTestSource="false" />
