@@ -2,7 +2,11 @@
 
 use crate::app::Platform;
 use crate::error::Error;
-use crate::project::{config::ProjectConfig, runtime::ProjectRuntime};
+use crate::project::{
+    config::ProjectConfig,
+    loader,
+    runtime::ProjectRuntime,
+};
 use alloc::{
     format,
     string::{String, ToString},
@@ -45,28 +49,23 @@ impl LpApp {
 
     /// Load a project from the filesystem
     ///
-    /// Reads the project file, parses it as JSON, creates a ProjectRuntime,
-    /// and initializes all nodes. If a project is already loaded, it is destroyed
-    /// before loading the new one.
+    /// Uses ProjectLoader to read `/project.json` and load the project configuration.
+    /// Creates a ProjectRuntime and initializes it. If a project is already loaded,
+    /// it is destroyed before loading the new one.
     ///
     /// If the project file doesn't exist, creates a default project, saves it,
     /// and loads it.
-    pub fn load_project(&mut self, path: &str) -> Result<(), Error> {
+    ///
+    /// Note: Node loading from filesystem will be implemented in Phase 8.
+    pub fn load_project(&mut self, _path: &str) -> Result<(), Error> {
         // Destroy existing runtime if present
         if let Some(mut runtime) = self.runtime.take() {
             let _ = runtime.destroy();
         }
 
-        // Check if project file exists
-        let config = if self.platform.fs.file_exists(path)? {
-            // Read project file
-            let data = self.platform.fs.read_file(path)?;
-            let json = alloc::string::String::from_utf8(data)
-                .map_err(|e| Error::Filesystem(format!("Invalid UTF-8 in {}: {}", path, e)))?;
-
-            // Parse project config
-            serde_json::from_str(&json)
-                .map_err(|e| Error::Validation(format!("Invalid project file {}: {}", path, e)))?
+        // Load project config using ProjectLoader
+        let config = if self.platform.fs.file_exists("/project.json")? {
+            loader::load_from_filesystem(self.platform.fs.as_ref())?
         } else {
             // Create default project
             let default_config = Self::create_default_project();
@@ -74,7 +73,7 @@ impl LpApp {
             // Save default project to filesystem
             let json = serde_json::to_string_pretty(&default_config)
                 .map_err(|e| Error::Serialization(format!("Failed to serialize project: {}", e)))?;
-            self.platform.fs.write_file(path, json.as_bytes())?;
+            self.platform.fs.write_file("/project.json", json.as_bytes())?;
 
             default_config
         };
@@ -82,7 +81,7 @@ impl LpApp {
         // Create runtime
         let mut runtime = ProjectRuntime::new(config.uid.clone());
 
-        // Initialize runtime with nodes
+        // Initialize runtime (nodes will be loaded separately in Phase 8)
         runtime.init(&config, self.platform.output.as_ref())?;
 
         // Store config and runtime
@@ -144,10 +143,10 @@ impl LpApp {
                 })?;
                 self.platform
                     .fs
-                    .write_file("project.json", json.as_bytes())?;
+                    .write_file("/project.json", json.as_bytes())?;
 
                 // Load the project (this will initialize the runtime)
-                self.load_project("project.json")?;
+                self.load_project("/project.json")?;
             }
             crate::app::MsgIn::GetProject => {
                 // Get current project config
