@@ -2,8 +2,11 @@
 
 use crate::error::Error;
 use crate::fs::Filesystem;
+use crate::nodes::{
+    FixtureNode, OutputNode, ShaderNode, TextureNode,
+};
 use crate::project::config::ProjectConfig;
-use alloc::{format, string::String, string::ToString, vec::Vec};
+use alloc::{collections::BTreeMap, format, string::String, string::ToString, vec::Vec};
 
 /// Load a project from the filesystem
 ///
@@ -96,6 +99,175 @@ fn extract_node_id(path: &str) -> Option<String> {
     Some(path.to_string())
 }
 
+/// Enum representing all node types
+#[derive(Debug, Clone)]
+pub enum NodeConfig {
+    Texture(TextureNode),
+    Shader(ShaderNode),
+    Output(OutputNode),
+    Fixture(FixtureNode),
+}
+
+/// Load a single node from the filesystem
+///
+/// Reads `node_path/node.json` and related files (e.g., `main.glsl` for shaders).
+/// Validates that the directory suffix matches the node type.
+///
+/// Returns the node ID (full path) and the node configuration.
+pub fn load_node(
+    fs: &dyn Filesystem,
+    node_path: &str,
+) -> Result<(String, NodeConfig), Error> {
+    // Validate node path format
+    let node_id = extract_node_id(node_path)
+        .ok_or_else(|| Error::Validation(format!("Invalid node path: {}", node_path)))?;
+
+    // Determine expected node type from directory suffix
+    let expected_type = if node_path.ends_with(".shader") {
+        "shader"
+    } else if node_path.ends_with(".texture") {
+        "texture"
+    } else if node_path.ends_with(".output") {
+        "output"
+    } else if node_path.ends_with(".fixture") {
+        "fixture"
+    } else {
+        return Err(Error::Validation(format!(
+            "Invalid node directory suffix: {}",
+            node_path
+        )));
+    };
+
+    // Read node.json
+    let node_json_path = format!("{}/node.json", node_path);
+    let node_json = fs.read_file(&node_json_path).map_err(|e| {
+        Error::Filesystem(format!("Failed to read {}: {}", node_json_path, e))
+    })?;
+    let node_json_str = core::str::from_utf8(&node_json).map_err(|e| {
+        Error::Serialization(format!("Invalid UTF-8 in {}: {}", node_json_path, e))
+    })?;
+
+    // Parse node config based on type
+    let node_config = match expected_type {
+        "shader" => {
+            // For shaders, we need to read main.glsl separately
+            let glsl_path = format!("{}/main.glsl", node_path);
+            let glsl_source = fs.read_file(&glsl_path).map_err(|e| {
+                Error::Filesystem(format!("Failed to read {}: {}", glsl_path, e))
+            })?;
+            let glsl_str = core::str::from_utf8(&glsl_source).map_err(|e| {
+                Error::Serialization(format!("Invalid UTF-8 in {}: {}", glsl_path, e))
+            })?;
+
+            // Parse shader config from node.json
+            // We'll parse it as a JSON value first, then inject the glsl field
+            let mut shader_value: serde_json::Value = serde_json::from_str(node_json_str)
+                .map_err(|e| Error::Serialization(format!("Failed to parse {}: {}", node_json_path, e)))?;
+
+            // Validate $type field matches
+            if let Some(node_type) = shader_value.get("$type") {
+                if node_type != "Single" {
+                    return Err(Error::Validation(format!(
+                        "Invalid shader type in {}: expected 'Single', got '{}'",
+                        node_json_path, node_type
+                    )));
+                }
+            }
+
+            // Inject glsl field
+            shader_value["glsl"] = serde_json::Value::String(glsl_str.to_string());
+
+            // Deserialize the complete shader config
+            let shader: ShaderNode = serde_json::from_value(shader_value)
+                .map_err(|e| Error::Serialization(format!("Failed to deserialize shader: {}", e)))?;
+
+            NodeConfig::Shader(shader)
+        }
+        "texture" => {
+            let texture: TextureNode = serde_json::from_str(node_json_str)
+                .map_err(|e| Error::Serialization(format!("Failed to parse texture: {}", e)))?;
+
+            // Validate $type field
+            match &texture {
+                TextureNode::Memory { .. } => {}
+            }
+
+            NodeConfig::Texture(texture)
+        }
+        "output" => {
+            let output: OutputNode = serde_json::from_str(node_json_str)
+                .map_err(|e| Error::Serialization(format!("Failed to parse output: {}", e)))?;
+
+            // Validate $type field
+            match &output {
+                OutputNode::GpioStrip { .. } => {}
+            }
+
+            NodeConfig::Output(output)
+        }
+        "fixture" => {
+            let fixture: FixtureNode = serde_json::from_str(node_json_str)
+                .map_err(|e| Error::Serialization(format!("Failed to parse fixture: {}", e)))?;
+
+            // Validate $type field
+            match &fixture {
+                FixtureNode::CircleList { .. } => {}
+            }
+
+            NodeConfig::Fixture(fixture)
+        }
+        _ => unreachable!(),
+    };
+
+    Ok((node_id, node_config))
+}
+
+/// Load all nodes from the filesystem
+///
+/// Discovers all node directories and loads each node configuration.
+/// Returns maps of node ID to node configuration for each node type.
+pub fn load_all_nodes(
+    fs: &dyn Filesystem,
+) -> Result<
+    (
+        BTreeMap<String, TextureNode>,
+        BTreeMap<String, ShaderNode>,
+        BTreeMap<String, OutputNode>,
+        BTreeMap<String, FixtureNode>,
+    ),
+    Error,
+> {
+    let mut textures = BTreeMap::new();
+    let mut shaders = BTreeMap::new();
+    let mut outputs = BTreeMap::new();
+    let mut fixtures = BTreeMap::new();
+
+    // Discover all nodes
+    let node_paths = discover_nodes(fs)?;
+
+    // Load each node
+    for node_path in node_paths {
+        let (node_id, node_config) = load_node(fs, &node_path)?;
+
+        match node_config {
+            NodeConfig::Texture(texture) => {
+                textures.insert(node_id, texture);
+            }
+            NodeConfig::Shader(shader) => {
+                shaders.insert(node_id, shader);
+            }
+            NodeConfig::Output(output) => {
+                outputs.insert(node_id, output);
+            }
+            NodeConfig::Fixture(fixture) => {
+                fixtures.insert(node_id, fixture);
+            }
+        }
+    }
+
+    Ok((textures, shaders, outputs, fixtures))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,6 +355,93 @@ mod tests {
             Some("/src/nested/effects/rainbow.shader".to_string())
         );
         assert_eq!(extract_node_id("src/my-shader.shader"), None); // No leading slash
+    }
+
+    #[test]
+    fn test_load_node_shader() {
+        let mut fs = InMemoryFilesystem::new();
+        fs.write_file(
+            "/src/my-shader.shader/node.json",
+            br#"{"$type":"Single","texture_id":"/src/my-texture.texture"}"#,
+        )
+        .unwrap();
+        fs.write_file(
+            "/src/my-shader.shader/main.glsl",
+            b"vec4 main(vec2 fragCoord, vec2 outputSize, float time) { return vec4(1.0); }",
+        )
+        .unwrap();
+
+        let (node_id, node_config) = load_node(&fs, "/src/my-shader.shader").unwrap();
+        assert_eq!(node_id, "/src/my-shader.shader");
+        match node_config {
+            NodeConfig::Shader(ShaderNode::Single { glsl, texture_id }) => {
+                assert_eq!(
+                    glsl,
+                    "vec4 main(vec2 fragCoord, vec2 outputSize, float time) { return vec4(1.0); }"
+                );
+                assert_eq!(
+                    String::from(texture_id),
+                    "/src/my-texture.texture".to_string()
+                );
+            }
+            _ => panic!("Expected Shader node"),
+        }
+    }
+
+    #[test]
+    fn test_load_node_texture() {
+        let mut fs = InMemoryFilesystem::new();
+        fs.write_file(
+            "/src/my-texture.texture/node.json",
+            br#"{"$type":"Memory","size":[64,64],"format":"RGB8"}"#,
+        )
+        .unwrap();
+
+        let (node_id, node_config) = load_node(&fs, "/src/my-texture.texture").unwrap();
+        assert_eq!(node_id, "/src/my-texture.texture");
+        match node_config {
+            NodeConfig::Texture(TextureNode::Memory { size, format }) => {
+                assert_eq!(size, [64, 64]);
+                assert_eq!(format, "RGB8");
+            }
+            _ => panic!("Expected Texture node"),
+        }
+    }
+
+    #[test]
+    fn test_load_all_nodes() {
+        let mut fs = InMemoryFilesystem::new();
+        // Create a shader
+        fs.write_file(
+            "/src/shader.shader/node.json",
+            br#"{"$type":"Single","texture_id":"/src/texture.texture"}"#,
+        )
+        .unwrap();
+        fs.write_file("/src/shader.shader/main.glsl", b"void main() {}").unwrap();
+
+        // Create a texture
+        fs.write_file(
+            "/src/texture.texture/node.json",
+            br#"{"$type":"Memory","size":[32,32],"format":"RGB8"}"#,
+        )
+        .unwrap();
+
+        // Create an output
+        fs.write_file(
+            "/src/output.output/node.json",
+            br#"{"$type":"gpio_strip","chip":"ws2812","gpio_pin":4,"count":128}"#,
+        )
+        .unwrap();
+
+        let (textures, shaders, outputs, fixtures) = load_all_nodes(&fs).unwrap();
+        assert_eq!(textures.len(), 1);
+        assert_eq!(shaders.len(), 1);
+        assert_eq!(outputs.len(), 1);
+        assert_eq!(fixtures.len(), 0);
+
+        assert!(textures.contains_key("/src/texture.texture"));
+        assert!(shaders.contains_key("/src/shader.shader"));
+        assert!(outputs.contains_key("/src/output.output"));
     }
 }
 

@@ -8,7 +8,7 @@ use crate::nodes::texture::TextureNode;
 use crate::project::config::ProjectConfig;
 use crate::runtime::frame_time::FrameTime;
 use crate::util::Texture;
-use alloc::string::String;
+use alloc::{collections::BTreeMap, string::String, string::ToString};
 use hashbrown::HashMap;
 
 // Forward declarations - these will be implemented in later phases
@@ -20,51 +20,55 @@ use crate::nodes::output::OutputNodeRuntime;
 // TextureNodeRuntime is now implemented
 use crate::nodes::texture::TextureNodeRuntime;
 
-/// Initialization context providing read-only access to project configuration
+/// Initialization context providing read-only access to project configuration and nodes
 pub struct InitContext<'a> {
     project_config: &'a ProjectConfig,
+    textures: &'a BTreeMap<String, TextureNode>,
+    shaders: &'a BTreeMap<String, ShaderNode>,
+    outputs: &'a BTreeMap<String, OutputNode>,
+    fixtures: &'a BTreeMap<String, FixtureNode>,
 }
 
 impl<'a> InitContext<'a> {
     /// Create a new initialization context
-    pub fn new(project_config: &'a ProjectConfig) -> Self {
-        Self { project_config }
+    pub fn new(
+        project_config: &'a ProjectConfig,
+        textures: &'a BTreeMap<String, TextureNode>,
+        shaders: &'a BTreeMap<String, ShaderNode>,
+        outputs: &'a BTreeMap<String, OutputNode>,
+        fixtures: &'a BTreeMap<String, FixtureNode>,
+    ) -> Self {
+        Self {
+            project_config,
+            textures,
+            shaders,
+            outputs,
+            fixtures,
+        }
     }
 
     /// Get texture configuration by ID
-    ///
-    /// Note: Nodes are no longer stored in ProjectConfig. This will be updated
-    /// in Phase 7 to get configs from ProjectLoader.
-    pub fn get_texture_config(&self, _id: &TextureId) -> Option<&TextureNode> {
-        // TODO: Update in Phase 7 to get from ProjectLoader
-        None
+    pub fn get_texture_config(&self, id: &TextureId) -> Option<&TextureNode> {
+        let id_str: String = id.clone().into();
+        self.textures.get(&id_str)
     }
 
     /// Get shader configuration by ID
-    ///
-    /// Note: Nodes are no longer stored in ProjectConfig. This will be updated
-    /// in Phase 7 to get configs from ProjectLoader.
-    pub fn get_shader_config(&self, _id: &ShaderId) -> Option<&ShaderNode> {
-        // TODO: Update in Phase 7 to get from ProjectLoader
-        None
+    pub fn get_shader_config(&self, id: &ShaderId) -> Option<&ShaderNode> {
+        let id_str: String = id.clone().into();
+        self.shaders.get(&id_str)
     }
 
     /// Get fixture configuration by ID
-    ///
-    /// Note: Nodes are no longer stored in ProjectConfig. This will be updated
-    /// in Phase 7 to get configs from ProjectLoader.
-    pub fn get_fixture_config(&self, _id: &FixtureId) -> Option<&FixtureNode> {
-        // TODO: Update in Phase 7 to get from ProjectLoader
-        None
+    pub fn get_fixture_config(&self, id: &FixtureId) -> Option<&FixtureNode> {
+        let id_str: String = id.clone().into();
+        self.fixtures.get(&id_str)
     }
 
     /// Get output configuration by ID
-    ///
-    /// Note: Nodes are no longer stored in ProjectConfig. This will be updated
-    /// in Phase 7 to get configs from ProjectLoader.
-    pub fn get_output_config(&self, _id: &OutputId) -> Option<&OutputNode> {
-        // TODO: Update in Phase 7 to get from ProjectLoader
-        None
+    pub fn get_output_config(&self, id: &OutputId) -> Option<&OutputNode> {
+        let id_str: String = id.clone().into();
+        self.outputs.get(&id_str)
     }
 }
 
@@ -161,8 +165,8 @@ impl TextureRenderContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-        use crate::project::config::ProjectConfig;
-    use alloc::string::ToString;
+    use crate::project::config::ProjectConfig;
+    use alloc::collections::BTreeMap;
 
     #[test]
     fn test_init_context_creation() {
@@ -170,9 +174,13 @@ mod tests {
             uid: "test".to_string(),
             name: "Test".to_string(),
         };
+        let textures = BTreeMap::new();
+        let shaders = BTreeMap::new();
+        let outputs = BTreeMap::new();
+        let fixtures = BTreeMap::new();
 
-        let ctx = InitContext::new(&project);
-        // InitContext can be created (config access will be updated in Phase 7)
+        let ctx = InitContext::new(&project, &textures, &shaders, &outputs, &fixtures);
+        // InitContext can be created with loaded nodes
         let _ = ctx;
     }
 

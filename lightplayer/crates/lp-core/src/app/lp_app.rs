@@ -2,11 +2,7 @@
 
 use crate::app::Platform;
 use crate::error::Error;
-use crate::project::{
-    config::ProjectConfig,
-    loader,
-    runtime::ProjectRuntime,
-};
+use crate::project::{config::ProjectConfig, loader, runtime::ProjectRuntime};
 use alloc::{
     format,
     string::{String, ToString},
@@ -73,16 +69,28 @@ impl LpApp {
             // Save default project to filesystem
             let json = serde_json::to_string_pretty(&default_config)
                 .map_err(|e| Error::Serialization(format!("Failed to serialize project: {}", e)))?;
-            self.platform.fs.write_file("/project.json", json.as_bytes())?;
+            self.platform
+                .fs
+                .write_file("/project.json", json.as_bytes())?;
 
             default_config
         };
 
+        // Load all nodes from filesystem
+        let (textures, shaders, outputs, fixtures) = loader::load_all_nodes(self.platform.fs.as_ref())?;
+
         // Create runtime
         let mut runtime = ProjectRuntime::new(config.uid.clone());
 
-        // Initialize runtime (nodes will be loaded separately in Phase 8)
-        runtime.init(&config, self.platform.output.as_ref())?;
+        // Initialize runtime with loaded nodes
+        runtime.init(
+            &config,
+            &textures,
+            &shaders,
+            &outputs,
+            &fixtures,
+            self.platform.output.as_ref(),
+        )?;
 
         // Store config and runtime
         self.config = Some(config);
