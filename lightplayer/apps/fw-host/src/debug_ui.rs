@@ -1,12 +1,10 @@
 //! Debug UI for visualizing textures, mappings, and LEDs
 
 use egui::{Color32, ColorImage, Image, Painter, TextureHandle, Ui};
-use lp_core::fs::Filesystem;
 use lp_core::nodes::fixture::{FixtureNode, Mapping};
 use lp_core::nodes::shader::{ShaderNode, ShaderNodeRuntime};
 use lp_core::nodes::texture::{TextureNode, formats};
 use lp_core::project::config::ProjectConfig;
-use lp_core::project::loader;
 use lp_core::project::runtime::ProjectRuntime;
 
 /// Generate placeholder texture data for visualization
