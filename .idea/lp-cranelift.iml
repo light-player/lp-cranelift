@@ -126,7 +126,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/winch/codegen/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lp-app/apps/fw-host/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-app/apps/lp-core-cli/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/embive-program/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/embive-program/tests" isTestSource="true" />
