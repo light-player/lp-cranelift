@@ -149,14 +149,17 @@ fn parse_args() -> CliArgs {
             "--help" | "-h" => {
                 println!("LightPlayer Host Firmware");
                 println!();
-                println!("Usage: fw-host [OPTIONS]");
+                println!("Usage: fw-host [<project-dir>] [OPTIONS]");
+                println!();
+                println!("Arguments:");
+                println!("  <project-dir>              Project directory path (optional, defaults to in-memory testing mode)");
                 println!();
                 println!("Options:");
                 println!(
-                    "  -p, --project-dir <path>  Specify project directory (default: in-memory testing mode)"
+                    "  -p, --project-dir <path>  Specify project directory (alternative to positional argument)"
                 );
                 println!(
-                    "  -c, --create              Create new project structure in specified directory"
+                    "  -c, --create              Create project if it doesn't exist (requires project-dir)"
                 );
                 println!("  -h, --help                Show this help message");
                 println!();
@@ -165,17 +168,23 @@ fn parse_args() -> CliArgs {
                     "  fw-host                                    # Run in testing mode (in-memory filesystem)"
                 );
                 println!(
-                    "  fw-host --project-dir ./my-project       # Use project in ./my-project directory"
+                    "  fw-host ./my-project                     # Use project in ./my-project directory"
                 );
                 println!(
-                    "  fw-host --project-dir ./new-project --create  # Create new project in ./new-project"
+                    "  fw-host ./new-project --create           # Create new project in ./new-project"
                 );
                 std::process::exit(0);
             }
             arg => {
-                eprintln!("Error: Unknown argument: {}", arg);
-                eprintln!("Use --help for usage information");
-                std::process::exit(1);
+                // First positional argument is treated as project directory
+                if project_dir.is_none() && !arg.starts_with("--") {
+                    project_dir = Some(PathBuf::from(arg));
+                    i += 1;
+                } else {
+                    eprintln!("Error: Unknown argument: {}", arg);
+                    eprintln!("Use --help for usage information");
+                    std::process::exit(1);
+                }
             }
         }
     }
