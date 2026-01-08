@@ -11,10 +11,13 @@ use fs::HostFilesystem;
 use led_output::render_leds;
 use lp_core::app::{LpApp, MsgIn, MsgOut, Platform};
 use lp_core::error::Error;
+use lp_core::fs::memory::InMemoryFilesystem;
 use lp_core::protocol::message::parse_command;
 use lp_core::traits::{Filesystem, Transport};
 use output_provider::HostOutputProvider;
-use std::path::PathBuf;
+use std::env;
+use std::fs as std_fs;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use transport::HostTransport;
@@ -89,12 +92,166 @@ fn handle_outgoing_messages(
     Ok(())
 }
 
-fn main() -> eframe::Result<()> {
-    // Project root directory (current directory)
-    let project_root = PathBuf::from(".");
+/// Parse command-line arguments
+struct CliArgs {
+    project_dir: Option<PathBuf>,
+    create: bool,
+}
 
-    // Initialize filesystem with current directory as base
-    let fs: Box<dyn Filesystem> = Box::new(HostFilesystem::new(project_root.clone()));
+fn parse_args() -> CliArgs {
+    let args: Vec<String> = env::args().collect();
+    let mut project_dir = None;
+    let mut create = false;
+
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--project-dir" | "-p" => {
+                if i + 1 < args.len() {
+                    project_dir = Some(PathBuf::from(&args[i + 1]));
+                    i += 2;
+                } else {
+                    eprintln!("Error: --project-dir requires a path argument");
+                    std::process::exit(1);
+                }
+            }
+            "--create" | "-c" => {
+                create = true;
+                i += 1;
+            }
+            "--help" | "-h" => {
+                println!("LightPlayer Host Firmware");
+                println!();
+                println!("Usage: fw-host [OPTIONS]");
+                println!();
+                println!("Options:");
+                println!("  -p, --project-dir <path>  Specify project directory (default: in-memory testing mode)");
+                println!("  -c, --create              Create new project structure in specified directory");
+                println!("  -h, --help                Show this help message");
+                println!();
+                println!("Examples:");
+                println!("  fw-host                                    # Run in testing mode (in-memory filesystem)");
+                println!("  fw-host --project-dir ./my-project       # Use project in ./my-project directory");
+                println!("  fw-host --project-dir ./new-project --create  # Create new project in ./new-project");
+                std::process::exit(0);
+            }
+            arg => {
+                eprintln!("Error: Unknown argument: {}", arg);
+                eprintln!("Use --help for usage information");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    CliArgs { project_dir, create }
+}
+
+/// Create a new project structure in the specified directory
+fn create_project(project_dir: &Path) -> Result<(), Error> {
+    // Create project directory if it doesn't exist
+    std_fs::create_dir_all(project_dir).map_err(|e| {
+        Error::Filesystem(format!("Failed to create project directory {:?}: {}", project_dir, e))
+    })?;
+
+    // Create project.json with default config
+    let default_config = LpApp::create_default_project();
+    let project_json_path = project_dir.join("project.json");
+    let json = serde_json::to_string_pretty(&default_config).map_err(|e| {
+        Error::Serialization(format!("Failed to serialize project config: {}", e))
+    })?;
+    std_fs::write(&project_json_path, json.as_bytes()).map_err(|e| {
+        Error::Filesystem(format!("Failed to write project.json: {}", e))
+    })?;
+
+    // Create src/ directory
+    let src_dir = project_dir.join("src");
+    std_fs::create_dir_all(&src_dir).map_err(|e| {
+        Error::Filesystem(format!("Failed to create src directory: {}", e))
+    })?;
+
+    println!("Created new project in {:?}", project_dir);
+    println!("  - project.json");
+    println!("  - src/");
+
+    Ok(())
+}
+
+fn main() -> eframe::Result<()> {
+    // Parse command-line arguments
+    let args = parse_args();
+
+    // Handle --create flag
+    if args.create {
+        let project_dir = match args.project_dir.as_ref() {
+            Some(dir) => dir,
+            None => {
+                eprintln!("Error: --create requires --project-dir to be specified");
+                std::process::exit(1);
+            }
+        };
+
+        match create_project(project_dir) {
+            Ok(()) => {
+                println!("Project created successfully!");
+                // Exit after creating project
+                return Ok(());
+            }
+            Err(e) => {
+                eprintln!("Error creating project: {}", e);
+                std::process::exit(1);
+            }
+        }
+    }
+
+    // Determine filesystem and project root
+    let (filesystem, project_root, use_watcher) = if let Some(project_dir) = args.project_dir {
+        // Use real filesystem with specified project directory
+        let project_root = project_dir.canonicalize().unwrap_or(project_dir);
+        let fs: Box<dyn Filesystem> = Box::new(HostFilesystem::new(project_root.clone()));
+        (fs, project_root, true)
+    } else {
+        // Use in-memory filesystem with sample project (testing mode)
+        let mut fs = InMemoryFilesystem::new();
+        
+        // Create sample project in memory
+        fs.write_file(
+            "/project.json",
+            br#"{"uid":"test","name":"Test Project"}"#,
+        )
+        .unwrap();
+        fs.write_file(
+            "/src/texture.texture/node.json",
+            br#"{"$type":"Memory","size":[64,64],"format":"RGB8"}"#,
+        )
+        .unwrap();
+        fs.write_file(
+            "/src/shader.shader/node.json",
+            br#"{"$type":"Single","texture_id":"/src/texture.texture"}"#,
+        )
+        .unwrap();
+        fs.write_file(
+            "/src/shader.shader/main.glsl",
+            b"vec4 main(vec2 fragCoord, vec2 outputSize, float time) { return vec4(1.0, 0.0, 0.0, 1.0); }",
+        )
+        .unwrap();
+        fs.write_file(
+            "/src/output.output/node.json",
+            br#"{"$type":"gpio_strip","chip":"ws2812","gpio_pin":4,"count":128}"#,
+        )
+        .unwrap();
+        fs.write_file(
+            "/src/fixture.fixture/node.json",
+            br#"{"$type":"circle-list","output_id":"/src/output.output","texture_id":"/src/texture.texture","channel_order":"rgb","mapping":[]}"#,
+        )
+        .unwrap();
+
+        println!("Running in testing mode (in-memory filesystem with sample project)");
+        println!("Use --project-dir <path> to use a real project directory");
+
+        let fs_box: Box<dyn Filesystem> = Box::new(fs);
+        (fs_box, PathBuf::from("."), false)
+    };
+
     // Initialize output provider (store separately for UI access)
     let output_provider = Arc::new(HostOutputProvider::new());
     // Create Platform (wrap in a boxed trait object)
@@ -102,14 +259,14 @@ fn main() -> eframe::Result<()> {
         Box::new(HostOutputProviderWrapper {
             inner: Arc::clone(&output_provider),
         });
-    let platform = Platform::new(fs, platform_output_provider);
+    let platform = Platform::new(filesystem, platform_output_provider);
     // Create LpApp
     let mut lp_app = LpApp::new(platform);
 
     // Load project (will create default if not found)
     // Wrap in catch_unwind to handle panics from cranelift (e.g., unimplemented features on macOS)
     let load_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        lp_app.load_project("project.json")
+        lp_app.load_project("/project.json")
     }));
 
     match load_result {
@@ -128,17 +285,22 @@ fn main() -> eframe::Result<()> {
         }
     }
 
-    // Initialize filesystem watcher
-    let file_watcher = match FileWatcher::watch_project(project_root) {
-        Ok(watcher) => {
-            eprintln!("Filesystem watcher initialized");
-            Some(watcher)
+    // Initialize filesystem watcher (only for real filesystem)
+    let file_watcher = if use_watcher {
+        match FileWatcher::watch_project(project_root) {
+            Ok(watcher) => {
+                eprintln!("Filesystem watcher initialized");
+                Some(watcher)
+            }
+            Err(e) => {
+                eprintln!("Warning: Failed to initialize filesystem watcher: {}", e);
+                eprintln!("File changes will not be detected automatically");
+                None
+            }
         }
-        Err(e) => {
-            eprintln!("Warning: Failed to initialize filesystem watcher: {}", e);
-            eprintln!("File changes will not be detected automatically");
-            None
-        }
+    } else {
+        // No watcher for in-memory filesystem
+        None
     };
 
     // Initialize transport (stdio)
@@ -221,15 +383,15 @@ impl eframe::App for AppState {
         // Log file changes if any
         if !file_changes.is_empty() {
             for change in &file_changes {
-                eprintln!(
-                    "File change: {:?} - {}",
-                    change.change_type, change.path
-                );
+                eprintln!("File change: {:?} - {}", change.change_type, change.path);
             }
         }
 
         // Update runtime with tick() - processes messages and updates runtime
-        match self.lp_app.tick(delta_ms, &incoming_messages, &file_changes) {
+        match self
+            .lp_app
+            .tick(delta_ms, &incoming_messages, &file_changes)
+        {
             Ok(outgoing) => {
                 // Handle outgoing messages
                 if let Err(e) = handle_outgoing_messages(outgoing, &self.transport) {
