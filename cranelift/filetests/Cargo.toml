@@ -45,5 +45,5 @@ cranelift-object = { workspace = true }
 object = { workspace = true }
 smallvec = { workspace = true }
 pulley-interpreter = { workspace = true, features = ["disas", "std", "interp"] }
-lp-riscv-tools = { path = "../../lightplayer/crates/lp-riscv-tools", features = ["std"] }
+lp-riscv-tools = { path = "../../lp-glsl/crates/lp-riscv-tools", features = ["std"] }
 libm = { workspace = true }

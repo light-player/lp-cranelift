@@ -32,9 +32,9 @@ cd "$WORKSPACE_ROOT" || {
     exit 1
 }
 
-# Check if lightplayer directory exists
-if [ ! -d "$WORKSPACE_ROOT/lightplayer" ]; then
-    echo "Error: lightplayer directory not found at $WORKSPACE_ROOT/lightplayer" >&2
+# Check if lp-glsl directory exists
+if [ ! -d "$WORKSPACE_ROOT/lp-glsl" ]; then
+    echo "Error: lp-glsl directory not found at $WORKSPACE_ROOT/lp-glsl" >&2
     exit 1
 fi
 
@@ -126,11 +126,11 @@ fi
 
 # Show list of tests if requested
 if [ "$SHOW_LIST" = true ]; then
-    FILETESTS_DIR="$WORKSPACE_ROOT/lightplayer/crates/lp-glsl-filetests/filetests"
+    FILETESTS_DIR="$WORKSPACE_ROOT/lp-glsl/crates/lp-glsl-filetests/filetests"
 
-    # Ensure lightplayer directory exists
-    if [ ! -d "$WORKSPACE_ROOT/lightplayer" ]; then
-        echo "Error: lightplayer directory not found at $WORKSPACE_ROOT/lightplayer" >&2
+    # Ensure lp-glsl directory exists
+    if [ ! -d "$WORKSPACE_ROOT/lp-glsl" ]; then
+        echo "Error: lp-glsl directory not found at $WORKSPACE_ROOT/lp-glsl" >&2
         exit 1
     fi
 
@@ -181,9 +181,9 @@ if [ "$SHOW_LIST" = true ]; then
     exit 0
 fi
 
-# Ensure lightplayer directory exists before running tests
-if [ ! -d "$WORKSPACE_ROOT/lightplayer" ]; then
-    echo "Error: lightplayer directory not found at $WORKSPACE_ROOT/lightplayer" >&2
+# Ensure lp-glsl directory exists before running tests
+if [ ! -d "$WORKSPACE_ROOT/lp-glsl" ]; then
+    echo "Error: lp-glsl directory not found at $WORKSPACE_ROOT/lp-glsl" >&2
     exit 1
 fi
 
@@ -194,9 +194,9 @@ echo "Building lp-builtins-app..."
     exit 1
 }
 
-# Change to lightplayer directory where lp-test workspace is located
-cd "$WORKSPACE_ROOT/lightplayer" || {
-    echo "Error: Failed to change to lightplayer directory" >&2
+# Change to lp-glsl directory where lp-test workspace is located
+cd "$WORKSPACE_ROOT/lp-glsl" || {
+    echo "Error: Failed to change to lp-glsl directory" >&2
     exit 1
 }
 
@@ -210,7 +210,7 @@ if [ "$REGEN_GEN_FILES" = true ]; then
 fi
 
 # Run the GLSL filetests using lp-test binary with cargo run
-# This ensures cargo run picks up all compilation changes in the lightplayer workspace
+# This ensures cargo run picks up all compilation changes in the lp-glsl workspace
 # Pass all remaining arguments directly to the test runner
 # Pass through DEBUG environment variable for debug logging
 cargo run -p lp-test --bin lp-test -- test "${TEST_ARGS[@]}"

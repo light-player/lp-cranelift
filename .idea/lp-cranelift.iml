@@ -119,26 +119,6 @@
       <sourceFolder url="file://$MODULE_DIR$/examples/min-platform/embedding/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/min-platform/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/examples/wasip2-plugins/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/apps/embive-program/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/apps/embive-program/tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/apps/esp32-glsl-jit/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/apps/esp32c3-jit-test/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/apps/test-structreturn/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-glsl-filetests-old/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-glsl-filetests-old/tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-glsl-filetests/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-glsl-filetests/tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-glsl/examples" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-glsl/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-glsl/tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-jit-util/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-jit-util/tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-riscv-shared/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-riscv-tools/examples" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-riscv-tools/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-riscv-tools/tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/lp-toy-lang/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/lp-toy-lang/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/pulley/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pulley/fuzz/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pulley/macros/src" isTestSource="false" />
@@ -147,19 +127,39 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/winch/codegen/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/apps/lp-test/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-builtins/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-glsl-builtins-src/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-glsl-builtins-tool/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/apps/lp-builtin-gen/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/apps/lp-builtins-app/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-filetests-gen/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/apps/fw-host/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lightplayer/crates/lp-core/src" isTestSource="false" />
-      <excludeFolder url="file://$MODULE_DIR$/lightplayer/apps/esp32-glsl-jit/target" />
-      <excludeFolder url="file://$MODULE_DIR$/lightplayer/apps/esp32c3-jit-test/target" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/embive-program/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/embive-program/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/esp32-glsl-jit/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/esp32c3-jit-test/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/fw-host/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/lp-builtin-gen/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/lp-builtins-app/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/lp-test/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/test-structreturn/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-builtins/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-filetests-gen/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-glsl-builtins-src/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-glsl-builtins-tool/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-glsl-compiler/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-glsl-compiler/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-glsl-compiler/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-glsl-filetests-old/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-glsl-filetests-old/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-glsl-filetests/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-glsl-filetests/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-jit-util/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-jit-util/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-riscv-shared/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-riscv-tools/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-riscv-tools/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/crates/lp-riscv-tools/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/lp-toy-lang/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-glsl/lp-toy-lang/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
-      <excludeFolder url="file://$MODULE_DIR$/lightplayer/target" />
+      <excludeFolder url="file://$MODULE_DIR$/lp-glsl/apps/esp32-glsl-jit/target" />
+      <excludeFolder url="file://$MODULE_DIR$/lp-glsl/apps/esp32c3-jit-test/target" />
+      <excludeFolder url="file://$MODULE_DIR$/lp-glsl/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

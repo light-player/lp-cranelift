@@ -5,7 +5,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-LIGHTPLAYER_DIR="$WORKSPACE_ROOT/lightplayer"
+LIGHTPLAYER_DIR="$WORKSPACE_ROOT/lp-glsl"
 BUILTINS_APP="$LIGHTPLAYER_DIR/apps/lp-builtins-app"
 TARGET="riscv32imac-unknown-none-elf"
 OUTPUT_DIR="$LIGHTPLAYER_DIR/target/$TARGET/release"

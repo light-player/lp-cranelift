@@ -4,7 +4,7 @@ Code generator that automatically generates boilerplate code for builtin functio
 
 ## Overview
 
-This tool eliminates manual maintenance of boilerplate code when adding new builtin functions. It scans `lightplayer/crates/lp-builtins/src/fixed32/` for function definitions and generates:
+This tool eliminates manual maintenance of boilerplate code when adding new builtin functions. It scans `lp-glsl/crates/lp-builtins/src/fixed32/` for function definitions and generates:
 
 - **registry.rs**: `BuiltinId` enum, `name()`, `signature()`, `all()`, and `get_function_pointer()` methods
 - **builtin_refs.rs**: Function references to prevent dead code elimination in `lp-builtins-app`
@@ -18,7 +18,7 @@ All generated files include clear headers indicating they are auto-generated and
 Run the generator manually:
 
 ```bash
-cd lightplayer
+cd lp-glsl
 cargo run --bin lp-builtin-gen --manifest-path apps/lp-builtin-gen/Cargo.toml
 ```
 

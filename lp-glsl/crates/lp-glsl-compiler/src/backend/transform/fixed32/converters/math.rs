@@ -19,7 +19,7 @@ use hashbrown::HashMap;
 /// This function is AUTO-GENERATED. Do not edit manually.
 ///
 /// To regenerate this function, run:
-///     cargo run --bin lp-builtin-gen --manifest-path lightplayer/apps/lp-builtin-gen/Cargo.toml
+///     cargo run --bin lp-builtin-gen --manifest-path lp-glsl/apps/lp-builtin-gen/Cargo.toml
 ///
 /// Or use the build script:
 ///     scripts/build-builtins.sh
@@ -55,6 +55,8 @@ pub fn map_testcase_to_builtin(testcase_name: &str) -> Option<(BuiltinId, usize)
         _ => None,
     }
 }
+
+
 
 
 

@@ -39,6 +39,6 @@ esp-bootloader-esp-idf = { version = "0.2.0", features = ["esp32c6"] }
 version = "1.11"
 default-features = false
 
-# Note: Release profile optimizations must be configured in lightplayer/Cargo.toml
+# Note: Release profile optimizations must be configured in lp-glsl/Cargo.toml
 # (workspace root) since package-level profiles are ignored
 

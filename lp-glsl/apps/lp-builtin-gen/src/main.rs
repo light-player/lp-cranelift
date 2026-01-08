@@ -14,27 +14,27 @@ struct BuiltinInfo {
 
 fn main() {
     let workspace_root = find_workspace_root().expect("Failed to find workspace root");
-    let fixed32_dir = workspace_root.join("lightplayer/crates/lp-builtins/src/builtins/fixed32");
+    let fixed32_dir = workspace_root.join("lp-glsl/crates/lp-builtins/src/builtins/fixed32");
 
     let builtins = discover_builtins(&fixed32_dir).expect("Failed to discover builtins");
 
     // Generate registry.rs
     let registry_path =
-        workspace_root.join("lightplayer/crates/lp-glsl-compiler/src/backend/builtins/registry.rs");
+        workspace_root.join("lp-glsl/crates/lp-glsl-compiler/src/backend/builtins/registry.rs");
     generate_registry(&registry_path, &builtins);
 
     // Generate builtin_refs.rs
     let builtin_refs_path =
-        workspace_root.join("lightplayer/apps/lp-builtins-app/src/builtin_refs.rs");
+        workspace_root.join("lp-glsl/apps/lp-builtins-app/src/builtin_refs.rs");
     generate_builtin_refs(&builtin_refs_path, &builtins);
 
     // Generate mod.rs
-    let mod_rs_path = workspace_root.join("lightplayer/crates/lp-builtins/src/builtins/fixed32/mod.rs");
+    let mod_rs_path = workspace_root.join("lp-glsl/crates/lp-builtins/src/builtins/fixed32/mod.rs");
     generate_mod_rs(&mod_rs_path, &builtins);
 
     // Generate testcase mapping in math.rs
     let math_rs_path = workspace_root
-        .join("lightplayer/crates/lp-glsl-compiler/src/backend/transform/fixed32/converters/math.rs");
+        .join("lp-glsl/crates/lp-glsl-compiler/src/backend/transform/fixed32/converters/math.rs");
     generate_testcase_mapping(&math_rs_path, &builtins);
 
     println!("Generated all builtin boilerplate files");
@@ -43,7 +43,7 @@ fn main() {
 fn find_workspace_root() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let mut current = std::env::current_dir()?;
     loop {
-        if current.join("lightplayer/Cargo.toml").exists() {
+        if current.join("lp-glsl/Cargo.toml").exists() {
             return Ok(current);
         }
         if !current.pop() {
@@ -146,7 +146,7 @@ fn generate_registry(path: &Path, builtins: &[BuiltinInfo]) {
     let header = r#"//! This file is AUTO-GENERATED. Do not edit manually.
 //!
 //! To regenerate this file, run:
-//!     cargo run --bin lp-builtin-gen --manifest-path lightplayer/apps/lp-builtin-gen/Cargo.toml
+//!     cargo run --bin lp-builtin-gen --manifest-path lp-glsl/apps/lp-builtin-gen/Cargo.toml
 //!
 //! Or use the build script:
 //!     scripts/build-builtins.sh
@@ -372,7 +372,7 @@ fn generate_builtin_refs(path: &Path, builtins: &[BuiltinInfo]) {
     let header = r#"//! This file is AUTO-GENERATED. Do not edit manually.
 //!
 //! To regenerate this file, run:
-//!     cargo run --bin lp-builtin-gen --manifest-path lightplayer/apps/lp-builtin-gen/Cargo.toml
+//!     cargo run --bin lp-builtin-gen --manifest-path lp-glsl/apps/lp-builtin-gen/Cargo.toml
 //!
 //! Or use the build script:
 //!     scripts/build-builtins.sh
@@ -445,7 +445,7 @@ fn generate_mod_rs(path: &Path, builtins: &[BuiltinInfo]) {
     let header = r#"//! This file is AUTO-GENERATED. Do not edit manually.
 //!
 //! To regenerate this file, run:
-//!     cargo run --bin lp-builtin-gen --manifest-path lightplayer/apps/lp-builtin-gen/Cargo.toml
+//!     cargo run --bin lp-builtin-gen --manifest-path lp-glsl/apps/lp-builtin-gen/Cargo.toml
 //!
 //! Or use the build script:
 //!     scripts/build-builtins.sh
@@ -510,7 +510,7 @@ fn generate_testcase_mapping(path: &Path, builtins: &[BuiltinInfo]) {
     let before = &content[..start_idx];
     let after = &content[end_idx..];
 
-    let header = "/// Map TestCase function name to BuiltinId and argument count.\n///\n/// Returns None if the function name is not a math function that should be converted.\n/// Handles both standard C math function names (sinf, cosf) and intrinsic names (__lp_sin, __lp_cos).\n/// Returns (BuiltinId, argument_count) where argument_count is 1 or 2.\n///\n/// This function is AUTO-GENERATED. Do not edit manually.\n///\n/// To regenerate this function, run:\n///     cargo run --bin lp-builtin-gen --manifest-path lightplayer/apps/lp-builtin-gen/Cargo.toml\n///\n/// Or use the build script:\n///     scripts/build-builtins.sh\n";
+    let header = "/// Map TestCase function name to BuiltinId and argument count.\n///\n/// Returns None if the function name is not a math function that should be converted.\n/// Handles both standard C math function names (sinf, cosf) and intrinsic names (__lp_sin, __lp_cos).\n/// Returns (BuiltinId, argument_count) where argument_count is 1 or 2.\n///\n/// This function is AUTO-GENERATED. Do not edit manually.\n///\n/// To regenerate this function, run:\n///     cargo run --bin lp-builtin-gen --manifest-path lp-glsl/apps/lp-builtin-gen/Cargo.toml\n///\n/// Or use the build script:\n///     scripts/build-builtins.sh\n";
 
     let mut new_function = String::from(header);
     new_function.push_str(
