@@ -22,6 +22,11 @@ impl OutputNodeRuntime {
     /// Create a new output node runtime (uninitialized)
     pub fn new() -> Self {
         Self {
+            config: OutputNode::GpioStrip {
+                chip: String::new(),
+                gpio_pin: 0,
+                count: 0,
+            }, // Temporary, will be replaced in init
             handle: None,
             pixel_count: 0,
             bytes_per_pixel: 0,
