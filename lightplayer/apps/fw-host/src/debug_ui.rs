@@ -266,38 +266,13 @@ pub fn render_textures_panel(
             for texture_id in texture_ids {
                 let texture_id_typed = lp_core::nodes::id::TextureId(texture_id.clone());
                 if let Some(texture_rt) = rt.get_texture(texture_id_typed) {
+                    // Get config and texture data from runtime
+                    let config = texture_rt.config();
                     let texture = texture_rt.texture();
-                    let width = texture.width();
-                    let height = texture.height();
-                    let data: Vec<u8> = texture.data().to_vec();
+                    let texture_data = texture.data();
                     
-                    // Convert to egui image
-                    let color_image = texture_data_to_color_image(&data, width, height, "RGB8");
-                    let texture_name = format!("texture_{}", texture_id);
-                    let texture_handle: TextureHandle = ui.ctx().load_texture(
-                        texture_name,
-                        color_image,
-                        Default::default(),
-                    );
-
-                    ui.group(|ui| {
-                        ui.label(format!("Texture ID: {}", texture_id));
-                        ui.label(format!("Size: {}x{}", width, height));
-                        ui.label(format!("Format: RGB8"));
-                    });
-
-                    ui.separator();
-
-                    // Display texture image
-                    let available_width = ui.available_width();
-                    let scale = (available_width / width as f32).min(8.0);
-                    let display_width = width as f32 * scale;
-                    let display_height = height as f32 * scale;
-
-                    ui.add(
-                        Image::new(&texture_handle)
-                            .fit_to_exact_size(egui::Vec2::new(display_width, display_height))
-                    );
+                    // Call the existing render_texture() helper function
+                    render_texture(ui, &texture_id, config, Some(texture_data));
                     ui.separator();
                 }
             }
