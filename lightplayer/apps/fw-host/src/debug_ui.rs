@@ -394,7 +394,6 @@ pub fn render_fixtures_panel(
 }
 
 /// Render shader code and errors
-#[allow(dead_code)]
 pub fn render_shader_panel(
     ui: &mut Ui,
     shader_id: &str,
@@ -458,7 +457,15 @@ pub fn render_shaders_panel(
             ui.label("No shaders loaded");
         } else {
             for shader_id in shader_ids {
-                ui.label(format!("  • {}", shader_id));
+                let shader_id_typed = lp_core::nodes::id::ShaderId(shader_id.clone());
+                if let Some(shader_rt) = rt.get_shader(shader_id_typed) {
+                    // Get config and runtime
+                    let config = shader_rt.config();
+                    
+                    // Call the existing render_shader_panel() helper function
+                    render_shader_panel(ui, &shader_id, config, Some(shader_rt));
+                    ui.separator();
+                }
             }
         }
     } else {
