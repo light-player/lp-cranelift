@@ -193,7 +193,6 @@ fn draw_mapping_overlay(
 }
 
 /// Render texture visualization in egui (without mappings)
-#[allow(dead_code)]
 pub fn render_texture(
     ui: &mut Ui,
     texture_id: &str,
