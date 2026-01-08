@@ -6,7 +6,7 @@ use crate::project::runtime::NodeStatus;
 use crate::runtime::contexts::OutputRenderContext;
 use crate::runtime::lifecycle::NodeLifecycle;
 use crate::traits::LedOutput;
-use alloc::{format, vec, vec::Vec};
+use alloc::{format, string::String, vec, vec::Vec};
 
 /// Output node runtime
 pub struct OutputNodeRuntime {
