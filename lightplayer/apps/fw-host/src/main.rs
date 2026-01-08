@@ -41,7 +41,17 @@ impl log::Log for HostLogger {
 
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
-            eprintln!("[{}] {}", record.level(), record.args());
+            let message = format!("{}", record.args());
+            // Split multi-line messages and indent continuation lines
+            let lines: Vec<&str> = message.lines().collect();
+            if lines.is_empty() {
+                eprintln!("[{}] {}", record.level(), message);
+            } else {
+                eprintln!("[{}] {}", record.level(), lines[0]);
+                for line in lines.iter().skip(1) {
+                    eprintln!("         {}", line);
+                }
+            }
         }
     }
 
@@ -313,7 +323,7 @@ vec4 main(vec2 fragCoord, vec2 outputSize, float time) {
 /// Create a new project structure in the specified directory
 fn create_project(project_dir: &Path) -> Result<(), Error> {
     let project_json_path = project_dir.join("project.json");
-    
+
     // Check if project already exists
     if project_json_path.exists() {
         return Err(Error::Filesystem(format!(
@@ -387,7 +397,7 @@ fn main() -> eframe::Result<()> {
     let (filesystem, project_root, use_watcher) = if let Some(project_dir) = args.project_dir {
         // Use real filesystem with specified project directory
         let project_root = project_dir.canonicalize().unwrap_or(project_dir);
-        
+
         // Check if project.json exists (fail if it doesn't, unless --create was used)
         let project_json_path = project_root.join("project.json");
         if !project_json_path.exists() {
@@ -395,7 +405,7 @@ fn main() -> eframe::Result<()> {
             eprintln!("Use --create to create a new project");
             std::process::exit(1);
         }
-        
+
         let fs: Box<dyn Filesystem> = Box::new(HostFilesystem::new(project_root.clone()));
         (fs, project_root, true)
     } else {

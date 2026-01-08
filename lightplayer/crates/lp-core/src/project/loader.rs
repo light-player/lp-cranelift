@@ -21,7 +21,7 @@ pub fn load_from_filesystem(fs: &dyn Filesystem) -> Result<ProjectConfig, Error>
     let config: ProjectConfig = serde_json::from_str(project_str)
         .map_err(|e| Error::Serialization(format!("Failed to parse project.json: {}", e)))?;
 
-    log::info!("Project config loaded: {} ({})", config.name, config.uid);
+    log::debug!("Project config loaded: {} ({})", config.name, config.uid);
     Ok(config)
 }
 
