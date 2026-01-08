@@ -4,7 +4,7 @@
 //! in both std and no_std environments. Firmware (fw-host, device) is
 //! responsible for initializing the logger with platform-specific output.
 
-use log::{LevelFilter, Log, Metadata, Record};
+use log::LevelFilter;
 
 // Note: The `log` crate will silently discard logs if no logger is set,
 // which is the safe default behavior.
