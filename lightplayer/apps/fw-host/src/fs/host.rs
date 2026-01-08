@@ -21,7 +21,10 @@ impl HostFilesystem {
     pub fn new(root_path: PathBuf) -> Self {
         // Ensure the root directory exists
         if let Err(e) = fs::create_dir_all(&root_path) {
-            eprintln!("Warning: Failed to create root directory {:?}: {}", root_path, e);
+            eprintln!(
+                "Warning: Failed to create root directory {:?}: {}",
+                root_path, e
+            );
         }
         Self { root_path }
     }
@@ -41,18 +44,17 @@ impl HostFilesystem {
         let full_path = self.root_path.join(normalized_path);
 
         // Canonicalize to resolve any `..` components
-        let canonical_path = full_path
-            .canonicalize()
-            .or_else(|_| {
-                // If canonicalize fails (path doesn't exist), use the resolved path
-                // but we still need to check it's within root
-                Ok(full_path)
-            })?;
+        let canonical_path = full_path.canonicalize().or_else(|_| {
+            // If canonicalize fails (path doesn't exist), use the resolved path
+            // but we still need to check it's within root
+            Ok(full_path)
+        })?;
 
         // Ensure the canonical path is within the root directory
-        let canonical_root = self.root_path.canonicalize().map_err(|e| {
-            Error::Filesystem(format!("Failed to canonicalize root path: {}", e))
-        })?;
+        let canonical_root = self
+            .root_path
+            .canonicalize()
+            .map_err(|e| Error::Filesystem(format!("Failed to canonicalize root path: {}", e)))?;
 
         if !canonical_path.starts_with(&canonical_root) {
             return Err(Error::Filesystem(format!(
@@ -103,9 +105,8 @@ impl HostFilesystem {
 impl Filesystem for HostFilesystem {
     fn read_file(&self, path: &str) -> Result<Vec<u8>, Error> {
         let full_path = self.resolve_and_validate(path)?;
-        fs::read(&full_path).map_err(|e| {
-            Error::Filesystem(format!("Failed to read file {:?}: {}", full_path, e))
-        })
+        fs::read(&full_path)
+            .map_err(|e| Error::Filesystem(format!("Failed to read file {:?}: {}", full_path, e)))
     }
 
     fn write_file(&self, path: &str, data: &[u8]) -> Result<(), Error> {
@@ -119,9 +120,8 @@ impl Filesystem for HostFilesystem {
                 )));
             }
         }
-        fs::write(&full_path, data).map_err(|e| {
-            Error::Filesystem(format!("Failed to write file {:?}: {}", full_path, e))
-        })
+        fs::write(&full_path, data)
+            .map_err(|e| Error::Filesystem(format!("Failed to write file {:?}: {}", full_path, e)))
     }
 
     fn file_exists(&self, path: &str) -> Result<bool, Error> {
@@ -146,32 +146,33 @@ impl Filesystem for HostFilesystem {
         })?;
 
         // Get canonical root for comparison
-        let canonical_root = self.root_path.canonicalize().map_err(|e| {
-            Error::Filesystem(format!("Failed to canonicalize root path: {}", e))
-        })?;
+        let canonical_root = self
+            .root_path
+            .canonicalize()
+            .map_err(|e| Error::Filesystem(format!("Failed to canonicalize root path: {}", e)))?;
 
         let mut results = Vec::new();
         for entry in entries {
-            let entry = entry.map_err(|e| {
-                Error::Filesystem(format!("Failed to read directory entry: {}", e))
-            })?;
+            let entry = entry
+                .map_err(|e| Error::Filesystem(format!("Failed to read directory entry: {}", e)))?;
 
             let entry_path = entry.path();
-            
+
             // Canonicalize the entry path
             let canonical_entry = entry_path.canonicalize().map_err(|e| {
-                Error::Filesystem(format!("Failed to canonicalize entry path {:?}: {}", entry_path, e))
+                Error::Filesystem(format!(
+                    "Failed to canonicalize entry path {:?}: {}",
+                    entry_path, e
+                ))
             })?;
 
             // Build the relative path from canonical root
-            let relative_path = canonical_entry
-                .strip_prefix(&canonical_root)
-                .map_err(|_| {
-                    Error::Filesystem(format!(
-                        "Failed to compute relative path from root: entry={:?}, root={:?}",
-                        canonical_entry, canonical_root
-                    ))
-                })?;
+            let relative_path = canonical_entry.strip_prefix(&canonical_root).map_err(|_| {
+                Error::Filesystem(format!(
+                    "Failed to compute relative path from root: entry={:?}, root={:?}",
+                    canonical_entry, canonical_root
+                ))
+            })?;
 
             // Convert to string with leading slash
             let path_str = format!("/{}", relative_path.to_string_lossy().replace('\\', "/"));
@@ -215,7 +216,7 @@ mod tests {
     fn test_list_dir() {
         let temp_dir = TempDir::new().unwrap();
         let root = temp_dir.path();
-        
+
         // Create test directory structure
         fs::create_dir_all(root.join("src")).unwrap();
         fs::write(root.join("project.json"), b"{}").unwrap();
@@ -241,4 +242,3 @@ mod tests {
         assert!(fs.list_dir("/../").is_err());
     }
 }
-

@@ -3,6 +3,7 @@ mod fs;
 mod led_output;
 mod output_provider;
 mod transport;
+mod watcher;
 
 use debug_ui::{render_fixtures_panel, render_shaders_panel, render_textures_panel};
 use eframe::egui;
@@ -17,6 +18,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use transport::HostTransport;
+use watcher::FileWatcher;
 
 /// Wrapper around HostOutputProvider to use it as a trait object
 struct HostOutputProviderWrapper {
@@ -88,8 +90,11 @@ fn handle_outgoing_messages(
 }
 
 fn main() -> eframe::Result<()> {
+    // Project root directory (current directory)
+    let project_root = PathBuf::from(".");
+
     // Initialize filesystem with current directory as base
-    let fs: Box<dyn Filesystem> = Box::new(HostFilesystem::new(PathBuf::from(".")));
+    let fs: Box<dyn Filesystem> = Box::new(HostFilesystem::new(project_root.clone()));
     // Initialize output provider (store separately for UI access)
     let output_provider = Arc::new(HostOutputProvider::new());
     // Create Platform (wrap in a boxed trait object)
@@ -123,6 +128,19 @@ fn main() -> eframe::Result<()> {
         }
     }
 
+    // Initialize filesystem watcher
+    let file_watcher = match FileWatcher::watch_project(project_root) {
+        Ok(watcher) => {
+            eprintln!("Filesystem watcher initialized");
+            Some(watcher)
+        }
+        Err(e) => {
+            eprintln!("Warning: Failed to initialize filesystem watcher: {}", e);
+            eprintln!("File changes will not be detected automatically");
+            None
+        }
+    };
+
     // Initialize transport (stdio)
     let transport: Arc<Mutex<dyn Transport>> = Arc::new(Mutex::new(HostTransport::new()));
 
@@ -141,6 +159,7 @@ fn main() -> eframe::Result<()> {
                 lp_app,
                 transport,
                 output_provider,
+                file_watcher,
                 selected_led: None,
                 last_frame_time: None,
                 frame_count: 0,
@@ -154,6 +173,7 @@ struct AppState {
     lp_app: LpApp,
     transport: Arc<Mutex<dyn Transport>>,
     output_provider: Arc<HostOutputProvider>,
+    file_watcher: Option<FileWatcher>,
     selected_led: Option<usize>,
     last_frame_time: Option<Instant>,
     frame_count: u64,
@@ -191,8 +211,25 @@ impl eframe::App for AppState {
         // Collect messages from transport
         let incoming_messages = collect_messages(&self.transport);
 
+        // Get file changes from watcher
+        let file_changes: Vec<_> = self
+            .file_watcher
+            .as_ref()
+            .map(|watcher| watcher.get_changes())
+            .unwrap_or_default();
+
+        // Log file changes if any
+        if !file_changes.is_empty() {
+            for change in &file_changes {
+                eprintln!(
+                    "File change: {:?} - {}",
+                    change.change_type, change.path
+                );
+            }
+        }
+
         // Update runtime with tick() - processes messages and updates runtime
-        match self.lp_app.tick(delta_ms, &incoming_messages, &[]) {
+        match self.lp_app.tick(delta_ms, &incoming_messages, &file_changes) {
             Ok(outgoing) => {
                 // Handle outgoing messages
                 if let Err(e) = handle_outgoing_messages(outgoing, &self.transport) {
