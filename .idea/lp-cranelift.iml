@@ -131,6 +131,7 @@
       <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-api/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-client/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-engine/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-engine2/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-server/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-shared/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/lp-glsl/apps/embive-program/src" isTestSource="false" />
