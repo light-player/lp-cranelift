@@ -166,6 +166,7 @@
       <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-engine-client/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-engine/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-model/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/lp-app/crates/lp-client/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/lp-app/target" />
       <excludeFolder url="file://$MODULE_DIR$/lp-glsl/apps/esp32-glsl-jit/target" />
