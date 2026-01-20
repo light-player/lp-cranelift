@@ -4,14 +4,13 @@
 //! This file contains minimal type definitions to satisfy the build system.
 //! Full vector instruction support will be added in a future phase.
 
-use crate::isa::riscv32::lower::isle::generated_code::{
-    VecAMode, VecAluOpRR, VecAluOpRRImm5, VecAluOpRRR, VecAluOpRRRImm5,
-    VecAluOpRImm5, VecAluOpRRRR, VecAvl, VecElementWidth, VecLmul,
-    VecMaskMode, VecOpCategory, VecTailMode,
-};
-use core::fmt;
 use super::{Type, UImm5};
+use crate::isa::riscv32::lower::isle::generated_code::{
+    VecAMode, VecAluOpRImm5, VecAluOpRR, VecAluOpRRImm5, VecAluOpRRR, VecAluOpRRRImm5,
+    VecAluOpRRRR, VecAvl, VecElementWidth, VecLmul, VecMaskMode, VecOpCategory, VecTailMode,
+};
 use crate::machinst::{OperandVisitor, Reg, RegClass};
+use core::fmt;
 
 /// Vector Opcode Masking
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -179,18 +178,18 @@ impl VType {
         let lmul = self.lmul.encode();
         let ta = self.tail_mode.encode();
         let ma = self.mask_mode.encode();
-        
+
         (ma << 7) | (ta << 6) | (sew << 3) | lmul
     }
 }
 
 impl fmt::Display for VType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{},{},{},{}", 
-            self.sew, 
-            self.lmul,
-            self.tail_mode,
-            self.mask_mode)
+        write!(
+            f,
+            "{},{},{},{}",
+            self.sew, self.lmul, self.tail_mode, self.mask_mode
+        )
     }
 }
 
@@ -203,16 +202,20 @@ pub struct VState {
 
 impl fmt::Display for VState {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{},{},{},{}", 
-            self.avl, 
+        write!(
+            f,
+            "{},{},{},{}",
+            self.avl,
             self.vtype.sew,
             self.vtype.lmul,
-            if self.vtype.tail_mode == VecTailMode::Agnostic && 
-               self.vtype.mask_mode == VecMaskMode::Agnostic {
+            if self.vtype.tail_mode == VecTailMode::Agnostic
+                && self.vtype.mask_mode == VecMaskMode::Agnostic
+            {
                 "ma,ta"
             } else {
                 "mu,tu"
-            })
+            }
+        )
     }
 }
 

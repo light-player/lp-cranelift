@@ -1121,7 +1121,6 @@ impl FrameLayout {
         let spill_off = islot * self.word_bytes as i64;
         let sp_off = self.stackslots_size as i64 + spill_off;
 
-
         sp_off
     }
 
@@ -1691,7 +1690,6 @@ impl<M: ABIMachineSpec> Callee<M> {
                                 vreg,
                                 preg: Reg::from(reg),
                             });
-
                         }
                         &ABIArgSlot::Stack {
                             offset,

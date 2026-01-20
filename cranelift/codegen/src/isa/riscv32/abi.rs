@@ -18,10 +18,10 @@ use crate::settings;
 use alloc::{boxed::Box, vec, vec::Vec};
 use regalloc2::{MachineEnv, PReg, PRegSet};
 
+use alloc::borrow::ToOwned;
 use smallvec::{SmallVec, smallvec};
 #[cfg(feature = "std")]
 use std::sync::OnceLock;
-use alloc::borrow::ToOwned;
 
 /// Support for the Riscv32 ABI from the callee side (within a function body).
 pub(crate) type Riscv32Callee = Callee<Riscv32MachineDeps>;
@@ -174,11 +174,12 @@ impl ABIMachineSpec for Riscv32MachineDeps {
                     debug_assert!(size.is_power_of_two());
                     next_stack = align_to(next_stack, size);
                     // For word-aligned stack slots, use I32 type to match actual storage size
-                    let stack_ty = if size == Self::word_bytes() && reg_ty.bits() < Self::word_bits() {
-                        I32
-                    } else {
-                        *reg_ty
-                    };
+                    let stack_ty =
+                        if size == Self::word_bytes() && reg_ty.bits() < Self::word_bits() {
+                            I32
+                        } else {
+                            *reg_ty
+                        };
                     slots.push(ABIArgSlot::Stack {
                         offset: next_stack as i64,
                         ty: stack_ty,
@@ -1055,7 +1056,7 @@ pub fn compute_return_locations_for_emulator(
     use crate::machinst::abi::{ArgsAccumulator, ArgsOrRets};
     let mut abi_args = Vec::new();
     let accumulator = ArgsAccumulator::new(&mut abi_args);
-    
+
     let (_stack_space, _ret_area_ptr) = Riscv32MachineDeps::compute_arg_locs(
         call_conv,
         flags,
@@ -1064,7 +1065,7 @@ pub fn compute_return_locations_for_emulator(
         false,
         accumulator,
     )?;
-    
+
     // Group slots by return value (each ABIArg::Slots corresponds to one return value)
     let mut return_locations = Vec::new();
     for abi_arg in abi_args {
@@ -1086,7 +1087,7 @@ pub fn compute_return_locations_for_emulator(
             _ => {}
         }
     }
-    
+
     Ok(return_locations)
 }
 
@@ -1154,7 +1155,11 @@ pub fn compute_arg_locations_for_emulator(
                 #[cfg(feature = "std")]
                 use std::format;
                 return Err(crate::CodegenError::Unsupported(
-                    format!("Unexpected ABIArg variant for formal parameter {}: {:?}", i, abi_arg).into(),
+                    format!(
+                        "Unexpected ABIArg variant for formal parameter {}: {:?}",
+                        i, abi_arg
+                    )
+                    .into(),
                 ));
             }
         }

@@ -80,7 +80,12 @@ use crate::isa::{CallConv, TargetIsa};
 use crate::print_errors::pretty_verifier_error;
 use crate::settings::FlagsOrIsa;
 use crate::timing;
-use alloc::{collections::BTreeSet, format, string::{String, ToString}, vec::Vec};
+use alloc::{
+    collections::BTreeSet,
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::fmt::{self, Display, Formatter};
 
 /// A verifier error.
@@ -1776,7 +1781,10 @@ impl<'a> Verifier<'a> {
                 if let Some(isa) = self.isa {
                     // Skip type checking for VMContext global values, as they get legalized
                     // to match the vmctx parameter type, which may differ from pointer_type().
-                    if !matches!(self.func.global_values[global_value], ir::GlobalValueData::VMContext) {
+                    if !matches!(
+                        self.func.global_values[global_value],
+                        ir::GlobalValueData::VMContext
+                    ) {
                         let inst_type = self.func.dfg.value_type(self.func.dfg.first_result(inst));
                         let global_type = self.func.global_values[global_value].global_type(isa);
                         if inst_type != global_type {

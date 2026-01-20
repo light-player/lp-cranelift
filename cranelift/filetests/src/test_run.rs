@@ -338,9 +338,13 @@ impl EmulatorExecutor {
                 Load { rd, .. } => {
                     written_registers.insert(*rd);
                 }
-                Store { .. } => {} // Store doesn't modify registers
+                Store { .. } => {}  // Store doesn't modify registers
                 Branch { .. } => {} // Branch doesn't modify registers
-                Jump { instruction, rd_new, .. } => {
+                Jump {
+                    instruction,
+                    rd_new,
+                    ..
+                } => {
                     // Jump instructions can write to rd (like jal)
                     if rd_new.is_some() {
                         // Extract rd register from the instruction word

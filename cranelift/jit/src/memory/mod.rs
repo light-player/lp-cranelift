@@ -7,17 +7,17 @@ use std::io;
 #[cfg(not(feature = "std"))]
 pub mod io {
     //! Minimal I/O error types for no_std environments
-    
+
     /// Minimal error type for no_std memory allocation
     #[derive(Debug, Clone, Copy)]
     pub struct Error;
-    
+
     impl core::fmt::Display for Error {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             write!(f, "memory allocation error")
         }
     }
-    
+
     /// Result type for memory allocation operations
     pub type Result<T> = core::result::Result<T, Error>;
 }

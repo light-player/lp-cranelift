@@ -3,19 +3,16 @@
 //! Similar to `function_runner.rs` but uses `ObjectModule` to generate ELF files
 //! that can be loaded and executed by the RISC-V emulator.
 
-use anyhow::{anyhow, Result};
-use cranelift_codegen::ir::{
-    ExternalName, Function, Signature,
-    UserExternalName, UserFuncName,
-};
+use anyhow::{Result, anyhow};
+use cranelift_codegen::ir::{ExternalName, Function, Signature, UserExternalName, UserFuncName};
 use cranelift_codegen::isa::OwnedTargetIsa;
 use cranelift_codegen::{CodegenError, Context, ir};
 use cranelift_control::ControlPlane;
 use cranelift_module::{Linkage, Module, ModuleError};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 use cranelift_reader::TestFile;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use thiserror::Error;
 
 const TESTFILE_NAMESPACE: u32 = 0;
@@ -206,44 +203,50 @@ impl ObjectTestFileCompiler {
             let defined_func = self
                 .defined_functions
                 .get(&original_func_name)
-                .ok_or(anyhow!("Undeclared function {} found!", &original_func_name))?;
+                .ok_or(anyhow!(
+                    "Undeclared function {} found!",
+                    &original_func_name
+                ))?;
             defined_func.func_id
         };
-        
+
         let new_name = {
             let defined_func = self
                 .defined_functions
                 .get(&original_func_name)
-                .ok_or(anyhow!("Undeclared function {} found!", &original_func_name))?;
+                .ok_or(anyhow!(
+                    "Undeclared function {} found!",
+                    &original_func_name
+                ))?;
             defined_func.new_name.clone()
         };
 
         // Apply function rename (needs immutable access to self.defined_functions)
-        self.ctx.func = self.apply_func_rename(func, &DefinedFunction {
-            new_name,
-            original_symbol_name: String::new(), // Not needed for rename
-            signature: ir::Signature::new(cranelift_codegen::isa::CallConv::SystemV),
-            func_id,
-            vcode: None,
-            disassembly: None,
-        })?;
-        
+        self.ctx.func = self.apply_func_rename(
+            func,
+            &DefinedFunction {
+                new_name,
+                original_symbol_name: String::new(), // Not needed for rename
+                signature: ir::Signature::new(cranelift_codegen::isa::CallConv::SystemV),
+                func_id,
+                vcode: None,
+                disassembly: None,
+            },
+        )?;
+
         // Enable disassembly for debugging runtests
         self.ctx.set_disasm(true);
-        
-        self.module.define_function_with_control_plane(
-            func_id,
-            &mut self.ctx,
-            ctrl_plane,
-        )?;
-        
+
+        self.module
+            .define_function_with_control_plane(func_id, &mut self.ctx, ctrl_plane)?;
+
         // Capture V-Code and disassembly if available (for runtests debugging)
         // Note: compiled_code is available after define_function_with_control_plane
         let (vcode, disassembly) = if let Some(compiled_code) = self.ctx.compiled_code() {
             // The vcode field contains disassembly when want_disasm is true
             // Capture it as disassembly
             let disasm = compiled_code.vcode.as_ref().map(|s| s.clone());
-            
+
             // Try to generate disassembly using Capstone if vcode wasn't available
             // Note: disas is a feature on cranelift-codegen dependency
             let disasm = {
@@ -253,10 +256,9 @@ impl ObjectTestFileCompiler {
                         let isa = self.module.isa();
                         let func_params = self.ctx.func.params.clone();
                         if let Ok(cs) = isa.to_capstone() {
-                            if let Ok(disasm_str) = compiled_code.disassemble(
-                                Some(&func_params),
-                                &cs,
-                            ) {
+                            if let Ok(disasm_str) =
+                                compiled_code.disassemble(Some(&func_params), &cs)
+                            {
                                 Some(disasm_str)
                             } else {
                                 disasm
@@ -273,7 +275,7 @@ impl ObjectTestFileCompiler {
                     disasm
                 }
             };
-            
+
             // For V-Code, we'd need to format the VCode struct before emission
             // For now, we'll use the disassembly as V-Code placeholder
             // TODO: Capture actual pre-regalloc V-Code if needed
@@ -282,14 +284,14 @@ impl ObjectTestFileCompiler {
         } else {
             (None, None)
         };
-        
+
         // Now update defined_func with captured vcode and disassembly
         // Use original function name since that's the key in the map
         if let Some(defined_func) = self.defined_functions.get_mut(&original_func_name) {
             defined_func.vcode = vcode;
             defined_func.disassembly = disassembly;
         }
-        
+
         self.module.clear_context(&mut self.ctx);
         Ok(())
     }
@@ -302,7 +304,9 @@ impl ObjectTestFileCompiler {
     /// Finalize this ObjectTestFileCompiler and return the compiled ELF.
     pub fn compile(self) -> Result<CompiledObjectTestFile, CompilationError> {
         let product = self.module.finish();
-        let elf_bytes = product.emit().map_err(|e| CompilationError::ObjectWriteError(e))?;
+        let elf_bytes = product
+            .emit()
+            .map_err(|e| CompilationError::ObjectWriteError(e))?;
 
         Ok(CompiledObjectTestFile {
             elf_bytes,
@@ -324,7 +328,9 @@ impl CompiledObjectTestFile {
     /// Get the function signature for a given function name
     #[allow(dead_code)]
     pub fn get_signature(&self, func_name: &UserFuncName) -> Option<&Signature> {
-        self.defined_functions.get(func_name).map(|df| &df.signature)
+        self.defined_functions
+            .get(func_name)
+            .map(|df| &df.signature)
     }
 }
 
@@ -341,4 +347,3 @@ pub enum CompilationError {
     #[error("Object write error")]
     ObjectWriteError(#[from] object::write::Error),
 }
-

@@ -154,11 +154,7 @@ fn emit_zero(ty: Type, mut cur: FuncCursor) -> Value {
                 let bytes = ty.bytes().try_into().unwrap();
                 let mut zero_vec = Vec::with_capacity(bytes);
                 zero_vec.resize(bytes, 0);
-                let zero = cur
-                    .func
-                    .dfg
-                    .constants
-                    .insert(zero_vec.into());
+                let zero = cur.func.dfg.constants.insert(zero_vec.into());
                 cur.ins().vconst(ty, zero)
             }
             F16 => {

@@ -4,9 +4,9 @@
 //! It ensures that only supported instructions and types are used, and that required
 //! CPU extensions are enabled for the instructions that need them.
 
+use crate::CodegenResult;
 use crate::ir::Function;
 use crate::isa::riscv32::Riscv32Backend;
-use crate::CodegenResult;
 
 pub mod error;
 pub mod instruction;

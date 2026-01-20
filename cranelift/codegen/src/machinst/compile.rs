@@ -69,7 +69,8 @@ pub fn compile<B: LowerBackend + TargetIsa>(
                 } else if let Some(vreg) = reg.to_virtual_reg() {
                     let index = vreg.index();
                     // Check for suspiciously large indices that indicate corruption
-                    if index >= 1000000 {  // Much larger than typical VReg counts
+                    if index >= 1000000 {
+                        // Much larger than typical VReg counts
                         invalid_regs.push((iix, reg.clone(), format!("VReg index {}", index)));
                     }
                 }

@@ -61,7 +61,7 @@
 //! must be correct likely reduce the potential benefit, we don't yet
 //! do this.
 
-use alloc::vec;
+use crate::{FxHashMap, FxHashSet};
 use crate::{
     cursor::{Cursor, FuncCursor},
     dominator_tree::DominatorTree,
@@ -71,8 +71,8 @@ use crate::{
     ir::{AliasRegion, Block, Function, Inst, Opcode, Type, Value, immediates::Offset32},
     trace,
 };
+use alloc::vec;
 use cranelift_entity::{EntityRef, packed_option::PackedOption};
-use crate::{FxHashMap, FxHashSet};
 
 /// For a given program point, the vector of last-store instruction
 /// indices for each disjoint category of abstract state.

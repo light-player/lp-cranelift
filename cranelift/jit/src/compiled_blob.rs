@@ -1,7 +1,7 @@
+use core::ptr::write_unaligned;
 use cranelift_codegen::binemit::Reloc;
 use cranelift_module::ModuleReloc;
 use cranelift_module::ModuleRelocTarget;
-use core::ptr::write_unaligned;
 use std::vec::Vec;
 
 /// Reads a 32bit instruction at `iptr`, and writes it again after
@@ -44,9 +44,7 @@ impl CompiledBlob {
                 Reloc::Abs4 => {
                     let base = get_address(name);
                     let what = unsafe { base.offset(isize::try_from(addend).unwrap()) };
-                    unsafe {
-                        write_unaligned(at as *mut u32, what as usize as u32)
-                    };
+                    unsafe { write_unaligned(at as *mut u32, what as usize as u32) };
                 }
                 Reloc::Abs8 => {
                     let base = get_address(name);

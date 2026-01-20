@@ -9,7 +9,10 @@ pub type Result<T> = core::result::Result<T, core::ffi::c_int>;
 #[cfg(all(feature = "std", not(any(target_os = "linux", target_os = "android"))))]
 pub use anyhow::Result;
 
-#[cfg(all(not(feature = "std"), not(any(target_os = "linux", target_os = "android"))))]
+#[cfg(all(
+    not(feature = "std"),
+    not(any(target_os = "linux", target_os = "android"))
+))]
 pub type Result<T> = core::result::Result<T, ()>;
 
 #[cfg(all(
@@ -20,10 +23,10 @@ mod details {
 
     use super::*;
     use libc::{EINVAL, EPERM, syscall};
-    
+
     #[cfg(feature = "std")]
     use std::io::Error;
-    
+
     #[cfg(not(feature = "std"))]
     fn os_error(code: core::ffi::c_int) -> Result<()> {
         Err(code)

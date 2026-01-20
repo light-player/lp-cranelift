@@ -482,9 +482,9 @@ mod serialize {
 
     use super::*;
 
+    use core::fmt;
     use serde::de::{Deserialize, Deserializer, Error, MapAccess, SeqAccess, Unexpected, Visitor};
     use serde::ser::{Serialize, SerializeStruct, Serializer};
-    use core::fmt;
 
     fn get_names<E: Error>(
         functions: &PrimaryMap<FuncId, FunctionDeclaration>,

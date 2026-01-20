@@ -10,9 +10,9 @@ use crate::nan_canonicalization::do_nan_canonicalization;
 use crate::remove_constant_phis::do_remove_constant_phis;
 use crate::result::CodegenResult;
 use crate::settings::FlagsOrIsa;
+use crate::timing;
 use crate::trace;
 use crate::unreachable_code::eliminate_unreachable_code;
-use crate::timing;
 #[cfg(feature = "souper-harvest")]
 use alloc::string::String;
 use cranelift_control::ControlPlane;

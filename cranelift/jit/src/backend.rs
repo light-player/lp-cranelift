@@ -1,17 +1,19 @@
 //! Defines `JITModule`.
 
+#[cfg(feature = "system-memory")]
+use crate::memory::SystemMemoryProvider;
 use crate::{
     compiled_blob::CompiledBlob,
     memory::{BranchProtection, JITMemoryProvider},
 };
-#[cfg(feature = "system-memory")]
-use crate::memory::SystemMemoryProvider;
 
 use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::isa::{OwnedTargetIsa, TargetIsa};
 use cranelift_codegen::{ir, settings};
 use cranelift_control::ControlPlane;
 
+use core::cell::RefCell;
+use core::ptr;
 #[cfg(feature = "system-memory")]
 use cranelift_codegen::settings::Configurable;
 use cranelift_entity::SecondaryMap;
@@ -20,8 +22,6 @@ use cranelift_module::{
     ModuleReloc, ModuleRelocTarget, ModuleResult,
 };
 use log::info;
-use core::cell::RefCell;
-use core::ptr;
 use std::borrow::ToOwned;
 use std::boxed::Box;
 use std::string::String;
@@ -120,13 +120,13 @@ impl JITBuilder {
         libcall_names: Box<dyn Fn(ir::LibCall) -> String + Send + Sync>,
     ) -> Self {
         let symbols = HashMap::new();
-        
+
         #[cfg(feature = "system-memory")]
         let lookup_symbols = vec![Box::new(lookup_with_dlsym) as Box<_>];
-        
+
         #[cfg(not(feature = "system-memory"))]
         let lookup_symbols = vec![];
-        
+
         Self {
             isa,
             symbols,
@@ -232,11 +232,11 @@ impl JITModule {
     }
 
     fn lookup_symbol(&self, name: &str) -> Option<*const u8> {
-        #[cfg(feature = "std")]
-        use std::collections::hash_map::Entry;
         #[cfg(not(feature = "std"))]
         use hashbrown::hash_map::Entry;
-        
+        #[cfg(feature = "std")]
+        use std::collections::hash_map::Entry;
+
         match self.symbols.borrow_mut().entry(name.to_owned()) {
             Entry::Occupied(occ) => Some(occ.get().0),
             Entry::Vacant(vac) => {
@@ -337,7 +337,7 @@ impl JITModule {
         #[cfg(all(unix, feature = "std"))]
         {
             use std::io::Write;
-            
+
             // The Linux perf tool supports JIT code via a /tmp/perf-$PID.map file,
             // which contains memory regions and their associated names.  If we
             // are profiling with perf and saving binaries to PERF_BUILDID_DIR
@@ -353,7 +353,7 @@ impl JITModule {
                 let _ = writeln!(map_file, "{:x} {:x} {}", ptr as usize, size, name);
             }
         }
-        
+
         #[cfg(not(all(unix, feature = "std")))]
         {
             // Suppress unused variable warnings in no_std
@@ -418,7 +418,7 @@ impl JITModule {
             {
                 Box::new(SystemMemoryProvider::new())
             }
-            
+
             #[cfg(not(feature = "system-memory"))]
             {
                 panic!(
@@ -427,7 +427,7 @@ impl JITModule {
                 )
             }
         });
-        
+
         Self {
             isa: builder.isa,
             symbols: RefCell::new(builder.symbols),
@@ -752,10 +752,10 @@ impl Module for JITModule {
                 align.unwrap_or(READONLY_DATA_ALIGNMENT).try_into().unwrap(),
             )
             .unwrap();
-            
+
             #[cfg(feature = "std")]
             std::alloc::handle_alloc_error(layout);
-            
+
             #[cfg(not(feature = "std"))]
             panic!("allocation failed: {:?}", layout);
         }

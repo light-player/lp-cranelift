@@ -16,12 +16,12 @@ use crate::loop_analysis::LoopAnalysis;
 use crate::machinst::CompiledCode;
 
 // Module declarations
-mod construct;
-mod compile;
-mod verify;
-mod optimize;
-mod analyze;
 mod access;
+mod analyze;
+mod compile;
+mod construct;
+mod optimize;
+mod verify;
 
 /// Persistent data structures and compilation pipeline.
 pub struct Context {

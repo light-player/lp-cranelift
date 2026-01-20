@@ -180,13 +180,13 @@ use crate::machinst::{
 use crate::trace;
 use crate::{MachInstEmitState, ir};
 use crate::{VCodeConstantData, timing};
-use core::ops::Range;
+use alloc::{collections::BinaryHeap, format, string::String, vec, vec::Vec};
 use core::cmp::Ordering;
+use core::mem;
+use core::ops::Range;
 use cranelift_control::ControlPlane;
 use cranelift_entity::{PrimaryMap, SecondaryMap, entity_impl};
 use smallvec::SmallVec;
-use alloc::{collections::BinaryHeap, format, string::String, vec, vec::Vec};
-use core::mem;
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};

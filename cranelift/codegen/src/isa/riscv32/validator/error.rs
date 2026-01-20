@@ -1,9 +1,9 @@
-use crate::isa::riscv32::validator::supported::RiscvExtension;
-use crate::ir::{Inst, Opcode, Type};
 use crate::CodegenError;
+use crate::ir::{Inst, Opcode, Type};
+use crate::isa::riscv32::validator::supported::RiscvExtension;
+use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-use alloc::format;
 use core::fmt;
 
 #[derive(Debug)]
@@ -40,19 +40,50 @@ impl From<ValidationError> for CodegenError {
 impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ValidationError::UnsupportedInstruction { inst, opcode, reason } => {
-                write!(f, "Unsupported instruction {} at {:?}: {}", opcode, inst, reason)
+            ValidationError::UnsupportedInstruction {
+                inst,
+                opcode,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Unsupported instruction {} at {:?}: {}",
+                    opcode, inst, reason
+                )
             }
             ValidationError::UnsupportedType { ty, context } => {
-                write!(f, "Unsupported type {} in {}: not supported on riscv32", ty, context)
+                write!(
+                    f,
+                    "Unsupported type {} in {}: not supported on riscv32",
+                    ty, context
+                )
             }
-            ValidationError::UnsupportedCombination { inst, opcode, types, reason } => {
-                write!(f, "Unsupported combination: {} with types {:?} at {:?}: {}",
-                      opcode, types, inst, reason)
+            ValidationError::UnsupportedCombination {
+                inst,
+                opcode,
+                types,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Unsupported combination: {} with types {:?} at {:?}: {}",
+                    opcode, types, inst, reason
+                )
             }
-            ValidationError::MissingExtension { inst, opcode, required_extension, reason } => {
-                write!(f, "Missing required extension {} for {} at {:?}: {}",
-                      required_extension.name(), opcode, inst, reason)
+            ValidationError::MissingExtension {
+                inst,
+                opcode,
+                required_extension,
+                reason,
+            } => {
+                write!(
+                    f,
+                    "Missing required extension {} for {} at {:?}: {}",
+                    required_extension.name(),
+                    opcode,
+                    inst,
+                    reason
+                )
             }
         }
     }

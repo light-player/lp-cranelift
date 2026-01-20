@@ -685,7 +685,7 @@ macro_rules! ieee_float {
                     #[cfg(feature = "std")]
                     { Self::with_float(self.$as_float().sqrt()) }
                     #[cfg(not(feature = "std"))]
-                    { 
+                    {
                         use wasmtime_math::WasmFloat;
                         Self::with_float(self.$as_float().wasm_sqrt())
                     }

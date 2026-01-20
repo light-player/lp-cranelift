@@ -22,11 +22,11 @@ use crate::machinst::{
 };
 use crate::settings::Flags;
 use crate::{CodegenError, CodegenResult, trace};
-use alloc::{format, vec, vec::Vec};
-use cranelift_control::ControlPlane;
 use crate::{FxHashMap, FxHashSet};
-use smallvec::{SmallVec, smallvec};
+use alloc::{format, vec, vec::Vec};
 use core::fmt::Debug;
+use cranelift_control::ControlPlane;
+use smallvec::{SmallVec, smallvec};
 
 use super::{VCodeBuildDirection, VRegAllocator};
 
@@ -592,7 +592,7 @@ impl<'func, I: VCodeInst> Lower<'func, I> {
         let mut out_rets = vec![];
 
         let mut rets = rets.into_iter();
-        
+
         // Get the ABI signature to access return locations.
         // When enable_multi_ret_implicit_sret is enabled (riscv32), signature().returns may be empty
         // but sigs.rets() still contains the ABI return locations computed from the original signature.
@@ -608,7 +608,7 @@ impl<'func, I: VCodeInst> Lower<'func, I> {
         } else {
             num_abi_rets
         };
-        
+
         for i in 0..returns_to_process {
             let regs = if i < sig_returns.len() {
                 let ret = &sig_returns[i];

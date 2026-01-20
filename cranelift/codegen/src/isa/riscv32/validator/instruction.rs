@@ -256,7 +256,11 @@ fn validate_select(func: &Function, inst: Inst, _data: &DataFlowGraph) -> Codege
     validate_select_instruction(func, inst, Opcode::Select)
 }
 
-fn validate_select_spectre_guard(func: &Function, inst: Inst, _data: &DataFlowGraph) -> CodegenResult<()> {
+fn validate_select_spectre_guard(
+    func: &Function,
+    inst: Inst,
+    _data: &DataFlowGraph,
+) -> CodegenResult<()> {
     validate_select_instruction(func, inst, Opcode::SelectSpectreGuard)
 }
 

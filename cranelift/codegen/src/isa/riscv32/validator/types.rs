@@ -1,7 +1,7 @@
-use crate::ir::{Function, Type};
-use crate::CodegenResult;
 use super::error::ValidationError;
 use super::supported;
+use crate::CodegenResult;
+use crate::ir::{Function, Type};
 use alloc::string::ToString;
 
 /// Validate all types used in a function
@@ -39,7 +39,8 @@ pub fn validate_type(ty: Type, context: &str) -> CodegenResult<()> {
         return Err(ValidationError::UnsupportedType {
             ty,
             context: context.to_string(),
-        }.into());
+        }
+        .into());
     }
 
     // Check if the type requires extensions that aren't always available
