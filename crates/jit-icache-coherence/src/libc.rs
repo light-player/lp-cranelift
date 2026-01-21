@@ -32,20 +32,6 @@ mod details {
         Err(code)
     }
 
-    // Helper macro to check error code that works with both std and no_std
-    macro_rules! is_error_code {
-        ($e:expr, $code:expr) => {
-            #[cfg(feature = "std")]
-            {
-                $e.raw_os_error().map_or(false, |c| c == $code)
-            }
-            #[cfg(not(feature = "std"))]
-            {
-                *$e == $code
-            }
-        };
-    }
-
     const MEMBARRIER_CMD_GLOBAL: libc::c_int = 1;
     const MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE: libc::c_int = 32;
     const MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE: libc::c_int = 64;
@@ -77,31 +63,64 @@ mod details {
         // above kernel patch the SYNC_CORE membarrier has different guarantees on each
         // architecture so we need follow up and check what it provides us.
         // See: https://github.com/bytecodealliance/wasmtime/issues/5033
-        match membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE) {
-            Ok(_) => {}
+        #[cfg(feature = "std")]
+        {
+            match membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE) {
+                Ok(_) => {}
 
-            // EPERM happens if the calling process hasn't yet called the register membarrier.
-            // We can call the register membarrier now, and then retry the actual membarrier,
-            //
-            // This does have some overhead since on the first time we call this function we
-            // actually execute three membarriers, but this only happens once per process and only
-            // one slow membarrier is actually executed (The last one, which actually generates an
-            // IPI).
-            Err(e) if is_error_code!(&e, EPERM) => {
-                membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE)?;
-                membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE)?;
+                // EPERM happens if the calling process hasn't yet called the register membarrier.
+                // We can call the register membarrier now, and then retry the actual membarrier,
+                //
+                // This does have some overhead since on the first time we call this function we
+                // actually execute three membarriers, but this only happens once per process and only
+                // one slow membarrier is actually executed (The last one, which actually generates an
+                // IPI).
+                Err(e) if e.raw_os_error().map_or(false, |c| c == EPERM) => {
+                    membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE)?;
+                    membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE)?;
+                }
+
+                // On kernels older than 4.16 the above syscall does not exist, so we can
+                // fallback to MEMBARRIER_CMD_GLOBAL which is an alias for MEMBARRIER_CMD_SHARED
+                // that has existed since 4.3. GLOBAL is a lot slower, but allows us to have
+                // compatibility with older kernels.
+                Err(e) if e.raw_os_error().map_or(false, |c| c == EINVAL) => {
+                    membarrier(MEMBARRIER_CMD_GLOBAL)?;
+                }
+
+                // In any other case we got an actual error, so lets propagate that up
+                e => e?,
             }
+        }
 
-            // On kernels older than 4.16 the above syscall does not exist, so we can
-            // fallback to MEMBARRIER_CMD_GLOBAL which is an alias for MEMBARRIER_CMD_SHARED
-            // that has existed since 4.3. GLOBAL is a lot slower, but allows us to have
-            // compatibility with older kernels.
-            Err(e) if is_error_code!(&e, EINVAL) => {
-                membarrier(MEMBARRIER_CMD_GLOBAL)?;
+        #[cfg(not(feature = "std"))]
+        {
+            match membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE) {
+                Ok(_) => {}
+
+                // EPERM happens if the calling process hasn't yet called the register membarrier.
+                // We can call the register membarrier now, and then retry the actual membarrier,
+                //
+                // This does have some overhead since on the first time we call this function we
+                // actually execute three membarriers, but this only happens once per process and only
+                // one slow membarrier is actually executed (The last one, which actually generates an
+                // IPI).
+                Err(e) if e == EPERM => {
+                    membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE)?;
+                    membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE)?;
+                }
+
+                // On kernels older than 4.16 the above syscall does not exist, so we can
+                // fallback to MEMBARRIER_CMD_GLOBAL which is an alias for MEMBARRIER_CMD_SHARED
+                // that has existed since 4.3. GLOBAL is a lot slower, but allows us to have
+                // compatibility with older kernels.
+                Err(e) if e == EINVAL => {
+                    membarrier(MEMBARRIER_CMD_GLOBAL)?;
+                }
+
+                // In any other case we got an actual error, so lets propagate that up
+                e => e?,
             }
-
-            // In any other case we got an actual error, so lets propagate that up
-            e => e?,
         }
 
         Ok(())
