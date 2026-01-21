@@ -73,7 +73,13 @@ mod details {
             // actually execute three membarriers, but this only happens once per process and only
             // one slow membarrier is actually executed (The last one, which actually generates an
             // IPI).
+            #[cfg(feature = "std")]
             Err(e) if e.raw_os_error().unwrap() == EPERM => {
+                membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE)?;
+                membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE)?;
+            }
+            #[cfg(not(feature = "std"))]
+            Err(e) if e == EPERM => {
                 membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE)?;
                 membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE)?;
             }
@@ -82,7 +88,12 @@ mod details {
             // fallback to MEMBARRIER_CMD_GLOBAL which is an alias for MEMBARRIER_CMD_SHARED
             // that has existed since 4.3. GLOBAL is a lot slower, but allows us to have
             // compatibility with older kernels.
+            #[cfg(feature = "std")]
             Err(e) if e.raw_os_error().unwrap() == EINVAL => {
+                membarrier(MEMBARRIER_CMD_GLOBAL)?;
+            }
+            #[cfg(not(feature = "std"))]
+            Err(e) if e == EINVAL => {
                 membarrier(MEMBARRIER_CMD_GLOBAL)?;
             }
 
