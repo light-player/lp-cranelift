@@ -146,7 +146,7 @@ opt-level = 0
 
 [workspace]
 resolver = '2'
-members = ["cranelift", "cranelift/assembler-x64/fuzz", "cranelift/isle/fuzz", "cranelift/isle/islec", "cranelift/isle/veri/veri_engine", "cranelift/isle/veri/veri_ir", "cranelift/serde", "crates/bench-api", "crates/c-api/artifact", "crates/environ/fuzz", "crates/misc/component-async-tests", "crates/test-programs", "crates/wasi-preview1-component-adapter", "crates/wasi-preview1-component-adapter/verify", "crates/wasi-tls-nativetls", "crates/wizer/fuzz", "crates/wizer/tests/regex-test", "crates/wizer/benches/regex-bench", "crates/wizer/benches/uap-bench", "examples/fib-debug/wasm", "examples/wasm", "examples/tokio/wasm", "examples/component/wasm", "examples/resource-component/wasm", "examples/min-platform", "examples/min-platform/embedding", "examples/wasip2-plugins", "fuzz", "winch/codegen", "lp-glsl/crates/runtime-embive"]
+members = ["cranelift", "cranelift/assembler-x64/fuzz", "cranelift/isle/fuzz", "cranelift/isle/islec", "cranelift/isle/veri/veri_engine", "cranelift/isle/veri/veri_ir", "cranelift/serde", "crates/bench-api", "crates/c-api/artifact", "crates/environ/fuzz", "crates/misc/component-async-tests", "crates/test-programs", "crates/wasi-preview1-component-adapter", "crates/wasi-preview1-component-adapter/verify", "crates/wasi-tls-nativetls", "crates/wizer/fuzz", "crates/wizer/tests/regex-test", "crates/wizer/benches/regex-bench", "crates/wizer/benches/uap-bench", "examples/fib-debug/wasm", "examples/wasm", "examples/tokio/wasm", "examples/component/wasm", "examples/resource-component/wasm", "examples/min-platform", "examples/min-platform/embedding", "examples/wasip2-plugins", "fuzz", "winch/codegen"]
 exclude = [
   'docs/rust_wasi_markdown_parser',
   'crates/lp-glsl',

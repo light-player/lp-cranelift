@@ -1,8 +1,6 @@
-# Light Player Compiler (LPC) - Cursor Rules
+# Cranelift Fork - Cursor Rules
 
 # Warnings: Fix warnings before committing. Don't just ignore them. If you can't fix them easily, ask for help.
-
-# Commits: All commits start with "lpc: " prefix
 
 # Commits: Commit frequently with small incremental changes
 
@@ -16,12 +14,8 @@
 
 # Style: Gate std-dependent code behind features
 
-# Structure: Keep LP-specific code in `crates/lp-*` and `apps/lp-*`
-
 # Structure: Keep cranelift fork clean for potential upstream merges
 
 # Structure: Use feature flags to gate optional components
 
 # Structure: Keep wasmtime components but gate behind features (Option 1 approach)
-
-# When organizing refer to the style guide at ./lp-docs/style.md
