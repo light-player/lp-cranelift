@@ -1770,11 +1770,14 @@ impl<I: VCodeInst> VRegAllocator<I> {
         let capacity = first_user_vreg_index() + capacity;
         let mut vreg_types = Vec::with_capacity(capacity);
         vreg_types.resize(first_user_vreg_index(), types::INVALID);
+        // Initialize facts to match vreg_types initial size to maintain invariant
+        let mut facts = Vec::with_capacity(capacity);
+        facts.resize(first_user_vreg_index(), None);
         Self {
             vreg_types,
             vreg_aliases: FxHashMap::with_capacity_and_hasher(capacity, Default::default()),
             deferred_error: None,
-            facts: Vec::with_capacity(capacity),
+            facts,
             _inst: core::marker::PhantomData::default(),
         }
     }
@@ -1802,10 +1805,9 @@ impl<I: VCodeInst> VRegAllocator<I> {
             let vreg = reg.to_virtual_reg().unwrap();
             debug_assert_eq!(self.vreg_types.len(), vreg.index());
             self.vreg_types.push(reg_ty);
+            // Create empty fact for this vreg incrementally to avoid large reallocations
+            self.facts.push(None);
         }
-
-        // Create empty facts for each allocated vreg.
-        self.facts.resize(self.vreg_types.len(), None);
 
         Ok(regs)
     }
