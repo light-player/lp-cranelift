@@ -2740,14 +2740,19 @@
   (gen_load (amode addr offset) (LoadOP.Lw) flags))
 
 ;;;;;  Rules for `load`;;;;;;;;;
-(rule (lower (has_type ty (load (little_or_native_endian flags) addr offset)))
-  (gen_load (amode addr offset) (load_op ty) flags))
-
+;; For register pair types (I64 on RV32), split into two 32-bit loads
+;; This rule must have higher priority (1) to match before the general rule
 (rule 1 (lower (has_type (ty_reg_pair _) (load (little_or_native_endian flags) addr offset)))
   (if-let offset_plus_4 (i32_checked_add offset 4))
   (let ((lo XReg (gen_load (amode addr offset) (LoadOP.Lw) flags))
         (hi XReg (gen_load (amode addr offset_plus_4) (LoadOP.Lw) flags)))
     (value_regs lo hi)))
+
+;; For types that fit in a single register (not register pairs)
+;; Only match types that are NOT register pairs (i.e., ty_reg_pair returns None)
+;; We achieve this by only matching when the type fits in 32 bits
+(rule (lower (has_type (fits_in_rv32_reg ty) (load (little_or_native_endian flags) addr offset)))
+  (gen_load (amode addr offset) (load_op ty) flags))
 
 ;; (rule 2 (lower (has_type (ty_supported_vec ty) (load (little_or_native_endian flags) addr offset)))
 ;;   (let ((eew VecElementWidth (element_width_from_type ty))

@@ -1819,15 +1819,18 @@
   (rv_slli (imm ty (i64_cast_unsigned c_shifted)) shift))
 
 ;; Otherwise we fall back to loading the immediate from the constant pool.
-(rule -1 (imm (ty_int ty) c)
+;; Note: I64 constants are handled at the iconst level (in lower.isle), which
+;; splits them into two imm calls. So this rule only matches types that fit
+;; in a single RV32 register to avoid generating LD instructions.
+(rule -1 (imm (ty_int (fits_in_rv32_reg ty)) c)
   (gen_load
     (gen_const_amode (emit_u64_le_const c))
-    (LoadOP.Ld)
+    (load_op ty)
     (mem_flags_trusted)))
 
 ;; Fallback rule for any type/value combination not handled above.
 ;; This prevents "no rule matched" errors for edge cases.
-(rule -2 (imm ty c)
+(rule -3 (imm ty c)
   (gen_load
     (gen_const_amode (emit_u64_le_const c))
     (load_op ty)

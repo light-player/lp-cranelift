@@ -297,12 +297,14 @@ impl generated_code::Context for RV64IsleContext<'_, '_, MInst, Riscv32Backend> 
 
     fn load_ra(&mut self) -> Reg {
         if self.backend.flags.preserve_frame_pointers() {
-            let tmp = self.temp_writable_reg(I64);
+            // On RV32, return addresses are 32 bits, so use LW instead of LD
+            // (LD with funct3=0x3 is reserved on RV32)
+            let tmp = self.temp_writable_reg(I32);
             self.emit(&MInst::Load {
                 rd: tmp,
-                op: LoadOP::Ld,
+                op: LoadOP::Lw,
                 flags: MemFlags::trusted(),
-                from: AMode::FPOffset(8),
+                from: AMode::FPOffset(4), // 4 bytes offset for 32-bit return address
             });
             tmp.to_reg()
         } else {
