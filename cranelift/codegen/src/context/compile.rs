@@ -101,7 +101,7 @@ impl Context {
         if opt_level != OptLevel::None {
             #[cfg(feature = "optimizer")]
             {
-                self.egraph_pass(isa, ctrl_plane)?;
+                self.egraph_pass(isa, _ctrl_plane)?;
             }
             #[cfg(not(feature = "optimizer"))]
             {

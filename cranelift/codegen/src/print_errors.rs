@@ -233,7 +233,7 @@ pub fn pretty_error(_func: &ir::Function, err: CodegenError) -> String {
     #[cfg(feature = "verifier")]
     {
         if let CodegenError::Verifier(e) = err {
-            return pretty_verifier_error(func, None, e);
+            return pretty_verifier_error(_func, None, e);
         }
     }
     err.to_string()

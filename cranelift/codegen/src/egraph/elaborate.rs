@@ -5,7 +5,10 @@ use super::Stats;
 use super::cost::Cost;
 use crate::ctxhash::NullCtx;
 use crate::dominator_tree::DominatorTree;
-use crate::hash_map::Entry as HashEntry;
+#[cfg(not(feature = "std"))]
+use hashbrown::hash_map::Entry as HashEntry;
+#[cfg(feature = "std")]
+use std::collections::hash_map::Entry as HashEntry;
 use crate::inst_predicates::is_pure_for_egraph;
 use crate::ir::{Block, Function, Inst, Value, ValueDef};
 use crate::loop_analysis::{Loop, LoopAnalysis};

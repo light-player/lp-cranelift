@@ -124,7 +124,7 @@ impl Context {
             &self.loop_analysis,
             &mut alias_analysis,
             &fisa.flags,
-            ctrl_plane,
+            _ctrl_plane,
         );
         pass.run();
         log::debug!("egraph stats: {:?}", pass.stats);
