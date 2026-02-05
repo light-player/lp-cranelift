@@ -2,9 +2,54 @@
 
 use regalloc2::checker::CheckerErrors;
 
+#[cfg(not(feature = "verifier"))]
+use crate::ir::Function;
 use crate::ir::pcc::PccError;
+#[cfg(feature = "verifier")]
 use crate::{ir::Function, verifier::VerifierErrors};
 use alloc::string::String;
+
+// Stub type when verifier is disabled
+#[cfg(not(feature = "verifier"))]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct VerifierErrors(pub alloc::vec::Vec<alloc::string::String>);
+
+#[cfg(not(feature = "verifier"))]
+impl VerifierErrors {
+    pub fn new() -> Self {
+        Self(alloc::vec::Vec::new())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn has_error(&self) -> bool {
+        !self.0.is_empty()
+    }
+
+    pub fn as_result(&self) -> Result<(), ()> {
+        if self.is_empty() { Ok(()) } else { Err(()) }
+    }
+}
+
+#[cfg(not(feature = "verifier"))]
+#[cfg(feature = "std")]
+impl std::error::Error for VerifierErrors {}
+
+#[cfg(not(feature = "verifier"))]
+impl core::fmt::Display for VerifierErrors {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        for err in &self.0 {
+            writeln!(f, "- {}", err)?;
+        }
+        Ok(())
+    }
+}
+
+/// Result type for verifier operations when verifier feature is disabled.
+#[cfg(not(feature = "verifier"))]
+pub type VerifierResult<T> = Result<T, VerifierErrors>;
 
 /// A compilation error.
 ///
@@ -15,6 +60,10 @@ pub enum CodegenError {
     ///
     /// This always represents a bug, either in the code that generated IR for Cranelift, or a bug
     /// in Cranelift itself.
+    #[cfg(feature = "verifier")]
+    Verifier(VerifierErrors),
+    /// A list of IR verifier errors (stub when verifier feature is disabled).
+    #[cfg(not(feature = "verifier"))]
     Verifier(VerifierErrors),
 
     /// An implementation limit was exceeded.
@@ -57,7 +106,10 @@ pub type CodegenResult<T> = Result<T, CodegenError>;
 impl std::error::Error for CodegenError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
+            #[cfg(feature = "verifier")]
             CodegenError::Verifier(source) => Some(source),
+            #[cfg(not(feature = "verifier"))]
+            CodegenError::Verifier(_) => None,
             CodegenError::ImplLimitExceeded { .. }
             | CodegenError::CodeTooLarge { .. }
             | CodegenError::Unsupported { .. } => None,
@@ -89,7 +141,7 @@ impl core::fmt::Display for CodegenError {
 
 impl From<VerifierErrors> for CodegenError {
     fn from(source: VerifierErrors) -> Self {
-        CodegenError::Verifier { 0: source }
+        CodegenError::Verifier(source)
     }
 }
 

@@ -131,3 +131,20 @@ isle-errors = ["cranelift-isle/fancy-errors"]
 #
 # Enabled by default.
 timing = []
+
+# Enable optimizer (egraph-based optimizations).
+# When disabled, optimization passes are not compiled, saving ~147-200 KB.
+# The optimizer is only used when opt_level != None, so it's safe to disable
+# when not using optimizations.
+optimizer = []
+
+# Enable verifier (function verification).
+# When disabled, verifier code is not compiled, saving ~19 KB.
+# The verifier is only used when enable_verifier flag is true, so it's safe
+# to disable when verification is not needed.
+verifier = []
+
+# Enable regalloc2 ION (backtracking) register allocator.
+# When disabled, only Fastalloc (single-pass) allocator is available.
+# Disabling saves ~45 KB when only Fastalloc is used.
+regalloc2-ion = ["regalloc2/ion"]

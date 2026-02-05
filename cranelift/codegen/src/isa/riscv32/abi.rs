@@ -16,7 +16,7 @@ use crate::isa::riscv32::settings::Flags as RiscvFlags;
 use crate::isa::unwind::UnwindInst;
 use crate::settings;
 use alloc::{boxed::Box, vec, vec::Vec};
-use regalloc2::{MachineEnv, PReg, PRegSet};
+use regalloc2::{MachineEnv, PRegSet};
 
 use alloc::borrow::ToOwned;
 use smallvec::{SmallVec, smallvec};
@@ -998,20 +998,20 @@ fn create_reg_environment() -> MachineEnv {
     //   3. Compressible Callee Saved registers.
     //   4. Non-Compressible Callee Saved registers.
 
-    let preferred_regs_by_class: [Vec<PReg>; 3] = {
-        let x_registers: Vec<PReg> = (10..=15).map(px_reg).collect();
-        let f_registers: Vec<PReg> = (10..=15).map(pf_reg).collect();
-        let v_registers: Vec<PReg> = (8..=15).map(pv_reg).collect();
+    let preferred_regs_by_class: [PRegSet; 3] = {
+        let x_registers: PRegSet = (10..=15).map(px_reg).collect();
+        let f_registers: PRegSet = (10..=15).map(pf_reg).collect();
+        let v_registers: PRegSet = (8..=15).map(pv_reg).collect();
 
         [x_registers, f_registers, v_registers]
     };
 
-    let non_preferred_regs_by_class: [Vec<PReg>; 3] = {
+    let non_preferred_regs_by_class: [PRegSet; 3] = {
         // x0 - x4 are special registers, so we don't want to use them.
         // Omit x30 and x31 since they are the spilltmp registers.
 
         // Start with the Non-Compressible Caller Saved registers.
-        let x_registers: Vec<PReg> = (5..=7)
+        let x_registers: PRegSet = (5..=7)
             .chain(16..=17)
             .chain(28..=29)
             // The first Callee Saved register is x9 since its Compressible
@@ -1023,7 +1023,7 @@ fn create_reg_environment() -> MachineEnv {
             .collect();
 
         // Prefer Caller Saved registers.
-        let f_registers: Vec<PReg> = (0..=7)
+        let f_registers: PRegSet = (0..=7)
             .chain(16..=17)
             .chain(28..=31)
             // Once those are exhausted, we should prefer f8 and f9 since they are
@@ -1033,7 +1033,7 @@ fn create_reg_environment() -> MachineEnv {
             .map(pf_reg)
             .collect();
 
-        let v_registers = (0..=7).chain(16..=31).map(pv_reg).collect();
+        let v_registers: PRegSet = (0..=7).chain(16..=31).map(pv_reg).collect();
 
         [x_registers, f_registers, v_registers]
     };

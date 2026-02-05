@@ -3,6 +3,7 @@
 use super::Context;
 use crate::result::CodegenResult;
 use crate::settings::FlagsOrIsa;
+#[cfg(feature = "verifier")]
 use crate::verifier::{VerifierErrors, VerifierResult, verify_context};
 
 impl Context {
@@ -11,6 +12,7 @@ impl Context {
     /// Also check that the dominator tree and control flow graph are consistent with the function.
     ///
     /// TODO: rename to "CLIF validate" or similar.
+    #[cfg(feature = "verifier")]
     pub fn verify<'a, FOI: Into<FlagsOrIsa<'a>>>(&self, fisa: FOI) -> VerifierResult<()> {
         let mut errors = VerifierErrors::default();
         let _ = verify_context(&self.func, &self.cfg, &self.domtree, fisa, &mut errors);
@@ -24,9 +26,17 @@ impl Context {
 
     /// Run the verifier only if the `enable_verifier` setting is true.
     pub fn verify_if<'a, FOI: Into<FlagsOrIsa<'a>>>(&self, fisa: FOI) -> CodegenResult<()> {
-        let fisa = fisa.into();
-        if fisa.flags.enable_verifier() {
-            self.verify(fisa)?;
+        #[cfg(feature = "verifier")]
+        {
+            let fisa = fisa.into();
+            if fisa.flags.enable_verifier() {
+                self.verify(fisa)?;
+            }
+        }
+        #[cfg(not(feature = "verifier"))]
+        {
+            let _ = fisa;
+            // Verifier is disabled - skip verification
         }
         Ok(())
     }

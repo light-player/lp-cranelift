@@ -67,7 +67,7 @@ impl Context {
     pub fn optimize(
         &mut self,
         isa: &dyn TargetIsa,
-        ctrl_plane: &mut ControlPlane,
+        _ctrl_plane: &mut ControlPlane,
     ) -> CodegenResult<()> {
         log::debug!(
             "Number of CLIF instructions to optimize: {}",
@@ -99,7 +99,16 @@ impl Context {
         self.func.dfg.resolve_all_aliases();
 
         if opt_level != OptLevel::None {
-            self.egraph_pass(isa, ctrl_plane)?;
+            #[cfg(feature = "optimizer")]
+            {
+                self.egraph_pass(isa, ctrl_plane)?;
+            }
+            #[cfg(not(feature = "optimizer"))]
+            {
+                // Optimizer feature is disabled but opt_level != None was requested
+                // This is a configuration error, but we continue without optimization
+                // rather than panicking to maintain API compatibility
+            }
         }
 
         Ok(())

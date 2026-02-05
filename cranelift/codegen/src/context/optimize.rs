@@ -2,6 +2,7 @@
 
 use super::Context;
 use crate::alias_analysis::AliasAnalysis;
+#[cfg(feature = "optimizer")]
 use crate::egraph::EgraphPass;
 use crate::inline::{Inline, do_inlining};
 use crate::isa::TargetIsa;
@@ -10,7 +11,9 @@ use crate::nan_canonicalization::do_nan_canonicalization;
 use crate::remove_constant_phis::do_remove_constant_phis;
 use crate::result::CodegenResult;
 use crate::settings::FlagsOrIsa;
+#[cfg(feature = "optimizer")]
 use crate::timing;
+#[cfg(feature = "optimizer")]
 use crate::trace;
 use crate::unreachable_code::eliminate_unreachable_code;
 #[cfg(feature = "souper-harvest")]
@@ -97,10 +100,11 @@ impl Context {
     }
 
     /// Run optimizations via the egraph infrastructure.
+    #[cfg(feature = "optimizer")]
     pub fn egraph_pass<'a, FOI>(
         &mut self,
         fisa: FOI,
-        ctrl_plane: &mut ControlPlane,
+        _ctrl_plane: &mut ControlPlane,
     ) -> CodegenResult<()>
     where
         FOI: Into<FlagsOrIsa<'a>>,
@@ -127,5 +131,20 @@ impl Context {
         trace!("After egraph optimization:\n{}", self.func.display());
 
         self.verify_if(fisa)
+    }
+
+    /// Stub for egraph_pass when optimizer feature is disabled.
+    #[cfg(not(feature = "optimizer"))]
+    pub fn egraph_pass<'a, FOI>(
+        &mut self,
+        _fisa: FOI,
+        _ctrl_plane: &mut ControlPlane,
+    ) -> CodegenResult<()>
+    where
+        FOI: Into<FlagsOrIsa<'a>>,
+    {
+        // Optimizer is disabled - this should never be called when opt_level != None
+        // but we provide a stub for API compatibility
+        Ok(())
     }
 }

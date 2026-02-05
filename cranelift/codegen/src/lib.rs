@@ -21,9 +21,9 @@ extern crate alloc;
 extern crate std;
 
 #[cfg(not(feature = "std"))]
-use hashbrown::{HashMap, hash_map};
+use hashbrown::HashMap;
 #[cfg(feature = "std")]
-use std::collections::{HashMap, hash_map};
+use std::collections::HashMap;
 
 // Type aliases for hash types: use rustc-hash with std, hashbrown without
 #[cfg(feature = "std")]
@@ -36,9 +36,35 @@ pub(crate) type FxHashSet<V> =
     hashbrown::HashSet<V, core::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
 
 pub use crate::context::Context;
+#[cfg(not(feature = "verifier"))]
+use crate::ir::Function;
+#[cfg(not(feature = "verifier"))]
+use crate::isa::TargetIsa;
 pub use crate::value_label::{LabelValueLoc, ValueLabelsRanges, ValueLocRange};
+#[cfg(feature = "verifier")]
 pub use crate::verifier::verify_function;
 pub use crate::write::write_function;
+
+/// Stub for verify_function when verifier feature is disabled.
+///
+/// Always returns `Ok(())` since verification is not available when the verifier feature is disabled.
+#[cfg(not(feature = "verifier"))]
+pub fn verify_function(
+    _func: &Function,
+    _isa: &dyn TargetIsa,
+) -> crate::result::VerifierResult<()> {
+    // Verifier is disabled - always succeed
+    Ok(())
+}
+
+// Re-export VerifierResult and VerifierStepResult for API compatibility
+/// Result type for verifier step operations when verifier feature is disabled.
+#[cfg(not(feature = "verifier"))]
+pub type VerifierStepResult = Result<(), ()>;
+#[cfg(not(feature = "verifier"))]
+pub use crate::result::VerifierResult;
+#[cfg(feature = "verifier")]
+pub use crate::verifier::{VerifierResult, VerifierStepResult};
 
 pub use cranelift_bforest as bforest;
 pub use cranelift_bitset as bitset;
@@ -68,6 +94,7 @@ pub mod print_errors;
 pub mod settings;
 pub mod timing;
 pub mod traversals;
+#[cfg(feature = "verifier")]
 pub mod verifier;
 pub mod write;
 
@@ -88,11 +115,13 @@ mod alias_analysis;
 mod constant_hash;
 mod context;
 mod ctxhash;
+#[cfg(feature = "optimizer")]
 mod egraph;
 mod inst_predicates;
 mod isle_prelude;
 mod legalizer;
 mod nan_canonicalization;
+#[cfg(feature = "optimizer")]
 mod opts;
 mod ranges;
 mod remove_constant_phis;

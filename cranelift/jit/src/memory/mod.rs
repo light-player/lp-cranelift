@@ -1,4 +1,6 @@
-use cranelift_module::{ModuleError, ModuleResult};
+#[cfg(feature = "system-memory")]
+use cranelift_module::ModuleError;
+use cranelift_module::ModuleResult;
 
 // I/O types for memory allocation results
 #[cfg(feature = "std")]

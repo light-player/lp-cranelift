@@ -6,8 +6,7 @@ use crate::cursor::{Cursor, FuncCursor};
 use crate::ir::condcodes::FloatCC;
 use crate::ir::immediates::{Ieee32, Ieee64};
 use crate::ir::types::{self};
-use crate::ir::{Function, Inst, InstBuilder, InstructionData, Opcode, Value};
-use crate::opts::MemFlags;
+use crate::ir::{Function, Inst, InstBuilder, InstructionData, MemFlags, Opcode, Value};
 use crate::timing;
 
 /// Perform the NaN canonicalization pass.

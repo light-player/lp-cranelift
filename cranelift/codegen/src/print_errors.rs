@@ -1,20 +1,29 @@
 //! Utility routines for pretty-printing error messages.
 
+#[cfg(feature = "verifier")]
 use crate::entity::SecondaryMap;
 use crate::ir;
+#[cfg(feature = "verifier")]
 use crate::ir::entities::{AnyEntity, Block, Inst, Value};
+#[cfg(feature = "verifier")]
 use crate::ir::function::Function;
+#[cfg(feature = "verifier")]
 use crate::ir::pcc::Fact;
 use crate::result::CodegenError;
+#[cfg(feature = "verifier")]
 use crate::verifier::{VerifierError, VerifierErrors};
+#[cfg(feature = "verifier")]
 use crate::write::{FuncWriter, PlainWriter, decorate_function};
+#[cfg(feature = "verifier")]
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
+#[cfg(feature = "verifier")]
 use alloc::vec::Vec;
 use core::fmt;
 use core::fmt::Write;
 
 /// Pretty-print a verifier error.
+#[cfg(feature = "verifier")]
 pub fn pretty_verifier_error<'a>(
     func: &ir::Function,
     func_w: Option<Box<dyn FuncWriter + 'a>>,
@@ -42,8 +51,10 @@ pub fn pretty_verifier_error<'a>(
     w
 }
 
+#[cfg(feature = "verifier")]
 struct PrettyVerifierError<'a>(Box<dyn FuncWriter + 'a>, &'a mut Vec<VerifierError>);
 
+#[cfg(feature = "verifier")]
 impl<'a> FuncWriter for PrettyVerifierError<'a> {
     fn write_block_header(
         &mut self,
@@ -79,6 +90,7 @@ impl<'a> FuncWriter for PrettyVerifierError<'a> {
 }
 
 /// Pretty-print a function verifier error for a given block.
+#[cfg(feature = "verifier")]
 fn pretty_block_header_error(
     w: &mut dyn Write,
     func: &Function,
@@ -116,6 +128,7 @@ fn pretty_block_header_error(
 }
 
 /// Pretty-print a function verifier error for a given instruction.
+#[cfg(feature = "verifier")]
 fn pretty_instruction_error(
     w: &mut dyn Write,
     func: &Function,
@@ -153,6 +166,7 @@ fn pretty_instruction_error(
     Ok(())
 }
 
+#[cfg(feature = "verifier")]
 fn pretty_preamble_error(
     w: &mut dyn Write,
     func: &Function,
@@ -208,16 +222,19 @@ fn print_arrow(w: &mut dyn Write, entity: &str) -> fmt::Result {
 
 /// Prints:
 ///    ; error: [ERROR BODY]
+#[cfg(feature = "verifier")]
 fn print_error(w: &mut dyn Write, err: VerifierError) -> fmt::Result {
     writeln!(w, "; error: {}", err.to_string())?;
     Ok(())
 }
 
 /// Pretty-print a Cranelift error.
-pub fn pretty_error(func: &ir::Function, err: CodegenError) -> String {
-    if let CodegenError::Verifier(e) = err {
-        pretty_verifier_error(func, None, e)
-    } else {
-        err.to_string()
+pub fn pretty_error(_func: &ir::Function, err: CodegenError) -> String {
+    #[cfg(feature = "verifier")]
+    {
+        if let CodegenError::Verifier(e) = err {
+            return pretty_verifier_error(func, None, e);
+        }
     }
+    err.to_string()
 }

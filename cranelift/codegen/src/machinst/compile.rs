@@ -9,7 +9,6 @@ use crate::machinst::*;
 use crate::settings::RegallocAlgorithm;
 use crate::timing;
 use crate::trace;
-use alloc::{format, string::String, vec::Vec};
 
 use regalloc2::{Algorithm, RegallocOptions};
 
@@ -59,6 +58,7 @@ pub fn compile<B: LowerBackend + TargetIsa>(
     #[cfg(debug_assertions)]
     {
         use crate::machinst::{InsnIndex, Reg};
+        use alloc::{string::String, vec::Vec};
         for iix in 0..vcode.num_insts() {
             let inst_idx = InsnIndex::new(iix);
             let mut inst = vcode[inst_idx].clone();
@@ -71,7 +71,11 @@ pub fn compile<B: LowerBackend + TargetIsa>(
                     // Check for suspiciously large indices that indicate corruption
                     if index >= 1000000 {
                         // Much larger than typical VReg counts
-                        invalid_regs.push((iix, reg.clone(), format!("VReg index {}", index)));
+                        invalid_regs.push((
+                            iix,
+                            reg.clone(),
+                            alloc::format!("VReg index {}", index),
+                        ));
                     }
                 }
             });

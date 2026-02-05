@@ -2,7 +2,6 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/crates/fuzzing/wasm-spec-interpreter/ocaml/spec" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/tests/component-model" vcs="Git" />
   </component>
 </project>
