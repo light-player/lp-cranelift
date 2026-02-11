@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 use core::ops::{Index, IndexMut};
 
 /// Chunk size in elements. Tune this to control maximum allocation size per chunk.
-const CHUNK_SIZE: usize = 256;
+const CHUNK_SIZE: usize = 64;
 
 /// A vector-like container that stores elements in fixed-size chunks.
 ///
@@ -124,6 +124,19 @@ impl<T> ChunkedVec<T> {
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.chunks.iter().flat_map(|c| c.iter())
     }
+
+    /// Iterate mutably over all elements in order.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.chunks.iter_mut().flat_map(|c| c.iter_mut())
+    }
+
+    /// Reverse the sequence in place. O(n) time, no allocation.
+    pub fn reverse(&mut self) {
+        for chunk in &mut self.chunks {
+            chunk.reverse();
+        }
+        self.chunks.reverse();
+    }
 }
 
 impl<T> Index<usize> for ChunkedVec<T> {
@@ -217,6 +230,18 @@ mod tests {
         }
         let collected: Vec<i32> = v.iter().copied().collect();
         assert_eq!(collected, (0..10).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn reverse_in_place() {
+        let mut v = chunked_vec_new();
+        for i in 0..130 {
+            v.push(i as i32);
+        }
+        v.reverse();
+        for i in 0..130 {
+            assert_eq!(v[i], (129 - i) as i32);
+        }
     }
 
     #[test]

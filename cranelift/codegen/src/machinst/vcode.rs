@@ -97,7 +97,7 @@ pub struct VCode<I: VCodeInst> {
     vreg_types: ChunkedVec<Type>,
 
     /// Lowered machine instructions in order corresponding to the original IR.
-    insts: Vec<I>,
+    insts: ChunkedVec<I>,
 
     /// A map from backwards instruction index to the user stack map for that
     /// instruction.
@@ -132,7 +132,7 @@ pub struct VCode<I: VCodeInst> {
 
     /// Source locations for each instruction. (`SourceLoc` is a `u32`, so it is
     /// reasonable to keep one of these per instruction.)
-    srclocs: Vec<RelSourceLoc>,
+    srclocs: ChunkedVec<RelSourceLoc>,
 
     /// Entry block.
     entry: BlockIndex,
@@ -647,14 +647,14 @@ impl<I: VCodeInst> VCode<I> {
         VCode {
             sigs,
             vreg_types: ChunkedVec::new(),
-            insts: Vec::with_capacity(10 * n_blocks),
+            insts: ChunkedVec::new(),
             user_stack_maps: FxHashMap::default(),
             debug_tags: FxHashMap::default(),
             debug_tag_pool: vec![],
             operands: Vec::with_capacity(30 * n_blocks),
             operand_ranges: Ranges::with_capacity(10 * n_blocks),
             clobbers: FxHashMap::default(),
-            srclocs: Vec::with_capacity(10 * n_blocks),
+            srclocs: ChunkedVec::new(),
             entry: BlockIndex::new(0),
             block_ranges: Ranges::with_capacity(n_blocks),
             block_succ_range: Ranges::with_capacity(n_blocks),
