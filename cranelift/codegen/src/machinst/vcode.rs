@@ -116,11 +116,9 @@ pub struct VCode<I: VCodeInst> {
     /// in `debug_tags`.
     debug_tag_pool: Vec<ir::DebugTag>,
 
-    /// Operands: pre-regalloc references to virtual registers with
-    /// constraints, in one flattened array. This allows the regalloc
-    /// to efficiently access all operands without requiring expensive
-    /// matches or method invocations on insts.
-    operands: Vec<Operand>,
+    /// Operands per instruction: avoids one large growing Vec in favor of
+    /// many small allocations, reducing OOM risk on constrained heaps.
+    operands_per_inst: Vec<Vec<Operand>>,
 
     /// Operand index ranges: for each instruction in `insts`, there
     /// is a tuple here providing the range in `operands` for that
@@ -519,25 +517,20 @@ impl<I: VCodeInst> VCodeBuilder<I> {
 
     fn collect_operands(&mut self, vregs: &VRegAllocator<I>) {
         let allocatable = PRegSet::from(self.vcode.abi.machine_env());
+        let mut cumulative_ops = 0;
         for (i, insn) in self.vcode.insts.iter_mut().enumerate() {
-            // Push operands from the instruction onto the operand list.
-            //
-            // We rename through the vreg alias table as we collect
-            // the operands. This is better than a separate post-pass
-            // over operands, because it has more cache locality:
-            // operands only need to pass through L1 once. This is
-            // also better than renaming instructions'
-            // operands/registers while lowering, because here we only
-            // need to do the `match` over the instruction to visit
-            // its register fields (which is slow, branchy code) once.
-
+            // Per-inst Vec avoids one large growing allocation that can OOM
+            // on constrained heaps when Vec exceeds capacity and grows.
+            let mut inst_operands = Vec::new();
             let mut op_collector =
-                OperandCollector::new(&mut self.vcode.operands, allocatable, |vreg| {
+                OperandCollector::new(&mut inst_operands, allocatable, |vreg| {
                     vregs.resolve_vreg_alias(vreg)
                 });
             insn.get_operands(&mut op_collector);
-            let (ops, clobbers) = op_collector.finish();
-            self.vcode.operand_ranges.push_end(ops);
+            let (_, clobbers) = op_collector.finish();
+            cumulative_ops += inst_operands.len();
+            self.vcode.operands_per_inst.push(inst_operands);
+            self.vcode.operand_ranges.push_end(cumulative_ops);
 
             if clobbers != PRegSet::default() {
                 self.vcode.clobbers.insert(InsnIndex::new(i), clobbers);
@@ -585,7 +578,13 @@ impl<I: VCodeInst> VCodeBuilder<I> {
         // double-check each field which has vregs.
         // Note: can't easily check vcode.insts, resolved in collect_operands.
         // Operands are resolved in collect_operands.
-        vregs.debug_assert_no_vreg_aliases(self.vcode.operands.iter().map(|op| op.vreg()));
+        vregs.debug_assert_no_vreg_aliases(
+            self.vcode
+                .operands_per_inst
+                .iter()
+                .flat_map(|v| v.iter())
+                .map(|op| op.vreg()),
+        );
         // Currently block params are never aliased to another vreg.
         vregs.debug_assert_no_vreg_aliases(self.vcode.block_params.iter().copied());
         // Branch block args are resolved in collect_operands.
@@ -651,7 +650,7 @@ impl<I: VCodeInst> VCode<I> {
             user_stack_maps: FxHashMap::default(),
             debug_tags: FxHashMap::default(),
             debug_tag_pool: vec![],
-            operands: Vec::with_capacity(30 * n_blocks),
+            operands_per_inst: Vec::new(),
             operand_ranges: Ranges::with_capacity(10 * n_blocks),
             clobbers: FxHashMap::default(),
             srclocs: ChunkedVec::new(),
@@ -702,7 +701,7 @@ impl<I: VCodeInst> VCode<I> {
         }
 
         for (i, range) in self.operand_ranges.iter() {
-            let operands = &self.operands[range.clone()];
+            let operands = &self.operands_per_inst[i];
             let allocs = &regalloc.allocs[range];
             for (operand, alloc) in operands.iter().zip(allocs.iter()) {
                 if operand.kind() == OperandKind::Def {
@@ -1636,8 +1635,7 @@ impl<I: VCodeInst> RegallocFunction for VCode<I> {
     }
 
     fn inst_operands(&self, insn: InsnIndex) -> &[Operand] {
-        let range = self.operand_ranges.get(insn.index());
-        &self.operands[range]
+        &self.operands_per_inst[insn.index()]
     }
 
     fn inst_clobbers(&self, insn: InsnIndex) -> PRegSet {
@@ -1718,7 +1716,7 @@ impl<I: VCodeInst> fmt::Debug for VCode<I> {
                     inst,
                     self.insts[inst].pretty_print_inst(&mut state)
                 )?;
-                if !self.operands.is_empty() {
+                if !self.operands_per_inst.is_empty() {
                     for operand in self.inst_operands(InsnIndex::new(inst)) {
                         if operand.kind() == OperandKind::Def {
                             if let Some(fact) = &self.facts[operand.vreg().vreg()] {

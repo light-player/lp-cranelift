@@ -67,8 +67,7 @@ use serde_derive::{Deserialize, Serialize};
 #[macro_use]
 pub mod isle;
 
-pub mod chunked_vec;
-pub(crate) use chunked_vec::ChunkedVec;
+pub(crate) use regalloc2::ChunkedVec;
 pub mod lower;
 pub use lower::*;
 pub mod vcode;
