@@ -94,7 +94,7 @@ impl<I: MachInst + MachInstEmit> VCodeInst for I {}
 /// metadata as requested.
 pub struct VCode<I: VCodeInst> {
     /// VReg IR-level types.
-    vreg_types: Vec<Type>,
+    vreg_types: ChunkedVec<Type>,
 
     /// Lowered machine instructions in order corresponding to the original IR.
     insts: Vec<I>,
@@ -208,7 +208,7 @@ pub struct VCode<I: VCodeInst> {
     pub(crate) sigs: SigSet,
 
     /// Facts on VRegs, for proof-carrying code verification.
-    facts: Vec<Option<Fact>>,
+    facts: ChunkedVec<Option<Fact>>,
 
     log2_min_function_alignment: u8,
 }
@@ -599,11 +599,11 @@ impl<I: VCodeInst> VCodeBuilder<I> {
             self.vcode
                 .facts
                 .iter()
-                .zip(&vregs.vreg_types)
+                .zip(self.vcode.vreg_types.iter())
                 .enumerate()
                 .filter(|(_, (fact, _))| fact.is_some())
-                .map(|(vreg, (_, &ty))| {
-                    let (regclasses, _) = I::rc_for_type(ty).unwrap();
+                .map(|(vreg, (_, ty))| {
+                    let (regclasses, _) = I::rc_for_type(*ty).unwrap();
                     VReg::new(vreg, regclasses[0])
                 }),
         );
@@ -646,7 +646,7 @@ impl<I: VCodeInst> VCode<I> {
         let n_blocks = block_order.lowered_order().len();
         VCode {
             sigs,
-            vreg_types: vec![],
+            vreg_types: ChunkedVec::new(),
             insts: Vec::with_capacity(10 * n_blocks),
             user_stack_maps: FxHashMap::default(),
             debug_tags: FxHashMap::default(),
@@ -671,7 +671,7 @@ impl<I: VCodeInst> VCode<I> {
             emit_info,
             constants,
             debug_value_labels: vec![],
-            facts: vec![],
+            facts: ChunkedVec::new(),
             log2_min_function_alignment,
         }
     }
@@ -1741,7 +1741,7 @@ impl<I: VCodeInst> fmt::Debug for VCode<I> {
 /// This structure manages VReg allocation during the lifetime of the VCodeBuilder.
 pub struct VRegAllocator<I> {
     /// VReg IR-level types.
-    vreg_types: Vec<Type>,
+    vreg_types: ChunkedVec<Type>,
 
     /// VReg aliases. When the final VCode is built we rewrite all
     /// uses of the keys in this table to their replacement values.
@@ -1758,7 +1758,7 @@ pub struct VRegAllocator<I> {
     deferred_error: Option<CodegenError>,
 
     /// Facts on VRegs, for proof-carrying code.
-    facts: Vec<Option<Fact>>,
+    facts: ChunkedVec<Option<Fact>>,
 
     /// The type of instruction that this allocator makes registers for.
     _inst: core::marker::PhantomData<I>,
@@ -1768,10 +1768,10 @@ impl<I: VCodeInst> VRegAllocator<I> {
     /// Make a new VRegAllocator.
     pub fn with_capacity(capacity: usize) -> Self {
         let capacity = first_user_vreg_index() + capacity;
-        let mut vreg_types = Vec::with_capacity(capacity);
+        let mut vreg_types = ChunkedVec::with_capacity(capacity);
         vreg_types.resize(first_user_vreg_index(), types::INVALID);
         // Initialize facts to match vreg_types initial size to maintain invariant
-        let mut facts = Vec::with_capacity(capacity);
+        let mut facts = ChunkedVec::with_capacity(capacity);
         facts.resize(first_user_vreg_index(), None);
         Self {
             vreg_types,
