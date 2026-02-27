@@ -292,6 +292,9 @@ component-async-tests = { path = "crates/misc/component-async-tests" }
 # regalloc2 - fork (ChunkedVec for OOM mitigation, feature-gating ION allocator)
 regalloc2 = { git = "https://github.com/light-player/lp-regalloc2", branch = "lightplayer", default-features = false, features = ["std"] }
 
+# lp-collection - chunked collections for embedded/low-memory (ChunkedVec, ChunkedHashMap)
+lp-collection = { git = "https://github.com/light-player/lp-common", branch = "main" }
+
 # cap-std family:
 target-lexicon = "0.13.0"
 cap-std = "3.4.5"

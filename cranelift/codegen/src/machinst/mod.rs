@@ -67,7 +67,7 @@ use serde_derive::{Deserialize, Serialize};
 #[macro_use]
 pub mod isle;
 
-pub(crate) use regalloc2::ChunkedVec;
+pub(crate) use lp_collection::ChunkedVec;
 pub mod lower;
 pub use lower::*;
 pub mod vcode;
