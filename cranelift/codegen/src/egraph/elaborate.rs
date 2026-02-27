@@ -5,10 +5,6 @@ use super::Stats;
 use super::cost::Cost;
 use crate::ctxhash::NullCtx;
 use crate::dominator_tree::DominatorTree;
-#[cfg(not(feature = "std"))]
-use hashbrown::hash_map::Entry as HashEntry;
-#[cfg(feature = "std")]
-use std::collections::hash_map::Entry as HashEntry;
 use crate::inst_predicates::is_pure_for_egraph;
 use crate::ir::{Block, Function, Inst, Value, ValueDef};
 use crate::loop_analysis::{Loop, LoopAnalysis};
@@ -18,7 +14,11 @@ use crate::{FxHashMap, FxHashSet};
 use alloc::{vec, vec::Vec};
 use cranelift_control::ControlPlane;
 use cranelift_entity::{SecondaryMap, packed_option::ReservedValue};
+#[cfg(not(feature = "std"))]
+use hashbrown::hash_map::Entry as HashEntry;
 use smallvec::{SmallVec, smallvec};
+#[cfg(feature = "std")]
+use std::collections::hash_map::Entry as HashEntry;
 
 pub(crate) struct Elaborator<'a> {
     func: &'a mut Function,

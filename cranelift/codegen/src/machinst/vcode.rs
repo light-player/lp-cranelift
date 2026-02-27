@@ -18,7 +18,7 @@
 //! backend pipeline.
 
 use crate::CodegenError;
-use crate::FxHashMap;
+use crate::{ChunkedEntry, ChunkedHashMap};
 use crate::ir::pcc::*;
 use crate::ir::{self, Constant, ConstantData, ValueLabel, types};
 use crate::ranges::Ranges;
@@ -38,9 +38,9 @@ use core::mem::take;
 use core::ops::Range;
 use cranelift_entity::{Keys, entity_impl};
 #[cfg(not(feature = "std"))]
-use hashbrown::{HashMap, hash_map::Entry};
+use hashbrown::HashMap;
 #[cfg(feature = "std")]
-use std::collections::{HashMap, hash_map::Entry};
+use std::collections::HashMap;
 
 /// Index referring to an instruction in VCode.
 pub type InsnIndex = regalloc2::Inst;
@@ -105,12 +105,12 @@ pub struct VCode<I: VCodeInst> {
     /// This is a sparse side table that only has entries for instructions that
     /// are safepoints, and only for a subset of those that have an associated
     /// user stack map.
-    user_stack_maps: FxHashMap<BackwardsInsnIndex, ir::UserStackMap>,
+    user_stack_maps: ChunkedHashMap<BackwardsInsnIndex, ir::UserStackMap>,
 
     /// A map from backwards instruction index to the debug tags for
     /// that instruction. Each entry indexes a range in the
     /// `debug_tag_pool`.
-    debug_tags: FxHashMap<BackwardsInsnIndex, Range<u32>>,
+    debug_tags: ChunkedHashMap<BackwardsInsnIndex, Range<u32>>,
 
     /// Pooled storage for sequences of debug tags; indexed by entries
     /// in `debug_tags`.
@@ -126,7 +126,7 @@ pub struct VCode<I: VCodeInst> {
     operand_ranges: Ranges,
 
     /// Clobbers: a sparse map from instruction indices to clobber masks.
-    clobbers: FxHashMap<InsnIndex, PRegSet>,
+    clobbers: ChunkedHashMap<InsnIndex, PRegSet>,
 
     /// Source locations for each instruction. (`SourceLoc` is a `u32`, so it is
     /// reasonable to keep one of these per instruction.)
@@ -262,7 +262,7 @@ pub struct VCodeBuilder<I: VCodeInst> {
     /// Debug-value label in-progress map, keyed by label. For each
     /// label, we keep disjoint ranges mapping to vregs. We'll flatten
     /// this into (vreg, range, label) tuples when done.
-    debug_info: FxHashMap<ValueLabel, Vec<(InsnIndex, InsnIndex, VReg)>>,
+    debug_info: ChunkedHashMap<ValueLabel, Vec<(InsnIndex, InsnIndex, VReg)>>,
 }
 
 /// Direction in which a VCodeBuilder builds VCode.
@@ -297,7 +297,7 @@ impl<I: VCodeInst> VCodeBuilder<I> {
         VCodeBuilder {
             vcode,
             direction,
-            debug_info: FxHashMap::default(),
+            debug_info: ChunkedHashMap::default(),
         }
     }
 
@@ -497,7 +497,7 @@ impl<I: VCodeInst> VCodeBuilder<I> {
         let translate = |inst: InsnIndex| InsnIndex::new(n_insts - inst.index());
 
         // Generate debug-value labels based on per-label maps.
-        for (label, tuples) in &self.debug_info {
+        for (label, tuples) in self.debug_info.iter() {
             for &(start, end, vreg) in tuples {
                 let vreg = vregs.resolve_vreg_alias(vreg);
                 let fwd_start = translate(end);
@@ -522,10 +522,9 @@ impl<I: VCodeInst> VCodeBuilder<I> {
             // Per-inst Vec avoids one large growing allocation that can OOM
             // on constrained heaps when Vec exceeds capacity and grows.
             let mut inst_operands = Vec::new();
-            let mut op_collector =
-                OperandCollector::new(&mut inst_operands, allocatable, |vreg| {
-                    vregs.resolve_vreg_alias(vreg)
-                });
+            let mut op_collector = OperandCollector::new(&mut inst_operands, allocatable, |vreg| {
+                vregs.resolve_vreg_alias(vreg)
+            });
             insn.get_operands(&mut op_collector);
             let (_, clobbers) = op_collector.finish();
             cumulative_ops += inst_operands.len();
@@ -647,12 +646,12 @@ impl<I: VCodeInst> VCode<I> {
             sigs,
             vreg_types: ChunkedVec::new(),
             insts: ChunkedVec::new(),
-            user_stack_maps: FxHashMap::default(),
-            debug_tags: FxHashMap::default(),
+            user_stack_maps: ChunkedHashMap::default(),
+            debug_tags: ChunkedHashMap::default(),
             debug_tag_pool: vec![],
             operands_per_inst: Vec::new(),
             operand_ranges: Ranges::with_capacity(10 * n_blocks),
-            clobbers: FxHashMap::default(),
+            clobbers: ChunkedHashMap::default(),
             srclocs: ChunkedVec::new(),
             entry: BlockIndex::new(0),
             block_ranges: Ranges::with_capacity(n_blocks),
@@ -1666,7 +1665,7 @@ impl<I: VCodeInst> Debug for VRegAllocator<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "VRegAllocator {{")?;
 
-        let mut alias_keys = self.vreg_aliases.keys().cloned().collect::<Vec<_>>();
+        let mut alias_keys = self.vreg_aliases.iter().map(|(k, _)| *k).collect::<Vec<_>>();
         alias_keys.sort_unstable();
         for key in alias_keys {
             let dest = self.vreg_aliases.get(&key).unwrap();
@@ -1747,7 +1746,7 @@ pub struct VRegAllocator<I> {
     /// We use these aliases to rename an instruction's expected
     /// result vregs to the returned vregs from lowering, which are
     /// usually freshly-allocated temps.
-    vreg_aliases: FxHashMap<regalloc2::VReg, regalloc2::VReg>,
+    vreg_aliases: ChunkedHashMap<regalloc2::VReg, regalloc2::VReg>,
 
     /// A deferred error, to be bubbled up to the top level of the
     /// lowering algorithm. We take this approach because we cannot
@@ -1773,7 +1772,7 @@ impl<I: VCodeInst> VRegAllocator<I> {
         facts.resize(first_user_vreg_index(), None);
         Self {
             vreg_types,
-            vreg_aliases: FxHashMap::with_capacity_and_hasher(capacity, Default::default()),
+            vreg_aliases: ChunkedHashMap::new(),
             deferred_error: None,
             facts,
             _inst: core::marker::PhantomData::default(),
@@ -1932,18 +1931,18 @@ impl<I: VCodeInst> VRegAllocator<I> {
 #[derive(Default)]
 pub struct VCodeConstants {
     constants: PrimaryMap<VCodeConstant, VCodeConstantData>,
-    pool_uses: HashMap<Constant, VCodeConstant>,
-    well_known_uses: HashMap<*const [u8], VCodeConstant>,
-    u64s: HashMap<[u8; 8], VCodeConstant>,
+    pool_uses: ChunkedHashMap<Constant, VCodeConstant>,
+    well_known_uses: ChunkedHashMap<*const [u8], VCodeConstant>,
+    u64s: ChunkedHashMap<[u8; 8], VCodeConstant>,
 }
 impl VCodeConstants {
     /// Initialize the structure with the expected number of constants.
     pub fn with_capacity(expected_num_constants: usize) -> Self {
         Self {
             constants: PrimaryMap::with_capacity(expected_num_constants),
-            pool_uses: HashMap::with_capacity(expected_num_constants),
-            well_known_uses: HashMap::new(),
-            u64s: HashMap::new(),
+            pool_uses: ChunkedHashMap::with_capacity(expected_num_constants),
+            well_known_uses: ChunkedHashMap::new(),
+            u64s: ChunkedHashMap::new(),
         }
     }
 
@@ -1964,21 +1963,21 @@ impl VCodeConstants {
             },
             VCodeConstantData::WellKnown(data_ref) => {
                 match self.well_known_uses.entry(data_ref as *const [u8]) {
-                    Entry::Vacant(v) => {
+                    ChunkedEntry::Vacant(v) => {
                         let vcode_constant = self.constants.push(data);
                         v.insert(vcode_constant);
                         vcode_constant
                     }
-                    Entry::Occupied(o) => *o.get(),
+                    ChunkedEntry::Occupied(o) => *o.get(),
                 }
             }
             VCodeConstantData::U64(value) => match self.u64s.entry(value) {
-                Entry::Vacant(v) => {
+                ChunkedEntry::Vacant(v) => {
                     let vcode_constant = self.constants.push(data);
                     v.insert(vcode_constant);
                     vcode_constant
                 }
-                Entry::Occupied(o) => *o.get(),
+                ChunkedEntry::Occupied(o) => *o.get(),
             },
         }
     }

@@ -22,7 +22,7 @@ use crate::machinst::{
 };
 use crate::settings::Flags;
 use crate::{CodegenError, CodegenResult, trace};
-use crate::{FxHashMap, FxHashSet};
+use crate::{ChunkedHashMap, ChunkedHashSet};
 use alloc::{format, vec, vec::Vec};
 use core::fmt::Debug;
 use cranelift_control::ControlPlane;
@@ -194,7 +194,7 @@ pub struct Lower<'func, I: VCodeInst> {
     /// i.e., the version of global state that exists before an instruction
     /// executes.  For each side-effecting instruction, the *exit* color is its
     /// entry color plus one.
-    side_effect_inst_entry_colors: FxHashMap<Inst, InstColor>,
+    side_effect_inst_entry_colors: ChunkedHashMap<Inst, InstColor>,
 
     /// Current color as we scan during lowering. While we are lowering an
     /// instruction, this is equal to the color *at entry to* the instruction.
@@ -204,7 +204,7 @@ pub struct Lower<'func, I: VCodeInst> {
     cur_inst: Option<Inst>,
 
     /// Instruction constant values, if known.
-    inst_constants: FxHashMap<Inst, u64>,
+    inst_constants: ChunkedHashMap<Inst, u64>,
 
     /// Use-counts per SSA value, as counted in the input IR. These
     /// are "coarsened", in the abstract-interpretation sense: we only
@@ -219,18 +219,18 @@ pub struct Lower<'func, I: VCodeInst> {
 
     /// Effectful instructions that have been sunk; they are not codegen'd at
     /// their original locations.
-    inst_sunk: FxHashSet<Inst>,
+    inst_sunk: ChunkedHashSet<Inst>,
 
     /// Instructions collected for the CLIF inst in progress, in forward order.
     ir_insts: Vec<I>,
 
     /// Try-call block arg normal-return values, indexed by instruction.
-    try_call_rets: FxHashMap<Inst, SmallVec<[ValueRegs<Writable<Reg>>; 2]>>,
+    try_call_rets: ChunkedHashMap<Inst, SmallVec<[ValueRegs<Writable<Reg>>; 2]>>,
 
     /// Try-call block arg exceptional-return payloads, indexed by
     /// instruction. Payloads are carried in registers per the ABI and
     /// can only be one register each.
-    try_call_payloads: FxHashMap<Inst, SmallVec<[Writable<Reg>; 2]>>,
+    try_call_payloads: ChunkedHashMap<Inst, SmallVec<[Writable<Reg>; 2]>>,
 
     /// The register to use for GetPinnedReg, if any, on this architecture.
     pinned_reg: Option<Reg>,
@@ -399,8 +399,8 @@ impl<'func, I: VCodeInst> Lower<'func, I> {
         let mut vregs = VRegAllocator::with_capacity(f.dfg.num_values() * 2);
 
         let mut value_regs = SecondaryMap::with_default(ValueRegs::invalid());
-        let mut try_call_rets = FxHashMap::default();
-        let mut try_call_payloads = FxHashMap::default();
+        let mut try_call_rets = ChunkedHashMap::default();
+        let mut try_call_payloads = ChunkedHashMap::default();
 
         // Assign a vreg to each block param, each inst result, and
         // each edge-defined block-call arg.
@@ -483,8 +483,8 @@ impl<'func, I: VCodeInst> Lower<'func, I> {
         // side-effects, in one combined pass.
         let mut cur_color = 0;
         let mut block_end_colors = SecondaryMap::with_default(InstColor::new(0));
-        let mut side_effect_inst_entry_colors = FxHashMap::default();
-        let mut inst_constants = FxHashMap::default();
+        let mut side_effect_inst_entry_colors = ChunkedHashMap::default();
+        let mut inst_constants = ChunkedHashMap::default();
         for bb in f.layout.blocks() {
             cur_color += 1;
             for inst in f.layout.block_insts(bb) {
@@ -520,7 +520,7 @@ impl<'func, I: VCodeInst> Lower<'func, I> {
             inst_constants,
             value_ir_uses,
             value_lowered_uses: SecondaryMap::default(),
-            inst_sunk: FxHashSet::default(),
+            inst_sunk: ChunkedHashSet::default(),
             cur_scan_entry_color: None,
             cur_inst: None,
             ir_insts: vec![],
@@ -969,13 +969,13 @@ impl<'func, I: VCodeInst> Lower<'func, I> {
             let labels = label_starts
                 .iter()
                 .map(|&ValueLabelStart { label, .. }| label)
-                .collect::<FxHashSet<_>>();
-            for label in labels {
+                .collect::<ChunkedHashSet<_>>();
+            for label in labels.iter() {
                 trace!(
                     "value labeling: defines val {:?} -> reg {:?} -> label {:?}",
                     val, reg, label,
                 );
-                self.vcode.add_value_label(reg, label);
+                self.vcode.add_value_label(reg, *label);
             }
         }
     }

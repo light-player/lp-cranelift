@@ -35,6 +35,9 @@ pub(crate) type FxHashMap<K, V> =
 pub(crate) type FxHashSet<V> =
     hashbrown::HashSet<V, core::hash::BuildHasherDefault<rustc_hash::FxHasher>>;
 
+// Chunked collections for OOM-sensitive hot paths (Lower, VCode)
+pub(crate) use lp_collection::{ChunkedEntry, ChunkedHashMap, ChunkedHashSet};
+
 pub use crate::context::Context;
 #[cfg(not(feature = "verifier"))]
 use crate::ir::Function;

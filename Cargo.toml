@@ -293,7 +293,10 @@ component-async-tests = { path = "crates/misc/component-async-tests" }
 regalloc2 = { git = "https://github.com/light-player/lp-regalloc2", branch = "lightplayer", default-features = false, features = ["std"] }
 
 # lp-collection - chunked collections for embedded/low-memory (ChunkedVec, ChunkedHashMap)
+# lp-collection - git (default; use with lp2025 patch commented for published build)
 lp-collection = { git = "https://github.com/light-player/lp-common", branch = "main" }
+# lp-collection - path for local dev (uncomment when not using lp2025 patch)
+# lp-collection = { path = "../lp-common/lp-collection" }
 
 # cap-std family:
 target-lexicon = "0.13.0"

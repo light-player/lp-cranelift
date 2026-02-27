@@ -1542,20 +1542,14 @@ fn create_reg_env(enable_pinned_reg: bool) -> MachineEnv {
             (0..=15).map(|i| preg(xreg(i))).collect(),
             // v0-v7, v16-v31 are preferred
             // v8-15 are callee-saved and so not preferred.
-            (0..=7)
-                .chain(16..=31)
-                .map(|i| preg(vreg(i)))
-                .collect(),
+            (0..=7).chain(16..=31).map(|i| preg(vreg(i))).collect(),
             // Vector Regclass is unused
             PRegSet::empty(),
         ],
         non_preferred_regs_by_class: [
             // x19-x20, x22-x28 are non-preferred
             // x21 is pinned reg if enabled; we add to this list below if not.
-            (19..=20)
-                .chain(22..=28)
-                .map(|i| preg(xreg(i)))
-                .collect(),
+            (19..=20).chain(22..=28).map(|i| preg(xreg(i))).collect(),
             // v8-v15 are non-preferred
             (8..=15).map(|i| preg(vreg(i))).collect(),
             // Vector Regclass is unused
@@ -1567,7 +1561,8 @@ fn create_reg_env(enable_pinned_reg: bool) -> MachineEnv {
 
     if !enable_pinned_reg {
         debug_assert_eq!(PINNED_REG, 21); // We assumed this above in hardcoded reg list.
-        env.non_preferred_regs_by_class[0] = env.non_preferred_regs_by_class[0].with(preg(xreg(PINNED_REG)));
+        env.non_preferred_regs_by_class[0] =
+            env.non_preferred_regs_by_class[0].with(preg(xreg(PINNED_REG)));
     }
 
     env
