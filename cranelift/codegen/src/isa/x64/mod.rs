@@ -28,6 +28,7 @@ mod lower;
 mod pcc;
 pub mod settings;
 
+#[cfg(feature = "unwind")]
 pub use inst::unwind::systemv::create_cie;
 
 /// An X64 backend.
