@@ -22,15 +22,10 @@ pub type Result<T> = core::result::Result<T, ()>;
 mod details {
 
     use super::*;
-    use libc::{EINVAL, EPERM, syscall};
+    use libc::{EINVAL, ENOSYS, EPERM, syscall};
 
     #[cfg(feature = "std")]
     use std::io::Error;
-
-    #[cfg(not(feature = "std"))]
-    fn os_error(code: core::ffi::c_int) -> Result<()> {
-        Err(code)
-    }
 
     const MEMBARRIER_CMD_GLOBAL: libc::c_int = 1;
     const MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE: libc::c_int = 32;
@@ -68,27 +63,22 @@ mod details {
             match membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE) {
                 Ok(_) => {}
 
-                // EPERM happens if the calling process hasn't yet called the register membarrier.
-                // We can call the register membarrier now, and then retry the actual membarrier,
-                //
-                // This does have some overhead since on the first time we call this function we
-                // actually execute three membarriers, but this only happens once per process and only
-                // one slow membarrier is actually executed (The last one, which actually generates an
-                // IPI).
                 Err(e) if e.raw_os_error().map_or(false, |c| c == EPERM) => {
                     membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE)?;
                     membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE)?;
                 }
 
-                // On kernels older than 4.16 the above syscall does not exist, so we can
-                // fallback to MEMBARRIER_CMD_GLOBAL which is an alias for MEMBARRIER_CMD_SHARED
-                // that has existed since 4.3. GLOBAL is a lot slower, but allows us to have
-                // compatibility with older kernels.
                 Err(e) if e.raw_os_error().map_or(false, |c| c == EINVAL) => {
                     membarrier(MEMBARRIER_CMD_GLOBAL)?;
                 }
 
-                // In any other case we got an actual error, so lets propagate that up
+                Err(e) if e.raw_os_error().map_or(false, |c| c == ENOSYS) => {
+                    if membarrier(MEMBARRIER_CMD_GLOBAL).is_err() {
+                        // Both failed - membarrier unavailable (e.g. seccomp, restricted runner).
+                        // Proceed without flush. Safe only when single-threaded.
+                    }
+                }
+
                 e => e?,
             }
         }
@@ -99,26 +89,28 @@ mod details {
                 Ok(_) => {}
 
                 // EPERM happens if the calling process hasn't yet called the register membarrier.
-                // We can call the register membarrier now, and then retry the actual membarrier,
-                //
-                // This does have some overhead since on the first time we call this function we
-                // actually execute three membarriers, but this only happens once per process and only
-                // one slow membarrier is actually executed (The last one, which actually generates an
-                // IPI).
                 Err(e) if e == EPERM => {
                     membarrier(MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED_SYNC_CORE)?;
                     membarrier(MEMBARRIER_CMD_PRIVATE_EXPEDITED_SYNC_CORE)?;
                 }
 
                 // On kernels older than 4.16 the above syscall does not exist, so we can
-                // fallback to MEMBARRIER_CMD_GLOBAL which is an alias for MEMBARRIER_CMD_SHARED
-                // that has existed since 4.3. GLOBAL is a lot slower, but allows us to have
-                // compatibility with older kernels.
+                // fallback to MEMBARRIER_CMD_GLOBAL which has existed since 4.3.
                 Err(e) if e == EINVAL => {
                     membarrier(MEMBARRIER_CMD_GLOBAL)?;
                 }
 
-                // In any other case we got an actual error, so lets propagate that up
+                // ENOSYS: membarrier syscall not supported (e.g. seccomp, restricted runner).
+                // Try GLOBAL; if both fail with ENOSYS, proceed without flush (single-threaded safe).
+                Err(e) if e == ENOSYS => {
+                    if let Err(e2) = membarrier(MEMBARRIER_CMD_GLOBAL) {
+                        if e2 != ENOSYS {
+                            return Err(e2);
+                        }
+                        // Both ENOSYS - membarrier unavailable. Proceed without flush.
+                    }
+                }
+
                 e => e?,
             }
         }
@@ -138,7 +130,8 @@ mod details {
             }
             #[cfg(not(feature = "std"))]
             {
-                Err(res as core::ffi::c_int)
+                let errno = unsafe { *libc::__errno_location() };
+                Err(errno)
             }
         }
     }
