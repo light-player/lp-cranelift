@@ -1,14 +1,17 @@
-# Cranelift for Light Player
+# Cranelift for LightPlayer
 
-This is a fork of [Cranelift](https://cranelift.dev/) (from the [Wasmtime](https://github.com/bytecodealliance/wasmtime) project) adapted for **Light Player** - a system for running GLSL shaders on embedded systems like RISC-V for LED control.
+This is a fork of [Cranelift](https://cranelift.dev/) (from
+the [Wasmtime](https://github.com/bytecodealliance/wasmtime) project) adapted
+for [LightPlayer](https://github.com/light-player/lightplayer) -
+a project that runs GLSL shaders on microcontrollers to control addressable LED arrays.
 
 ## Purpose
 
-This fork modifies Cranelift's code generation to support compilation of GLSL shader code for resource-constrained embedded targets, enabling real-time visual effects and animations on LED arrays controlled by embedded processors.
+This fork adds the following to Cranelift:
 
-## Part of Light Player
-
-Light Player is a larger project focused on bringing GPU-shader-like capabilities to embedded LED control systems. This compiler backend is a key component that enables efficient shader execution on devices with limited memory and processing power.
+- Support `no_std`
+- Support RISC-V32 IMAC target
+- Reduce memory usage for compatibility with low memory environments
 
 ---
 
