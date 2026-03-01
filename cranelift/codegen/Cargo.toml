@@ -99,8 +99,12 @@ pulley = [
     "pulley-interpreter/disas",
     "cranelift-codegen-meta/pulley",
 ]
-# Enable the ISA target for the host machine
-host-arch = []
+# Enable the ISA target for the host machine.
+# Must enable meta/x86 so get_isle_compilations includes the x64 item and
+# build_isle generates isle_x64.rs. The build script adds the host ISA at build
+# time via rustc-cfg (e.g. feature="x86" on x86_64); we do NOT add x86/arm64 as
+# Cargo features here to avoid pulling in both backends (causes unwind/cfg bugs).
+host-arch = ["cranelift-codegen-meta/x86"]
 
 # Option to enable all architectures.
 all-arch = ["all-native-arch", "pulley"]
