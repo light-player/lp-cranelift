@@ -211,6 +211,7 @@ impl TargetIsa for X64Backend {
 }
 
 /// Emit unwind info for an x86 target.
+#[cfg(feature = "unwind")]
 pub fn emit_unwind_info(
     buffer: &MachBufferFinalized<Final>,
     kind: crate::isa::unwind::UnwindInfoKind,

@@ -100,11 +100,11 @@ pulley = [
     "cranelift-codegen-meta/pulley",
 ]
 # Enable the ISA target for the host machine.
-# Must enable meta/x86 so get_isle_compilations includes the x64 item and
-# build_isle generates isle_x64.rs. The build script adds the host ISA at build
-# time via rustc-cfg (e.g. feature="x86" on x86_64); we do NOT add x86/arm64 as
-# Cargo features here to avoid pulling in both backends (causes unwind/cfg bugs).
-host-arch = ["cranelift-codegen-meta/x86"]
+# Must enable x86 and meta/x86 so (a) cranelift-assembler-x64 is linked (generated
+# ISLE code references it), (b) get_isle_compilations includes x64 and generates
+# isle_x64.rs. We add only x86 (not arm64) to avoid compiling both backends
+# simultaneously; aarch64 hosts use the build script's cfg for arm64.
+host-arch = ["x86", "cranelift-codegen-meta/x86"]
 
 # Option to enable all architectures.
 all-arch = ["all-native-arch", "pulley"]
