@@ -297,7 +297,12 @@ impl JITModule {
                     None => todo!(),
                 }
             }
-            name => panic!("invalid name {name:?}"),
+            ModuleRelocTarget::TestCase(name) => self
+                .lookup_symbol(name)
+                .unwrap_or_else(|| panic!("can't resolve TestCase symbol {name}")),
+            ModuleRelocTarget::KnownSymbol(ks) => {
+                panic!("JIT backend does not support KnownSymbol {ks}")
+            }
         }
     }
 

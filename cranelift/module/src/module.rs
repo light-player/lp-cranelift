@@ -42,20 +42,25 @@ impl ModuleReloc {
         func: &Function,
         func_id: FuncId,
     ) -> Self {
-        let name = match mach_reloc.target {
+        let name = match &mach_reloc.target {
             FinalizedRelocTarget::ExternalName(ExternalName::User(reff)) => {
-                let name = &func.params.user_named_funcs()[reff];
+                let name = &func.params.user_named_funcs()[*reff];
                 ModuleRelocTarget::user(name.namespace, name.index)
             }
-            FinalizedRelocTarget::ExternalName(ExternalName::TestCase(_)) => unimplemented!(),
+            FinalizedRelocTarget::ExternalName(ExternalName::TestCase(tc)) => {
+                let name = core::str::from_utf8(tc.raw())
+                    .unwrap_or("")
+                    .to_owned();
+                ModuleRelocTarget::TestCase(name)
+            }
             FinalizedRelocTarget::ExternalName(ExternalName::LibCall(libcall)) => {
-                ModuleRelocTarget::LibCall(libcall)
+                ModuleRelocTarget::LibCall(*libcall)
             }
             FinalizedRelocTarget::ExternalName(ExternalName::KnownSymbol(ks)) => {
-                ModuleRelocTarget::KnownSymbol(ks)
+                ModuleRelocTarget::KnownSymbol(*ks)
             }
             FinalizedRelocTarget::Func(offset) => {
-                ModuleRelocTarget::FunctionOffset(func_id, offset)
+                ModuleRelocTarget::FunctionOffset(func_id, *offset)
             }
         };
         Self {
@@ -440,6 +445,9 @@ pub enum ModuleRelocTarget {
     KnownSymbol(ir::KnownSymbol),
     /// A offset inside a function
     FunctionOffset(FuncId, CodeOffset),
+    /// Test case function name (e.g. from `ExternalName::TestCase`).
+    /// Resolved via symbol lookup at JIT finalization time.
+    TestCase(String),
 }
 
 impl ModuleRelocTarget {
@@ -456,6 +464,7 @@ impl Display for ModuleRelocTarget {
             Self::LibCall(lc) => write!(f, "%{lc}"),
             Self::KnownSymbol(ks) => write!(f, "{ks}"),
             Self::FunctionOffset(fname, offset) => write!(f, "{fname}+{offset}"),
+            Self::TestCase(name) => write!(f, "%{name}"),
         }
     }
 }
@@ -710,6 +719,7 @@ impl ModuleDeclarations {
     pub fn is_function(name: &ModuleRelocTarget) -> bool {
         match name {
             ModuleRelocTarget::User { namespace, .. } => *namespace == 0,
+            ModuleRelocTarget::TestCase(_) => true,
             ModuleRelocTarget::LibCall(_)
             | ModuleRelocTarget::KnownSymbol(_)
             | ModuleRelocTarget::FunctionOffset(..) => {

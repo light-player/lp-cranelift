@@ -719,6 +719,22 @@ impl ObjectModule {
                     }
                 }
             }
+            ModuleRelocTarget::TestCase(ref name) => {
+                if let Some(symbol) = self.object.symbol_id(name.as_bytes()) {
+                    symbol
+                } else {
+                    self.object.add_symbol(Symbol {
+                        name: name.as_bytes().to_vec(),
+                        value: 0,
+                        size: 0,
+                        kind: SymbolKind::Text,
+                        scope: SymbolScope::Unknown,
+                        weak: false,
+                        section: SymbolSection::Undefined,
+                        flags: SymbolFlags::None,
+                    })
+                }
+            }
         }
     }
 
