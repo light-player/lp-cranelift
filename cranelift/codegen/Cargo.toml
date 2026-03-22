@@ -68,7 +68,10 @@ default = ["riscv32"]
 # The "std" feature enables use of libstd. The "core" feature enables use
 # of some minimal std-like replacement libraries. At least one of these two
 # features need to be enabled.
-std = ["serde?/std", "rustc-hash/std", "timing", "serde_json"]
+#
+# `timing` is not part of `std`: it uses `std::time::Instant`, which panics on
+# `wasm32-unknown-unknown`. Enable `cranelift-codegen/timing` explicitly where needed (e.g. host profiling).
+std = ["serde?/std", "rustc-hash/std", "serde_json"]
 
 # The "core" feature used to enable a hashmap workaround, but is now
 # deprecated (we (i) always use hashbrown, and (ii) don't support a
@@ -132,9 +135,7 @@ souper-harvest = ["souper-ir", "souper-ir/stringify", "std"]
 # Report any ISLE errors in pretty-printed style.
 isle-errors = ["cranelift-isle/fancy-errors"]
 
-# Enable tracking how long passes take in Cranelift.
-#
-# Enabled by default.
+# Enable tracking how long passes take in Cranelift (`std::time::Instant`; not for wasm32).
 timing = []
 
 # Enable optimizer (egraph-based optimizations).
